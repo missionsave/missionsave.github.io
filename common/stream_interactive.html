@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FLTK Stream</title>
+  <style>
+    body { 
+      margin: 0; 
+      background: #000; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh; 
+    }
+    #stream {
+      max-width: 100%;
+      max-height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <img id="stream" alt="Live Stream" />
+
+  <script>
+    const img = document.getElementById('stream');
+    let frameCount = 0;
+
+    // FPS counter
+    setInterval(() => {
+      document.title = `FLTK Stream | ${frameCount} FPS`;
+      frameCount = 0;
+    }, 1000);
+
+    function connect() {
+        const ws = new WebSocket('ws://192.168.1.190:9002');
+      //const ws = new WebSocket(`ws://${window.location.hostname}:9002`);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onmessage = (ev) => {
+        frameCount++;
+        img.src = URL.createObjectURL(
+          new Blob([new Uint8Array(ev.data)], { type: 'image/jpeg' })
+        );
+      };
+
+      ws.onopen = () => console.log('Connected to FLTK stream');
+      ws.onerror = (e) => console.error('WebSocket error', e);
+      ws.onclose = () => setTimeout(connect, 500);
+    }
+
+    connect();
+  </script>
+</body>
+</html>
