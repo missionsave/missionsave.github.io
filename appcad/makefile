@@ -165,7 +165,7 @@ ifeq ($(OS_NAME), Arm)
 	LDFLAGS+= -L. -l:$(LIBNAME)
 	CXXFLAGS+= -O2 -march=armv8-a -mtune=cortex-a53
 	CXXFLAGS+= -I../common 
-	LDFLAGS+= -L../common/scintilla_370 -l:libscinta.a	
+	LDFLAGS+= -L../common/scintilla_370 -l:libscintla.a	
 	CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src
 	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 	
