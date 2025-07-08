@@ -163,6 +163,7 @@ ifeq ($(OS_NAME), Arm)
 	LIBNAME   := libappa.a$(dbgd)
 	TARGET    := frobota
 	LDFLAGS+= -L. -l:$(LIBNAME)
+	CXXFLAGS+= -O2 -march=armv8-a -mtune=cortex-a53
 	CXXFLAGS+= -I../common 
 	LDFLAGS+= -L../common/scintilla_370 -l:libscinta.a	
 	CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src

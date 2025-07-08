@@ -49,6 +49,7 @@ ifeq ($(OS_NAME), Arm)
 	BUILD_DIR := .objla
 	LIBNAME   := libscintla.a
 	TARGET    := fltesta
+	CXXFLAGS+= -O2 -march=armv8-a -mtune=cortex-a53
 	LDFLAGS+= -L. -l:$(LIBNAME)
 	LDFLAGS+= -lfltk_gl -lfltk 
 	# LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a 

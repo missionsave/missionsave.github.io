@@ -100,7 +100,7 @@ endif
 ifeq ($(OS_NAME), Arm)
 	BUILD_DIR := .obja
 	LIBNAME   := libappla.a$(dbgd)
-	TARGET    := frobota
+	TARGET    := frobot
 	LDFLAGS+= -L. -l:$(LIBNAME)
 	# CXXFLAGS+= -O2 -march=armv8-a -mtune=cortex-a72
 	CXXFLAGS+= -O2 -march=armv8-a -mtune=cortex-a53
