@@ -1,6 +1,7 @@
 *
 !.gitignore
 !.gitattributes
+!gcommit.bat
 !makefile
 !make.bat
 
@@ -12,9 +13,11 @@
 !frobot.hpp
 !luanew.cpp
 !movement.cpp
+!GraphicsCostEstimator_patch.h
 
 !lua
 !/**/lua/*.lua
+
 
 !stl
 !/**/stl/*.stl
@@ -22,6 +25,7 @@
 !/common
 !general.*
 !stream_interactive.*
+!lua_preprocessor.c
 
 !fl_scintilla.*
 

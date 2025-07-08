@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <functional>
 
+#include "GraphicsCostEstimator_patch.h"
 #include <osgViewer/Viewer>
 #include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>

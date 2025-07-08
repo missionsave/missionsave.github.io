@@ -1,3 +1,4 @@
+#include "GraphicsCostEstimator_patch.h"
 #include <osg/io_utils> 
 #include <osgViewer/Viewer>
 // #include <osgViewer/CompositeViewer>
