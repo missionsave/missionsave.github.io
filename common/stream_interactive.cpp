@@ -62,13 +62,14 @@ static int websocket_callback(struct lws* wsi, enum lws_callback_reasons reason,
                 
                 if (ret < 0) {
                     std::cerr << "Write failed!" << std::endl;
-                } else {
-                    auto now = std::chrono::steady_clock::now();
-                    auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        now - current_frame.capture_time).count();
-                    std::cout << "Frame sent (" << current_frame.data.size() 
-                              << " bytes, " << latency << "ms latency)" << std::endl;
-                }
+                } 
+				// else {
+                //     auto now = std::chrono::steady_clock::now();
+                //     auto latency = std::chrono::duration_cast<std::chrono::milliseconds>(
+                //         now - current_frame.capture_time).count();
+                //     std::cout << "Frame sent (" << current_frame.data.size() 
+                //               << " bytes, " << latency << "ms latency)" << std::endl;
+                // }
             }
             // Request next write immediately
             lws_callback_on_writable(wsi);
