@@ -225,7 +225,7 @@ $(LIBNAME): $(OBJS_LIB)
 $(TARGET): $(OBJS_APP) $(LIBNAME)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS) 
 	sleep 0.2;
-	./$(TARGET)
+	./$(TARGET) &
 
 # --- Regras para compilar fontes da lib ---
 define MAKE_RULE_LIB

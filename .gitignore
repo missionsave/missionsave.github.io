@@ -13,6 +13,7 @@
 !frobot.hpp
 !luanew.cpp
 !movement.cpp
+!scint.cpp
 !GraphicsCostEstimator_patch.h
 
 !lua
