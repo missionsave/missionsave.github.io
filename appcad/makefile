@@ -161,7 +161,7 @@ endif
 ifeq ($(OS_NAME), Arm)
 	BUILD_DIR := .obja
 	LIBNAME   := libappa.a$(dbgd)
-	TARGET    := frobota
+	TARGET    := simplecad
 	LDFLAGS+= -L. -l:$(LIBNAME)
 
 	LDFLAGS+= -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing
@@ -228,8 +228,10 @@ $(LIBNAME): $(OBJS_LIB)
 # --- Executável linkando objetos app + lib ---
 $(TARGET): $(OBJS_APP) $(LIBNAME)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS) 
-	sleep 0.2;
-	./$(TARGET) &
+	@if [ "$(nr)" != "1" ]; then \
+		sleep 0.2; \
+		./$(TARGET); \
+	fi
 
 # --- Regras para compilar fontes da lib ---
 define MAKE_RULE_LIB

@@ -43,4 +43,9 @@
 !/**/scintilla_370/lexlib/*
 !/**/scintilla_370/src
 !/**/scintilla_370/src/*
-!fltest.*
+!/**/scintilla_370/src/*
+!/**/scintilla_370/fltest.*
+
+!cfglinux
+!/cfglinux/*
+!/cfglinux/**/*

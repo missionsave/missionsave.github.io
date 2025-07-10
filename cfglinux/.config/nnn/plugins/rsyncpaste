@@ -1,0 +1,17 @@
+#!/bin/sh
+
+sel=${NNN_SEL:-${XDG_CONFIG_HOME:-$HOME/.config}/nnn/.selection} 
+
+xargs -0 -I % rsync -aru --no-owner --no-group --progress --exclude='.obj*/' % "$PWD" < "$sel"
+
+# Clear selection
+if [ -p "$NNN_PIPE" ]; then
+    printf "-" > "$NNN_PIPE"
+fi
+
+# POSIX-compliant pause (works in all shells)
+printf "Press enter key to continue"
+old_stty=$(stty -g)
+stty raw -echo
+key=$(dd bs=1 count=1 2>/dev/null)
+stty "$old_stty"

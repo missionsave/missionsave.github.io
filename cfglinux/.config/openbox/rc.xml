@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config>
+
+<theme>
+<font place="MenuItem">
+      <name>Sans</name>
+      <size>15</size>
+      <weight>Bold</weight>
+      <slant>Normal</slant>
+    </font>
+
+</theme>
+
+
+  <keyboard>
+  
+<keybind key="C-T">
+    <action name="Execute">
+      <command>xterm -e tmux new-session \; split-window -h \; split-window -v \; select-pane -t 0 \; split-window -v</command>
+    </action>
+  </keybind>
+  
+  
+  <keybind key="C-S-r">
+  <action name="Execute">
+    <command>bash -c 'source ~/.bashrc &amp;&amp; fstream'</command>
+  </action>
+</keybind>
+  
+<keybind key="Super_L">
+  <action name="ShowMenu">
+    <menu>open-windows</menu>
+    <position>
+      <x>0</x> <y>0</y>  </position>
+  </action>
+</keybind>
+
+  
+  
+  <!-- Keybindings for window switching -->
+  <keybind key="A-Tab">
+    <action name="NextWindow">
+      <finalactions>
+        <action name="Focus"/>
+        <action name="Raise"/>
+        <action name="Unshade"/>
+      </finalactions>
+    </action>
+  </keybind>
+  
+  <keybind key="C-Tab">  <!-- Super (Windows key) + Tab -->
+  <action name="NextWindow">
+    <finalactions>
+      <action name="Focus"/>
+      <action name="Raise"/>
+      <action name="Unshade"/>
+    </finalactions>
+  </action>
+</keybind>
+  
+  <keybind key="A-S-Tab">
+    <action name="PreviousWindow">
+      <finalactions>
+        <action name="Focus"/>
+        <action name="Raise"/>
+        <action name="Unshade"/>
+      </finalactions>
+    </action>
+  </keybind>
+  <keybind key="C-A-Tab">
+    <action name="NextWindow">
+      <panels>yes</panels><desktop>yes</desktop>
+      <finalactions>
+        <action name="Focus"/>
+        <action name="Raise"/>
+        <action name="Unshade"/>
+      </finalactions>
+    </action>
+  </keybind>
+
+  
+  
+  </keyboard>
+
+<applications>
+  <application name="xterm">
+    <maximized>yes</maximized>
+  </application>
+</applications>
+
+
+
+
+
+
+
+</openbox_config>

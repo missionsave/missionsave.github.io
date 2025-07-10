@@ -176,10 +176,64 @@ public:
     std::vector<TopoDS_Shape> vshapes; 
     std::vector<Handle(AIS_Shape)> vaShape; 
  
+	struct vluadraw{
+		TopoDS_Shape shape; 
+		Handle(AIS_Shape) ashape; 
+		gp_Pnt origin=gp_Pnt(0, 0, 100);
+		gp_Dir normal=gp_Dir(0,0,1);
+		gp_Dir xdir =  gp_Dir(0, 1, 0);
+		gp_Trsf trsf;
+		gp_Trsf trsftmp; 
+		vluadraw(){
+			gp_Ax2 ax3(origin, normal, xdir);
+			trsf.SetTransformation(ax3);
+			trsf.Invert();
+		}
+		void rotate(int angle){
+			trsftmp = gp_Trsf();
+			trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
+			trsf  *= trsftmp;
+		}
+		void translate(float x,float y, float z){
+			trsftmp = gp_Trsf();
+			trsftmp.SetTranslation(gp_Vec(x, y, z));
+			trsf  *= trsftmp; 
+		}
+		void dofromstart(){
+			gp_Pnt p1(0, 0,0);
+			gp_Pnt p2(100, 0,0);
+			gp_Pnt p3(100, 50,0);
+			gp_Pnt p4(0, 50,0);
+
+			// Criar arestas
+			TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
+			TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p2, p3);
+			TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
+			TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
+
+			
+			// Fazer o wire
+			BRepBuilderAPI_MakeWire wireBuilder;
+			wireBuilder.Add(e1);
+			wireBuilder.Add(e2);
+			wireBuilder.Add(e3);
+			wireBuilder.Add(e4);
+			TopoDS_Wire wire = wireBuilder.Wire();
+
+			TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+		}
+
+	};
+
+
+
+
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
         : Fl_Window(X, Y, W, H, L) { 
     }
      
+
+	
  
     void initialize_opencascade() { 
         // Get native window handle
@@ -511,7 +565,8 @@ trsf.Invert();
 
 gp_Trsf trsftmp; 
 trsftmp.SetRotation(gp_Ax1(origin, normal), -45*(M_PI/180) );
-trsf  *= trsftmp; 
+trsf  *= trsftmp;
+
 trsftmp = gp_Trsf();
 trsftmp.SetTranslation(gp_Vec(20, 0, 0));
 trsf  *= trsftmp; 
@@ -591,8 +646,8 @@ extrusionVec *= 10.0;
 
 }
 
-vshapes.push_back(pl1);
-vshapes.push_back(refinedShape);
+// vshapes.push_back(pl1);
+// vshapes.push_back(refinedShape);
 // vshapes=std::vector<TopoDS_Shape>{pl1,face};
 // vshapes=std::vector<TopoDS_Shape>{refinedShape,pl1,face};
 
