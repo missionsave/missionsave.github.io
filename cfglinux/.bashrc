@@ -3,7 +3,7 @@
 #loadkeys br-abnt2
 
 
-# Caminho padrão
+# Caminho padrï¿½o
 export PATH="$PATH:/$HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/super/desk/missionsave/robot_driver/openvino_toolkit_ubuntu20_2025.0.0.17942.1f68be9f594_x86_64/runtime/lib/intel64"
@@ -125,7 +125,7 @@ set_prompt
 
 sshtt_old() {
     local IP_SUFFIX="${1:-190}"
-    local SSH_COMMAND="ssh -XY -c aes128-gcm@openssh.com -o Compression=yes -o ForwardX11Trusted=yes super@192.168.1.${IP_SUFFIX} -t 'tmux new-session -A -s dash bash'"
+    local SSH_COMMAND="ssh -XY -c aes128-gcm@openssh.com -o Compression=yes -o ForwardX11Trusted=yes super@192.168.1.${IP_SUFFIX} -t 'tmux new-session -A -s aarch64 bash'"
 
     # Check if we are already in a tmux session
     if [ -n "$TMUX" ]; then
@@ -140,7 +140,7 @@ ssht() {
     xterm -e ssh -XY -c aes128-gcm@openssh.com \
         -o Compression=yes -o ForwardX11Trusted=yes \
         super@192.168.1."$IP_SUFFIX" \
-        -t 'tmux new-session -A -s dash bash' &
+        -t 'tmux new-session -A -s aarch64 bash' &
 }
 sshtprev() {
     local IP_SUFFIX="${1:-190}"
@@ -159,7 +159,7 @@ mapwifi(){
 }
 
 memc(){
-	awk '{ printf "Orig: %.1f MiB\nCompr: %.1f MiB\nUsado: %.1f MiB\nCompressão: %.2fx\n", $1/1024/1024, $2/1024/1024, $3/1024/1024, $1/$2 }' /sys/block/zram0/mm_stat
+	awk '{ printf "Orig: %.1f MiB\nCompr: %.1f MiB\nUsado: %.1f MiB\nCompressï¿½o: %.2fx\n", $1/1024/1024, $2/1024/1024, $3/1024/1024, $1/$2 }' /sys/block/zram0/mm_stat
 }
 
 alias cpdrv='mkdir -p ~/driver && rsync -u frobot  frobot.sqlite ~/driver/ && rsync -aru stl ~/driver/'
@@ -212,7 +212,7 @@ sudo mkswap /dev/zram0
 sudo swapon /dev/zram0
 
 
-echo "? Finalizado! Use 'htop' para ver zram em ação."
+echo "? Finalizado! Use 'htop' para ver zram em aï¿½ï¿½o."
 }
 
 
@@ -397,7 +397,7 @@ nn() {
     export NNN_TMPFILE=/tmp/nnn_dir
     command nnn "$@"      # Launch nnn
     if [ -s "$NNN_TMPFILE" ]; then
-        # Ler o caminho e remover 'cd ' prefix, aspas extras e espaços em branco
+        # Ler o caminho e remover 'cd ' prefix, aspas extras e espaï¿½os em branco
         dir=$(sed -e "s/^cd //" -e "s/^['\"]//" -e "s/['\"]$//" "$NNN_TMPFILE" | tr -d '\n')
 
         if [ -d "$dir" ]; then
@@ -580,17 +580,17 @@ autologin_setup() {
 
     echo "? A configurar auto login para o utilizador: $USERNAME"
 
-    # Cria o diretório de override do serviço getty@tty1
+    # Cria o diretï¿½rio de override do serviï¿½o getty@tty1
     sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
 
-    # Cria o ficheiro override.conf com o conteúdo correto
+    # Cria o ficheiro override.conf com o conteï¿½do correto
     sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf > /dev/null <<EOF
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin $USERNAME --noclear %I \$TERM
 EOF
 
-    # Reaplica as configurações do systemd
+    # Reaplica as configuraï¿½ï¿½es do systemd
     echo "? A reinicializar o systemd..."
     sudo systemctl daemon-reexec
 
