@@ -615,15 +615,86 @@ ssh_runapplocal(){
 DISPLAY=:0 nohup "$1" &
 }
 
+setup_cfg(){
+	#!/bin/bash
+set -euo pipefail
+
+# Source and destination definitions
+src_dir="$HOME/missionsave/cfglinux"
+dest_dir="$HOME"
+backup_dir="$HOME/.backupcfg"
+fnames=".tmux.conf .xinitrc .Xresources .bashrc  .SciTEUser.properties .config/openbox/ .config/nnn/ "
+
+# Create backup directory if needed
+mkdir -p "$backup_dir"
+
+for rel_path in $fnames; do
+    src_path="$src_dir/$rel_path"
+    dest_path="$dest_dir/$rel_path"
+
+    # Skip if source doesn't exist
+    if [[ ! -e "$src_path" ]]; then
+        echo "NOT FOUND: $src_path"
+        continue
+    fi
+
+    # Handle new files (no backup needed)
+    if [[ ! -e "$dest_path" ]]; then
+        echo "COPYING NEW: $src_path → $dest_path"
+        mkdir -p "$(dirname "$dest_path")"
+        rsync -a "$src_path" "$(dirname "$dest_path")/"
+        continue
+    fi
+
+    # Compare files/directories
+    if diff -rq "$src_path" "$dest_path" &>/dev/null; then
+        echo "UNCHANGED: $dest_path"
+        continue
+    fi
+
+    # Create timestamped backup path
+    timestamp=$(date +%Y-%m-%d-%H-%M)
+    backup_path="$backup_dir/${rel_path}.${timestamp}"
+
+    # Backup existing file/directory
+    echo "BACKING UP: $dest_path → $backup_path"
+    mkdir -p "$(dirname "$backup_path")"
+    mv "$dest_path" "$backup_path"
+
+    # Copy new version
+    echo "UPDATING: $src_path → $dest_path"
+    mkdir -p "$(dirname "$dest_path")"
+    rsync -a "$src_path" "$(dirname "$dest_path")/"
+done
+}
+
+# My Custom Functions
+# -------------------
+
+# Function to create a directory and then change into it
+mcd() {
+    mkdir -p "$1" && cd "$1"
+}
+
+# Function to list files by size (largest first)
+lssize() {
+    du -sh * | sort -rh
+}
+
+# Function for the "continue" prompt you asked about
+confirm_continue() {
+    while true; do
+        read -rp "Do you want to continue? (yes/no): " choice
+        case "$choice" in
+            yes|Yes|y|Y ) break;;
+            no|No|n|N ) echo "Aborting."; return 1;; # Return non-zero for 'no'
+            * ) echo "Invalid choice. Please enter 'yes' or 'no'.";;
+        esac
+    done
+    return 0 # Return zero for 'yes'
+}
 
 
-
-
-#autostart
-
-if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ] && [ -z "$SSH_CONNECTION" ]; then
-  exec startx
-fi
 
 #~ if ! pgrep Xorg >/dev/null; then
     #~ echo "Xorg not loaded. Starting Xorg..."
@@ -637,4 +708,53 @@ fi
     #~ #tmux new -d
 #~ fi
 
+
+# usage: bash cfglinux/.bashrc setup
+_run_bashrc_setup() {
+    if ! confirm_continue; then 
+        echo "Setup operation cancelled."
+        return 1 # Indicate failure to the caller if needed
+    fi
+
+    echo "Running BashRC setup tasks..."
+    # --- START Your setup tasks here ---
+    # Example:
+    # echo "Setting up environment variables..."
+    # export MY_VAR="some_value"
+    # echo "Updating something..."
+    # /path/to/some/script.sh --update
+
+
+	setup_cfg
+
+	chmod +X .config/openbox/show_windows.sh
+
+
+
+
+    # --- END Your setup tasks here ---
+
+    echo "BashRC setup complete."
+    return 0 # Indicate success
+}
+
+# Conditional call to the setup function
+# usage: source ~/.bashrc setup
+# OR: . ~/.bashrc setup
+if [[ "$1" == "setup" && -n "$PS1" ]]; then # Added -n "$PS1" for interactive check
+    # Check if this is an interactive shell for extra safety,
+    # as bashrc is sometimes sourced in non-interactive contexts.
+    _run_bashrc_setup
+    # After running the setup, clear the argument to avoid issues if
+    # bashrc is sourced again later in the same interactive session
+    # with the 'setup' argument still lingering. This is a minor detail.
+    # set -- # Clears all positional parameters
+fi
+
+
+#autostart
+
+if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ] && [ -z "$SSH_CONNECTION" ]; then
+  exec startx
+fi
 
