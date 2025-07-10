@@ -614,58 +614,73 @@ ssh_runapplocal(){
 
 DISPLAY=:0 nohup "$1" &
 }
+setup_cfg() {
+    #!/bin/bash
+    set -euo pipefail
 
-setup_cfg(){
-	#!/bin/bash
-set -euo pipefail
+    # Source and destination definitions
+    src_dir="$HOME/missionsave/cfglinux"
+    dest_dir="$HOME"
+    backup_dir="$HOME/.backupcfg"
+    fnames=".tmux.conf .xinitrc .Xresources .bashrc .SciTEUser.properties .config/openbox/ .config/nnn/"
 
-# Source and destination definitions
-src_dir="$HOME/missionsave/cfglinux"
-dest_dir="$HOME"
-backup_dir="$HOME/.backupcfg"
-fnames=".tmux.conf .xinitrc .Xresources .bashrc  .SciTEUser.properties .config/openbox/ .config/nnn/ "
+    # Create backup directory if needed
+    mkdir -p "$backup_dir"
 
-# Create backup directory if needed
-mkdir -p "$backup_dir"
+    for rel_path in $fnames; do
+        # Remove trailing slash if present (for directory handling)
+        rel_path="${rel_path%/}"
+        src_path="$src_dir/$rel_path"
+        dest_path="$dest_dir/$rel_path"
 
-for rel_path in $fnames; do
-    src_path="$src_dir/$rel_path"
-    dest_path="$dest_dir/$rel_path"
+        # Skip if source doesn't exist
+        if [[ ! -e "$src_path" ]]; then
+            echo "NOT FOUND: $src_path"
+            continue
+        fi
 
-    # Skip if source doesn't exist
-    if [[ ! -e "$src_path" ]]; then
-        echo "NOT FOUND: $src_path"
-        continue
-    fi
+        # Handle new items (no backup needed)
+        if [[ ! -e "$dest_path" ]]; then
+            echo "COPYING NEW: $src_path → $dest_path"
+            mkdir -p "$(dirname "$dest_path")"
+            if [[ -d "$src_path" ]]; then
+                rsync -a "$src_path/" "$dest_path/"
+            else
+                rsync -a "$src_path" "$(dirname "$dest_path")/"
+            fi
+            continue
+        fi
 
-    # Handle new files (no backup needed)
-    if [[ ! -e "$dest_path" ]]; then
-        echo "COPYING NEW: $src_path → $dest_path"
-        mkdir -p "$(dirname "$dest_path")"
-        rsync -a "$src_path" "$(dirname "$dest_path")/"
-        continue
-    fi
+        # Compare items
+        if diff -rq "$src_path" "$dest_path" &>/dev/null; then
+            echo "UNCHANGED: $dest_path"
+            continue
+        fi
 
-    # Compare files/directories
-    if diff -rq "$src_path" "$dest_path" &>/dev/null; then
-        echo "UNCHANGED: $dest_path"
-        continue
-    fi
+        # Create timestamped backup path
+        timestamp=$(date +%Y-%m-%d-%H-%M)
+        backup_path="$backup_dir/${rel_path}.${timestamp}"
 
-    # Create timestamped backup path
-    timestamp=$(date +%Y-%m-%d-%H-%M)
-    backup_path="$backup_dir/${rel_path}.${timestamp}"
-
-    # Backup existing file/directory
-    echo "BACKING UP: $dest_path → $backup_path"
-    mkdir -p "$(dirname "$backup_path")"
-    mv "$dest_path" "$backup_path"
-
-    # Copy new version
-    echo "UPDATING: $src_path → $dest_path"
-    mkdir -p "$(dirname "$dest_path")"
-    rsync -a "$src_path" "$(dirname "$dest_path")/"
-done
+        if [[ -f "$src_path" ]]; then
+            # Handle files - move original to backup
+            echo "BACKING UP FILE: $dest_path → $backup_path"
+            mkdir -p "$(dirname "$backup_path")"
+            mv "$dest_path" "$backup_path"
+            
+            echo "UPDATING FILE: $src_path → $dest_path"
+            mkdir -p "$(dirname "$dest_path")"
+            rsync -a "$src_path" "$(dirname "$dest_path")/"
+        else
+            # Handle directories - copy contents to backup, then sync new contents
+            echo "BACKING UP DIRECTORY CONTENTS: $dest_path/ → $backup_path/"
+            mkdir -p "$backup_path"
+            rsync -a --delete "$dest_path/" "$backup_path/"
+            
+            echo "UPDATING DIRECTORY: $src_path/ → $dest_path/"
+            mkdir -p "$dest_path"
+            rsync -a --delete "$src_path/" "$dest_path/"
+        fi
+    done
 }
 
 # My Custom Functions
