@@ -741,7 +741,8 @@ _run_bashrc_setup() {
 # Conditional call to the setup function
 # usage: source ~/.bashrc setup
 # OR: . ~/.bashrc setup
-if [[ "$1" == "setup" && -n "$PS1" ]]; then # Added -n "$PS1" for interactive check
+# if [[ "$1" == "setup" && -n "$PS1" ]]; then # Added -n "$PS1" for interactive check
+if [[ "$1" == "setup" ]]; then #  -n "$PS1" dont work via ssh
     # Check if this is an interactive shell for extra safety,
     # as bashrc is sometimes sourced in non-interactive contexts.
     _run_bashrc_setup
