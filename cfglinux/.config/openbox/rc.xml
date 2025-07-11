@@ -1,15 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<openbox_config>
+<openbox_config xmlns="http://openbox.org/3.4/rc" xmlns:xi="http://www.w3.org/2001/XInclude">
+ 
 
 <theme>
+  <name></name>
+  
 <font place="MenuItem">
       <name>Sans</name>
-      <size>15</size>
+      <size>13</size>
+      <weight>Bold</weight>
+      <slant>Normal</slant>
+    </font>
+    
+<font place="MenuHeader">
+      <name>Sans</name>
+      <size>14</size>
       <weight>Bold</weight>
       <slant>Normal</slant>
     </font>
 
 </theme>
+
+
+
 
 
   <keyboard>

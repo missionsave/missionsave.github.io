@@ -1112,6 +1112,26 @@ void check_idle(void*) {
     Fl::repeat_timeout(10.0, check_idle);
 }
 
+#if defined(__linux__)
+#include <sys/inotify.h>
+void realtimevars(string path){
+	path="lua/cfg.lua";
+	int fd = inotify_init();  // no IN_NONBLOCK
+	int wd = inotify_add_watch(fd, path.c_str(), IN_MODIFY);
+
+	char buf[1024];
+
+	while (true) {
+		int len = read(fd, buf, sizeof(buf));  // blocks here
+		if (len > 0) {
+			// process event
+		}
+	}
+}
+#endif
+
+
+
 int main() { 
     // Fl::add_handler(event_handler_idle); 
     // Fl::add_timeout(10.0, check_idle); 

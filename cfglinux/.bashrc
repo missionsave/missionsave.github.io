@@ -742,7 +742,8 @@ _run_bashrc_setup() {
 
 	setup_cfg
 
-	chmod +X .config/openbox/show_windows.sh
+	chmod +x ~/.bashrc
+	chmod +x ~/.config/openbox/show_windows.sh
 
 
 
@@ -769,7 +770,6 @@ fi
 
 
 #autostart
-
 if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ] && [ -z "$SSH_CONNECTION" ]; then
   exec startx
 fi
