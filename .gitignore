@@ -7,8 +7,12 @@
 
 !/appcad
 !simplecad.cpp
+!simplecad
+!simplecad.exe
 
 !/approbot
+!frobot
+!frobot.exe
 !frobot.cpp
 !frobot.hpp
 !luanew.cpp

@@ -140,7 +140,10 @@
 #include <Message.hxx>
 #include <Standard_Version.hxx> 
 #include <gp_Dir.hxx>
-
+#include <BRepPrimAPI_MakeSphere.hxx> 
+#include <SelectMgr_EntityOwner.hxx>
+#include <StdSelect_BRepOwner.hxx>
+#include <TopAbs_ShapeEnum.hxx>
  
 
 #include <chrono>
@@ -164,11 +167,13 @@ void open_cb() {
     }
 }
 
+class OCC_Viewer;
 class OCC_Viewer : public Fl_Window {
 public:
     Handle(Aspect_DisplayConnection) m_display_connection;
     Handle(OpenGl_GraphicDriver) m_graphic_driver;
     Handle(V3d_Viewer) m_viewer;
+	Handle(OpenGl_Context) aCtx;
     Handle(AIS_InteractiveContext) m_context;
     Handle(V3d_View) m_view;
     bool m_initialized = false;
@@ -179,9 +184,10 @@ public:
 	struct vluadraw{
 		TopoDS_Shape shape; 
 		Handle(AIS_Shape) ashape; 
-		gp_Pnt origin=gp_Pnt(0, 0, 100);
+		TopoDS_Face face;
+		gp_Pnt origin=gp_Pnt(0, 0, 0);
 		gp_Dir normal=gp_Dir(0,0,1);
-		gp_Dir xdir =  gp_Dir(0, 1, 0);
+		gp_Dir xdir =  gp_Dir(1, 0, 0);
 		gp_Trsf trsf;
 		gp_Trsf trsftmp; 
 		vluadraw(){
@@ -189,12 +195,13 @@ public:
 			trsf.SetTransformation(ax3);
 			trsf.Invert();
 		}
-		void rotate(int angle){
+		void rotate(int angle,gp_Dir normal={0,0,1}){
 			trsftmp = gp_Trsf();
+			// gp_Dir normal=gp_Dir(0,1,0);
 			trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
 			trsf  *= trsftmp;
 		}
-		void translate(float x,float y, float z){
+		void translate(float x=0,float y=0, float z=0){
 			trsftmp = gp_Trsf();
 			trsftmp.SetTranslation(gp_Vec(x, y, z));
 			trsf  *= trsftmp; 
@@ -217,19 +224,36 @@ public:
 			wireBuilder.Add(e1);
 			wireBuilder.Add(e2);
 			wireBuilder.Add(e3);
-			wireBuilder.Add(e4);
+			// wireBuilder.Add(e4);
 			TopoDS_Wire wire = wireBuilder.Wire();
 
-			TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+			face = BRepBuilderAPI_MakeFace(wire);
+
+			//final
+			BRepBuilderAPI_Transform transformer(face, trsf);
+			shape= transformer.Shape();
+
 		}
 
 	};
 
+	void test2(){
+		
+			//test
+			vluadraw test;
+			test.translate(10);
+			test.translate(0,10);
+			test.rotate(90);
+			test.dofromstart();
+			vshapes.push_back(test.shape);
+	}
 
-
-
+ 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
         : Fl_Window(X, Y, W, H, L) { 
+			// nested;
+			
+		Fl::add_timeout(10, idle_refresh_cb,0);
     }
      
 
@@ -261,9 +285,23 @@ public:
 
         m_view->SetImmediateUpdate(Standard_False);  
 
-        m_context->SetAutomaticHilight(true);  
+        // m_context->SetAutomaticHilight(true);  
 
-        Handle(OpenGl_Context) aCtx = m_graphic_driver->GetSharedContext();
+		
+        // m_context->Activate(AIS_Shape::SelectionMode(TopAbs_WIRE  )); // 4 = Face selection mode
+        // m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE )); // 4 = Face selection mode
+        // m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX )); // 4 = vertex selection mode
+
+    // m_context->SetMode(TopAbs_VERTEX, Standard_True); // Enable vertex selection as the active mode
+                                                          // Standard_True for the second arg makes it persistent for this mode
+
+    // You can also adjust the sensitivity here if points are hard to pick
+    // m_context->SetSelectionSensitivity(0.05);
+
+
+
+
+        aCtx = m_graphic_driver->GetSharedContext();
         
         m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.08);
 
@@ -299,12 +337,29 @@ public:
         }
         }
     }
-
+static void idle_refresh_cb(void*) {
+	//clear gpu usage each 10 secs
+	glFlush();
+	glFinish();
+	Fl::repeat_timeout(10, idle_refresh_cb,0);  
+}
     void draw() override { 
         if (!m_initialized) return;	 
         m_view->Update();
-        cotm("draw")
+        // cotm("draw")
         // m_view->Redraw();
+		// // make_current();
+		// aCtx->MakeCurrent();
+	// 	static std::chrono::steady_clock::time_point last_event = std::chrono::steady_clock::now();
+    // 	auto now = std::chrono::steady_clock::now();
+    // 	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_event).count();\
+    // if(elapsed>(1000.0/(_fps))){\
+    //     thecontent \
+    //     last_event = now;\
+    // // }}
+	// 	glFlush();
+	// 	glFinish();
+
     }
 
     void resize(int X, int Y, int W, int H) override {
@@ -326,10 +381,128 @@ public:
         last_event = now;\
     }}
 
+Handle(AIS_Shape) myHighlightedPointAIS; // To store the highlighting sphere
+TopoDS_Vertex myLastHighlightedVertex;   // To store the last highlighted vertex
+void clearHighlight() {
+    if (!myHighlightedPointAIS.IsNull()) {
+        m_context->Remove(myHighlightedPointAIS, Standard_True);
+        myHighlightedPointAIS.Nullify();
+    }
+    myLastHighlightedVertex.Nullify();
+}
+
+void highlightVertex(const TopoDS_Vertex& aVertex) {
+    clearHighlight(); // Clear any existing highlight first
+
+    gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
+
+    // Create a small red sphere at the vertex location
+    Standard_Real sphereRadius = 0.5; // Small radius for the highlight ball
+    TopoDS_Shape sphereShape = BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
+    myHighlightedPointAIS = new AIS_Shape(sphereShape);
+    myHighlightedPointAIS->SetColor(Quantity_NOC_RED);
+    myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
+    myHighlightedPointAIS->SetTransparency(0.2f); // Slightly transparent
+    myHighlightedPointAIS->SetZLayer(Graphic3d_ZLayerId_Top); // Ensure it's drawn on top
+
+    m_context->Display(myHighlightedPointAIS, Standard_True);
+    myLastHighlightedVertex = aVertex;
+
+    printf("Highlighted Vertex: X=%.3f, Y=%.3f, Z=%.3f\n", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
+}
 int handle(int event) override { 
     static int start_y;
     const int edge_zone = this->w() * 0.05; // 5% right edge zone
 
+#include <SelectMgr_EntityOwner.hxx>
+#include <StdSelect_BRepOwner.hxx>
+#include <TopAbs_ShapeEnum.hxx> // Ensure this is included for TopAbs_VERTEX etc.
+
+// ... (your existing OCCViewerWindow class methods) ...
+
+// In your initializeOCC() method:
+// Ensure SetSelectionSensitivity is set appropriately for small vertices.
+// For a sphere of radius 10, 0.02 or 0.05 is a good starting point.
+// m_context->SetSelectionSensitivity(0.02);
+
+
+// In your createSampleShape() method:
+// Remove any AIS_InteractiveContext::SetMode() calls here, as we will control it directly in FL_MOVE
+// The default selection behavior on the AIS_Shape itself is sufficient for this approach.
+
+
+// In your handle(int event) method:
+if (event == FL_MOVE) {
+    int x = Fl::event_x();
+    int y = Fl::event_y();
+
+    // Start with a clean slate for the custom highlight
+    clearHighlight();
+
+    // --- Strict Selection Mode Control for Hover ---
+    // 1. Deactivate ALL active modes first to ensure a clean slate for picking.
+    // This loops through common topological modes.
+    for (Standard_Integer mode = TopAbs_VERTEX; mode <= TopAbs_COMPSOLID; ++mode) {
+        m_context->Deactivate(mode);
+    }
+    // You might also need: m_context->Deactivate(0); // If 0 means "all" or a special mode.
+
+    // 2. Activate ONLY vertex selection mode for this specific picking operation.
+    // This uses the AIS_Shape::SelectionMode utility, which correctly returns 0 for TopAbs_VERTEX.
+    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+
+
+    // 3. Perform the picking operations
+    m_context->MoveTo(x, y, m_view, Standard_False);
+    m_context->SelectDetected(AIS_SelectionScheme_Replace);
+
+    // 4. Get the detected owner
+    Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
+
+    // 5. Deactivate vertex mode immediately after picking
+    // This is crucial if you only want vertex picking *during* hover,
+    // and want other selection behaviors (e.g., selecting faces on click) at other times.
+    m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+    // --- End Strict Selection Mode Control ---
+
+
+    // --- Debugging and Highlighting Logic ---
+    if (!anOwner.IsNull()) {
+        Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(anOwner);
+        if (!brepOwner.IsNull()) {
+            TopoDS_Shape detectedTopoShape = brepOwner->Shape();
+
+            printf("Detected TopoDS_ShapeType: %d (0=Vertex, 1=Edge, 2=Wire, 3=Face, etc.)\n", detectedTopoShape.ShapeType());
+            printf("Value of TopAbs_VERTEX: %d\n", TopAbs_VERTEX); // Confirms the actual value of TopAbs_VERTEX
+
+            if (detectedTopoShape.ShapeType() == TopAbs_VERTEX) {
+                printf("--- CONDITION: detectedTopoShape.ShapeType() == TopAbs_VERTEX is TRUE ---\n");
+                TopoDS_Vertex currentVertex = TopoDS::Vertex(detectedTopoShape);
+                if (!myLastHighlightedVertex.IsEqual(currentVertex)) {
+                    highlightVertex(currentVertex);
+                } else {
+                    // Highlighted same vertex, no need to re-print or re-draw
+                    printf("Hovering over same vertex: X=%.3f, Y=%.3f, Z=%.3f\n",
+                           BRep_Tool::Pnt(currentVertex).X(),
+                           BRep_Tool::Pnt(currentVertex).Y(),
+                           BRep_Tool::Pnt(currentVertex).Z());
+                }
+            } else {
+                printf("--- CONDITION: detectedTopoShape.ShapeType() == TopAbs_VERTEX is FALSE (Type %d) ---\n", detectedTopoShape.ShapeType());
+                clearHighlight(); // Detected a BRepOwner, but not a vertex
+            }
+        } else {
+            printf("Owner is not a StdSelect_BRepOwner.\n");
+            clearHighlight(); // Owner is not a BRepOwner (e.g., detected an AIS_Text)
+        }
+    } else {
+        printf("Nothing detected under the mouse.\n");
+        clearHighlight(); // Nothing detected
+    }
+
+    m_context->UpdateCurrentViewer(); // Update the viewer to show/hide highlight
+    return 1;
+}
     switch (event) {
         case FL_PUSH:
             if (Fl::event_button() == FL_LEFT_MOUSE) {
@@ -677,10 +850,34 @@ void draw_objs(){
     {
         Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
         vaShape.push_back(aShape);
-        m_context->SetDisplayMode(aShape, AIS_Shaded, 0); 
+        m_context->SetDisplayMode(aShape, AIS_Shaded, 0); //
         // m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_True); 
 
-          
+        //   m_context->Activate(aShape, aShape->SelectionMode(TopAbs_VERTEX));
+        //   m_context->Activate(aShape, aShape->SelectionMode(TopAbs_EDGE));
+
+
+
+    // m_context->SetMode(aShape, TopAbs_VERTEX, Standard_True); // Enable vertex mode for 'aisShape'
+    // m_context->SetMode(aShape, TopAbs_EDGE, Standard_True);   // Enable edge mode for 'aisShape' (if you still want to pick edges too)
+    // m_context->SetMode(aShape, TopAbs_FACE, Standard_True);   // Enable face mode for 'aisShape'
+
+    // // You can also adjust sensitivity for point picking.
+    // // A smaller value means you need to be closer.
+    // m_context->SetSelectionSensitivity(0.5);
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         aShape->SetColor(Quantity_NOC_GRAY70);
         aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);  
@@ -1255,9 +1452,9 @@ occv->m_view->Redraw();
 
 		
 		{ "Robot visible", 0, ([](Fl_Widget *, void* v){ 	
-			// robotvisible = !robotvisible;
-			// lop(i,0,ve.size()) lop(j,0,ve[i]->nodes.size())
-			// 	ve[i]->nodes[j]->setNodeMask(robotvisible ? 0xffffffff : 0x0);	
+			glFlush();
+glFinish();
+
 		}), (void*)menu ,FL_MENU_DIVIDER},
 		
 		{ "Time debug", 0, ([](Fl_Widget *, void* v){ 	
@@ -1371,7 +1568,8 @@ int main(int argc, char** argv) {
 	// win->resize(x, y+22, _w, _h-22);
 
     occv->initialize_opencascade();
-    occv->test();
+    occv->test2();
+    // occv->test();
     {
 occv->draw_objs();
 occv->m_view->FitAll();
