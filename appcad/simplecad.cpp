@@ -110,8 +110,7 @@
 #include <AIS_Trihedron.hxx>
 #include <V3d_View.hxx>
 #include <Geom_Axis2Placement.hxx>
-#include <gp_Ax2.hxx>
-#include <Aspect_TypeOfTriedronPosition.hxx>
+#include <gp_Ax2.hxx> 
 #include <AIS_Shape.hxx>
 #include <Graphic3d_TransformPers.hxx>
 #include <AIS_InteractiveContext.hxx>
@@ -176,6 +175,7 @@ public:
 	Handle(OpenGl_Context) aCtx;
     Handle(AIS_InteractiveContext) m_context;
     Handle(V3d_View) m_view;
+	Handle(AIS_Trihedron) trihedron0_0_0;
     bool m_initialized = false;
     bool hlr_on = false;
     std::vector<TopoDS_Shape> vshapes; 
@@ -241,9 +241,9 @@ public:
 		
 			//test
 			vluadraw test;
-			test.translate(10);
-			test.translate(0,10);
-			test.rotate(90);
+			// test.translate(10);
+			// test.translate(0,10);
+			// test.rotate(90);
 			test.dofromstart();
 			vshapes.push_back(test.shape);
 	}
@@ -306,12 +306,12 @@ public:
         m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.08);
 
 
-        // Create and display a trihedron
+        // Create and display a trihedron 0,0,0
         gp_Ax2 axes(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), gp_Dir(1, 0, 0));
         Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(axes);
-        Handle(AIS_Trihedron) trihedron = new AIS_Trihedron(placement);
-        trihedron->SetSize(25.0);
-        m_context->Display(trihedron, Standard_False);
+        trihedron0_0_0 = new AIS_Trihedron(placement);
+        trihedron0_0_0->SetSize(25.0);
+        m_context->Display(trihedron0_0_0, Standard_False);
 
  
         m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
@@ -390,14 +390,44 @@ void clearHighlight() {
     }
     myLastHighlightedVertex.Nullify();
 }
+///@return vector 0=windowToWorldX 1=windowToWorldY 2=worldToWindowX 3=worldToWindowY 4=viewportHeight 5=viewportWidth
+vfloat GetViewportAspectRatio(){
+	const Handle(Graphic3d_Camera)& camera=m_view->Camera();
 
+    // Obtém a altura e largura do mundo visível na viewport
+    float viewportHeight = camera->ViewDimensions().Y(); // world
+    float viewportWidth = camera->Aspect() * viewportHeight; // Largura = ratio * altura
+
+
+    Standard_Integer winWidth, winHeight;
+    m_view->Window()->Size(winWidth, winHeight);
+
+	//     // Mundo -> Window (quantos pixels por unidade de mundo)
+    float worldToWindowX = winWidth / viewportWidth;
+    float worldToWindowY = winHeight / viewportHeight;
+
+	// cotm(worldToWindowX,worldToWindowY)
+    
+    // Window -> Mundo (quantas unidades de mundo por pixel)
+    float windowToWorldX = viewportWidth / winWidth;
+    float windowToWorldY = viewportHeight / winHeight;
+	// cotm(camera->Aspect(),viewportWidth ,viewportHeight);
+	return {windowToWorldX,windowToWorldY,worldToWindowX,worldToWindowY,viewportHeight,viewportWidth};
+}
 void highlightVertex(const TopoDS_Vertex& aVertex) {
     clearHighlight(); // Clear any existing highlight first
+ 
+	perf();
+	// sleepms(1000);
+	float ratio=GetViewportAspectRatio()[0];
+	perf("GetViewportAspectRatio");
+	// double ratio=theProjector->Aspect(); 
+	cotm(ratio);
 
     gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
 
     // Create a small red sphere at the vertex location
-    Standard_Real sphereRadius = 0.5; // Small radius for the highlight ball
+    Standard_Real sphereRadius = 7*ratio; // Small radius for the highlight ball
     TopoDS_Shape sphereShape = BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
     myHighlightedPointAIS = new AIS_Shape(sphereShape);
     myHighlightedPointAIS->SetColor(Quantity_NOC_RED);
@@ -414,9 +444,9 @@ int handle(int event) override {
     static int start_y;
     const int edge_zone = this->w() * 0.05; // 5% right edge zone
 
-#include <SelectMgr_EntityOwner.hxx>
-#include <StdSelect_BRepOwner.hxx>
-#include <TopAbs_ShapeEnum.hxx> // Ensure this is included for TopAbs_VERTEX etc.
+// #include <SelectMgr_EntityOwner.hxx>
+// #include <StdSelect_BRepOwner.hxx>
+// #include <TopAbs_ShapeEnum.hxx> // Ensure this is included for TopAbs_VERTEX etc.
 
 // ... (your existing OCCViewerWindow class methods) ...
 
@@ -442,9 +472,9 @@ if (event == FL_MOVE) {
     // --- Strict Selection Mode Control for Hover ---
     // 1. Deactivate ALL active modes first to ensure a clean slate for picking.
     // This loops through common topological modes.
-    for (Standard_Integer mode = TopAbs_VERTEX; mode <= TopAbs_COMPSOLID; ++mode) {
-        m_context->Deactivate(mode);
-    }
+    // for (Standard_Integer mode = TopAbs_VERTEX; mode <= TopAbs_COMPSOLID; ++mode) {
+    //     m_context->Deactivate(mode);
+    // }
     // You might also need: m_context->Deactivate(0); // If 0 means "all" or a special mode.
 
     // 2. Activate ONLY vertex selection mode for this specific picking operation.
@@ -1563,13 +1593,13 @@ int main(int argc, char** argv) {
 	win->position(Fl::w()/2-win->w()/2,10); 
     win->show(argc, argv); 
     // win->maximize();
-	// int x, y, _w, _h;
+	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 
     occv->initialize_opencascade();
-    occv->test2();
-    // occv->test();
+    // occv->test2();
+    occv->test();
     {
 occv->draw_objs();
 occv->m_view->FitAll();
