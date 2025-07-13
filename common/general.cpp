@@ -212,7 +212,7 @@ unsigned long long  combR::toCsn(vint comb){
 
 
 struct performance{ 
-    unsigned int pclock;
+    std::chrono::steady_clock::time_point pclock;
     const char* pname; 
     performance(const char*  name=""); //
     void p(const char* prefix=""); //
@@ -220,22 +220,25 @@ struct performance{
 
 performance::performance(const char*  name){
     pname=name;
-    pclock=clock();
+    pclock=std::chrono::steady_clock::now();
 }
 void performance::p(const char* prefix){
 	if(prefix==0){
-		pclock=clock();
-		printf("\nbenchmark\n");
+		pclock=std::chrono::steady_clock::now();
+		printf("benchmark\n");
 		return;
 	}
-	printf("\n%s %s %f sec ",pname,prefix,((float)clock()-pclock)/CLOCKS_PER_SEC);
+	auto end = std::chrono::steady_clock::now();
+	auto elapsed = end - pclock;
+	printf("%s %.9f sec\n",prefix,std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count()/1000000000.0);
+	// printf("%s %s %f sec\n",pname,prefix,((double)clock()-pclock)/CLOCKS_PER_SEC);
 	fflush(stdout);
-	pclock=clock();
+	pclock=std::chrono::steady_clock::now();
 }
 void perf(string p){
-    if(p==""){perfinit.pclock=clock();return;}
+    if(p==""){perfinit.pclock=std::chrono::steady_clock::now();return;}
     perfinit.p(p.c_str());
-}
+} 
 
 
  

@@ -54,7 +54,7 @@ tmux ls
 0: 1 windows (created Sun Jul  6 21:41:47 2025) (attached)
 tmux attach -t 0
 
-
+top -p $(pgrep xcape)
 
 
 sudo apt-get install libxfixes-dev
@@ -176,8 +176,15 @@ xprarobo(){
 xpra start :100   --start=/home/super/missionsave/approbot/frobota   --bind-tcp=0.0.0.0:14500   --html=on   --daemon=no   --xvfb="/usr/bin/Xvfb +extension Composite -screen 0 640x400x16"   --pulseaudio=no   --notifications=no --quality=50 --min-quality=30 
 }
 
-dirsize(){
-du -sh *
+dirsize(){ 
+  echo "📁 Subdirectory Sizes:"; 
+  find . -mindepth 1 -maxdepth 1 -type d -print0 | du -sh --files0-from=-; 
+  echo "------"; 
+  echo "📄 Current Directory Files Total:"; 
+  find . -mindepth 1 -maxdepth 1 -type f -print0 | du -ch --files0-from=- | grep total$ | sed 's/total$/current dir/'; 
+  echo "------"; 
+  echo "📦 Total Size (Files + Subdirs):"; 
+  du -sh . | sed 's/\t.*/\ttotal/'; 
 }
 
 ramopt() {
