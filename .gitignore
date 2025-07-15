@@ -4,6 +4,11 @@
 !gcommit.bat
 !makefile
 !make.bat
+!readme.*
+
+!/apptest
+!/apptest/ov.cpp
+!apptest/taskb.cpp
 
 !/appcad
 !simplecad.cpp
@@ -14,6 +19,7 @@
 !luanew.cpp
 !movement.cpp
 !scint.cpp
+!sideapp.cpp
 !GraphicsCostEstimator_patch.h
 
 !lua
