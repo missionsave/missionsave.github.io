@@ -228,17 +228,42 @@ installdeb() {
   local url="$1"
   local filename=$(basename "$url")
 
-  echo "? Downloading $filename ..."
-  wget "$url" -O "$filename"
+  # Verifica se a URL foi fornecida
+  if [[ -z "$url" ]]; then
+    echo "❌ Erro: URL não fornecida."
+    return 1
+  fi
 
-  echo "? Installing $filename ..."
-  sudo dpkg -i "$filename"
-  sudo apt-get install -f -y
+  # Download
+  echo "⬇️ Downloading $filename ..."
+  if ! wget "$url" -O "$filename"; then
+    echo "❌ Falha no download de $filename."
+    return 1
+  fi
 
-  echo "? Cleaning up ..."
+  # Verifica se o arquivo é um .deb
+  if [[ "$filename" != *.deb ]]; then
+    echo "❌ $filename não é um arquivo .deb válido."
+    rm -f "$filename"
+    return 1
+  fi
+
+  # Instalação
+  echo "🔧 Installing $filename ..."
+  if ! sudo dpkg -i "$filename"; then
+    echo "⚠️ Corrigindo dependências quebradas ..."
+    sudo apt-get install -f -y || {
+      echo "❌ Falha ao corrigir dependências."
+      rm -f "$filename"
+      return 1
+    }
+  fi
+
+  # Limpeza
+  echo "🧹 Cleaning up ..."
   rm -f "$filename"
 
-  echo "? Done installing $filename"
+  echo "✅ $filename instalado com sucesso!"
 }
 
 # only make -f GNUmakefile 
@@ -531,7 +556,8 @@ alias reload='source ~/.bashrc && openbox --reconfigure && xrdb -merge ~/.Xresou
 
 
 installer() {
-	sudo apt update
+	sudo apt update && sudo apt upgrade
+
 	sudo apt install mesa-utils ssh sshfs nnn xclip xterm tmux curl wmctrl  openbox
 	sudo apt install x11-xserver-utils
 	
@@ -539,7 +565,12 @@ installer() {
 	
 	sudo apt install libocct-foundation-dev libocct-modeling-data-dev libocct-modeling-algorithms-dev libocct-visualization-dev libocct-data-exchange-dev
 
+	sudo apt update
+	sudo apt install build-essential
 
+	installdeb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.de
+
+	installdeb https://vscode.download.prss.microsoft.com/dbazure/download/stable/cb0c47c0cfaad0757385834bd89d410c78a856c0/code_1.102.0-1752099874_amd64.deb
 
 }
 
