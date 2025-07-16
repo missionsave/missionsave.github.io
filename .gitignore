@@ -5,6 +5,11 @@
 !makefile
 !make.bat
 !readme.*
+!license
+
+!/.vscode
+!/.vscode/*
+
 
 !/apptest
 !/apptest/ov.cpp

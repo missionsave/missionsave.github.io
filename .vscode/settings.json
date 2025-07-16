@@ -1,0 +1,81 @@
+{
+    "editor.fastScrollSensitivity": 1,
+    "editor.scrollbar": {
+"verticalHasArrows": true,
+"horizontalHasArrows": true
+},
+    "editor.scrollbar.vertical": "visible",
+    "editor.folding": true,
+    "editor.showFoldingControls": "always",
+    "editor.scrollbar.vertical": "auto",
+    "editor.scrollbar.horizontal": "auto"
+    "editor.scrollbar.scrollByPage": true,
+
+    "editor.minimap.enabled": false,
+    "editor.showFoldingControls": "always",
+    "notebook.showFoldingControls": "always",
+    "editor.scrollBeyondLastLine": false,
+    "makefile.makePath": "c:/msys64/mingw64/bin/mingw32-make.exe",
+    "C_Cpp.default.includePath": [
+      "C:\\desk\\missionsave\\cfd"
+    ],
+    // "editor.scrollbar.ignoreHorizontalScrollbarInContentHeight":false,
+    "workbench.statusBar.visible": true,
+    "editor.wordWrap": "on",
+
+        
+    "C_Cpp.errorSquiggles": "disabled",
+    "workbench.colorCustomizations": { 
+        // "editor.lineHighlightBackground": "#000000",
+        "editor.selectionHighlightBackground": "#f03737",
+        "editor.selectionHighlightBorder": "#f03737ea",
+        // "editor.findMatchBackground": "#FF0000",
+        // "editor.findMatchHighlightBackground": "#FF0000",
+        // "editor.findRangeHighlightBackground": "#000000",
+        // "editor.selectionBackground": "#ff0000",
+        // "editor.inactiveSelectionBackground": "#ff0000",
+        // "editor.wordHighlightBackground":"#ff0000",
+        "editor.hoverHighlight": true,
+        "editor.hoverHighlightBackground": "#00000099",
+    },
+    "files.associations": {
+        "vector": "cpp",
+        "chrono": "cpp",
+        "format": "cpp",
+        "list": "cpp",
+        "xstring": "cpp",
+        "filesystem": "cpp",
+        "fstream": "cpp"
+    },
+    "explorer.excludeGitIgnore": true,
+    // "files.exclude": {
+    //     "**/.objw": true,
+    //     "**/.objl": true,
+    //     "**/stl": true,
+    //     "**/*.exe": true,
+    //     "**/*.a": true,
+    //     "**/log": true,
+    //     "**/app": true,
+    //     "**/frobot": true,
+    //     "**/*.sqlite": true,
+    // },
+    "editor.semanticTokenColorCustomizations": {
+        "[Default High Contrast Light]": {}
+    },
+    
+    "C_Cpp.default.compilerPath": "c:\\\\msys64\\\\mingw64\\\\bin\\\\cc.exe",
+    "C_Cpp.default.intelliSenseMode": "gcc-x64",
+    
+     
+    "makefile.makePath": "c:/msys64/mingw64/bin/mingw32-make.exe",
+    "workbench.colorTheme": "Visual Studio Light",
+    "editor.fontWeight": "bold",
+    "terminal.integrated.fontWeightBold": true,
+    "security.workspace.trust.untrustedFiles": "open",
+    "php.validate.executablePath": "",
+        
+    
+  "editor.insertSpaces": false,
+  "editor.detectIndentation": false
+
+}
