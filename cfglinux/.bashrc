@@ -626,7 +626,8 @@ setup_cfg() {
     set -euo pipefail
 
     # Source and destination definitions
-    src_dir="$HOME/missionsave/cfglinux"
+    src_dir="./"
+    # src_dir="$HOME/missionsave/cfglinux"
     dest_dir="$HOME"
     backup_dir="$HOME/.backupcfg"
     fnames=".tmux.conf .xinitrc .Xresources .bashrc .SciTEUser.properties .config/openbox/ .config/nnn/"
