@@ -3,6 +3,8 @@ missionsave food production for free food focused to deliver to locations where 
 
 (https://missionsave.org)
 
+	git clone https://github.com/missionsave/missionsave.git msv
+
 
 Libraies used in robot driver:
 

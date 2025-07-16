@@ -9,6 +9,7 @@
 !/apptest
 !/apptest/ov.cpp
 !apptest/taskb.cpp
+!apptest/enc.cpp
 
 !/appcad
 !simplecad.cpp
