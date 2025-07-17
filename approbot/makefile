@@ -10,7 +10,7 @@ ifneq ($(dbg),)
 	CXXFLAGS+= -g -O0 -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer
 	LDFLAGS+= -fsanitize=address,undefined
 else
-	CXXFLAGS+= -Os -w -Wfatal-errors -DNDEBUG
+	CXXFLAGS+= -Os -flto -w -Wfatal-errors -DNDEBUG
 	LDFLAGS+= -s
 endif
 

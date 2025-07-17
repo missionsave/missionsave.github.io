@@ -1,0 +1,11 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Apply Workspace Keybindings",
+            "type": "shell",
+            "command": "cp ${workspaceFolder}/.vscode/keybindings.json ~/.config/Code/User/keybindings.json",
+            "problemMatcher": []
+        }
+    ]
+}

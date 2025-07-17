@@ -2,10 +2,11 @@
 !.gitignore
 !.gitattributes
 !gcommit.bat
+!gcommit.sh
 !makefile
 !make.bat
-!readme.*
-!license
+!/README.md
+!LICENSE
 
 !/.vscode
 !/.vscode/*
@@ -15,6 +16,9 @@
 !/apptest/ov.cpp
 !apptest/taskb.cpp
 !apptest/enc.cpp
+!apptest/docker.cpp
+!apptest/clip.cpp
+!apptest/getawin.cpp
 
 !/appcad
 !simplecad.cpp

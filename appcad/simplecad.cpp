@@ -1554,7 +1554,7 @@ int main(int argc, char** argv) {
     #if defined(__linux__) && defined(__aarch64__)
         Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
     #else
-        Fl::gl_visual(FL_OPENGL3 |FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
     #endif
     
     Fl::scheme("gleam");
