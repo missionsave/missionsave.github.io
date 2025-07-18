@@ -420,8 +420,8 @@ export NNN_FCOLORS='c1e2272e006033f7c6d6abc4'  # Optimized for white bg
 export NNN_COLORS='1234'
 
 
-export EDITOR=ne
-export VISUAL=ne
+export EDITOR=vim
+export VISUAL=vim
 alias ncp="cat ${NNN_SEL:-${XDG_CONFIG_HOME:-$HOME/.config}/nnn/.selection} | tr '\0' '\n'"
 
 nn() {

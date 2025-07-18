@@ -306,10 +306,451 @@ void set_dock_properties(Fl_Window* win) {
 }
 
 Fl_Window* win;
+#include <unistd.h>
+#include <sys/wait.h>
+#include <system_error>
+#include <string_view>
+#include <vector>
+#include <iostream>
 
-int main() {
-	// Fl::add_handler(global_handler); // Install global handler
-	// getlastfocus();
+pid_t launch_app(std::string_view app, std::initializer_list<std::string_view> args = {}) {
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        throw std::system_error(errno, std::generic_category(), "fork failed");
+    }
+
+    if (pid == 0) { // Child process
+        // Detach from parent so app survives launcher exit
+        setsid(); // Start a new session
+
+        // Build argument vector
+        std::vector<const char*> argv;
+        argv.reserve(args.size() + 2); // app + args + null terminator
+
+        argv.push_back(app.data());
+        for (const auto& arg : args) {
+            argv.push_back(arg.data());
+        }
+        argv.push_back(nullptr);
+
+        // Execute with path search
+        execvp(app.data(), const_cast<char* const*>(argv.data()));
+
+        // If exec fails
+        std::cerr << "Failed to execute " << app << "\n";
+        _exit(EXIT_FAILURE);
+    }
+
+    // Parent returns child's PID
+    return pid;
+}
+
+
+// int main() {
+//     try {
+//         // Example 1: Launch basic xterm
+//         launch_app("xterm");
+        
+//         // Example 2: Launch xterm running tmux
+//         launch_app("xterm", {"-e", "tmux"});
+        
+//         // Example 3: Launch Firefox with URL
+//         launch_app("firefox", {"https://www.example.com"});
+        
+//     } catch (const std::system_error& e) {
+//         std::cerr << "Error: " << e.what() << " (" << e.code() << ")\n";
+//         return 1;
+//     }
+    
+//     return 0;
+// }
+#include <filesystem>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <iostream>
+
+namespace fs = std::filesystem;
+#include <X11/Xutil.h> // Add this include for WindowAttributes
+
+void focus_window(Display* display, Window window) {
+    // First check if the window is viewable
+    XWindowAttributes attrs;
+    if (XGetWindowAttributes(display, window, &attrs)) {
+        if (attrs.map_state != IsViewable) {
+            // Window isn't visible, map it first
+            XMapWindow(display, window);
+            XFlush(display);
+            usleep(100000); // Small delay to let window manager handle the map request
+        }
+    }
+
+    // Get the window manager frame if it exists (for decorated windows)
+    Atom actual_type;
+    int actual_format;
+    unsigned long nitems, bytes_after;
+    unsigned char* frame_extents_data = nullptr;
+    Atom frame_extents = XInternAtom(display, "_NET_FRAME_EXTENTS", False);
+    
+    if (XGetWindowProperty(display, window, frame_extents, 0, 4, 
+                          False, AnyPropertyType, &actual_type, &actual_format,
+                          &nitems, &bytes_after, &frame_extents_data) == Success && frame_extents_data) {
+        // This window has frame extents (is decorated)
+        XFree(frame_extents_data);
+        
+        // Try to get the frame window
+        unsigned char* frame_window_data = nullptr;
+        Atom frame_atom = XInternAtom(display, "_NET_WM_FRAME_WINDOW", False);
+        if (XGetWindowProperty(display, window, frame_atom, 0, 1, 
+                              False, XA_WINDOW, &actual_type, &actual_format,
+                              &nitems, &bytes_after, &frame_window_data) == Success && frame_window_data) {
+            Window frame = *reinterpret_cast<Window*>(frame_window_data);
+            XFree(frame_window_data);
+            window = frame; // Focus the frame instead
+        }
+    }
+
+    // Raise the window first
+    XRaiseWindow(display, window);
+    XFlush(display);
+    
+    // Set input focus - only if the window is viewable
+    if (XGetWindowAttributes(display, window, &attrs)) {
+        if (attrs.map_state == IsViewable) {
+            XSetInputFocus(display, window, RevertToParent, CurrentTime);
+            XFlush(display);
+        }
+    }
+
+    // EWMH-compliant activation
+    Atom net_active_window = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
+    XEvent event;
+    memset(&event, 0, sizeof(event));
+    event.xclient.type = ClientMessage;
+    event.xclient.window = window;
+    event.xclient.message_type = net_active_window;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = 1;  // Source indication (1 = application)
+    event.xclient.data.l[1] = CurrentTime;
+    event.xclient.data.l[2] = 0;  // Should be 0 when from application
+    
+    XSendEvent(display, DefaultRootWindow(display), False,
+              SubstructureRedirectMask | SubstructureNotifyMask,
+              &event);
+    XFlush(display);
+    
+    // Small delay to let window manager process the request
+    usleep(50000);
+}
+
+#include <algorithm>  // Add this include for std::find
+
+// ... [previous includes and namespace] ...
+
+bool is_process_running(const std::string& process_name) {
+    Display* display = XOpenDisplay(nullptr);
+    if (!display) {
+        std::cerr << "Failed to open X11 display\n";
+        return false;
+    }
+
+    bool process_found = false;
+    std::vector<pid_t> matching_pids;
+
+    // First pass: Find all matching PIDs
+    for (const auto& entry : fs::directory_iterator("/proc")) {
+        if (entry.is_directory()) {
+            try {
+                pid_t pid = static_cast<pid_t>(std::stol(entry.path().filename().string()));
+                std::ifstream cmdline(entry.path() / "cmdline");
+                if (cmdline) {
+                    std::string cmd;
+                    std::getline(cmdline, cmd);
+                    if (!cmd.empty() && cmd.find(process_name) != std::string::npos) {
+                        matching_pids.push_back(pid);
+                        process_found = true;
+                    }
+                }
+            } catch (...) {
+                continue;
+            }
+        }
+    }
+
+    // Second pass: Find and focus windows for these PIDs
+    if (process_found) {
+        Window root = DefaultRootWindow(display);
+        Atom pid_atom = XInternAtom(display, "_NET_WM_PID", False);
+        Window* windows = nullptr;
+        unsigned int count = 0;
+        
+        if (XQueryTree(display, root, &root, &root, &windows, &count)) {
+            for (unsigned int i = 0; i < count; i++) {
+                Atom actual_type;
+                int actual_format;
+                unsigned long nitems, bytes_after;
+                unsigned char* pid_data = nullptr;
+                
+// In the is_process_running function's window finding section:
+// In the window finding section of is_process_running():
+if (XGetWindowProperty(display, windows[i], pid_atom, 0, 1, 
+                     False, XA_CARDINAL, &actual_type, &actual_format,
+                     &nitems, &bytes_after, &pid_data) == Success && pid_data) {
+    pid_t window_pid = *reinterpret_cast<pid_t*>(pid_data);
+    XFree(pid_data);
+    
+    if (std::find(matching_pids.begin(), matching_pids.end(), window_pid) != matching_pids.end()) {
+        // Additional check to verify this is a top-level window
+        Atom window_type = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+        Atom normal_type = XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", False);
+        unsigned char* window_type_data = nullptr;
+        
+        if (XGetWindowProperty(display, windows[i], window_type, 0, 1, 
+                             False, XA_ATOM, &actual_type, &actual_format,
+                             &nitems, &bytes_after, &window_type_data) == Success && window_type_data) {
+            Atom type = *reinterpret_cast<Atom*>(window_type_data);
+            XFree(window_type_data);
+            
+            if (type == normal_type) {
+                focus_window(display, windows[i]);
+            }
+        } else {
+            // Fallback if window type can't be determined
+            focus_window(display, windows[i]);
+        }
+    }
+}
+            }
+            XFree(windows);
+        }
+    }
+
+    XCloseDisplay(display);
+    return process_found;
+}
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <unistd.h>
+#include <iostream>
+
+bool getWindowFromPid(Display* display, Window root, unsigned long pid, Window& result) {
+    Atom atomPID = XInternAtom(display, "_NET_WM_PID", True);
+    if (atomPID == None) return false;
+
+    Window parent;
+    Window *children;
+    unsigned int nchildren;
+
+    if (XQueryTree(display, root, &root, &parent, &children, &nchildren)) {
+        for (unsigned int i = 0; i < nchildren; ++i) {
+            Atom actualType;
+            int actualFormat;
+            unsigned long nItems, bytesAfter;
+            unsigned char *propPID = nullptr;
+
+            if (Success == XGetWindowProperty(display, children[i], atomPID, 0, 1, False,
+                                              XA_CARDINAL, &actualType, &actualFormat,
+                                              &nItems, &bytesAfter, &propPID)) {
+                if (propPID) {
+                    if (pid == *(unsigned long*)propPID) {
+                        result = children[i];
+                        XFree(propPID);
+                        XFree(children);
+                        return true;
+                    }
+                    XFree(propPID);
+                }
+            }
+        }
+        XFree(children);
+    }
+    return false;
+}
+
+void activateWindow(Display* display, Window window) {
+    XEvent event = {};
+    event.xclient.type = ClientMessage;
+    event.xclient.window = window;
+    event.xclient.message_type = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = 2; // Source indication: user action
+    event.xclient.data.l[1] = CurrentTime; // Valid timestamp
+    event.xclient.data.l[2] = 0;
+    event.xclient.data.l[3] = 0;
+    event.xclient.data.l[4] = 0;
+
+    // Raise the window first
+    XRaiseWindow(display, window);
+
+    // Send the activation event
+    XSendEvent(display, DefaultRootWindow(display), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(display);
+}
+
+
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <iostream>
+
+bool isMainWindow(Display* display, Window window, unsigned long pid) {
+    Atom atomPID = XInternAtom(display, "_NET_WM_PID", True);
+    Atom atomType = XInternAtom(display, "_NET_WM_WINDOW_TYPE", True);
+    Atom atomNormal = XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", True);
+
+    // Check PID match
+    Atom actualType;
+    int actualFormat;
+    unsigned long nItems, bytesAfter;
+    unsigned char* propPID = nullptr;
+
+    if (Success != XGetWindowProperty(display, window, atomPID, 0, 1, False,
+                                      XA_CARDINAL, &actualType, &actualFormat,
+                                      &nItems, &bytesAfter, &propPID)) {
+        return false;
+    }
+
+    if (!propPID || *(unsigned long*)propPID != pid) {
+        if (propPID) XFree(propPID);
+        return false;
+    }
+    XFree(propPID);
+
+    // Check window type
+    unsigned char* propType = nullptr;
+    if (Success != XGetWindowProperty(display, window, atomType, 0, 1, False,
+                                      XA_ATOM, &actualType, &actualFormat,
+                                      &nItems, &bytesAfter, &propType)) {
+        return false;
+    }
+
+    bool isNormal = propType && *(Atom*)propType == atomNormal;
+    if (propType) XFree(propType);
+    if (!isNormal) return false;
+
+    // Check if window is viewable
+    XWindowAttributes attr;
+    if (!XGetWindowAttributes(display, window, &attr)) return false;
+    if (attr.map_state != IsViewable) return false;
+
+    return true;
+}
+
+Window findMainWindow(Display* display, Window root, unsigned long pid) {
+    Window parent;
+    Window* children;
+    unsigned int nchildren;
+    Window best = 0;
+
+    if (XQueryTree(display, root, &root, &parent, &children, &nchildren)) {
+        for (unsigned int i = 0; i < nchildren; ++i) {
+            if (isMainWindow(display, children[i], pid)) {
+                best = children[i];
+                break; // You could add heuristics here to pick the largest or top-most
+            }
+        }
+        XFree(children);
+    }
+    return best;
+}
+
+int pidActivate(pid_t targetPid) {
+Display* display = XOpenDisplay(nullptr);
+Window root = DefaultRootWindow(display);
+// pid_t targetPid = 14775;
+
+Window mainWin = findMainWindow(display, root, targetPid);
+if (mainWin) {
+    std::cout << "Main window: " << mainWin << "\n";
+    activateWindow(display, mainWin); // Your existing function
+} else {
+    std::cerr << "No main window found for PID " << targetPid << "\n";
+}
+XCloseDisplay(display);
+
+    return 0;
+}
+
+////////////////////////////////////////////////////////
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <cstring>
+#include <iostream>
+
+bool matchWindowClass(Display* display, Window window, const std::string& name) {
+    Atom atomClass = XInternAtom(display, "WM_CLASS", True);
+    if (atomClass == None) return false;
+
+    Atom actualType;
+    int actualFormat;
+    unsigned long nItems, bytesAfter;
+    unsigned char* prop = nullptr;
+
+    if (Success == XGetWindowProperty(display, window, atomClass, 0, (~0L), False,
+                                      XA_STRING, &actualType, &actualFormat,
+                                      &nItems, &bytesAfter, &prop)) {
+        if (prop) {
+            std::string classStr(reinterpret_cast<char*>(prop), nItems);
+            XFree(prop);
+            return classStr.find(name) != std::string::npos;
+        }
+    }
+    return false;
+}
+
+Window findWindowByClass(Display* display, Window root, const std::string& name) {
+    Window parent;
+    Window* children;
+    unsigned int nchildren;
+    Window result = 0;
+
+    if (XQueryTree(display, root, &root, &parent, &children, &nchildren)) {
+        for (unsigned int i = 0; i < nchildren; ++i) {
+            if (matchWindowClass(display, children[i], name)) {
+                result = children[i];
+                break;
+            }
+        }
+        XFree(children);
+    }
+    return result;
+}
+
+
+
+
+#include <iostream>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <array>
+
+bool windowExists(const std::string& windowName) {
+    std::array<char, 512> buffer;
+    std::string result;
+
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("wmctrl -l", "r"), pclose);
+    if (!pipe) return false;
+
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+
+    return result.find(windowName) != std::string::npos;
+}
+
+void activateWindow(const std::string& windowName) {
+    std::string command = "wmctrl -a \"" + windowName + "\"";
+    system(command.c_str());
+}
+
+
+pid_t pid_=0;
+int main() { 
     int bar_height = 24; // Adjust height as needed
     int screen_w = Fl::w();
     int screen_h = Fl::h();
@@ -318,382 +759,50 @@ int main() {
     win->color(FL_DARK_BLUE);
     win->begin();
         // Add your widgets/controls here
-        Fl_Box* box = new Fl_Box(10, 5, 200, bar_height-10, "My Dock Bar");
-        // box->color(FL_TRANSPARENT);
-        box->labelsize(16);
-        box->labelcolor(FL_WHITE);
-        box->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+        // Fl_Box* box = new Fl_Box(10, 5, 200, bar_height-10, "My Dock Bar");
+        // // box->color(FL_TRANSPARENT);
+        // box->labelsize(16);
+        // box->labelcolor(FL_WHITE);
+        // box->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
 		
         Fl_Button* btn = new Fl_Button(0, 0, 50, bar_height);
 		btn->callback([](Fl_Widget*){
             // This is the text you want to "paste"
 			std::string text_to_paste = "This text was pasted from my custom taskbar!";
+			string launcherstr="scite";
+			// string launcherstr="code";
+			// string launcherstr="google-chrome-stable";
+			// if(!is_process_running(launcherstr))
+				pid_= launch_app(launcherstr,{});
+				cout<<"pid "<<pid_<<"\n";
 
-			winpop();
-			return;
-
-#ifdef __linux__
-			if(0){
-            Display* dpy = fl_display;
-            Window xid = fl_xid(win); // Use your window's XID
-
-            // Get the XA_PRIMARY selection atom (for immediate paste)
-            // Or XA_CLIPBOARD for the more persistent clipboard
-            Atom utf8_string = XInternAtom(dpy, "UTF8_STRING", False);
-            Atom primary = XInternAtom(dpy, "PRIMARY", False); // Or XInternAtom(dpy, "CLIPBOARD", False);
-
-            // Set the selection owner
-            XSetSelectionOwner(dpy, primary, xid, CurrentTime);
-
-            // Check if we successfully became the selection owner
-            if (XGetSelectionOwner(dpy, primary) != xid) {
-                fl_alert("Could not become selection owner.");
-                return;
-            }
-
-            // Create an XEvent to simulate a paste request
-            XEvent event;
-            memset(&event, 0, sizeof(event));
-            event.xselectionrequest.type = SelectionRequest;
-            event.xselectionrequest.display = dpy;
-            event.xselectionrequest.owner = xid;
-            event.xselectionrequest.requestor = XDefaultRootWindow(dpy); // Request to the root window to simulate a paste
-            event.xselectionrequest.selection = primary;
-            event.xselectionrequest.target = utf8_string;
-            event.xselectionrequest.property = None; // Let the client choose the property
-
-            // Send the SelectionRequest event
-            XSendEvent(dpy, XDefaultRootWindow(dpy), False, 
-                       NoEventMask, (XEvent *)&event);
-            XFlush(dpy);
-
-            // The actual paste data needs to be provided when the target requests it.
-            // This typically happens in a SelectionNotify event handler.
-            // For a simple paste, you might need to directly send the keys.
-            // However, a more robust solution involves handling SelectionNotify.
-
-            // Alternative: Simulate key presses for Ctrl+V
-            // This is a simpler but less "correct" way to paste.
-            // It relies on the active window responding to Ctrl+V.
-            XKeyEvent event_press;
-            XKeyEvent event_release;
-
-            memset(&event_press, 0, sizeof(event_press));
-            memset(&event_release, 0, sizeof(event_release));
-
-            Display* display = fl_display;
-            Window root = XDefaultRootWindow(display);
-
-            // Get the currently focused window
-            Window focused_window;
-            int revert_to;
-            XGetInputFocus(display, &focused_window, &revert_to);
-
-            // If no specific window is focused, send to root (might not work as expected)
-            if (focused_window == PointerRoot || focused_window == None) {
-                focused_window = root;
-            }
-
-            event_press.display = display;
-            event_press.window = focused_window;
-            event_press.root = root;
-            event_press.subwindow = None;
-            event_press.time = CurrentTime;
-            event_press.x = 1; // Dummy values
-            event_press.y = 1;
-            event_press.x_root = 1;
-            event_press.y_root = 1;
-            event_press.same_screen = True;
-            event_press.state = ControlMask; // Ctrl key pressed
-            event_press.keycode = XKeysymToKeycode(display, XK_v); // 'v' key
-            event_press.type = KeyPress;
-
-            event_release = event_press;
-            event_release.type = KeyRelease;
-
-            // Simulate Ctrl+V key sequence
-            XSendEvent(display, focused_window, True, KeyPressMask, (XEvent *)&event_press);
-            XSendEvent(display, focused_window, True, KeyReleaseMask, (XEvent *)&event_release);
-            XFlush(display);
-            
-            // Now, you need to set the selection data.
-            // This part is crucial and often handled in a dedicated XEvent handler (SelectionRequest).
-            // For this simplified example, we'll directly send the string as if it were part of a paste operation.
-            // This is NOT the standard X11 selection protocol, but might work for simple cases.
-            // A proper implementation would involve responding to SelectionRequest events from the target window.
-
-            // To make the actual text available, you would typically own the selection
-            // and then provide the data when another client requests it.
-            // Since we're trying to *paste*, we're the *requestor*.
-            // The simulation of Ctrl+V is the more direct way to trigger a paste from the existing clipboard.
-
-            // If you want to *set* the clipboard content, you'd use something like this (simplified):
-            Atom clipboard = XInternAtom(dpy, "CLIPBOARD", False);
-            XSetSelectionOwner(dpy, clipboard, xid, CurrentTime);
-            
-            // To fulfill a paste request from another application, your application
-            // needs to respond to SelectionRequest events. This is a more complex topic
-            // involving event loop management.
-
-            // For now, let's focus on triggering the paste of the *current* clipboard content
-            // via simulated Ctrl+V, after ensuring our text is in the clipboard.
-
-            // If you want to put `text_to_paste` into the clipboard and *then* paste it:
-            // This requires your application to act as the selection owner and respond to requests.
-            // For a complete clipboard manager, you'd implement a SelectionRequest handler.
-            // For simplicity, we'll try to put the text directly into a selection and then trigger paste.
-
-            // To put your `text_to_paste` into the PRIMARY selection:
-            Atom selection = XInternAtom(dpy, "PRIMARY", False); // Or CLIPBOARD
-            XSetSelectionOwner(dpy, selection, xid, CurrentTime);
-
-            // The data itself isn't set directly here. It's provided when requested.
-            // This means your application needs an event loop that listens for SelectionRequest.
-            // FLTK handles its own event loop, so integrating a full X11 selection provider
-            // might be more involved.
-
-            // For immediate "paste" of a specific string, simulating key presses is often
-            // the quickest, though less elegant, solution.
-
-            // To actually "paste" `text_to_paste` into the active window, we need to
-            // provide that text to the selection system. When the other application
-            // requests a paste, it will send a SelectionRequest event to our window.
-            // We would then respond with SelectionNotify and set the property on their window.
-
-            // Since FLTK abstracts much of X11 event handling, directly implementing
-            // a full selection provider can be tricky.
-
-            // Let's refine the Ctrl+V approach to ensure our text is in the clipboard first.
-            // This means we need to act as the clipboard owner temporarily.
-
-            // To set the CLIPBOARD content:
-            Atom ATOM_CLIPBOARD = XInternAtom(dpy, "CLIPBOARD", False);
-            Atom ATOM_UTF8_STRING = XInternAtom(dpy, "UTF8_STRING", False);
-            Atom ATOM_TARGETS = XInternAtom(dpy, "TARGETS", False);
-
-            XSetSelectionOwner(dpy, ATOM_CLIPBOARD, xid, CurrentTime);
-		}
-
-            // This is where you would process SelectionRequest events.
-            // FLTK's event loop might not easily expose this for a separate
-            // X11 selection owner.
-
-            // A simpler approach for setting the clipboard data (if you don't need
-            // to be a long-term selection owner and just want to set it once):
-            // This involves more low-level XSendEvent calls or using a library that
-            // wraps selection handling. FLTK provides `Fl::copy()` and `Fl::paste()`,
-            // but `Fl::copy()` sets the FLTK clipboard, not necessarily the X11 primary/clipboard.
-
-            // **Revised Strategy: Simulate Ctrl+C of your text, then Ctrl+V**
-            // This is still a bit of a hack but might be more reliable if you control
-            // a temporary window for the "copy" action.
-            // However, a direct programmatic way to set the X11 clipboard is better.
-
-            // **Directly putting text into CLIPBOARD for pasting**
-            // This is the most robust way. You need to implement an event handler
-            // for SelectionRequest events on your window `xid`.
-
-            // This part of the code would go into an X11 event loop or an FLTK handler
-            // that processes raw XEvents. Since this is in a button callback, we need
-            // to trigger the paste.
-
-            // Option 1: Simulate Ctrl+V directly (assuming the text is already in the clipboard by some other means)
-            // This is what the code above already does effectively. It sends Ctrl+V to the active window.
-
-            // Option 2: Programmatically put text into CLIPBOARD and then simulate Ctrl+V.
-            // This is more involved as it requires handling SelectionRequest.
-            // For demonstration, let's just use a simplified version for setting the clipboard.
-
-            // For setting the clipboard, you'd typically use `XConvertSelection` to request
-            // the target window to convert the selection to a desired format (e.g., UTF8_STRING).
-            // But here, *we* want to *be* the source of the paste.
-
-            // Let's try to set the clipboard contents directly. This usually means becoming
-            // the selection owner and providing the data on request.
-
-            // This is a common pattern for setting clipboard content in X11:
-            // 1. Become selection owner.
-            // 2. Wait for SelectionRequest events.
-            // 3. When a SelectionRequest for your selection (CLIPBOARD/PRIMARY) comes,
-            //    and the target is a type you support (e.g., UTF8_STRING),
-            //    set a property on the requestor's window with the data.
-            //    Then send a SelectionNotify event.
-
-            // FLTK doesn't expose the raw X11 event loop easily for this.
-            // However, if you are running on a modern desktop environment, there
-            // might be a simpler way using a utility or a high-level library.
-
-            // **Simplest Approach (and what you're likely looking for):**
-            // 1. Put your `text_to_paste` into the X11 CLIPBOARD selection.
-            // 2. Send Ctrl+V key presses to the currently active window.
-
-            // To put text into the CLIPBOARD selection without becoming a long-term
-            // selection manager, you can use `XSetSelectionOwner` and then let a short-lived
-            // dummy window manage the selection.
-
-            // More directly for setting the clipboard in a short-lived context:
-            // Create a temporary window that will own the selection.
-            // This window won't be shown, just used for selection ownership.
-
-            // The best way to set the X11 clipboard is by becoming the selection owner
-            // and responding to SelectionRequest events. This is typically done in an event loop.
-
-            // Given FLTK's abstraction, the most practical approach for a button callback
-            // might be to use a system command if available, or simulate Ctrl+V
-            // after somehow putting the desired text into the system clipboard.
-
-            // Since you're using X11 directly, you can become the selection owner temporarily
-            // and respond to the request. This requires a small event loop to wait for the request.
-            // This is more complex for a simple button callback.
-
-            // Let's go with the simulated Ctrl+V, assuming the text_to_paste is already
-            // in the system clipboard (e.g., you manually copied it, or another part
-            // of your app put it there).
-
-            // To *put* text into the X11 CLIPBOARD for external use, a more complete example:
-            //
-            // static std::string selection_data;
-            // static int selection_owner_window_id; // Store XID of the owner window
-            //
-            // // Event handler for SelectionRequest
-            // int handle_selection_request(XEvent* event) {
-            //     if (event->xany.window != selection_owner_window_id) return 0; // Not for our window
-            //
-            //     XSelectionRequestEvent *req = &(event->xselectionrequest);
-            //     Display* dpy = req->display;
-            //     Window requestor = req->requestor;
-            //     Atom property = req->property;
-            //     Atom target = req->target;
-            //
-            //     Atom ATOM_UTF8_STRING = XInternAtom(dpy, "UTF8_STRING", False);
-            //     Atom ATOM_TARGETS = XInternAtom(dpy, "TARGETS", False);
-            //     Atom ATOM_TEXT = XInternAtom(dpy, "TEXT", False); // Older text type
-            //
-            //     XEvent notify;
-            //     memset(&notify, 0, sizeof(notify));
-            //     notify.xselection.type = SelectionNotify;
-            //     notify.xselection.display = dpy;
-            //     notify.xselection.requestor = requestor;
-            //     notify.xselection.selection = req->selection;
-            //     notify.xselection.target = target;
-            //     notify.xselection.time = req->time;
-            //
-            //     if (target == ATOM_TARGETS) {
-            //         // Respond with supported targets
-            //         Atom supported_targets[] = { ATOM_UTF8_STRING, ATOM_TEXT, ATOM_TARGETS };
-            //         XChangeProperty(dpy, requestor, property, XA_ATOM, 32, PropModeReplace,
-            //                         (unsigned char*)supported_targets, sizeof(supported_targets)/sizeof(Atom));
-            //         notify.xselection.property = property;
-            //     } else if (target == ATOM_UTF8_STRING || target == ATOM_TEXT) {
-            //         // Provide the actual string data
-            //         XChangeProperty(dpy, requestor, property, ATOM_UTF8_STRING, 8, PropModeReplace,
-            //                         (unsigned char*)selection_data.c_str(), selection_data.length());
-            //         notify.xselection.property = property;
-            //     } else {
-            //         notify.xselection.property = None; // Unsupported target
-            //     }
-            //
-            //     XSendEvent(dpy, requestor, False, 0, &notify);
-            //     return 1; // Handled
-            // }
-            //
-            // // In your main loop, before Fl::run() or in a custom event handler:
-            // // XSetWMProtocols(dpy, xid, &WM_DELETE_WINDOW, 1); // If not already set
-            // // // Set Fl::handle to route events
-            // // Fl::add_handler(handle_selection_request);
-            //
-            // // Inside the button callback to set the clipboard:
-            // selection_data = text_to_paste;
-            // selection_owner_window_id = xid;
-            // Atom clipboard = XInternAtom(dpy, "CLIPBOARD", False);
-            // XSetSelectionOwner(dpy, clipboard, xid, CurrentTime);
-            //
-            // // After setting the selection owner, trigger paste with Ctrl+V
-            // // (This assumes the recipient will request the CLIPBOARD selection)
-            // // ... (Ctrl+V simulation as below) ...
-
-            // **For your current setup and simplicity, here's a combined approach:**
-            // 1. Try to set the PRIMARY selection (often used for immediate paste with middle-click)
-            // 2. Simulate Ctrl+V to trigger paste from the CLIPBOARD selection.
-            //    This implies you need a way to get your text into the CLIPBOARD first.
-
-            // Since FLTK has its own clipboard functions, a common approach for users
-            // is to use `Fl::copy()` to put text into the FLTK clipboard, and then
-            // `Fl::paste()` to get it out. However, `Fl::copy()` interacts with the
-            // X11 PRIMARY selection and potentially the CLIPBOARD selection depending
-            // on FLTK's internal X11 integration.
-
-            // Let's leverage FLTK's clipboard mechanism as much as possible for `text_to_paste`.
-            // Fl::copy() sets the X11 PRIMARY selection and potentially CLIPBOARD.
-            Fl::copy(text_to_paste.c_str(), text_to_paste.length());
-
-            // Now that the text is (hopefully) in the system clipboard, simulate Ctrl+V.
-            // This is the part that will "paste" it into the active window.
-            
-            XKeyEvent event_press;
-            XKeyEvent event_release;
-
-            memset(&event_press, 0, sizeof(event_press));
-            memset(&event_release, 0, sizeof(event_release));
-
-            Display* display = fl_display;
-            Window root = XDefaultRootWindow(display);
-
-            // Get the currently focused window
-            Window focused_window;
-            int revert_to;
-            XGetInputFocus(display, &focused_window, &revert_to);
-
-            // If no specific window is focused or it's the root, try to get the active window
-            // _NET_ACTIVE_WINDOW property on the root window
-            if (focused_window == PointerRoot || focused_window == None) {
-                Atom net_active_window = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
-                Atom actual_type;
-                int actual_format;
-                unsigned long nitems, bytes_after;
-                unsigned char *prop_return = NULL;
-                Window active_window_id = None;
-
-                if (XGetWindowProperty(display, root, net_active_window, 0, 1, False,
-                                       XA_WINDOW, &actual_type, &actual_format,
-                                       &nitems, &bytes_after, &prop_return) == Success && nitems > 0) {
-                    active_window_id = ((Window*)prop_return)[0];
-                    XFree(prop_return);
-                    if (active_window_id != None) {
-                        focused_window = active_window_id;
-                    }
-                }
-            }
-            
-            // Fallback to root if still no suitable window
-            if (focused_window == PointerRoot || focused_window == None) {
-                focused_window = root;
-            }
-
-            event_press.display = display;
-            event_press.window = focused_window;
-            event_press.root = root;
-            event_press.subwindow = None;
-            event_press.time = CurrentTime;
-            event_press.x = 1; 
-            event_press.y = 1;
-            event_press.x_root = 1;
-            event_press.y_root = 1;
-            event_press.same_screen = True;
-            event_press.state = ControlMask; // Ctrl key pressed
-            event_press.keycode = XKeysymToKeycode(display, XK_v); // 'v' key
-            event_press.type = KeyPress;
-
-            event_release = event_press;
-            event_release.type = KeyRelease;
-
-            // Simulate Ctrl+V key sequence
-            XSendEvent(display, focused_window, True, KeyPressMask, (XEvent *)&event_press);
-            XSendEvent(display, focused_window, True, KeyReleaseMask, (XEvent *)&event_release);
-            XFlush(display);
-
-#endif // __linux__
 		});
+        Fl_Button* btn2 = new Fl_Button(50, 0, 50, bar_height);
+		btn2->callback([](Fl_Widget*){
+
+				    std::string windowName = "scite";               // Window title
+    std::string launchCommand = "myapp &";          // Command to launch
+
+    if (windowExists(windowName)) {
+        activateWindow(windowName);
+	}
+		// pidActivate(pid_) ;
+// 		Display* display = XOpenDisplay(nullptr);
+// Window root = DefaultRootWindow(display);
+
+// Window win = findWindowByClass(display, root, "scite"); // or "Firefox"
+// if (win) {
+//     std::cout << "Found window: " << win << "\n";
+//     activateWindow(display, win); // Your existing function
+// } else {
+//     std::cerr << "No window found for class 'firefox'\n";
+// }
+// XCloseDisplay(display);
+
+		});
+
+
+
     win->end();
     
     win->border(0); // Remove window borders

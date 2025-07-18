@@ -19,6 +19,7 @@
 !apptest/docker.cpp
 !apptest/clip.cpp
 !apptest/getawin.cpp
+!apptest/taskbar.cpp
 
 !/appcad
 !simplecad.cpp
