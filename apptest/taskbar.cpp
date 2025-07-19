@@ -7,6 +7,7 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Box.H>
+#include <FL/Fl_Browser.H>
 #include <FL/fl_ask.H>
 #include <FL/x.H> // X11-specific functions
 
@@ -110,6 +111,8 @@ void set_dock_properties(Fl_Window* win) {
 #include <cstring>
 #include <string>
 
+vstring vclipboard;
+
 std::string getClipboardText(Display* display, Window window, Atom property) {
     Atom clipboard = XInternAtom(display, "CLIPBOARD", False);
     Atom utf8 = XInternAtom(display, "UTF8_STRING", False);
@@ -185,7 +188,8 @@ int listenclipboard() {
             if (sev->subtype == XFixesSetSelectionOwnerNotify) {
                 std::string content = getClipboardText(display, window, property);
                 if (!content.empty() && content != lastClipboardContent) {
-                    std::cout << "Clipboard contents: " << content << "\n";
+                    // std::cout << "Clipboard contents: " << content << "\n";
+					vclipboard.push_back(content);
                     lastClipboardContent = content;
                 }
             }
@@ -256,21 +260,65 @@ int paste() {
     return 0;
 }
 
+std::string format_to_two_lines(const std::string& text, int line_width) {
+    std::string clipped;
+    int count = 0, lines = 0;
+    for (char c : text) {
+        clipped += c;
+        count++;
+        if (count >= line_width) {
+            clipped += '\n';
+            count = 0;
+            lines++;
+            if (lines == 2) break;
+        }
+    }
+    if (lines == 2) clipped += "...";
+    return clipped;
+}
+void browser_callback(Fl_Widget* w, void* ) {
+    Fl_Browser* browser = (Fl_Browser*)w;
+    
+    int index = browser->value()-1;  // Browser indices start at 1
+    if (index >= 0 && index < vclipboard.size()) {
+        fl_message(vclipboard[index].c_str());
+    }
+}
 
-Fl_Window* winpaste;
+std::atomic<bool> trigger_winpop = false;
+// Fl_Window* winpaste; 
+void delayed_action(void* ) {
+		cotm("after winpop close")
+        trigger_winpop = false;
+    std::cout << "Subwindow was hidden. Now running delayed action!\n";
+    // You can cast and use 'data' if needed
+}
 int winpop() {
-    winpaste = new Fl_Window(100, 100, 300, 200, "Popup");
+    Fl_Window* winpaste = new Fl_Window(100, 100, 300, 200, "Popup");
     Fl_Button* btn = new Fl_Button(100, 80, 100, 40, "Click Me");
 
-    btn->callback([](Fl_Widget*, void*) {
+    // Button callback
+    btn->callback([](Fl_Widget*, void* data) {
+        Fl_Window* winpaste = (Fl_Window*)data;
         std::cout << "Button clicked\n";
 
-		string copy_to_clipboard="testing";
-		
-		const char* text=copy_to_clipboard.c_str();
-		Fl::copy(text, strlen(text), 1);
-		paste();
-		winpaste->hide();
+        std::string copy_to_clipboard = "testing";
+        Fl::copy(copy_to_clipboard.c_str(), copy_to_clipboard.length(), 1);
+
+        paste();
+        winpaste->hide();  // This will trigger hide callback
+		delete winpaste;
+		// trigger_winpop = false;
+		Fl::add_timeout(0.5, delayed_action, 0);
+
+    }, (void*)winpaste);
+
+    // Hide callback to delete window
+    winpaste->callback([](Fl_Widget* w, void*) {
+        Fl_Window* win = (Fl_Window*)w;
+        std::cout << "Window hidden, destroying.\n";
+        win->hide();
+        delete win;  // Destroy window completely
     });
 
     winpaste->end();
@@ -283,16 +331,71 @@ int winpop() {
     XSetWindowAttributes attrs;
     attrs.override_redirect = True;
     XChangeWindowAttributes(dpy, xid, CWOverrideRedirect, &attrs);
-    XMapRaised(dpy, xid); // Show without focus
+    XMapRaised(dpy, xid);
 
-	Fl::wait();
+    Fl::wait();
     return 1;
 }
+
+// int winpopt() {
+//     winpaste = new Fl_Window(0, 0, 200, 400, "Popup");
+//     Fl_Button* btn = new Fl_Button(100, 80, 100, 40, "Click Me");
+	
+//     btn->callback([](Fl_Widget*, void*) {
+//         std::cout << "Button clicked\n";
+
+// 		string copy_to_clipboard="testing";
+		
+// 		const char* text=copy_to_clipboard.c_str();
+// 		Fl::copy(text, strlen(text), 1);
+// 		paste();
+// 		winpaste->hide();
+//     });
+
+// 	Fl_Browser* browser = new Fl_Browser(0, 0, 200, 400);
+// 	// browser->hscrollbar(0);
+// 	browser->callback(browser_callback);
+
+// 	// std::string long_text = "This is a long paragraph that won't fit in two lines completely.";
+// 	// full_texts.push_back(long_text);
+// 	lop(i,0,vclipboard.size()){
+// 		std::string clipped = format_to_two_lines(vclipboard[i], 40);  // Assuming ~40 characters per line
+// 		browser->add(clipped.c_str());
+// 	}
+
+
+//     winpaste->end();
+//     winpaste->show();
+
+//     // Prevent window from stealing focus
+//     Display* dpy = fl_display;
+//     Window xid = fl_xid(winpaste);
+
+//     XSetWindowAttributes attrs;
+//     attrs.override_redirect = True;
+//     XChangeWindowAttributes(dpy, xid, CWOverrideRedirect, &attrs);
+//     XMapRaised(dpy, xid); // Show without focus
+
+// 	Fl::wait();
+//     return 1;
+// }
 
 
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <iostream>
+
+
+void check_trigger(void*) {
+	cotm("tcalled");
+    if (trigger_winpop) {
+        winpop();
+		// // Fl::wait();
+		// cotm("after winpop close")
+        // trigger_winpop = false;
+    }
+	// Fl::remove_idle(check_trigger);
+}
 
 int listenkey() {
     Display* dpy = XOpenDisplay(nullptr);
@@ -304,9 +407,8 @@ int listenkey() {
     Window root = DefaultRootWindow(dpy);
     KeyCode v_key = XKeysymToKeycode(dpy, XStringToKeysym("v"));
 
-    // Grab Alt+V globally
-    XGrabKey(dpy, v_key, Mod1Mask, root, True,
-             GrabModeAsync, GrabModeAsync);
+    // Grab Super_L (Win) + V globally using Mod4Mask as modifier
+    XGrabKey(dpy, v_key, Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
     XSelectInput(dpy, root, KeyPressMask);
 
     while (true) {
@@ -315,16 +417,21 @@ int listenkey() {
 
         if (ev.type == KeyPress &&
             ev.xkey.keycode == v_key &&
-            (ev.xkey.state & Mod1Mask)) {
-            std::cout << "Alt+V pressed globally!\n";
-			winpop();
-            // You can trigger your FLTK logic here
+            (ev.xkey.state & Mod4Mask)) {
+
+            trigger_winpop = true;
+            Fl::awake(check_trigger);
+            cotm("wpress");
+			//  Fl::awake(); 
+			//  winpop();                      
+    		// Fl::add_idle(check_trigger, nullptr);
         }
     }
 
     XCloseDisplay(dpy);
     return 0;
 }
+
 
 
 
@@ -447,11 +554,15 @@ std::vector<std::string> findKeysByValue(
     return res;
 }
 
- void refresh_idle_cb(void*) {
-    	// win->begin();
-		fg->begin(); refresh(); fg->end();
-		// win->end();
-    Fl::remove_idle(refresh_idle_cb); // if you only want it once
+void refresh_idle_cb(void*) { 
+
+	if(trigger_winpop){
+	cotm("NoRefresh")
+		return;
+	}
+	cotm("Refresh")
+	fg->begin(); refresh(); fg->end(); 
+    // Fl::remove_idle(refresh_idle_cb); // if you only want it once
 }
 
 int eventWindow() {
@@ -471,13 +582,18 @@ int eventWindow() {
     while (true) {
         XEvent ev;
         XNextEvent(display, &ev);
-
+		// continue;
+		// if(trigger_winpop){
+		// 	cotm("trigger_winpop")
+		// 	continue;
+		// }
         switch (ev.type) {
 			case CreateNotify:
                 std::cout << "Window created: " << ev.xcreatewindow.window << '\n';
-				    	// fg->begin(); refresh(); fg->end();
- Fl::awake();                       // wake up the main loop
-    Fl::add_idle(refresh_idle_cb, nullptr);
+	// if(trigger_winpop){			    	// fg->begin(); refresh(); fg->end();
+ Fl::awake(refresh_idle_cb);                       // wake up the main loop
+    // Fl::add_idle(refresh_idle_cb, nullptr);
+	// }
                 break;
             case MapNotify:
                 // std::cout << "Window opened (mapped): " << ev.xmap.window << '\n';
@@ -488,8 +604,10 @@ int eventWindow() {
             case DestroyNotify:
                 std::cout << "Window destroyed: " << ev.xdestroywindow.window << '\n';
 				    	// fg->begin(); refresh(); fg->end();;
- Fl::awake();                       // wake up the main loop
-    Fl::add_idle(refresh_idle_cb, nullptr);
+	// if(trigger_winpop){			    	// fg->begin(); refresh(); fg->end();
+ Fl::awake(refresh_idle_cb);                       // wake up the main loop
+    // Fl::add_idle(refresh_idle_cb, nullptr);
+	// }
                 break;
         }
     }
@@ -532,42 +650,42 @@ struct Launcher{
 
 	// If need to handle quoted arguments, need a more robust parser
 	void launch(const std::string& execCommand) {
- pid_t pid = fork();
+		pid_t pid = fork();
 
-    if (pid < 0) {
-        std::cerr << "Failed to fork\n";
-        return;
-    }
+		if (pid < 0) {
+			std::cerr << "Failed to fork\n";
+			return;
+		}
 
-    if (pid > 0) {
-        return; // Parent returns
-    }
+		if (pid > 0) {
+			return; // Parent returns
+		}
 
-    // Child process:
-    setsid();  // Detach from terminal
+		// Child process:
+		setsid();  // Detach from terminal
 
-    // Simple split by spaces
-    std::istringstream iss(execCommand);
-    std::vector<std::string> args;
-    std::string token;
+		// Simple split by spaces
+		std::istringstream iss(execCommand);
+		std::vector<std::string> args;
+		std::string token;
 
-    while (iss >> token) {
-        args.push_back(token);
-    }
+		while (iss >> token) {
+			args.push_back(token);
+		}
 
-    // Build argv[]
-    std::vector<char*> argv;
-    for (auto& arg : args)
-        argv.push_back(arg.data());
-    argv.push_back(nullptr);
+		// Build argv[]
+		std::vector<char*> argv;
+		for (auto& arg : args)
+			argv.push_back(arg.data());
+		argv.push_back(nullptr);
 
-    freopen("/dev/null", "r", stdin);
-    freopen("/dev/null", "w", stdout);
-    freopen("/dev/null", "w", stderr);
+		freopen("/dev/null", "r", stdin);
+		freopen("/dev/null", "w", stdout);
+		freopen("/dev/null", "w", stderr);
 
-    execvp(argv[0], argv.data());
+		execvp(argv[0], argv.data());
 
-    _exit(1); // exec failed
+		_exit(1); // exec failed
 	}
 
 
@@ -668,61 +786,13 @@ struct Launcher{
 #pragma region 
 	Launcher* lnc;
 	vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64"};
-	vector<string> allApps;
+	
 #pragma endregion
 
 vector<Fl_Button*> vbtn;
-// Corrected refresh() implementation for taskbar.cpp
-void refreshc() {
-    Fl::awake();
-    int widthbtn = 150;
-
-    // Delete old buttons
-    for (Fl_Button* btn : vbtn) {
-        delete btn;
-    }
-    vbtn.clear();
-
-    // Populate allApps
-    allApps.clear();
-    auto windows = getOpenWindowsInfo();
-    for (const auto& winp : windows) {
-        allApps.push_back(winp.title);
-    }
-    std::cout << "windows.size() " << windows.size() << std::endl;
-
-	allApps=pinnedApps;
-
-    // Create new buttons
-    vbtn.resize(allApps.size());
-    for (size_t i = 0; i < vbtn.size(); ++i) {
-        vbtn[i] = new Fl_Button(i * (widthbtn + 4), 0, widthbtn, 24, allApps[i].c_str());
-        // Set callback to launch or activate window
-        vbtn[i]->callback([](Fl_Widget* w, void* data) {
-            Launcher* launcher = static_cast<Launcher*>(data);
-            Fl_Button* btn = static_cast<Fl_Button*>(w);
-            std::string title = btn->label();
-            if (launcher->windowExists(title)) {
-                launcher->activateWindow(title);
-            } else {
-                auto it = launcher->uapps.find(title);
-                if (it != launcher->uapps.end()) {
-                    launcher->launch(it->second);
-                }
-            }
-        }, lnc);
-    }
-}
-
-
 vector<WindowInfo> vwin;
 
 void refresh(){
-
-	// std::cout << "Sleeping for 5 seconds..." << std::endl;
-    // std::this_thread::sleep_for(std::chrono::seconds(1));
-    // std::cout << "Awake!" << std::endl;
-	// refresh();
 	int widthbtn=150;
 
 	for (int i = 0; i < vbtn.size(); i++){
@@ -741,7 +811,7 @@ void refresh(){
 		vwin.back().is_open = 0;
 		// cout<<"is "<<vwin.back().is_open<<"\n";
 		for (auto it = windows.begin(); it != windows.end(); /* no ++ here */) {
-			cotm(it->title,it->pid,it->window_id)
+			// cotm(it->title,it->pid,it->window_id)
 			// if()
 			string sexecp = getExecByPid(it->pid);
 			string sexec = lnc->parseExecCommand(sexecp); 
@@ -755,7 +825,7 @@ void refresh(){
 				// vwin.back().title = lnc->uapps[sexecf];
 				vwin.back().window_id = it->window_id;
 				vwin.back().is_open = 1;
-cout<<"equal "<<sexecf<<" "<<sexecp<<"\n";
+// cout<<"equal "<<sexecf<<" "<<sexecp<<"\n";
 				it = windows.erase(it);  // removes and advances the iterator
 			} else {
 				++it;  // only advance if not erasing
@@ -788,8 +858,8 @@ cout<<"equal "<<sexecf<<" "<<sexecp<<"\n";
 		}
 
 	 
-cotm("parou2 ",windows.size())
- cotm(vwin.size())
+// cotm("parou2 ",windows.size())
+//  cotm(vwin.size())
 
 	vbtn=vector<Fl_Button *>(vwin.size());
 	// vbtn.resize(vwin.size(), nullptr);
@@ -830,88 +900,7 @@ cotm(wi.title)
 	}
 	win->end();
 }
-
-void refreshworking(){
-	// Fl::awake();
-	int widthbtn=150;
-
-	for (int i = 0; i < vbtn.size(); i++){
-		vbtn[i]->hide();
-		delete vbtn[i];
-	}
-	vbtn.clear();
-	// allApps=pinnedApps;
-
-	allApps.clear();
-
-	auto windows = getOpenWindowsInfo();
-	for (const auto& winp : windows) {
-		allApps.push_back(winp.title);
-	}
-	cout<<"windows.size() "<<windows.size()<<"\n";
-
-
-	//to work
-	allApps.clear();
-	allApps=pinnedApps;
-
-	// vbtn=vector<Fl_Button*>(allApps.size());
-	
-	vbtn.resize(allApps.size(), nullptr);
-
-	// vector<Fl_Button*> vbtn(pinnedApps.size());
-	for(int i=0;i<vbtn.size();i++){
-    	vbtn[i] = new Fl_Button(i*(widthbtn+4), 0, widthbtn, 24, allApps[i].c_str());
-		vbtn[i]->callback([](Fl_Widget* widget){
-			Fl_Button* btn=(Fl_Button*)widget;
-			const std::string winTitle = std::string(((Fl_Button*)widget)->label());
-			if (lnc->windowExists(winTitle)) {
-				lnc->activateWindow(winTitle);
-				btn->redraw();
-				btn->show();
-				return;
-			}
-
-
-			auto windows = getOpenWindowsInfo();
-			for (const auto& win : windows) {
-				// std::cout << win.process_name << " [" << win.pid << "] "
-				// 		<< win.window_id << " => "
-				// 		<< win.title << '\n';
-				string sexecp=getExecByPid(win.pid);
-				string sexec=lnc->parseExecCommand(sexecp);
-				// cout<<"sexec"<<(sexec)<<"\n";
-				string sexecf=findKeyByValue(lnc->uapps,sexec).value_or("");
  
-		// cout<<"sexec"<<(sexec)<<"\n";
-		// cout<<"sexecf"<<(sexecf)<<"\n";
-				if(sexecf!=""){
-					cout<<"equal "<<sexec<<"\n";
-					// lnc->activateWindow(sexecf);
-					lnc->activateWindow(win.title);
-
-				btn->redraw();
-				btn->show();
-					return;
-				}
-			}
-    // dbg();
-
-
-
-			// const std::string winTitle = std::string(((Fl_Button*)widget)->label());
-			// if (lnc->windowExists(winTitle)) {
-			// 	lnc->activateWindow(winTitle);
-			// } else {
-				lnc->launch(lnc->uapps[winTitle]);
-				btn->redraw();
-				btn->show();
-			// }
-		});
-	}
-
-}
-
 void dbg(){
 	cout<<"uapps "<<lnc->uapps.size()<<endl;
 	cout<<endl;
@@ -940,6 +929,7 @@ void dbg(){
 #include <chrono>
 int main() { 
 	Fl::lock();
+	XInitThreads();
 	lnc=new Launcher;
 	lnc->fillApplications(lnc->uapps);
 
@@ -974,12 +964,14 @@ int main() {
     set_dock_properties(win);
 
 	thread([](){
-		// listenkey();
+		listenclipboard();
  	}).detach();
 
+	
 	thread([](){
-		// listenclipboard();
+		listenkey();
  	}).detach();
+
 
 	thread([](){
 		eventWindow();
