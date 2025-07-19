@@ -1,4 +1,8 @@
-//  g++ taskbar.cpp -o taskbar -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -w 
+//  g++ taskbar.cpp ../common/general.cpp -I../common -o taskbar -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -w 
+//  g++ taskbar.cpp ../common/general.cpp -I../common -o taskbar -lfltk -lX11 -lXtst -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -w -Wfatal-errors
+// g++ taskbar.cpp ../common/general.cpp -I../common -o taskbar -lfltk -lX11 -lXtst -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -w -Wfatal-errors
+
+
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
@@ -43,8 +47,24 @@
 #include <cstdio>
 #include <memory>
 #include <regex>
+#include <fstream>
+#include <cctype>
 
+#include "general.hpp"
+
+void trim(std::string& str) {
+    // Left trim
+    str.erase(str.begin(), std::find_if(str.begin(), str.end(),
+        [](unsigned char ch) { return !std::isspace(ch); }));
+
+    // Right trim
+    str.erase(std::find_if(str.rbegin(), str.rend(),
+        [](unsigned char ch) { return !std::isspace(ch); }).base(), str.end());
+}
 Fl_Window* win;
+Fl_Group* fg;
+void dbg();
+void refresh();
 using namespace std;
 
 void set_dock_properties(Fl_Window* win) {
@@ -314,6 +334,170 @@ int listenkey() {
 
 #pragma endregion
 
+struct WindowInfo {
+    std::string window_id;
+    std::string title;
+    int pid;
+    std::string process_name;
+	bool is_open=0;
+};
+
+std::string getProcessName(int pid) {
+    std::ifstream file("/proc/" + std::to_string(pid) + "/comm");
+    std::string name;
+    if (file.is_open()) {
+        std::getline(file, name);
+    }
+    return name;
+}
+
+std::vector<WindowInfo> getOpenWindowsInfo() {
+    std::vector<WindowInfo> windows;
+    const char* command = "wmctrl -lp";
+
+    std::array<char, 512> buffer;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command, "r"), pclose);
+    if (!pipe) return windows;
+
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        std::string line(buffer.data());
+
+        std::istringstream iss(line);
+        WindowInfo info;
+
+        iss >> info.window_id; // 0xID
+        std::string desktop_num;		
+        iss >> desktop_num;    // Desktop number (ignored)
+		if (desktop_num == "-1") {
+			continue; // Skip sticky windows (appear on all desktops)
+		}
+        iss >> info.pid;       // PID
+        std::string hostname;
+        iss >> hostname;       // Hostname (ignored)
+
+        std::string title;
+        std::getline(iss, title);
+        title.erase(0, title.find_first_not_of(" \t\n\r")); // Trim leading spaces
+        info.title = title;
+
+        info.process_name = getProcessName(info.pid);
+
+        windows.push_back(info);
+    }
+
+    return windows;
+}
+
+std::vector<std::string> getProcessArgs(int pid) {
+    std::vector<std::string> args;
+    std::ifstream file("/proc/" + std::to_string(pid) + "/cmdline", std::ios::binary);
+
+    if (!file.is_open()) {
+        return args; // Process may have exited or permissions issue
+    }
+
+    std::string buffer((std::istreambuf_iterator<char>(file)), {});
+    size_t start = 0;
+
+    for (size_t i = 0; i < buffer.size(); ++i) {
+        if (buffer[i] == '\0') {
+            args.emplace_back(buffer.data() + start, i - start);
+            start = i + 1;
+        }
+    }
+
+    return args;
+}
+string getExecByPid(int pid){
+	std::vector<std::string> args=getProcessArgs(pid);
+	stringstream strm;
+	for (const auto& arg : args) {
+		strm << arg << ' ';
+	}
+	string sexec=strm.str();
+	trim(sexec);
+	return sexec;
+}
+
+
+#include <optional>
+
+std::optional<std::string> findKeyByValue(
+    const std::unordered_map<std::string, std::string>& uapps,
+    const std::string& targetValue
+) {
+    for (const auto& [key, value] : uapps) {
+        if (value == targetValue) {
+            return key; // Found
+        }
+    }
+    return std::nullopt; // Not found
+}
+std::vector<std::string> findKeysByValue(
+    const std::unordered_map<std::string, std::string>& uapps,
+    const std::string& targetValue
+) {
+	vector<string> res;
+    for (const auto& [key, value] : uapps) {
+        if (value == targetValue) {
+			res.push_back(key);
+            // return key; // Found
+        }
+    }
+    return res;
+}
+
+ void refresh_idle_cb(void*) {
+    	// win->begin();
+		fg->begin(); refresh(); fg->end();
+		// win->end();
+    Fl::remove_idle(refresh_idle_cb); // if you only want it once
+}
+
+int eventWindow() {
+        Display* display = XOpenDisplay(nullptr);
+    if (!display) {
+        std::cerr << "Cannot open X display\n";
+        return 1;
+    }
+
+    Window root = DefaultRootWindow(display);
+
+    // Listen without redirecting (non-exclusive)
+    XSelectInput(display, root, SubstructureNotifyMask);
+
+    std::cout << "Listening for window open/close events...\n";
+
+    while (true) {
+        XEvent ev;
+        XNextEvent(display, &ev);
+
+        switch (ev.type) {
+			case CreateNotify:
+                std::cout << "Window created: " << ev.xcreatewindow.window << '\n';
+				    	// fg->begin(); refresh(); fg->end();
+ Fl::awake();                       // wake up the main loop
+    Fl::add_idle(refresh_idle_cb, nullptr);
+                break;
+            case MapNotify:
+                // std::cout << "Window opened (mapped): " << ev.xmap.window << '\n';
+                break;
+            case UnmapNotify:
+                // std::cout << "Window closed (unmapped): " << ev.xunmap.window << '\n';
+                break;
+            case DestroyNotify:
+                std::cout << "Window destroyed: " << ev.xdestroywindow.window << '\n';
+				    	// fg->begin(); refresh(); fg->end();;
+ Fl::awake();                       // wake up the main loop
+    Fl::add_idle(refresh_idle_cb, nullptr);
+                break;
+        }
+    }
+
+    XCloseDisplay(display);
+    return 0;
+}
+
 struct Launcher{
 	// Check if a window with the given title substring exists
 	bool windowExists(const std::string& title) {
@@ -333,18 +517,57 @@ struct Launcher{
 		std::string cmd = "wmctrl -a \"" + title + "\"";
 		system(cmd.c_str());
 	}
-
+	
+	void activateWindowById(const std::string& winId) {
+		std::string cmd = "wmctrl -i -a " + winId;
+		system(cmd.c_str());
+	}
 
 	// Removes placeholders like %F, %U, %f, etc.
 	std::string parseExecCommand(const std::string& execLine) {
+		// return execLine;
 		std::string cleaned = std::regex_replace(execLine, std::regex("%[fFuUdDnNickvm]"), "");
 		return cleaned;
 	}
 
-	// Launch SciTE in the background
-	void launch(std::string desktopExecLine) {
-		std::string command = parseExecCommand(desktopExecLine) + " &";
-		system(command.c_str());
+	// If need to handle quoted arguments, need a more robust parser
+	void launch(const std::string& execCommand) {
+ pid_t pid = fork();
+
+    if (pid < 0) {
+        std::cerr << "Failed to fork\n";
+        return;
+    }
+
+    if (pid > 0) {
+        return; // Parent returns
+    }
+
+    // Child process:
+    setsid();  // Detach from terminal
+
+    // Simple split by spaces
+    std::istringstream iss(execCommand);
+    std::vector<std::string> args;
+    std::string token;
+
+    while (iss >> token) {
+        args.push_back(token);
+    }
+
+    // Build argv[]
+    std::vector<char*> argv;
+    for (auto& arg : args)
+        argv.push_back(arg.data());
+    argv.push_back(nullptr);
+
+    freopen("/dev/null", "r", stdin);
+    freopen("/dev/null", "w", stdout);
+    freopen("/dev/null", "w", stderr);
+
+    execvp(argv[0], argv.data());
+
+    _exit(1); // exec failed
 	}
 
 
@@ -370,7 +593,7 @@ struct Launcher{
 		std::istringstream stream(output);
 		std::string line;
 
-		std::regex placeholder_re("%[fFuUdDnNickvm]");
+		// std::regex placeholder_re("%[fFuUdDnNickvm]");
 
 		while (std::getline(stream, line)) {
 			size_t name_pos = line.find("Name=");
@@ -382,11 +605,54 @@ struct Launcher{
 			std::string exec = line.substr(exec_pos + 5);
 
 			// Remove placeholders like %F
-			exec = std::regex_replace(exec, placeholder_re, "");
+			// exec = std::regex_replace(exec, placeholder_re, "");
+			string res=parseExecCommand(exec);
+			trim(res);
+			uapps[name] = res; 
 
-			uapps[name] = exec;
 		}
 	}
+
+	int getPidFromWindowTitle(const std::string& titleSubstring) {
+		const char* command = "wmctrl -lp";
+		std::array<char, 512> buffer;
+		std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command, "r"), pclose);
+
+		if (!pipe) return -1;
+
+		while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+			std::string line(buffer.data());
+
+			std::istringstream iss(line);
+			std::string window_id;
+			std::string desktop_num;
+			int pid;
+			std::string hostname;
+			std::string title;
+
+			iss >> window_id;
+			iss >> desktop_num;
+
+			if (desktop_num == "-1") {
+				continue; // Skip sticky windows
+			}
+
+			iss >> pid;
+			iss >> hostname;
+			std::getline(iss, title);
+
+			// Clean leading spaces
+			title.erase(0, title.find_first_not_of(" \t\n\r"));
+
+			// Check if the titleSubstring is found in the window title
+			if (title.find(titleSubstring) != std::string::npos) {
+				return pid; // Found matching window
+			}
+		}
+
+		return -1; // Not found
+	}
+
 
 
 	// FLTK button callback
@@ -401,30 +667,279 @@ struct Launcher{
 };
 #pragma region 
 	Launcher* lnc;
-	vector<string> pinnedApps={"Google Chrome","Visual Studio Code","SciTE Text Editor","super@dell: /home/super/msv/apptest"};
+	vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64"};
+	vector<string> allApps;
 #pragma endregion
 
+vector<Fl_Button*> vbtn;
+// Corrected refresh() implementation for taskbar.cpp
+void refreshc() {
+    Fl::awake();
+    int widthbtn = 150;
+
+    // Delete old buttons
+    for (Fl_Button* btn : vbtn) {
+        delete btn;
+    }
+    vbtn.clear();
+
+    // Populate allApps
+    allApps.clear();
+    auto windows = getOpenWindowsInfo();
+    for (const auto& winp : windows) {
+        allApps.push_back(winp.title);
+    }
+    std::cout << "windows.size() " << windows.size() << std::endl;
+
+	allApps=pinnedApps;
+
+    // Create new buttons
+    vbtn.resize(allApps.size());
+    for (size_t i = 0; i < vbtn.size(); ++i) {
+        vbtn[i] = new Fl_Button(i * (widthbtn + 4), 0, widthbtn, 24, allApps[i].c_str());
+        // Set callback to launch or activate window
+        vbtn[i]->callback([](Fl_Widget* w, void* data) {
+            Launcher* launcher = static_cast<Launcher*>(data);
+            Fl_Button* btn = static_cast<Fl_Button*>(w);
+            std::string title = btn->label();
+            if (launcher->windowExists(title)) {
+                launcher->activateWindow(title);
+            } else {
+                auto it = launcher->uapps.find(title);
+                if (it != launcher->uapps.end()) {
+                    launcher->launch(it->second);
+                }
+            }
+        }, lnc);
+    }
+}
+
+
+vector<WindowInfo> vwin;
 
 void refresh(){
-	int widthbtn=150;
-	vector<Fl_Button*> vbtn(pinnedApps.size());
-	for(int i=0;i<pinnedApps.size();i++){
-    	vbtn[i] = new Fl_Button(i*(widthbtn+4), 0, widthbtn, 24, pinnedApps[i].c_str());
-		vbtn[i]->callback([](Fl_Widget* widget){
 
+	// std::cout << "Sleeping for 5 seconds..." << std::endl;
+    // std::this_thread::sleep_for(std::chrono::seconds(1));
+    // std::cout << "Awake!" << std::endl;
+	// refresh();
+	int widthbtn=150;
+
+	for (int i = 0; i < vbtn.size(); i++){
+		vbtn[i]->hide();
+		delete vbtn[i];
+	}
+	vbtn.clear();
+	vwin.clear();
+
+	//pinned
+	vector<WindowInfo> windows = getOpenWindowsInfo();
+	cotm(windows.size())
+	for(int ip=0;ip<pinnedApps.size();ip++){
+		vwin.push_back(WindowInfo());
+		vwin.back().title=pinnedApps[ip];
+		vwin.back().is_open = 0;
+		// cout<<"is "<<vwin.back().is_open<<"\n";
+		for (auto it = windows.begin(); it != windows.end(); /* no ++ here */) {
+			cotm(it->title,it->pid,it->window_id)
+			// if()
+			string sexecp = getExecByPid(it->pid);
+			string sexec = lnc->parseExecCommand(sexecp); 
+			trim(sexec);
+			cotm(pinnedApps[ip] ,sexecp,sexec)
+			string sexecf = findKeyByValue(lnc->uapps, sexec).value_or("");
+			// string sexecf = findKeyByValue(lnc->uapps, sexecp).value_or("");
+
+			if (pinnedApps[ip] == sexecf) {
+				vwin.back().title = sexecf;
+				// vwin.back().title = lnc->uapps[sexecf];
+				vwin.back().window_id = it->window_id;
+				vwin.back().is_open = 1;
+cout<<"equal "<<sexecf<<" "<<sexecp<<"\n";
+				it = windows.erase(it);  // removes and advances the iterator
+			} else {
+				++it;  // only advance if not erasing
+			}
+		}
+
+	} 
+// cotm("parou ",windows.size(),windows[0].title)
+	//remains opened
+		for (auto it = windows.begin(); it != windows.end();it++){// /* no ++ here */) {
+			// cotm(it->title,it->pid,it->window_id)
+			if(it->title=="")continue;
+			string sexecp = getExecByPid(it->pid);
+			string sexec = lnc->parseExecCommand(sexecp); 
+			trim(sexec);
+			string sexecf = findKeyByValue(lnc->uapps, sexecp).value_or("");
+
+			if (sexec== sexecf) {
+				vwin.push_back(WindowInfo());
+				vwin.back().title = sexecf;
+				// vwin.back().title = lnc->uapps[sexecf];
+				vwin.back().window_id = it->window_id;
+				vwin.back().is_open = 1;
+			} else {
+				vwin.push_back(WindowInfo());
+				vwin.back().title = it->title;
+				vwin.back().window_id = it->window_id;
+				vwin.back().is_open = 1;
+			}
+		}
+
+	 
+cotm("parou2 ",windows.size())
+ cotm(vwin.size())
+
+	vbtn=vector<Fl_Button *>(vwin.size());
+	// vbtn.resize(vwin.size(), nullptr);
+// return;
+	win->begin();
+	for(int i=0;i<vwin.size();i++){
+		std::string escaped = std::regex_replace(vwin[i].title, std::regex("@"), "@@"); 
+    	vbtn[i] = new Fl_Button(i*(widthbtn+4), 0, widthbtn, 24);
+		vbtn[i]->copy_label(escaped.c_str());
+		vbtn[i]->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
+		vbtn[i]->callback([](Fl_Widget* widget,void* data){
+			
+			Fl_Button* btn=(Fl_Button*)widget;
+			WindowInfo wi = *((WindowInfo*)data);
+
+cotm(wi.is_open )
+			if(wi.is_open){
+				lnc->activateWindowById(wi.window_id);
+			}
+			if(!wi.is_open){
+cotm(wi.title)
+				lnc->launch(lnc->uapps[wi.title]);
+				// fg->begin(); refresh(); fg->end(); 
+				win->redraw();
+				btn->redraw();
+				btn->show();
+				// lnc->launch(lnc->uapps[wi.title]);
+				// lnc->activateWindow(wi.title);
+			}
+			// const std::string winTitle = std::string(((Fl_Button*)widget)->label());
+			// if (lnc->windowExists(winTitle)) {
+			// 	lnc->activateWindow(winTitle);
+			// 	btn->redraw();
+			// 	btn->show();
+				return;
+			// }
+		},&vwin[i]);
+	}
+	win->end();
+}
+
+void refreshworking(){
+	// Fl::awake();
+	int widthbtn=150;
+
+	for (int i = 0; i < vbtn.size(); i++){
+		vbtn[i]->hide();
+		delete vbtn[i];
+	}
+	vbtn.clear();
+	// allApps=pinnedApps;
+
+	allApps.clear();
+
+	auto windows = getOpenWindowsInfo();
+	for (const auto& winp : windows) {
+		allApps.push_back(winp.title);
+	}
+	cout<<"windows.size() "<<windows.size()<<"\n";
+
+
+	//to work
+	allApps.clear();
+	allApps=pinnedApps;
+
+	// vbtn=vector<Fl_Button*>(allApps.size());
+	
+	vbtn.resize(allApps.size(), nullptr);
+
+	// vector<Fl_Button*> vbtn(pinnedApps.size());
+	for(int i=0;i<vbtn.size();i++){
+    	vbtn[i] = new Fl_Button(i*(widthbtn+4), 0, widthbtn, 24, allApps[i].c_str());
+		vbtn[i]->callback([](Fl_Widget* widget){
+			Fl_Button* btn=(Fl_Button*)widget;
 			const std::string winTitle = std::string(((Fl_Button*)widget)->label());
 			if (lnc->windowExists(winTitle)) {
 				lnc->activateWindow(winTitle);
-			} else {
-				lnc->launch(lnc->uapps[winTitle]);
+				btn->redraw();
+				btn->show();
+				return;
 			}
+
+
+			auto windows = getOpenWindowsInfo();
+			for (const auto& win : windows) {
+				// std::cout << win.process_name << " [" << win.pid << "] "
+				// 		<< win.window_id << " => "
+				// 		<< win.title << '\n';
+				string sexecp=getExecByPid(win.pid);
+				string sexec=lnc->parseExecCommand(sexecp);
+				// cout<<"sexec"<<(sexec)<<"\n";
+				string sexecf=findKeyByValue(lnc->uapps,sexec).value_or("");
+ 
+		// cout<<"sexec"<<(sexec)<<"\n";
+		// cout<<"sexecf"<<(sexecf)<<"\n";
+				if(sexecf!=""){
+					cout<<"equal "<<sexec<<"\n";
+					// lnc->activateWindow(sexecf);
+					lnc->activateWindow(win.title);
+
+				btn->redraw();
+				btn->show();
+					return;
+				}
+			}
+    // dbg();
+
+
+
+			// const std::string winTitle = std::string(((Fl_Button*)widget)->label());
+			// if (lnc->windowExists(winTitle)) {
+			// 	lnc->activateWindow(winTitle);
+			// } else {
+				lnc->launch(lnc->uapps[winTitle]);
+				btn->redraw();
+				btn->show();
+			// }
 		});
 	}
 
 }
 
+void dbg(){
+	cout<<"uapps "<<lnc->uapps.size()<<endl;
+	cout<<endl;
 
+	for(int i=0;i<pinnedApps.size();i++){
+		cout<<pinnedApps[i]<<" => []"<<lnc->getPidFromWindowTitle(pinnedApps[i])<<endl;
+	} 
+	cout<<endl;
+	auto windows = getOpenWindowsInfo();
+    for (const auto& win : windows) {
+        std::cout << win.process_name << " [" << win.pid << "] "
+                  << win.window_id << " => "
+                  << win.title << '\n';
+
+		std::cout << "Process args for PID " << win.pid << ":\n";
+		string sexec=getExecByPid(win.pid);
+		string sexecf=findKeyByValue(lnc->uapps,sexec).value_or("");
+		cout<<"sexec"<<(sexec)<<"\n";
+		cout<<"sexecf"<<(sexecf)<<"\n";
+		cout<<endl;
+
+    }
+	cout<<"windows "<<windows.size()<<"\n";
+	cout<<"dbg "<<lnc->uapps["tmux x86_64"]<<"\n";
+}
+#include <chrono>
 int main() { 
+	Fl::lock();
 	lnc=new Launcher;
 	lnc->fillApplications(lnc->uapps);
 
@@ -434,9 +949,20 @@ int main() {
 
     win = new Fl_Window(0, screen_h - bar_height, screen_w, bar_height);
     win->color(FL_DARK_RED);
-    win->begin();	
-    
-	refresh();
+    win->begin();
+	
+	Fl_Button* btest=new Fl_Button(screen_w-100,0,100,24,"refresh");
+	btest->callback([](Fl_Widget*){
+		fg->begin();
+		refresh();
+		fg->end();
+		// win->redraw();
+	});
+
+    fg=new Fl_Group(0,0,screen_w*.7,bar_height);
+	fg->begin();
+	refresh();  
+	fg->end();
 
 
     win->end();
@@ -448,12 +974,16 @@ int main() {
     set_dock_properties(win);
 
 	thread([](){
-		listenkey();
+		// listenkey();
  	}).detach();
 
 	thread([](){
-		listenclipboard();
+		// listenclipboard();
  	}).detach();
-    
+
+	thread([](){
+		eventWindow();
+ 	}).detach();
+    // dbg();
     return Fl::run();
 }

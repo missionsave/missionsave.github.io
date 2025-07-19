@@ -219,7 +219,33 @@ sudo mkswap /dev/zram0
 sudo swapon /dev/zram0
 
 
-echo "? Finalizado! Use 'htop' para ver zram em a��o."
+echo "Finalizado! Use 'htop' para ver zram em a��o."
+}
+
+installDesk() {
+    local appname="$1"
+    local exec="$2"
+    local file="$HOME/.local/share/applications/${appname// /_}.desktop"
+
+    mkdir -p "$HOME/.local/share/applications"
+
+    cat > "$file" <<EOF
+[Desktop Entry]
+Type=Application
+Name=$appname
+Exec=$exec
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;
+EOF
+
+    chmod +x "$file"
+
+    echo "Created $file"
+}
+
+installReload(){
+	installDesk "tmux $(uname -m)" "xterm -e tmux new-session -A -s $(uname -m) bash"
 }
 
 
