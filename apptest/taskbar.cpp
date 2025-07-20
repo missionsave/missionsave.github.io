@@ -62,6 +62,186 @@ void trim(std::string& str) {
     str.erase(std::find_if(str.rbegin(), str.rend(),
         [](unsigned char ch) { return !std::isspace(ch); }).base(), str.end());
 }
+
+
+#include <FL/fl_draw.H>
+
+#include <FL/Fl.H>
+#include <FL/Fl_Double_Window.H>
+#include <FL/Fl_Browser.H>
+#include <FL/fl_draw.H>
+#include <vector>
+#include <sstream>
+
+#include <FL/Fl.H>
+#include <FL/Fl_Double_Window.H>
+#include <FL/Fl_Browser.H>
+#include <FL/fl_draw.H>
+#include <vector>
+#include <cstring>
+#include <FL/Fl_Output.H>
+#include <fstream>
+#include <string>
+#include <ctime>
+
+#include <unistd.h>
+
+std::string read_file(const std::string& path) {
+    std::ifstream file(path);
+    std::string value;
+    if (file && std::getline(file, value)) return value;
+    return "";
+}
+
+std::string get_time() {
+    time_t now = time(nullptr);
+    struct tm* local = localtime(&now);
+    char buffer[32];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", local);
+    return buffer;
+}
+
+void update_display(Fl_Output* output) {
+    std::string battery = read_file("/sys/class/power_supply/BAT0/capacity"); 
+    std::string clock   = get_time();
+
+    output->value((""+battery + "% " + clock).c_str());
+    Fl::repeat_timeout(30.0, (Fl_Timeout_Handler)update_display, output);
+}
+
+
+
+
+
+class SmartBrowser : public Fl_Browser {
+    std::vector<int> rowHeights;
+    int separatorHeight = 1;
+    Fl_Color separatorColor = fl_rgb_color(200, 200, 200);
+    
+    void calculateRowHeights() {
+        rowHeights.clear();
+        for (int i = 1; i <= size(); i++) {
+            const char* itemText = (const char*)data(i);
+            int lines = 1;
+            if (itemText) {
+                for (const char* c = itemText; *c; c++) {
+                    if (*c == '\n') lines++;
+                }
+            }
+            rowHeights.push_back((lines * (textsize() + 4)) + 6);
+        }
+    }
+    
+public:
+    SmartBrowser(int x, int y, int w, int h, const char* label = 0)
+        : Fl_Browser(x, y, w, h, label) {
+        type(FL_MULTI_BROWSER);
+        textsize(14);
+        selection_color(fl_rgb_color(230, 245, 255));
+    }
+    
+    void add(const char* text) {
+        Fl_Browser::add(text);
+        calculateRowHeights();
+    }
+    
+    void insert(int pos, const char* text) {
+        Fl_Browser::insert(pos, text);
+        calculateRowHeights();
+    }
+    
+    void remove(int pos) {
+        Fl_Browser::remove(pos);
+        calculateRowHeights();
+    }
+    
+    void clear() {
+        Fl_Browser::clear();
+        rowHeights.clear();
+    }
+    
+    void draw() {
+        // Let FLTK draw the basic browser structure first
+        Fl_Browser::draw();
+        
+        // Now add our custom decorations
+        int Y = y() + 1; // Small offset to account for border
+        int X = x() + 1;
+        int first_line = topline();
+        int last_line = std::min(size(), first_line + (h()-2) / (textsize() + 6) + 2);
+        
+        for (int i = first_line + 1; i <= last_line; i++) {
+            if (i > size()) break;
+            
+            int itemHeight = rowHeights[i-1];
+            
+            // Draw separator (before the item except for first item)
+            if (i > 1) {
+                fl_color(separatorColor);
+                fl_rectf(X, Y - separatorHeight, w()-2, separatorHeight);
+            }
+            
+            // Draw text (let FLTK handle it)
+            Y += itemHeight;
+        }
+    }
+    
+    int full_height() const {
+        int total = 0;
+        for (int h : rowHeights) {
+            total += h;
+        }
+        return total;
+    }
+    
+    int item_height(void* item) const {
+        for (int i = 1; i <= size(); i++) {
+            if (data(i) == item) {
+                return rowHeights[i-1];
+            }
+        }
+        return textsize() + 6;
+    }
+    
+    void setSeparatorHeight(int height) {
+        separatorHeight = height;
+        redraw();
+    }
+    
+    void setSeparatorColor(Fl_Color color) {
+        separatorColor = color;
+        redraw();
+    }
+};
+
+// int main() {
+//     Fl_Double_Window win(500, 400, "Multiline Browser");
+//     SmartBrowser browser(20, 20, 460, 360);
+    
+//     // Set a nice font
+//     Fl::set_font(FL_HELVETICA, "Arial");
+    
+//     // Add sample items
+//     browser.add("Single line item");
+//     browser.add("Two lines\nSecond line");
+//     browser.add("Three lines\nMiddle line\nBottom line");
+//     browser.add("Programming Languages:\nC++\nPython\nJavaScript\nRust");
+//     browser.add("Final item\nWith two lines");
+    
+//     win.end();
+//     win.show();
+//     return Fl::run();
+// }
+
+
+
+
+
+
+
+
+
+
 Fl_Window* win;
 Fl_Group* fg;
 void dbg();
@@ -189,7 +369,8 @@ int listenclipboard() {
                 std::string content = getClipboardText(display, window, property);
                 if (!content.empty() && content != lastClipboardContent) {
                     // std::cout << "Clipboard contents: " << content << "\n";
-					vclipboard.push_back(content);
+					vclipboard.insert(vclipboard.begin(), content);
+					// vclipboard.push_back(content);
                     lastClipboardContent = content;
                 }
             }
@@ -273,28 +454,137 @@ std::string format_to_two_lines(const std::string& text, int line_width) {
             if (lines == 2) break;
         }
     }
-    if (lines == 2) clipped += "...";
+    if (lines == 1) clipped += "...";
     return clipped;
 }
-void browser_callback(Fl_Widget* w, void* ) {
-    Fl_Browser* browser = (Fl_Browser*)w;
-    
-    int index = browser->value()-1;  // Browser indices start at 1
+
+
+
+// SmartBrowser* browserpaste;
+Fl_Browser* browserpaste;
+
+std::atomic<bool> trigger_winpop = false;
+class PopupWindow : public Fl_Window {
+public:
+    PopupWindow(int x,int y,int W, int H, const char* title)
+        : Fl_Window(x,y,W, H, title) { 
+			Fl::grab(*this);
+			// set_override();
+		}
+	
+	// int handle(int event) override {
+	// 	cotm(event);
+	// 	if(event==4){
+	// 		browserpaste->hide();
+	// 		trigger_winpop = false;
+	// 		this->hide();
+	// 		delete browserpaste;
+	// 		// delete this;
+	// 		return 1;
+	// 	}		
+    // 	return Fl_Window::handle(event);
+	// }
+	~PopupWindow() {
+		cotm("release")
+        Fl::grab(nullptr); // Release grab when window is destroyed
+    }
+
+    int handle(int event) override {
+        if (event == FL_PUSH) {
+            // Check if the click is outside this window
+            if (!Fl::event_inside(browserpaste)) {
+				cotm("inside");
+                Fl::grab(nullptr);
+				// browserpaste->hide();
+				trigger_winpop = false;
+				this->hide();
+				delete browserpaste;
+				// delete this; 
+                return 1; // Event handled
+            }
+			// return 0;
+        }
+        return Fl_Window::handle(event);
+    }
+};
+// struct PopupWindow;
+// PopupWindow* current_popup = nullptr;
+// int global_click_handler(int event);
+
+
+// class PopupWindow : public Fl_Window {
+// public:
+//     PopupWindow(int x, int y, int W, int H, const char* title)
+//         : Fl_Window(x, y, W, H, title) 
+//     {
+//         current_popup = this;
+//         static bool hook_installed = false;
+//         if (!hook_installed) {
+//             Fl::add_event_handler(global_click_handler);
+//             hook_installed = true;
+//         }
+//     }
+
+//     ~PopupWindow() {
+//         if (current_popup == this) {
+//             current_popup = nullptr;
+//         }
+//     }
+// };
+// int global_click_handler(int event) {
+//     if (event == FL_PUSH && current_popup && current_popup->visible()) {
+//         if (!Fl::event_inside(current_popup)) {
+//             current_popup->hide();
+//         }
+//     }
+//     return 0;
+// }
+
+
+PopupWindow* winpaste; 
+// Fl_Window* winpaste; 
+void browser_callback(Fl_Widget* , void* ) { 
+    cotm("br");
+    int index = browserpaste->value()-1;  // Browser indices start at 1
     if (index >= 0 && index < vclipboard.size()) {
-        fl_message(vclipboard[index].c_str());
+		// string copy_to_clipboard="testing";
+		string copy_to_clipboard=vclipboard[index];
+		
+		const char* text=copy_to_clipboard.c_str();
+		Fl::copy(text, strlen(text), 1);
+		paste();
+
+        // fl_message(vclipboard[index].c_str());
+		browserpaste->hide();
+		winpaste->hide();
+		Fl::grab(nullptr);
+		trigger_winpop = false;
+		delete browserpaste;
+		delete winpaste;
     }
 }
 
-std::atomic<bool> trigger_winpop = false;
-// Fl_Window* winpaste; 
 void delayed_action(void* ) {
 		cotm("after winpop close")
         trigger_winpop = false;
     std::cout << "Subwindow was hidden. Now running delayed action!\n";
     // You can cast and use 'data' if needed
 }
-int winpop() {
-    Fl_Window* winpaste = new Fl_Window(100, 100, 300, 200, "Popup");
+int winpoptest() {
+	Fl_Group::current(nullptr); // important
+	Fl_Group* g = Fl_Group::current();
+if ( g ) {
+    // g is the widget that new children would be added to
+    std::cout << "Current group is " 
+              << (g->label() ? g->label() : "(no label)") 
+              << "\n";
+}
+else {
+    std::cout << "There's no current group\n";
+}
+	Fl::lock();
+    Fl_Window* winpaste = new Fl_Window(400, 100, 300, 200, "Popup");
+	// winpaste->begin();
     Fl_Button* btn = new Fl_Button(100, 80, 100, 40, "Click Me");
 
     // Button callback
@@ -314,12 +604,89 @@ int winpop() {
     }, (void*)winpaste);
 
     // Hide callback to delete window
-    winpaste->callback([](Fl_Widget* w, void*) {
-        Fl_Window* win = (Fl_Window*)w;
-        std::cout << "Window hidden, destroying.\n";
-        win->hide();
-        delete win;  // Destroy window completely
-    });
+    // winpaste->callback([](Fl_Widget* w, void*) {
+    //     Fl_Window* win = (Fl_Window*)w;
+    //     std::cout << "Window hidden, destroying.\n";
+    //     win->hide();
+    //     delete win;  // Destroy window completely
+    // });
+
+    // winpaste->end();
+    // Fl::check();
+    winpaste->show();
+    Fl::flush();
+
+if(0){
+    // 3. force-raise via X11
+    Display* dpy = fl_display;
+    Window   xid = fl_xid(winpaste);
+    XMapWindow(dpy, xid);
+    XRaiseWindow(dpy, xid);
+    XSetInputFocus(dpy, xid, RevertToParent, CurrentTime);
+    XFlush(dpy);
+	return 1;
+}
+
+
+    // Prevent window from stealing focus
+    Display* dpy = fl_display;
+    Window xid = fl_xid(winpaste);
+
+    XSetWindowAttributes attrs;
+    attrs.override_redirect = True;
+    XChangeWindowAttributes(dpy, xid, CWOverrideRedirect, &attrs);
+    XMapRaised(dpy, xid);
+
+    // Fl::run();
+
+	cotm("winpasteshow",winpaste->visible());
+	Fl::unlock();
+    return 1;
+}
+
+
+
+int winpop() {
+	Fl_Group::current(nullptr); // important
+    // winpaste = new Fl_Window(0, Fl::h()-300, 400, 300, "Popup");
+    winpaste = new PopupWindow(0, Fl::h()-300, 400, 300, "Popup");
+    // Fl_Button* btn = new Fl_Button(100, 80, 100, 40, "Click Me");
+	
+    // btn->callback([](Fl_Widget*, void*) {
+    //     std::cout << "Button clicked\n";
+
+	// 	string copy_to_clipboard="testing";
+		
+	// 	const char* text=copy_to_clipboard.c_str();
+	// 	Fl::copy(text, strlen(text), 1);
+	// 	paste();
+	// 	winpaste->hide();
+    // });
+
+	// browserpaste = new SmartBrowser(0, 0, 400, 300);
+	browserpaste = new Fl_Browser(0, 0, 400, 300);
+	// browser->hscrollbar(0);
+	browserpaste->textsize(16); 
+	browserpaste->textfont(FL_COURIER);
+	browserpaste->type(FL_HOLD_BROWSER );
+	browserpaste->has_scrollbar(Fl_Browser_::VERTICAL);
+	browserpaste->callback(browser_callback);
+
+	// std::string long_text = "This is a long paragraph that won't fit in two lines completely.";
+	// full_texts.push_back(long_text);
+	lop(i,0,vclipboard.size()){
+		std::string clipped = "@b@u"+ vclipboard[i];  
+		// std::string clipped = "@b"+format_to_two_lines(vclipboard[i], 40);  // Assuming ~40 characters per line
+		    // Remove newlines
+    clipped.erase(std::remove(clipped.begin(), clipped.end(), '\n'), clipped.end());
+
+    // Limit to 120 characters
+    if (clipped.size() > 120) {
+        clipped = clipped.substr(0, 120);
+    }
+		browserpaste->add(clipped.c_str());
+	}
+
 
     winpaste->end();
     winpaste->show();
@@ -331,54 +698,10 @@ int winpop() {
     XSetWindowAttributes attrs;
     attrs.override_redirect = True;
     XChangeWindowAttributes(dpy, xid, CWOverrideRedirect, &attrs);
-    XMapRaised(dpy, xid);
+    XMapRaised(dpy, xid); // Show without focus
 
-    Fl::wait();
     return 1;
 }
-
-// int winpopt() {
-//     winpaste = new Fl_Window(0, 0, 200, 400, "Popup");
-//     Fl_Button* btn = new Fl_Button(100, 80, 100, 40, "Click Me");
-	
-//     btn->callback([](Fl_Widget*, void*) {
-//         std::cout << "Button clicked\n";
-
-// 		string copy_to_clipboard="testing";
-		
-// 		const char* text=copy_to_clipboard.c_str();
-// 		Fl::copy(text, strlen(text), 1);
-// 		paste();
-// 		winpaste->hide();
-//     });
-
-// 	Fl_Browser* browser = new Fl_Browser(0, 0, 200, 400);
-// 	// browser->hscrollbar(0);
-// 	browser->callback(browser_callback);
-
-// 	// std::string long_text = "This is a long paragraph that won't fit in two lines completely.";
-// 	// full_texts.push_back(long_text);
-// 	lop(i,0,vclipboard.size()){
-// 		std::string clipped = format_to_two_lines(vclipboard[i], 40);  // Assuming ~40 characters per line
-// 		browser->add(clipped.c_str());
-// 	}
-
-
-//     winpaste->end();
-//     winpaste->show();
-
-//     // Prevent window from stealing focus
-//     Display* dpy = fl_display;
-//     Window xid = fl_xid(winpaste);
-
-//     XSetWindowAttributes attrs;
-//     attrs.override_redirect = True;
-//     XChangeWindowAttributes(dpy, xid, CWOverrideRedirect, &attrs);
-//     XMapRaised(dpy, xid); // Show without focus
-
-// 	Fl::wait();
-//     return 1;
-// }
 
 
 #include <X11/Xlib.h>
@@ -388,12 +711,12 @@ int winpop() {
 
 void check_trigger(void*) {
 	cotm("tcalled");
-    if (trigger_winpop) {
+    // if (trigger_winpop) {
         winpop();
 		// // Fl::wait();
 		// cotm("after winpop close")
         // trigger_winpop = false;
-    }
+    // }
 	// Fl::remove_idle(check_trigger);
 }
 
@@ -486,6 +809,7 @@ std::vector<WindowInfo> getOpenWindowsInfo() {
         std::getline(iss, title);
         title.erase(0, title.find_first_not_of(" \t\n\r")); // Trim leading spaces
         info.title = title;
+		if(info.title=="")continue;
 
         info.process_name = getProcessName(info.pid);
 
@@ -555,7 +879,7 @@ std::vector<std::string> findKeysByValue(
 }
 
 void refresh_idle_cb(void*) { 
-
+// return;
 	if(trigger_winpop){
 	cotm("NoRefresh")
 		return;
@@ -793,6 +1117,7 @@ vector<Fl_Button*> vbtn;
 vector<WindowInfo> vwin;
 
 void refresh(){
+	// return;
 	int widthbtn=150;
 
 	for (int i = 0; i < vbtn.size(); i++){
@@ -813,10 +1138,11 @@ void refresh(){
 		for (auto it = windows.begin(); it != windows.end(); /* no ++ here */) {
 			// cotm(it->title,it->pid,it->window_id)
 			// if()
+			if(it->title==""){++it; continue;}
 			string sexecp = getExecByPid(it->pid);
 			string sexec = lnc->parseExecCommand(sexecp); 
 			trim(sexec);
-			cotm(pinnedApps[ip] ,sexecp,sexec)
+			// cotm(pinnedApps[ip] ,sexecp,sexec)
 			string sexecf = findKeyByValue(lnc->uapps, sexec).value_or("");
 			// string sexecf = findKeyByValue(lnc->uapps, sexecp).value_or("");
 
@@ -836,8 +1162,10 @@ void refresh(){
 // cotm("parou ",windows.size(),windows[0].title)
 	//remains opened
 		for (auto it = windows.begin(); it != windows.end();it++){// /* no ++ here */) {
-			// cotm(it->title,it->pid,it->window_id)
+			cotm(it->title,it->pid,it->window_id)
 			if(it->title=="")continue;
+			cotm(it->title,it->pid,it->window_id)
+			// if(it->title=="")continue;
 			string sexecp = getExecByPid(it->pid);
 			string sexec = lnc->parseExecCommand(sexecp); 
 			trim(sexec);
@@ -875,12 +1203,12 @@ void refresh(){
 			Fl_Button* btn=(Fl_Button*)widget;
 			WindowInfo wi = *((WindowInfo*)data);
 
-cotm(wi.is_open )
+// cotm(wi.is_open )
 			if(wi.is_open){
 				lnc->activateWindowById(wi.window_id);
 			}
 			if(!wi.is_open){
-cotm(wi.title)
+// cotm(wi.title)
 				lnc->launch(lnc->uapps[wi.title]);
 				// fg->begin(); refresh(); fg->end(); 
 				win->redraw();
@@ -941,13 +1269,21 @@ int main() {
     win->color(FL_DARK_RED);
     win->begin();
 	
-	Fl_Button* btest=new Fl_Button(screen_w-100,0,100,24,"refresh");
-	btest->callback([](Fl_Widget*){
-		fg->begin();
-		refresh();
-		fg->end();
-		// win->redraw();
-	});
+	// Fl_Button* btest=new Fl_Button(screen_w-100,0,100,24,"refresh");
+	// btest->callback([](Fl_Widget*){
+	// 	fg->begin();
+	// 	refresh();
+	// 	fg->end();
+	// 	// win->redraw();
+	// });
+
+    Fl_Output* output = new Fl_Output(screen_w-180,0,180,24);
+    output->textfont(FL_COURIER);
+    output->textsize(14);
+    output->readonly(1);
+
+
+
 
     fg=new Fl_Group(0,0,screen_w*.7,bar_height);
 	fg->begin();
@@ -959,6 +1295,8 @@ int main() {
     
     win->border(0); // Remove window borders
     win->show();
+
+	update_display(output);
     
     // Set X11 properties after window is shown
     set_dock_properties(win);
@@ -967,15 +1305,15 @@ int main() {
 		listenclipboard();
  	}).detach();
 
+	thread([](){
+		eventWindow();
+ 	}).detach();
 	
 	thread([](){
 		listenkey();
  	}).detach();
 
 
-	thread([](){
-		eventWindow();
- 	}).detach();
     // dbg();
     return Fl::run();
 }
