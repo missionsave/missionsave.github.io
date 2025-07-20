@@ -103,6 +103,8 @@ std::string get_time() {
 
 void update_display(Fl_Output* output) {
     std::string battery = read_file("/sys/class/power_supply/BAT0/capacity"); 
+	// std::string status  = read_file("/sys/class/power_supply/BAT0/status");
+
     std::string clock   = get_time();
 
     output->value((""+battery + "% " + clock).c_str());
