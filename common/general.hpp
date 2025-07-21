@@ -62,14 +62,32 @@ int indexOfMin(const std::vector<T>& vec) {
 
 // #define go_up(n) { \
 //     for (int i = 0; i < n; i++) { \
-//         printf("\r\033[2K"); \
-//         printf("\033[A");\  
-//         std::cout << "\r\e[K" << std::flush; \
+//         printf("\033[A");   /* Move up one logical line */ \
+//         printf("\r\033[2K"); /* Clear the entire line */ \
 //     } \
+//     fflush(stdout); \
 // }
+
+extern std::string cotmlastoutput;
+extern bool scotmup;
+#include <iostream>
+#include <string>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+int get_terminal_width();
+
+void go_up_and_clear_line(const std::string& last_text) ;
+#define go_up {go_up_and_clear_line(cotmlastoutput);}
+
 
 void cotm_function(const std::string &args_names, const std::string &args_values);
 #define cotm(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
+
+// #define cotm(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
+
+// #define cotm(...) {scotmup=0; cotmstd(#__VA_ARGS__); }
+#define cotmup {scotmup=1;}
 // Overload operator<< for std::vector<T>
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec) {

@@ -292,6 +292,25 @@ installdeb() {
   echo "✅ $filename instalado com sucesso!"
 }
 
+install_fusbsuspend() {
+    # Path for udev rule file
+    local RULE_FILE="/etc/udev/rules.d/99-usb-autosuspend.rules"
+
+    echo "Creating udev rule for autosuspend on all USB storage devices..."
+
+    # Write udev rule:
+    sudo tee "$RULE_FILE" > /dev/null << 'EOF'
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{bDeviceClass}=="08", TEST=="power/control", ATTR{power/control}="auto"
+EOF
+
+    echo "Reloading udev rules and triggering devices..."
+    sudo udevadm control --reload
+    sudo udevadm trigger
+
+    echo "Done. Autosuspend will now be enabled on all USB storage devices upon connection."
+}
+
+
 # only make -f GNUmakefile 
 install_uwebsockets() {
     # Set up working directory

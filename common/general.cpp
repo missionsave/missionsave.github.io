@@ -46,17 +46,44 @@ void cotm_function(const std::string &args_names, const std::string &args_values
     std::vector<std::string> names = split(args_names);
     std::vector<std::string> values = split(args_values,"⟁");
 
+	stringstream strm;
     // Get current time
     auto timeval = std::time(nullptr);
     auto tm = *std::localtime(&timeval);
-    std::cout << std::put_time(&tm, "%H:%M:%S ") << " ";
+    strm << std::put_time(&tm, "%H:%M:%S ") << " ";
 
     // Print each variable and its value
     for (size_t i = 0; i < names.size(); ++i) {
-        if(names[i].back() == '"'){std::cout << names[i]<<"\t"; continue;}
-        std::cout << names[i] << "=" << values[i] << "\t";
+        if(names[i].back() == '"'){strm << names[i]<<"\t"; continue;}
+        strm << names[i] << "=" << values[i] << "\t";
     }
-    std::cout << std::endl;
+    strm << std::endl;
+	if(scotmup)go_up_and_clear_line(cotmlastoutput);
+	scotmup=0;
+	cotmlastoutput=strm.str();
+	cout<<cotmlastoutput;
+}
+bool scotmup=0;
+std::string cotmlastoutput="";
+int get_terminal_width() {
+    struct winsize w;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
+        return w.ws_col;
+    } else {
+        return 80;  // Fallback if detection fails
+    }
+}
+
+void go_up_and_clear_line(const std::string& last_text) {
+    int width = get_terminal_width();
+    int text_length = last_text.length();
+    int rows = (text_length + width - 1) / width;  // ceil division
+
+    for (int i = 0; i < rows; ++i) {
+        std::cout << "\033[A"     // Move up
+                  << "\r\033[2K"; // Clear line
+    }
+    // std::cout.flush();
 }
 
 void sleepms(int ms) {

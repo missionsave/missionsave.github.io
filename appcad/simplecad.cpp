@@ -438,7 +438,8 @@ void highlightVertex(const TopoDS_Vertex& aVertex) {
     m_context->Display(myHighlightedPointAIS, Standard_True);
     myLastHighlightedVertex = aVertex;
 
-    printf("Highlighted Vertex: X=%.3f, Y=%.3f, Z=%.3f\n", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
+    cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
+    // printf("Highlighted Vertex: X=%.3f, Y=%.3f, Z=%.3f\n", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
 }
 int handle(int event) override { 
     static int start_y;
@@ -492,7 +493,7 @@ if (event == FL_MOVE) {
     // 5. Deactivate vertex mode immediately after picking
     // This is crucial if you only want vertex picking *during* hover,
     // and want other selection behaviors (e.g., selecting faces on click) at other times.
-    m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+    // m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
     // --- End Strict Selection Mode Control ---
 
 
@@ -526,7 +527,12 @@ if (event == FL_MOVE) {
             clearHighlight(); // Owner is not a BRepOwner (e.g., detected an AIS_Text)
         }
     } else {
-        printf("Nothing detected under the mouse.\n");
+		// go_up(1);
+		// cotm("test")
+		// printf("%s",cotmlastoutput.c_str());
+		// go_up;
+        cotm("Nothing detected under the mouse.");
+		cotmup
         clearHighlight(); // Nothing detected
     }
 
@@ -849,8 +855,8 @@ extrusionVec *= 10.0;
 
 }
 
-// vshapes.push_back(pl1);
-// vshapes.push_back(refinedShape);
+vshapes.push_back(pl1);
+vshapes.push_back(refinedShape);
 // vshapes=std::vector<TopoDS_Shape>{pl1,face};
 // vshapes=std::vector<TopoDS_Shape>{refinedShape,pl1,face};
 
@@ -1590,7 +1596,8 @@ int main(int argc, char** argv) {
 	win->clear_visible_focus(); 	 
 	woccbtn->color(0x7AB0CfFF);
 	win->resizable(content);	
-	win->position(Fl::w()/2-win->w()/2,10); 
+	// win->position(Fl::w()/2-win->w()/2,10); 
+	win->position(0,0); 
     win->show(argc, argv); 
     // win->maximize();
 	// int x, y, _w, _h; 
