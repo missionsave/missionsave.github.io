@@ -902,9 +902,16 @@ if [[ "$1" == "setup" ]]; then #  -n "$PS1" dont work via ssh
     # set -- # Clears all positional parameters
 fi
 
+launch(){
+Xephyr :1 -screen 1280x720 -ac &
+export DISPLAY=:1
+/home/super/msv/apptest/simple_wm &
+sleep 1
+/home/super/msv/apptest/taskbar &
+}
 
 #autostart
-if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ] && [ -z "$SSH_CONNECTION" ]; then
-  exec startx
-fi
+# if [ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ] && [ -z "$SSH_CONNECTION" ]; then
+#   exec startx
+# fi
 
