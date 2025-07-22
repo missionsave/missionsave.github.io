@@ -902,12 +902,17 @@ if [[ "$1" == "setup" ]]; then #  -n "$PS1" dont work via ssh
     # set -- # Clears all positional parameters
 fi
 
+topc(){
+	top -p $(pgrep -d',' "$1")
+}
+
+
 launch(){
-Xephyr :1 -screen 1280x720 -ac &
-export DISPLAY=:1
-/home/super/msv/apptest/simple_wm &
-sleep 1
-/home/super/msv/apptest/taskbar &
+# Xephyr :1 -screen 1280x720 -ac &
+export DISPLAY=:2
+exec startx ./.xinitrc.mywm
+
+# exec startx & /home/super/msv/apptest/simple_wm & sleep 1 & /home/super/msv/apptest/taskbar & xterm &
 }
 
 #autostart
