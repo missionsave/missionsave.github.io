@@ -1,4 +1,4 @@
-//  g++ taskbar.cpp ../common/general.cpp -I../common -o taskbar -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG
+//  g++ taskbar.cpp ../common/general.cpp -I../common -o taskbar -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -w 
 //  g++ taskbar.cpp ../common/general.cpp -I../common -o taskbar -lfltk -lX11 -lXtst -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -w -Wfatal-errors
 // g++ taskbar.cpp ../common/general.cpp -I../common -o taskbar -lfltk -lX11 -lXtst -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -w -Wfatal-errors
 
@@ -110,7 +110,6 @@ std::string read_file(const std::string& path) {
     return "";
 }
 
-// #region one
 std::string get_time() {
     time_t now = time(nullptr);
     struct tm* local = localtime(&now);
@@ -129,7 +128,6 @@ void update_display(Fl_Output* output) {
     Fl::repeat_timeout(30.0, (Fl_Timeout_Handler)update_display, output);
 }
 
-// #endregion one
 
 Fl_Window* tasbwin;
 Fl_Group* fg;
@@ -173,7 +171,45 @@ void set_dock_properties(Fl_Window* win) {
 #endif
 }
 
+// Add these global atoms at the start of your program
+Atom _NET_SUPPORTED;
+Atom _NET_CLIENT_LIST;
+Atom _NET_WM_STATE;
+Atom _NET_WM_STATE_STICKY;
+Atom _NET_WM_STATE_ABOVE;
+Atom _NET_WM_WINDOW_TYPE;
+Atom _NET_WM_WINDOW_TYPE_DOCK;
 
+void init_global_atoms(Display* dpy= fl_display) {
+    _NET_SUPPORTED = XInternAtom(dpy, "_NET_SUPPORTED", False);
+    _NET_CLIENT_LIST = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
+    _NET_WM_STATE = XInternAtom(dpy, "_NET_WM_STATE", False);
+    _NET_WM_STATE_STICKY = XInternAtom(dpy, "_NET_WM_STATE_STICKY", False);
+    _NET_WM_STATE_ABOVE = XInternAtom(dpy, "_NET_WM_STATE_ABOVE", False);
+    _NET_WM_WINDOW_TYPE = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+    _NET_WM_WINDOW_TYPE_DOCK = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
+}
+
+// Call this when initializing your taskbar
+void setup_taskbar_properties() {
+// void setup_taskbar_properties(Display* dpy, Window win) {
+	    Display* dpy = fl_display; // FLTK's global X11 display
+    Window win = fl_xid(tasbwin); 
+    // 1. Set as dock window
+    XChangeProperty(dpy, win, _NET_WM_WINDOW_TYPE, XA_ATOM, 32,
+                   PropModeReplace, (unsigned char*)&_NET_WM_WINDOW_TYPE_DOCK, 1);
+    
+    // 2. Make it sticky and always on top
+    Atom states[2] = {_NET_WM_STATE_STICKY, _NET_WM_STATE_ABOVE};
+    XChangeProperty(dpy, win, _NET_WM_STATE, XA_ATOM, 32,
+                   PropModeReplace, (unsigned char*)states, 2);
+    
+    // 3. Set strut (space reservation)
+    unsigned long strut[12] = {0};
+    strut[3] = 24; // Bottom strut
+    XChangeProperty(dpy, win, XInternAtom(dpy, "_NET_WM_STRUT_PARTIAL", False),
+                   XA_CARDINAL, 32, PropModeReplace, (unsigned char*)strut, 12);
+}
 
 vstring vclipboard;
 
@@ -271,7 +307,7 @@ int listenclipboard() {
 
 
 
-#pragma region 
+// namespace Math {
 
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -308,7 +344,8 @@ void sendCtrlV(Display* dpy) {
     
     XFlush(dpy);
 }
-
+// }
+// using namespace Math;
 int paste() {
     Display* dpy = XOpenDisplay(nullptr);
     if (!dpy) return 1;
@@ -759,21 +796,114 @@ void refresh_idle_cb(void*) {
 std::unordered_set<Window> processed_windows;
 std::unordered_set<Window> ignore_windows;
 
+
+
+
+pid_t get_pid_from_window(Display* display, Window window) {
+    // Try _NET_WM_PID first
+    Atom net_wm_pid = XInternAtom(display, "_NET_WM_PID", False);
+    Atom type;
+    int format;
+    unsigned long nitems, after;
+    unsigned char* data = nullptr;
+    
+    if (XGetWindowProperty(display, window, net_wm_pid,
+                          0, 1, False, XA_CARDINAL,
+                          &type, &format, &nitems, &after, &data) == Success && data) {
+        pid_t pid = *((pid_t*)data);
+        XFree(data);
+        return pid;
+    }
+    
+    // Fallback: Try WM_CLIENT_LEADER -> _NET_WM_PID
+    Atom wm_client_leader = XInternAtom(display, "WM_CLIENT_LEADER", False);
+    if (XGetWindowProperty(display, window, wm_client_leader,
+                          0, 1, False, XA_WINDOW,
+                          &type, &format, &nitems, &after, &data) == Success && data) {
+        Window leader = *((Window*)data);
+        XFree(data);
+        return get_pid_from_window(display, leader); // Recursively check leader
+    }
+    
+    return 0; // PID not found
+}
+// New function to ensure wmctrl visibility
+
+void set_wm_visibility_properties(Display* display, Window win) {
+    // Skip if this is our taskbar window
+    if (win == fl_xid(tasbwin)) return;
+
+    // Ensure basic WM properties only for application windows
+    XSetWindowAttributes attrs;
+    attrs.override_redirect = False;
+    XChangeWindowAttributes(display, win, CWOverrideRedirect, &attrs);
+    
+    // Set WM_CLASS
+    XClassHint class_hint;
+    class_hint.res_name = (char*)"xclient";
+    class_hint.res_class = (char*)"XClient";
+    XSetClassHint(display, win, &class_hint);
+    
+    // Set _NET_WM_PID if missing
+    Atom net_wm_pid = XInternAtom(display, "_NET_WM_PID", False);
+    pid_t pid = 0;
+    if (XGetWindowProperty(display, win, net_wm_pid, 0, 1, False,
+                          XA_CARDINAL, nullptr, nullptr, nullptr, nullptr, nullptr) != Success) {
+        pid = get_pid_from_window(display, win);
+        if (pid > 0) {
+            XChangeProperty(display, win, net_wm_pid, XA_CARDINAL, 32,
+                          PropModeReplace, (unsigned char*)&pid, 1);
+        }
+    }
+    
+    // Set window name if empty
+    char* win_name = nullptr;
+    if (XFetchName(display, win, &win_name) == 0 || !win_name) {
+        XStoreName(display, win, "Application Window");
+    }
+    if (win_name) XFree(win_name);
+    
+    // Force WM state update
+    XMapWindow(display, win);
+    XSync(display, False);
+}
+
+void init_wm_properties(Display* dpy) {
+    Window root = DefaultRootWindow(dpy);
+    
+    // Set supported EWMH properties
+    Atom net_supported = XInternAtom(dpy, "_NET_SUPPORTED", False);
+    Atom net_atoms[] = {
+        XInternAtom(dpy, "_NET_CLIENT_LIST", False),
+        XInternAtom(dpy, "_NET_ACTIVE_WINDOW", False),
+        XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_NORMAL", False),
+        XInternAtom(dpy, "_NET_WM_STATE", False),
+        XInternAtom(dpy, "_NET_WM_PID", False),
+        XInternAtom(dpy, "_NET_WM_NAME", False)
+    };
+    
+    XChangeProperty(dpy, root, net_supported, XA_ATOM, 32, PropModeReplace,
+                  (unsigned char*)net_atoms, sizeof(net_atoms)/sizeof(Atom));
+
+    // Initialize empty client list
+    Atom net_client_list = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
+    XChangeProperty(dpy, root, net_client_list, XA_WINDOW, 32, PropModeReplace,
+                  (unsigned char*)nullptr, 0);
+}
+
 void enforce_window_geometry(Display* display, Window win) {
-    // Skip if we've decided to ignore this window
-    if (ignore_windows.count(win)) return;
+    // Skip if this is our taskbar window or ignored window
+    if (win == fl_xid(tasbwin) || ignore_windows.count(win)) return;
     
     // Get screen dimensions
     int screen_w = Fl::w();
     int screen_h = Fl::h();
-    int available_h = screen_h - tasbwin->h();  // Your taskbar height
+    int available_h = screen_h - tasbwin->h();
     
-    // Try multiple approaches to resize the window
-    
-    // 1. Standard X11 resize
+    // Standard X11 resize
     XMoveResizeWindow(display, win, 0, 0, screen_w, available_h);
     
-    // 2. Set size hints
+    // Set size hints
     XSizeHints hints;
     hints.flags = PPosition | PSize | PMinSize | PMaxSize;
     hints.x = 0;
@@ -786,34 +916,17 @@ void enforce_window_geometry(Display* display, Window win) {
     hints.max_height = available_h;
     XSetWMNormalHints(display, win, &hints);
     
-    // 3. Use EWMH to request maximization with our constraints
-    Atom wm_state = XInternAtom(display, "_NET_WM_STATE", False);
-    Atom wm_max_horz = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-    Atom wm_max_vert = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
-    
-    Atom atoms[2] = {wm_max_horz, wm_max_vert};
-    XChangeProperty(display, win, wm_state, XA_ATOM, 32, 
-                   PropModeReplace, (unsigned char*)atoms, 2);
-    
-    // 4. For Chrome specifically, set its internal size properties
-    Atom chrome_size = XInternAtom(display, "_CHROME_WINDOW_SIZE", False);
-    if (chrome_size != None) {
-        unsigned long size[2] = {screen_w, available_h};
-        XChangeProperty(display, win, chrome_size, XA_CARDINAL, 32,
-                       PropModeReplace, (unsigned char*)size, 2);
-    }
-    
     // Mark as processed
     processed_windows.insert(win);
     
-    // Schedule a check after 500ms to see if it worked
+    // Schedule a check after 500ms
     std::thread([display, win, screen_w, available_h]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         
         XWindowAttributes attrs;
         if (XGetWindowAttributes(display, win, &attrs)) {
             if (attrs.width != screen_w || attrs.height != available_h) {
-                // Didn't respect our resize - try again more forcefully
+                // Try again more forcefully
                 XResizeWindow(display, win, screen_w, available_h);
                 XMoveWindow(display, win, 0, 0);
                 
@@ -832,7 +945,7 @@ int eventWindow() {
         std::cerr << "Cannot open X display\n";
         return 1;
     }
-
+	init_wm_properties(display);
     Window root = DefaultRootWindow(display);
     XSelectInput(display, root, SubstructureNotifyMask);
 
@@ -847,23 +960,32 @@ int eventWindow() {
                 break;
                 
 			case MapNotify: {
-				Window mapped_win = ev.xmap.window;
-				
-				// Skip if we've already processed this window
-				if (processed_windows.count(mapped_win)) break;
-				
-				XWindowAttributes attrs;
-				if (XGetWindowAttributes(display, mapped_win, &attrs)) {
-					if (!attrs.override_redirect) {
-						// Wait 100ms before acting to let window initialize
-						std::thread([display, mapped_win]() {
-							std::this_thread::sleep_for(std::chrono::milliseconds(100));
-							enforce_window_geometry(display, mapped_win);
-						}).detach();
-					}
-				}
-				break;
-			}
+    Window mapped_win = ev.xmap.window;
+    
+    // Skip if we've already processed this window
+    if (processed_windows.count(mapped_win)) break;
+    
+    // Declare attrs here before using it
+    XWindowAttributes attrs;
+    if (XGetWindowAttributes(display, mapped_win, &attrs)) {
+        if (!attrs.override_redirect) {
+            // Wait briefly before acting to let window initialize
+            std::thread([display, mapped_win, tasbwin]() {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                
+                // First enforce window geometry (your existing functionality)
+                enforce_window_geometry(display, mapped_win);
+                
+                // Then set WM properties for wmctrl visibility
+                set_wm_visibility_properties(display, mapped_win); //removing this the taskbar appear normal
+                
+                // Mark as processed
+                processed_windows.insert(mapped_win);
+            }).detach();
+        }
+    }
+    break;
+}
             
             case DestroyNotify:
                 std::cout << "Window destroyed: " << ev.xdestroywindow.window << '\n';
@@ -1045,13 +1167,13 @@ cotm(fullCommand)
 		} else {
 			launch(uapps[winTitle]);
 		}
-	}
+	} 
 };
-#pragma region 
+#pragma region init
 	Launcher* lnc;
 	vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64"};
 	
-#pragma endregion
+#pragma endregion 
 
 vector<Fl_Button*> vbtn;
 vector<WindowInfo> vwin;
@@ -1240,6 +1362,8 @@ int main() {
     
     // Set X11 properties after window is shown
     set_dock_properties(tasbwin);
+	init_global_atoms();
+	setup_taskbar_properties();
 
 	thread([](){
 		listenclipboard();

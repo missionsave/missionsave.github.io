@@ -663,7 +663,9 @@ installer() {
 	sudo apt update
 	sudo apt install build-essential
 
-	installdeb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.de
+	installdeb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+	sudo apt install fonts-noto fonts-noto-color-emoji
+	fc-cache -vf
 
 	installdeb https://vscode.download.prss.microsoft.com/dbazure/download/stable/cb0c47c0cfaad0757385834bd89d410c78a856c0/code_1.102.0-1752099874_amd64.deb
 

@@ -211,4 +211,6 @@ void perf(std::string p="");
 
 void appwdir();
 
+void trim(std::string& str);
+
 #endif // GENERAL_HPP

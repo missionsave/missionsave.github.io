@@ -8,17 +8,14 @@
 #include <csignal>
 #include <iostream>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 #include <unistd.h>
-#include "general.hpp"
 
 Display* dpy;
 Window root;
 Atom net_client_list, net_active_window, net_supported;
 Atom net_wm_name, net_wm_state, net_wm_window_type, net_wm_window_type_normal;
 bool running = true;
-std::unordered_set<Window> managed_clients;
 
 struct ManagedWindow {
     Window client;
@@ -35,9 +32,6 @@ void update_client_list() {
     std::vector<Window> clients;
     for (auto& [win, mw] : managed_windows) {
         clients.push_back(win);
-        Atom type = net_wm_window_type_normal;
-        XChangeProperty(dpy, win, net_wm_window_type, XA_ATOM, 32,
-                       PropModeReplace, (unsigned char*)&type, 1);
     }
     XChangeProperty(dpy, root, net_client_list, XA_WINDOW, 32,
                    PropModeReplace, (unsigned char*)clients.data(), clients.size());
@@ -56,13 +50,7 @@ void set_active_window(Window client) {
         mw.frame->redraw();
     }
     
-    // Only set focus if window is visible
-    XWindowAttributes attr;
-    if (XGetWindowAttributes(dpy, client, &attr)) {
-        if (attr.map_state == IsViewable) {
-            XSetInputFocus(dpy, client, RevertToParent, CurrentTime);
-        }
-    }
+    XSetInputFocus(dpy, client, RevertToParent, CurrentTime);
 }
 
 void update_title(Window win) {
@@ -72,10 +60,8 @@ void update_title(Window win) {
         if (XGetWMName(dpy, win, &tp)) {
             if (tp.value) {
                 it->second.title->label((char*)tp.value);
-                // XChangeProperty(dpy, win, net_wm_name, XA_STRING, 8,
-                            //    PropModeReplace, tp.value, tp.nitems); //infinit loop
+                XFree(tp.value);
             }
-            if (tp.value) XFree(tp.value);
         }
     }
 }
@@ -125,18 +111,10 @@ void maximize_cb(Fl_Widget*, void* data) {
 
 bool should_manage_window(Window win) {
     if (win == root) return false;
-
+    
     XWindowAttributes attr;
     if (!XGetWindowAttributes(dpy, win, &attr)) return false;
-
     if (attr.override_redirect) return false;
-    if (attr.map_state == IsViewable) return false; // já visível, provavelmente já tem moldura
-
-    if (managed_clients.count(win)) return false;   // já está gerenciado
-
-    // return true;
-
-
 
     Atom net_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
     Atom actual_type;
@@ -166,50 +144,80 @@ bool should_manage_window(Window win) {
     return true;
 }
 
-
 void manage_window(Window client) {
-    if (!should_manage_window(client)) return;
-
-    managed_clients.insert(client);
+    if (!should_manage_window(client)) {
+        XMapWindow(dpy, client);
+        return;
+    }
 
     XWindowAttributes attr;
-    XGetWindowAttributes(dpy, client, &attr);
+    if (!XGetWindowAttributes(dpy, client, &attr)) return;
 
-    const int title_height = 30;
-    const int border = 2;
+    const int border_width = 2;
+    const int titlebar_height = 30;
+    const int total_width = attr.width + 2 * border_width;
+    const int total_height = attr.height + titlebar_height + border_width;
 
-    int total_w = attr.width + 2 * border;
-    int total_h = attr.height + title_height + border;
+    // Default position if window tries to appear at (0,0)
+    int x = attr.x;
+    int y = attr.y;
+    if (x < 10 && y < 10) {
+        x = 100 + managed_windows.size() * 30;
+        y = 100 + managed_windows.size() * 30;
+    }
 
-    // Janela FLTK (a moldura)
-    Fl_Window* frame = new Fl_Window(attr.x, attr.y, total_w, total_h);
-    frame->border(0);        // Sem borda do sistema
-    frame->override();       // Importante! Não deixa o X11 gerar MapRequest para esta moldura
-    frame->begin();
+    ManagedWindow mw;
+    mw.client = client;
+    mw.orig_w = total_width;
+    mw.orig_h = total_height;
 
-    Fl_Box* title = new Fl_Box(border, border, total_w - 2 * border, title_height, "Janela");
-    title->box(FL_FLAT_BOX);
-    title->color(FL_DARK_RED);
-    title->labelfont(FL_BOLD);
+    mw.frame = new Fl_Window(x, y, total_width, total_height);
+    mw.frame->box(FL_BORDER_BOX);
+    mw.frame->begin();
 
-    frame->end();
-    frame->show();
+    mw.title = new Fl_Box(border_width, border_width, 
+                         total_width - 2*border_width - 100, titlebar_height - border_width);
+    mw.title->box(FL_FLAT_BOX);
+    mw.title->color(FL_LIGHT2);
+    mw.title->label("Window");
+    mw.title->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
 
-    Window frame_id = fl_xid(frame);
+    mw.close_btn = new Fl_Button(total_width - 70, border_width, 20, 20, "X");
+    mw.close_btn->color(FL_RED);
+    mw.close_btn->callback(close_cb, &mw);
 
-    XSelectInput(dpy, client, StructureNotifyMask | PropertyChangeMask);
+    mw.minimize_btn = new Fl_Button(total_width - 90, border_width, 20, 20, "_");
+    mw.minimize_btn->color(FL_GREEN);
+    mw.minimize_btn->callback(minimize_cb, &mw);
 
-    XSetWindowAttributes swa;
-    swa.override_redirect = True;
-    XChangeWindowAttributes(dpy, frame_id, CWOverrideRedirect, &swa);
+    mw.maximize_btn = new Fl_Button(total_width - 110, border_width, 20, 20, "[]");
+    mw.maximize_btn->color(FL_BLUE);
+    mw.maximize_btn->callback(maximize_cb, &mw);
 
-    XReparentWindow(dpy, client, frame_id, border, title_height);
-    XMapWindow(dpy, client);
-    XMapRaised(dpy, frame_id);
-
+    mw.frame->end();
+    
+    // Show frame first
+    mw.frame->show();
+    Fl::flush();
     XSync(dpy, False);
 
-    std::cout << "Managed client: " << client << " inside frame: " << frame_id << std::endl;
+    Window frame_id = fl_xid(mw.frame);
+    if (frame_id) {
+        // Set override_redirect to prevent window manager interference
+        XSetWindowAttributes swa;
+        swa.override_redirect = True;
+        XChangeWindowAttributes(dpy, frame_id, CWOverrideRedirect, &swa);
+
+        XSelectInput(dpy, client, StructureNotifyMask | PropertyChangeMask);
+        XReparentWindow(dpy, client, frame_id, border_width, titlebar_height);
+        XMapWindow(dpy, client);
+        XSync(dpy, False);
+        
+        managed_windows[client] = mw;
+        update_client_list();
+        set_active_window(client);
+        update_title(client);
+    }
 }
 
 void unmanage_window(Window client) {
@@ -224,15 +232,14 @@ void unmanage_window(Window client) {
 }
 
 void run_autostart() {
-    const char* apps[] = {"/home/super/taskbar","xterm", nullptr};
+    const char* apps[] = {"/home/super/msv/apptest/taskbar","xterm", nullptr};
     for (int i = 0; apps[i]; ++i) {
         if (fork() == 0) {
             // Child process
             setsid();
             close(ConnectionNumber(dpy));
             execlp(apps[i], apps[i], nullptr);
-            std::cerr << "Failed to launch " << apps[i] << std::endl;
-            _exit(1);
+            exit(1);
         }
         usleep(100000); // Small delay between launches
     }
@@ -243,7 +250,10 @@ int main() {
     signal(SIGTERM, handle_signal);
 
     dpy = XOpenDisplay(nullptr);
-    if (!dpy) return 1;
+    if (!dpy) {
+        std::cerr << "Failed to open X display" << std::endl;
+        return 1;
+    }
     root = DefaultRootWindow(dpy);
 
     // Initialize EWMH atoms
@@ -271,13 +281,14 @@ int main() {
                    PropModeReplace, (unsigned char*)supported, sizeof(supported)/sizeof(Atom));
 
     // Set error handler and select events
-    XSetErrorHandler([](Display*, XErrorEvent*) { return 0; });
-
-// XSelectInput(dpy, root,
-//     SubstructureNotifyMask     |  // For UnmapNotify, DestroyNotify
-//     SubstructureRedirectMask      // For MapRequest, ConfigureRequest
-// );
-
+    XSetErrorHandler([](Display*, XErrorEvent* ev) -> int {
+        char err_msg[256];
+        XGetErrorText(dpy, ev->error_code, err_msg, sizeof(err_msg));
+        std::cerr << "X Error: " << err_msg << " on window 0x" 
+                  << std::hex << ev->resourceid << std::dec << std::endl;
+        return 0;
+    });
+    
     XSelectInput(dpy, root, SubstructureRedirectMask | SubstructureNotifyMask |
                           StructureNotifyMask | PropertyChangeMask);
     XSetWindowBackground(dpy, root, WhitePixel(dpy, DefaultScreen(dpy)));
@@ -302,51 +313,51 @@ int main() {
 
     run_autostart();
 
-
-// XSelectInput(dpy, root,
-//     SubstructureNotifyMask     |  // For UnmapNotify, DestroyNotify
-//     SubstructureRedirectMask   |  // For MapRequest, ConfigureRequest
-//     PropertyChangeMask            // For PropertyNotify
-// );
-
-
-while (running) {
-    XEvent ev;
-    XNextEvent(dpy, &ev);  // Blocks efficiently, 0% CPU idle
-
-		cotm(PropertyNotify,ev.type);
-		cotmup;
-    switch (ev.type) {
-
-        case MapRequest:
-            manage_window(ev.xmaprequest.window);
-            break;
-
-        case UnmapNotify:
-            if (ev.xunmap.window != root)
-                unmanage_window(ev.xunmap.window);
-            break;
-
-        case DestroyNotify:
-            unmanage_window(ev.xdestroywindow.window);
-            break;
-
-        case ConfigureRequest: {
-            auto* c = &ev.xconfigurerequest;
-            XWindowChanges wc = { c->x, c->y, c->width, c->height,
-                                  c->border_width, c->above, c->detail };
-            XConfigureWindow(dpy, c->window, c->value_mask, &wc);
-            break;
+    while (running) {
+        while (XPending(dpy)) {
+            XEvent ev;
+            XNextEvent(dpy, &ev);
+            switch (ev.type) {
+                case MapRequest: 
+                    manage_window(ev.xmaprequest.window); 
+                    break;
+                case UnmapNotify:
+                    if (ev.xunmap.window != root) {
+                        unmanage_window(ev.xunmap.window);
+                    }
+                    break;
+                case DestroyNotify: 
+                    unmanage_window(ev.xdestroywindow.window); 
+                    break;
+                case ConfigureRequest: {
+                    auto* c = &ev.xconfigurerequest;
+                    XWindowChanges wc = { c->x, c->y, c->width, c->height,
+                                          c->border_width, c->above, c->detail };
+                    XConfigureWindow(dpy, c->window, c->value_mask, &wc);
+                    break;
+                }
+                case PropertyNotify: 
+                    update_title(ev.xproperty.window); 
+                    break;
+                case ClientMessage:
+                    // Handle WM_DELETE_WINDOW
+                    if (ev.xclient.message_type == XInternAtom(dpy, "WM_PROTOCOLS", True)) {
+                        Atom protocol = ev.xclient.data.l[0];
+                        if (protocol == XInternAtom(dpy, "WM_DELETE_WINDOW", False)) {
+                            unmanage_window(ev.xclient.window);
+                        }
+                    }
+                    break;
+            }
         }
-
-        case PropertyNotify:
-    if (ev.xproperty.atom == net_wm_name || ev.xproperty.atom == XA_WM_NAME) {
-        update_title(ev.xproperty.window);
+        Fl::wait(0.05);
     }
-    break;
-    }
-}
 
+    // Cleanup
+    for (auto& [win, mw] : managed_windows) {
+        XReparentWindow(dpy, win, root, mw.frame->x(), mw.frame->y());
+        delete mw.frame;
+    }
     XCloseDisplay(dpy);
     return 0;
 }

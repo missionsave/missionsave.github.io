@@ -76,6 +76,14 @@
         
     
   "editor.insertSpaces": false,
-  "editor.detectIndentation": false
+  "editor.detectIndentation": false,
+  
+"regionHelper.regionBoundaryPatternByLanguageId": {
+    "cpp": {
+        "foldStartRegex": "^[\\s]*#pragma[\\s]*region[\\s]*(.*)$",
+        "foldEndRegex": "^[\\s]*#pragma[\\s]*endregion.*$"
+    }
+    // ... other languages
+}
 
 }

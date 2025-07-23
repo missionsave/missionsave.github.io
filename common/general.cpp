@@ -86,6 +86,15 @@ void go_up_and_clear_line(const std::string& last_text) {
     // std::cout.flush();
 }
 
+void trim(std::string& str) {
+    // Left trim
+    str.erase(str.begin(), std::find_if(str.begin(), str.end(),
+        [](unsigned char ch) { return !std::isspace(ch); }));
+
+    // Right trim
+    str.erase(std::find_if(str.rbegin(), str.rend(),
+        [](unsigned char ch) { return !std::isspace(ch); }).base(), str.end());
+}
 void sleepms(int ms) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     // struct timespec ts;
