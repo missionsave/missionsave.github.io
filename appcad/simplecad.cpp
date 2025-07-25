@@ -1,3 +1,5 @@
+// #region includes
+
 #define M_PI 3.14159265358979323846
 #define M_PI_2 1.57079632679489661923
 
@@ -154,6 +156,9 @@
 
 
 using namespace std;
+// #endregion includes
+
+
 Fl_Window* win;
 Fl_Menu_Bar* menu;
 
@@ -169,6 +174,7 @@ void open_cb() {
 class OCC_Viewer;
 class OCC_Viewer : public Fl_Window {
 public:
+// #region initialization
     Handle(Aspect_DisplayConnection) m_display_connection;
     Handle(OpenGl_GraphicDriver) m_graphic_driver;
     Handle(V3d_Viewer) m_viewer;
@@ -181,74 +187,7 @@ public:
     std::vector<TopoDS_Shape> vshapes; 
     std::vector<Handle(AIS_Shape)> vaShape; 
  
-	struct vluadraw{
-		TopoDS_Shape shape; 
-		Handle(AIS_Shape) ashape; 
-		TopoDS_Face face;
-		gp_Pnt origin=gp_Pnt(0, 0, 0);
-		gp_Dir normal=gp_Dir(0,0,1);
-		gp_Dir xdir =  gp_Dir(1, 0, 0);
-		gp_Trsf trsf;
-		gp_Trsf trsftmp; 
-		vluadraw(){
-			gp_Ax2 ax3(origin, normal, xdir);
-			trsf.SetTransformation(ax3);
-			trsf.Invert();
-		}
-		void rotate(int angle,gp_Dir normal={0,0,1}){
-			trsftmp = gp_Trsf();
-			// gp_Dir normal=gp_Dir(0,1,0);
-			trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
-			trsf  *= trsftmp;
-		}
-		void translate(float x=0,float y=0, float z=0){
-			trsftmp = gp_Trsf();
-			trsftmp.SetTranslation(gp_Vec(x, y, z));
-			trsf  *= trsftmp; 
-		}
-		void dofromstart(){
-			gp_Pnt p1(0, 0,0);
-			gp_Pnt p2(100, 0,0);
-			gp_Pnt p3(100, 50,0);
-			gp_Pnt p4(0, 50,0);
 
-			// Criar arestas
-			TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
-			TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p2, p3);
-			TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
-			TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
-
-			
-			// Fazer o wire
-			BRepBuilderAPI_MakeWire wireBuilder;
-			wireBuilder.Add(e1);
-			wireBuilder.Add(e2);
-			wireBuilder.Add(e3);
-			// wireBuilder.Add(e4);
-			TopoDS_Wire wire = wireBuilder.Wire();
-
-			face = BRepBuilderAPI_MakeFace(wire);
-
-			//final
-			BRepBuilderAPI_Transform transformer(face, trsf);
-			shape= transformer.Shape();
-
-		}
-
-	};
-
-	void test2(){
-		
-			//test
-			vluadraw test;
-			// test.translate(10);
-			// test.translate(0,10);
-			// test.rotate(90);
-			test.dofromstart();
-			vshapes.push_back(test.shape);
-	}
-
- 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
         : Fl_Window(X, Y, W, H, L) { 
 			// nested;
@@ -346,20 +285,6 @@ static void idle_refresh_cb(void*) {
     void draw() override { 
         if (!m_initialized) return;	 
         m_view->Update();
-        // cotm("draw")
-        // m_view->Redraw();
-		// // make_current();
-		// aCtx->MakeCurrent();
-	// 	static std::chrono::steady_clock::time_point last_event = std::chrono::steady_clock::now();
-    // 	auto now = std::chrono::steady_clock::now();
-    // 	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_event).count();\
-    // if(elapsed>(1000.0/(_fps))){\
-    //     thecontent \
-    //     last_event = now;\
-    // // }}
-	// 	glFlush();
-	// 	glFinish();
-
     }
 
     void resize(int X, int Y, int W, int H) override {
@@ -371,15 +296,133 @@ static void idle_refresh_cb(void*) {
         }
     }
  
+void setbar5per() {
+    Standard_Integer width, height;
+    m_view->Window()->Size(width, height);
+    Standard_Real barWidth = width * 0.05;
 
-#define funcfps(_fps,thecontent){  \
-    static std::chrono::steady_clock::time_point last_event = std::chrono::steady_clock::now(); \
-    auto now = std::chrono::steady_clock::now();\
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_event).count();\
-    if(elapsed>(1000.0/(_fps))){\
-        thecontent \
-        last_event = now;\
-    }}
+    static Handle(Graphic3d_Structure) barStruct;
+    if (!barStruct.IsNull()) {
+        barStruct->Erase();
+        barStruct->Clear();
+    } else {
+        barStruct = new Graphic3d_Structure(m_view->Viewer()->StructureManager());
+        barStruct->SetTransformPersistence(new Graphic3d_TransformPers(Graphic3d_TMF_2d));
+        barStruct->SetZLayer(Graphic3d_ZLayerId_BotOSD);
+    }
+
+    Handle(Graphic3d_ArrayOfTriangles) tri = new Graphic3d_ArrayOfTriangles(6);
+
+    Standard_Real x0 = width - barWidth;
+    Standard_Real x1 = width;
+    Standard_Real y0 = 0.0;
+    Standard_Real y1 = height;
+
+    tri->AddVertex(gp_Pnt(x0, y0, 0.0));
+    tri->AddVertex(gp_Pnt(x1, y0, 0.0));
+    tri->AddVertex(gp_Pnt(x1, y1, 0.0));
+    tri->AddVertex(gp_Pnt(x0, y0, 0.0));
+    tri->AddVertex(gp_Pnt(x1, y1, 0.0));
+    tri->AddVertex(gp_Pnt(x0, y1, 0.0));
+
+    Handle(Graphic3d_Group) group = barStruct->NewGroup();
+
+    // Create fill area aspect
+    Handle(Graphic3d_AspectFillArea3d) aspect = new Graphic3d_AspectFillArea3d();
+    aspect->SetInteriorStyle(Aspect_IS_SOLID);
+    aspect->SetInteriorColor(Quantity_NOC_RED);
+    
+    // Configure material for transparency
+    Graphic3d_MaterialAspect material;
+    material.SetMaterialType(Graphic3d_MATERIAL_ASPECT);
+    material.SetAmbientColor(Quantity_NOC_RED);
+    material.SetDiffuseColor(Quantity_NOC_RED);
+    // material.SetSpecularColor(Quantity_NOC_WHITE);
+    material.SetTransparency(0.5); // 50% transparency
+    
+    aspect->SetFrontMaterial(material);
+    aspect->SetBackMaterial(material);
+    
+    // For proper transparency rendering
+    aspect->SetSuppressBackFaces(false);
+
+    group->SetGroupPrimitivesAspect(aspect);
+    group->AddPrimitiveArray(tri);
+
+    barStruct->Display();
+    // m_view->Redraw();
+    //  redraw(); //  redraw(); // m_view->Update ();
+
+
+}
+
+
+// #endregion initialization
+	
+	struct luadraw;
+	vector<luadraw> vluadraw;
+	struct luadraw{
+		string command="";
+		TopoDS_Shape shape; 
+		Handle(AIS_Shape) ashape; 
+		TopoDS_Face face;
+		gp_Pnt origin=gp_Pnt(0, 0, 0);
+		gp_Dir normal=gp_Dir(0,0,1);
+		gp_Dir xdir =  gp_Dir(1, 0, 0);
+		gp_Trsf trsf;
+		gp_Trsf trsftmp; 
+		luadraw(){
+			gp_Ax2 ax3(origin, normal, xdir);
+			trsf.SetTransformation(ax3);
+			trsf.Invert();
+		}
+		void rotate(int angle,gp_Dir normal={0,0,1}){
+			trsftmp = gp_Trsf();
+			// gp_Dir normal=gp_Dir(0,1,0);
+			trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
+			trsf  *= trsftmp;
+		}
+		void translate(float x=0,float y=0, float z=0){
+			trsftmp = gp_Trsf();
+			trsftmp.SetTranslation(gp_Vec(x, y, z));
+			trsf  *= trsftmp; 
+		}
+		void dofromstart(){
+			gp_Pnt p1(0, 0,0);
+			gp_Pnt p2(100, 0,0);
+			gp_Pnt p3(100, 50,0);
+			gp_Pnt p4(0, 50,0);
+
+			// Criar arestas
+			TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
+			TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p2, p3);
+			TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
+			TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
+
+			
+			// Fazer o wire
+			BRepBuilderAPI_MakeWire wireBuilder;
+			wireBuilder.Add(e1);
+			wireBuilder.Add(e2);
+			wireBuilder.Add(e3);
+			// wireBuilder.Add(e4);
+			TopoDS_Wire wire = wireBuilder.Wire();
+
+			face = BRepBuilderAPI_MakeFace(wire);
+
+			//final
+			BRepBuilderAPI_Transform transformer(face, trsf);
+			shape= transformer.Shape();
+
+		}
+
+	};
+
+
+
+ 
+// #region events
+
 
 Handle(AIS_Shape) myHighlightedPointAIS; // To store the highlighting sphere
 TopoDS_Vertex myLastHighlightedVertex;   // To store the last highlighted vertex
@@ -666,206 +709,9 @@ case FL_MOUSEWHEEL:
 int lastX, lastY;
 bool isRotating = false;
 bool isPanning = false;
-void setbar5per() {
-    Standard_Integer width, height;
-    m_view->Window()->Size(width, height);
-    Standard_Real barWidth = width * 0.05;
-
-    static Handle(Graphic3d_Structure) barStruct;
-    if (!barStruct.IsNull()) {
-        barStruct->Erase();
-        barStruct->Clear();
-    } else {
-        barStruct = new Graphic3d_Structure(m_view->Viewer()->StructureManager());
-        barStruct->SetTransformPersistence(new Graphic3d_TransformPers(Graphic3d_TMF_2d));
-        barStruct->SetZLayer(Graphic3d_ZLayerId_BotOSD);
-    }
-
-    Handle(Graphic3d_ArrayOfTriangles) tri = new Graphic3d_ArrayOfTriangles(6);
-
-    Standard_Real x0 = width - barWidth;
-    Standard_Real x1 = width;
-    Standard_Real y0 = 0.0;
-    Standard_Real y1 = height;
-
-    tri->AddVertex(gp_Pnt(x0, y0, 0.0));
-    tri->AddVertex(gp_Pnt(x1, y0, 0.0));
-    tri->AddVertex(gp_Pnt(x1, y1, 0.0));
-    tri->AddVertex(gp_Pnt(x0, y0, 0.0));
-    tri->AddVertex(gp_Pnt(x1, y1, 0.0));
-    tri->AddVertex(gp_Pnt(x0, y1, 0.0));
-
-    Handle(Graphic3d_Group) group = barStruct->NewGroup();
-
-    // Create fill area aspect
-    Handle(Graphic3d_AspectFillArea3d) aspect = new Graphic3d_AspectFillArea3d();
-    aspect->SetInteriorStyle(Aspect_IS_SOLID);
-    aspect->SetInteriorColor(Quantity_NOC_RED);
-    
-    // Configure material for transparency
-    Graphic3d_MaterialAspect material;
-    material.SetMaterialType(Graphic3d_MATERIAL_ASPECT);
-    material.SetAmbientColor(Quantity_NOC_RED);
-    material.SetDiffuseColor(Quantity_NOC_RED);
-    // material.SetSpecularColor(Quantity_NOC_WHITE);
-    material.SetTransparency(0.5); // 50% transparency
-    
-    aspect->SetFrontMaterial(material);
-    aspect->SetBackMaterial(material);
-    
-    // For proper transparency rendering
-    aspect->SetSuppressBackFaces(false);
-
-    group->SetGroupPrimitivesAspect(aspect);
-    group->AddPrimitiveArray(tri);
-
-    barStruct->Display();
-    // m_view->Redraw();
-    //  redraw(); //  redraw(); // m_view->Update ();
+// #endregion events
 
 
-}
-
-
-    void test(int rot=45){
-    TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape(); 
-        TopoDS_Shape pl1=pl(); 
-
-        gp_Trsf trsf;
-trsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), rot*(M_PI/180)); // rotate 30 degrees around Z-axis
-BRepBuilderAPI_Transform transformer(box, trsf);
-TopoDS_Shape rotatedShape = transformer.Shape();
-
-// TopoDS_Shape fusedShape = BRepAlgoAPI_Fuse(rotatedShape, box);
-
-// BRepAlgoAPI_Common   fuse(rotatedShape, box);
-// BRepAlgoAPI_Cut  fuse(rotatedShape, box);
-BRepAlgoAPI_Fuse fuse(rotatedShape, box);
-fuse.Build();
-if (!fuse.IsDone()) {
-    // handle error
-}
-TopoDS_Shape fusedShape = fuse.Shape();
-
-// Refine the result
-ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true); // merge faces, edges, vertices
-unify.Build();
-TopoDS_Shape refinedShape = unify.Shape();
-
-
-
-
-
-{
-
-    // gp_Pnt origin=gp_Pnt(50, 86.6025, 0);
-    // gp_Dir normal=gp_Dir(0.5, 0.866025, 0);
-    gp_Pnt origin=gp_Pnt(0, 0, 100);
-    gp_Dir normal=gp_Dir(0,0,1);
-gp_Dir xdir =   gp_Dir(0, 1, 0);
-gp_Dir ydir =   gp_Dir(0.866025, -0.5, 0);
-// gp_Ax2 ax3(origin, normal);
-gp_Ax2 ax3(origin, normal, xdir);
-// ax3.SetYDirection(ydir);
-gp_Trsf trsf;
-trsf.SetTransformation(ax3);
-trsf.Invert();
-
-
-gp_Trsf trsftmp; 
-trsftmp.SetRotation(gp_Ax1(origin, normal), -45*(M_PI/180) );
-trsf  *= trsftmp;
-
-trsftmp = gp_Trsf();
-trsftmp.SetTranslation(gp_Vec(20, 0, 0));
-trsf  *= trsftmp; 
- 
-ShowTriedronWithoutLabels(trsf,m_context); // debug
-
-gp_Pnt p1(0, 0,0);
-    gp_Pnt p2(100, 0,0);
-    gp_Pnt p3(100, 50,0);
-    gp_Pnt p4(0, 50,0);
-
-    
-    // p1 = origin.Translated(gp_Vec(xdir) * (-0) + gp_Vec(ydir) * (-0));
-    // p2 = origin.Translated(gp_Vec(xdir) * (p2.X()) + gp_Vec(ydir) * (p2.Y()));
-    // p3 = origin.Translated(gp_Vec(xdir) * (p3.X()) + gp_Vec(ydir) * (p3.Y()));
-    // p4 = origin.Translated(gp_Vec(xdir) * (p4.X()) + gp_Vec(ydir) * (p4.Y()));
-
-    // p1.Transform(trsf);
-    // p2.Transform(trsf);
-    // p3.Transform(trsf);
-    // p4.Transform(trsf);
-
-    // p1.Transform(trsf.Inverted());
-    // p2.Transform(trsf.Inverted());
-    // p3.Transform(trsf.Inverted());
-    // p4.Transform(trsf.Inverted());
-    
-    // p1=point_on_plane(p1,ploc,pdir);
-    // p2=point_on_plane(p2,ploc,pdir);
-    // p3=point_on_plane(p3,ploc,pdir);
-    // p4=point_on_plane(p4,ploc,pdir);
-
-    // Criar arestas
-    TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
-    TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p2, p3);
-    TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
-    TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
-
-    // Fazer o wire
-    BRepBuilderAPI_MakeWire wireBuilder;
-    wireBuilder.Add(e1);
-    wireBuilder.Add(e2);
-    wireBuilder.Add(e3);
-    wireBuilder.Add(e4);
-    TopoDS_Wire wire = wireBuilder.Wire();
-
-    // Criar a face sobre o plano com o wire
-    // gp_Dir xdir =   gp_Dir(0, 0, 1); // produto vetorial — perpendicular a pdir
-    // gp_Dir xdir = pdir ^ gp_Dir(0, 0, 1); // produto vetorial — perpendicular a pdir
-    
-    // gp_Ax3 ax3(ploc,pdir,xdir);
-    // Handle(Geom_Plane) plane = new Geom_Plane(ploc,pdir);
-    // Handle(Geom_Plane) plane = new Geom_Plane(ax3);
-    // gp_Pnt origin = plane->Location();
-    // printf("origin: x=%.3f y=%.3f z=%.3f\n",origin.X(),origin.Y(),origin.Z());
-    TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
-    // TopoDS_Face face = BRepBuilderAPI_MakeFace(plane, wire);
-
-    BRepBuilderAPI_Transform transformer(face, trsf);
-TopoDS_Shape rotatedShape = transformer.Shape();
-    
-gp_Ax3 ax3_;
-ax3_.Transform(trsf);  // aplica trsf no sistema de coordenadas padrão
-// gp_Dir dir = ax3.Direction();
-gp_Dir dir = [](gp_Trsf trsf){ gp_Ax3 ax3; ax3.Transform(trsf); return ax3.Direction(); }(trsf);
-
-
-gp_Vec extrusionVec(dir);
-// gp_Vec extrusionVec(normal);
-extrusionVec *= 10.0;
-    TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(rotatedShape, extrusionVec).Shape();
-    // TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(face, extrusionVec).Shape();
-
-    vshapes.push_back(extrudedShape);
-    // vshapes.push_back(rotatedShape);
-    // vshapes.push_back(face);
-
-}
-
-vshapes.push_back(pl1);
-vshapes.push_back(refinedShape);
-// vshapes=std::vector<TopoDS_Shape>{pl1,face};
-// vshapes=std::vector<TopoDS_Shape>{refinedShape,pl1,face};
-
-// {
-// draw_objs();
-// m_view->FitAll();
-// redraw();
-// }
-} 
 void draw_objs(){
     if(hlr_on)return;
     m_view->SetComputedMode(Standard_False);    
@@ -877,11 +723,11 @@ void draw_objs(){
 
 
 
-//     Handle(Prs3d_Drawer) defaultDrawer = m_context->DefaultDrawer();
+    // Handle(Prs3d_Drawer) defaultDrawer = m_context->DefaultDrawer();
   
-// // Set default line widths
-// defaultDrawer->WireAspect()->SetWidth(3);
-// defaultDrawer->LineAspect()->SetWidth(3);
+	// // Set default line widths
+	// defaultDrawer->WireAspect()->SetWidth(3);
+	// defaultDrawer->LineAspect()->SetWidth(3);
     for(int i=0;i<vshapes.size();i++)
     {
         Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
@@ -926,7 +772,7 @@ void draw_objs(){
         m_context->Display(aShape, 0); 
         // m_context->Display(aShape, Standard_True); 
     }
-}
+} 
 TopoDS_Shape pl() {
     int x=-150;
     int y=-150;
@@ -1090,7 +936,161 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes){
 //  setbar5per();
 }
  
+// #region tests
+	void test2(){
+		
+		//test
+		luadraw test;
+		// test.translate(10);
+		// test.translate(0,10);
+		// test.rotate(90);
+		test.dofromstart();
+		vshapes.push_back(test.shape);
+	}
+
+    void test(int rot=45){
+    TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape(); 
+        TopoDS_Shape pl1=pl(); 
+
+        gp_Trsf trsf;
+trsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), rot*(M_PI/180)); // rotate 30 degrees around Z-axis
+BRepBuilderAPI_Transform transformer(box, trsf);
+TopoDS_Shape rotatedShape = transformer.Shape();
+
+// TopoDS_Shape fusedShape = BRepAlgoAPI_Fuse(rotatedShape, box);
+
+// BRepAlgoAPI_Common   fuse(rotatedShape, box);
+// BRepAlgoAPI_Cut  fuse(rotatedShape, box);
+BRepAlgoAPI_Fuse fuse(rotatedShape, box);
+fuse.Build();
+if (!fuse.IsDone()) {
+    // handle error
+}
+TopoDS_Shape fusedShape = fuse.Shape();
+
+// Refine the result
+ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true); // merge faces, edges, vertices
+unify.Build();
+TopoDS_Shape refinedShape = unify.Shape();
+
+
+
+
+
+{
+
+    // gp_Pnt origin=gp_Pnt(50, 86.6025, 0);
+    // gp_Dir normal=gp_Dir(0.5, 0.866025, 0);
+    gp_Pnt origin=gp_Pnt(0, 0, 100);
+    gp_Dir normal=gp_Dir(0,0,1);
+gp_Dir xdir =   gp_Dir(0, 1, 0);
+gp_Dir ydir =   gp_Dir(0.866025, -0.5, 0);
+// gp_Ax2 ax3(origin, normal);
+gp_Ax2 ax3(origin, normal, xdir);
+// ax3.SetYDirection(ydir);
+gp_Trsf trsf;
+trsf.SetTransformation(ax3);
+trsf.Invert();
+
+
+gp_Trsf trsftmp; 
+trsftmp.SetRotation(gp_Ax1(origin, normal), -45*(M_PI/180) );
+trsf  *= trsftmp;
+
+trsftmp = gp_Trsf();
+trsftmp.SetTranslation(gp_Vec(20, 0, 0));
+trsf  *= trsftmp; 
  
+ShowTriedronWithoutLabels(trsf,m_context); // debug
+
+gp_Pnt p1(0, 0,0);
+    gp_Pnt p2(100, 0,0);
+    gp_Pnt p3(100, 50,0);
+    gp_Pnt p4(0, 50,0);
+
+    
+    // p1 = origin.Translated(gp_Vec(xdir) * (-0) + gp_Vec(ydir) * (-0));
+    // p2 = origin.Translated(gp_Vec(xdir) * (p2.X()) + gp_Vec(ydir) * (p2.Y()));
+    // p3 = origin.Translated(gp_Vec(xdir) * (p3.X()) + gp_Vec(ydir) * (p3.Y()));
+    // p4 = origin.Translated(gp_Vec(xdir) * (p4.X()) + gp_Vec(ydir) * (p4.Y()));
+
+    // p1.Transform(trsf);
+    // p2.Transform(trsf);
+    // p3.Transform(trsf);
+    // p4.Transform(trsf);
+
+    // p1.Transform(trsf.Inverted());
+    // p2.Transform(trsf.Inverted());
+    // p3.Transform(trsf.Inverted());
+    // p4.Transform(trsf.Inverted());
+    
+    // p1=point_on_plane(p1,ploc,pdir);
+    // p2=point_on_plane(p2,ploc,pdir);
+    // p3=point_on_plane(p3,ploc,pdir);
+    // p4=point_on_plane(p4,ploc,pdir);
+
+    // Criar arestas
+    TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
+    TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p2, p3);
+    TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
+    TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
+
+    // Fazer o wire
+    BRepBuilderAPI_MakeWire wireBuilder;
+    wireBuilder.Add(e1);
+    wireBuilder.Add(e2);
+    wireBuilder.Add(e3);
+    wireBuilder.Add(e4);
+    TopoDS_Wire wire = wireBuilder.Wire();
+
+    // Criar a face sobre o plano com o wire
+    // gp_Dir xdir =   gp_Dir(0, 0, 1); // produto vetorial — perpendicular a pdir
+    // gp_Dir xdir = pdir ^ gp_Dir(0, 0, 1); // produto vetorial — perpendicular a pdir
+    
+    // gp_Ax3 ax3(ploc,pdir,xdir);
+    // Handle(Geom_Plane) plane = new Geom_Plane(ploc,pdir);
+    // Handle(Geom_Plane) plane = new Geom_Plane(ax3);
+    // gp_Pnt origin = plane->Location();
+    // printf("origin: x=%.3f y=%.3f z=%.3f\n",origin.X(),origin.Y(),origin.Z());
+    TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+    // TopoDS_Face face = BRepBuilderAPI_MakeFace(plane, wire);
+
+    BRepBuilderAPI_Transform transformer(face, trsf);
+TopoDS_Shape rotatedShape = transformer.Shape();
+    
+gp_Ax3 ax3_;
+ax3_.Transform(trsf);  // aplica trsf no sistema de coordenadas padrão
+// gp_Dir dir = ax3.Direction();
+gp_Dir dir = [](gp_Trsf trsf){ gp_Ax3 ax3; ax3.Transform(trsf); return ax3.Direction(); }(trsf);
+
+
+gp_Vec extrusionVec(dir);
+// gp_Vec extrusionVec(normal);
+extrusionVec *= 10.0;
+    TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(rotatedShape, extrusionVec).Shape();
+    // TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(face, extrusionVec).Shape();
+
+    vshapes.push_back(extrudedShape);
+    // vshapes.push_back(rotatedShape);
+    // vshapes.push_back(face);
+
+}
+
+vshapes.push_back(pl1);
+vshapes.push_back(refinedShape);
+// vshapes=std::vector<TopoDS_Shape>{pl1,face};
+// vshapes=std::vector<TopoDS_Shape>{refinedShape,pl1,face};
+
+// {
+// draw_objs();
+// m_view->FitAll();
+// redraw();
+// }
+} 
+
+// #endregion tests
+
+// #region view_rotate
 void colorisebtn(int idx=-1){
     int idx2=-1;
     if(idx==-1){
@@ -1115,7 +1115,6 @@ void colorisebtn(int idx=-1){
     }
 }
 
-// view rotate
 struct sbts {
     string label;
     std::function<void()> func;
@@ -1389,7 +1388,7 @@ vector<int> check_nearest_btn_idx() {
     
     return result;
 }
-
+// #endregion view_rotate
 };
 OCC_Viewer* occv=0;
 

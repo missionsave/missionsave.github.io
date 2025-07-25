@@ -907,7 +907,73 @@ fi
 topc(){
 	top -p $(pgrep -d',' "$1")
 }
+lop(){
+  while true; do
+    $1
+    sleep 1
+  done
+}
 
+get_children() {
+  local pid=$1
+  local children=$(pgrep -P "$pid")
+  for child in $children; do
+    echo "$child"
+    get_children "$child"
+  done
+}
+
+
+
+
+test2(){
+
+
+#!/bin/bash
+
+target_pid=1219
+
+# Get focused window and its PID
+focused_win=$(xdotool getwindowfocus)
+focused_pid=$(xdotool getwindowpid "$focused_win")
+
+# Check if target_pid is a descendant of focused_pid
+is_descendant() {
+  child=$1
+  parent=$2
+  while parent=$(ps -o ppid= -p "$child" 2>/dev/null); do
+    [ "$parent" -eq "$2" ] && return 0
+    child=$parent
+  done
+  return 1
+}
+
+if is_descendant "$target_pid" "$focused_pid"; then
+  echo "✅ PID $target_pid is receiving focus (via parent PID $focused_pid)"
+else
+  echo "❌ PID $target_pid is not receiving focus"
+fi
+
+}
+test1(){ 
+
+# Get the active window ID
+win_id=$(xdotool getactivewindow)
+
+# Get the window title
+title=$(xdotool getwindowname "$win_id")
+
+# Get the PID using wmctrl
+pid=$(wmctrl -lp | grep "$title" | awk '{print $3}' | head -n1)
+
+echo "Active window title: $title"
+echo "PID: $pid"
+
+# wmctrl -lp | grep "$pid"
+
+pgrep -P "$pid"
+
+}
 
 launch(){
 # Xephyr :1 -screen 1280x720 -ac &

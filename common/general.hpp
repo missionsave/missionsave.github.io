@@ -213,4 +213,13 @@ void appwdir();
 
 void trim(std::string& str);
 
+#define funcfps(_fps,thecontent){  \
+    static std::chrono::steady_clock::time_point last_event = std::chrono::steady_clock::now(); \
+    auto now = std::chrono::steady_clock::now();\
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_event).count();\
+    if(elapsed>(1000.0/(_fps))){\
+        thecontent \
+        last_event = now;\
+    }}
+
 #endif // GENERAL_HPP

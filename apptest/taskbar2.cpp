@@ -1,4 +1,5 @@
-//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound 
+//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss
+
 
 // sudo apt install libasound2-dev acpid wmctrl
 
@@ -147,7 +148,7 @@ void set_dock_properties(Fl_Window* win) {
 
 // #endregion Dock
 
-// #region right statusbar
+// #region right_statusbar
 std::string read_file(const std::string& path) {
     std::ifstream file(path);
     std::string value;
@@ -162,6 +163,68 @@ std::string get_time() {
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", local);
     return buffer;
 }
+string batstatus(){
+	std::string status  = read_file("/sys/class/power_supply/BAT0/status");
+	trim(status);
+	return status;
+}
+bool bat_is_Discharging(){
+	return batstatus()=="Discharging";
+}
+// Create the floating message window
+#include <FL/Fl.H>
+#include <FL/Fl_Window.H>
+#include <FL/Fl_Box.H>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+
+#include <FL/Fl.H>
+#include <FL/Fl_Window.H>
+#include <FL/Fl_Box.H>
+#include <FL/x.H>
+
+Fl_Window* create_system_modal_message(const char* msg) {
+    // Create window with a message
+    Fl_Window* popup = new Fl_Window(300, 150, "Alert");
+    Fl_Box* box = new Fl_Box(20, 20, 260, 110, msg);
+    box->align(FL_ALIGN_WRAP | FL_ALIGN_INSIDE | FL_ALIGN_CENTER);
+    
+    // Window settings
+    popup->set_non_modal();
+    popup->border(0);
+    popup->clear_border();
+    
+    // Make it stay on top
+    popup->set_override();
+    
+    // Show before setting X11 properties
+    popup->show();
+    
+    // X11 specific settings
+    Window xid = fl_xid(popup);
+    Display* dpy = fl_display;
+    
+    // Set window type to utility/dialog to make it float
+    Atom window_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+    Atom dialog_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+    XChangeProperty(dpy, xid, window_type, XA_ATOM, 32, 
+                   PropModeReplace, (unsigned char*)&dialog_type, 1);
+    
+    // Set to stay on top
+    Atom above = XInternAtom(dpy, "_NET_WM_STATE_ABOVE", False);
+    Atom state = XInternAtom(dpy, "_NET_WM_STATE", False);
+    XChangeProperty(dpy, xid, state, XA_ATOM, 32,
+                   PropModeReplace, (unsigned char*)&above, 1);
+    
+    // Position window (optional)
+    XMoveWindow(dpy, xid, 100, 100);
+    
+    // Make sure it's visible
+    XMapRaised(dpy, xid);
+    XFlush(dpy);
+    
+    return popup;
+}
 
 void update_display(Fl_Output* output) {
     std::string battery = read_file("/sys/class/power_supply/BAT0/capacity"); 
@@ -170,10 +233,40 @@ void update_display(Fl_Output* output) {
     std::string clock   = get_time();
 
     output->value((""+battery + "% " + clock).c_str());
+
+	if(atoi(battery.c_str())<=5){ 
+		if(bat_is_Discharging()){ 
+			// sleep(3);
+			Fl_Window* warn=create_system_modal_message("Warning! Low Battery. Connect charger or system will suspend.");
+			// Continue program execution while window shows
+			
+			Fl::add_timeout(1, [](void* w) {
+				Fl_Window* win = static_cast<Fl_Window*>(w);
+				int ci=0;
+				while(ci<100){ // seconds to get charger
+					ci++;
+					if(!bat_is_Discharging())break;
+					sleep(1);
+				}
+				if (win) {
+					win->hide();
+					delete win;
+					if(bat_is_Discharging()){
+						cotm("suspend");
+						system("systemctl suspend");
+					}					
+				}
+			}, warn);
+		}
+	}
+
     Fl::repeat_timeout(30.0, (Fl_Timeout_Handler)update_display, output);
 }
 
-// #endregion right statusbar
+
+
+
+// #endregion right_statusbar
 
 // #region Clipboard
 
@@ -691,7 +784,179 @@ int listen_fnvolumes() {
 
 // #endregion fnbrightnessandvolume
 
+// #region screensaver
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/extensions/scrnsaver.h>
+#include <unistd.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <iostream>
+#include <chrono>
+#include <thread>
+#include <sstream>
+#include <dirent.h>
 
+// Obtem PID da janela ativa (foco) no X11
+pid_t get_active_window_pid() {
+    Display* display = XOpenDisplay(nullptr);
+    if (!display) return -1;
+
+    Atom net_active_window = XInternAtom(display, "_NET_ACTIVE_WINDOW", True);
+    Atom net_wm_pid = XInternAtom(display, "_NET_WM_PID", True);
+    Atom actual_type;
+    int actual_format;
+    unsigned long nitems, bytes_after;
+    unsigned char* prop = nullptr;
+
+    Window root = DefaultRootWindow(display);
+    Window active_window = 0;
+
+    if (XGetWindowProperty(display, root, net_active_window, 0, (~0L), False,
+                           AnyPropertyType, &actual_type, &actual_format,
+                           &nitems, &bytes_after, &prop) == Success && prop) {
+        active_window = *(Window*)prop;
+        XFree(prop);
+    } else {
+        XCloseDisplay(display);
+        return -1;
+    }
+
+    if (XGetWindowProperty(display, active_window, net_wm_pid, 0, 1, False,
+                           XA_CARDINAL, &actual_type, &actual_format,
+                           &nitems, &bytes_after, &prop) == Success && prop) {
+        pid_t pid = *(pid_t*)prop;
+        XFree(prop);
+        XCloseDisplay(display);
+        return pid;
+    }
+
+    XCloseDisplay(display);
+    return -1;
+}
+
+// Extrai PIDs dos processos de áudio do output do pactl
+std::vector<pid_t> get_audio_pids() {
+    std::vector<pid_t> audio_pids;
+    FILE* fp = popen("pactl list sink-inputs | grep -Po 'application.process.id = \"\\K\\d+(?=\")'", "r");
+    if (!fp) return audio_pids;
+
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        try {
+            pid_t pid = std::stoi(line);
+            audio_pids.push_back(pid);
+        } catch (...) {
+            continue;
+        }
+    }
+    pclose(fp);
+
+    return audio_pids;
+}
+
+// Verifica se child_pid é descendente de parent_pid
+bool is_descendant(pid_t child_pid, pid_t parent_pid) {
+    if (child_pid <= 1) return false;
+    if (child_pid == parent_pid) return true;
+
+    std::string path = "/proc/" + std::to_string(child_pid) + "/status";
+    std::ifstream file(path);
+    if (!file.is_open()) return false;
+
+    std::string line;
+    pid_t ppid = -1;
+
+    while (std::getline(file, line)) {
+        if (line.rfind("PPid:", 0) == 0) {
+            try {
+                ppid = std::stoi(line.substr(5));
+            } catch (...) {
+                return false;
+            }
+            break;
+        }
+    }
+
+    return is_descendant(ppid, parent_pid);
+}
+
+// Verifica se algum PID de áudio é descendente do PID da janela ativa
+bool is_audio_focused(pid_t focused_pid) {
+    auto audio_pids = get_audio_pids();
+    
+    for (pid_t audio_pid : audio_pids) {
+        if (is_descendant(audio_pid, focused_pid)) {
+            std::cout << "✅ PID " << audio_pid << " is receiving focus (via parent PID " << focused_pid << ")\n";
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// Obtém o tempo de inatividade do teclado e rato em ms (XScreenSaver)
+unsigned long get_idle_time_ms() {
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) return 0;
+
+    XScreenSaverInfo* info = XScreenSaverAllocInfo();
+    if (!info) {
+        XCloseDisplay(dpy);
+        return 0;
+    }
+
+    XScreenSaverQueryInfo(dpy, DefaultRootWindow(dpy), info);
+    unsigned long idle = info->idle;
+
+    XFree(info);
+    XCloseDisplay(dpy);
+    return idle;
+}
+
+// Comando para desligar o ecrã
+void force_screen_off() {
+    std::system("xset dpms force off");
+}
+
+void initscrensaver() {
+    constexpr int IDLE_THRESHOLD = 60*5; // segundos para desligar o ecrã
+    int idle_seconds = 0;
+
+    while (true) {
+        unsigned long idle_ms = get_idle_time_ms();
+        pid_t focused_pid = get_active_window_pid();
+
+        if (idle_ms < 1000) {
+            // Input recente do rato/teclado: reseta contador
+            idle_seconds = 0;
+        } else if (focused_pid == -1 || !is_audio_focused(focused_pid)) {
+            // Sem foco ou áudio não relacionado com a janela ativa: incrementa contador
+            idle_seconds++;
+        } else {
+            // Áudio relacionado com a janela ativa: reseta contador
+            idle_seconds = 0;
+        }
+
+        std::cout << "Idle: " << idle_seconds << "s\r" << std::flush;
+
+        if (idle_seconds >= IDLE_THRESHOLD) {
+            std::cout << "\nDesligando ecrã...\n";
+            force_screen_off();
+            idle_seconds = 0;
+        }
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    // return 0;
+}
+
+// #endregion screensaver
 
 // #region Launcher
 struct WindowInfo {
@@ -1045,7 +1310,9 @@ void initlauncher(){
 // #endregion Launcher
 
 
+// #region calculator
 
+// #endregion calculator
 
 int main() {
 	Fl::lock();
@@ -1108,6 +1375,8 @@ int main() {
 	std::thread(listen_mouse_outside_window).detach(); 
 
 	std::thread(listen_fnvolumes).detach();
+	std::thread(initscrensaver).detach();
+    std::system("xset b off");
 
     return Fl::run();
 }
