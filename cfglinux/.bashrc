@@ -79,6 +79,26 @@ xclip1() {
     xclip "$@"
 }
 
+dupv() {
+  if [ -e "$1" ]; then
+    base="$1"
+    version=1
+    while [ -e "${base}_v${version}" ]; do
+      version=$((version + 1))
+    done
+    target="${base}_v${version}"
+
+    if [ -d "$base" ]; then
+      cp -a "$base" "$target"
+      echo "📁 Directory '$base' duplicated as '$target'"
+    else
+      cp "$base" "$target"
+      echo "📄 File '$base' duplicated as '$target'"
+    fi
+  else
+    echo "⚠️ Error: '$1' does not exist"
+  fi
+}
 
 
 # Override xclip to log clipboard changes
@@ -291,6 +311,49 @@ installdeb() {
 
   echo "✅ $filename instalado com sucesso!"
 }
+
+install_vscodeext(){
+
+
+# Create the extension folder structure
+EXTENSION_DIR="$HOME/.vscode/extensions/outline-refresher"
+mkdir -p "$EXTENSION_DIR"
+
+# Create package.json
+cat > "$EXTENSION_DIR/package.json" << 'EOF'
+{
+  "name": "outline-refresher",
+  "publisher": "user",
+  "version": "1.0.0",
+  "engines": { "vscode": "^1.85.0" },
+  "activationEvents": ["*"],
+  "main": "./extension.js"
+}
+EOF
+
+# Create extension.js
+cat > "$EXTENSION_DIR/extension.js" << 'EOF'
+const vscode = require('vscode');
+
+function activate() {
+    vscode.workspace.onDidSaveTextDocument(() => {
+        vscode.commands.executeCommand('outline-map.sortByName');
+        setTimeout(() => {
+            vscode.commands.executeCommand('outline-map.sortByPosition');
+        }, 100);
+    });
+}
+
+module.exports = { activate };
+EOF
+
+echo "Outline Map refresher extension installed at:"
+echo "$EXTENSION_DIR"
+echo "Please restart VS Code to activate the extension."
+}
+
+
+
 
 install_fusbsuspend() {
     # Path for udev rule file
@@ -922,6 +985,7 @@ get_children() {
     get_children "$child"
   done
 }
+
 
 
 

@@ -1,0 +1,45 @@
+{
+  "name": "enhanced-outline",
+  "displayName": "Enhanced Outline with Regions",
+  "description": "Custom outline view with region folding support",
+  "version": "1.0.0",
+  "publisher": "YourName",
+  "engines": {
+    "vscode": "^1.78.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "icon": "images/icon.png",
+  "activationEvents": [
+    "onLanguage:cpp",
+    "onLanguage:c",
+    "onLanguage:csharp",
+    "onLanguage:php",
+    "onLanguage:javascript",
+    "onLanguage:typescript"
+  ],
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "enhancedOutline",
+          "name": "Enhanced Outline",
+          "icon": "symbol-namespace"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "enhancedOutline.refresh",
+        "title": "Refresh Enhanced Outline",
+        "icon": {
+          "light": "images/refresh-light.svg",
+          "dark": "images/refresh-dark.svg"
+        }
+      }
+    ]
+  },
+  "main": "./extension.js"
+}

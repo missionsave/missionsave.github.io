@@ -1,4 +1,4 @@
-// #region includes
+#pragma region includes
 
 #define M_PI 3.14159265358979323846
 #define M_PI_2 1.57079632679489661923
@@ -156,7 +156,9 @@
 
 
 using namespace std;
-// #endregion includes
+#pragma endregion includes
+
+
 
 
 Fl_Window* win;
@@ -171,10 +173,10 @@ void open_cb() {
     }
 }
 
-class OCC_Viewer;
-class OCC_Viewer : public Fl_Window {
-public:
-// #region initialization
+struct OCC_Viewer;
+struct  OCC_Viewer : public Fl_Window {
+// public:
+#pragma region initialization
     Handle(Aspect_DisplayConnection) m_display_connection;
     Handle(OpenGl_GraphicDriver) m_graphic_driver;
     Handle(V3d_Viewer) m_viewer;
@@ -357,7 +359,7 @@ void setbar5per() {
 }
 
 
-// #endregion initialization
+#pragma endregion initialization
 	
 	struct luadraw;
 	vector<luadraw> vluadraw;
@@ -419,9 +421,9 @@ void setbar5per() {
 	};
 
 
-
  
-// #region events
+ 
+#pragma region events
 
 
 Handle(AIS_Shape) myHighlightedPointAIS; // To store the highlighting sphere
@@ -457,6 +459,8 @@ vfloat GetViewportAspectRatio(){
 	// cotm(camera->Aspect(),viewportWidth ,viewportHeight);
 	return {windowToWorldX,windowToWorldY,worldToWindowX,worldToWindowY,viewportHeight,viewportWidth};
 }
+
+
 void highlightVertex(const TopoDS_Vertex& aVertex) {
     clearHighlight(); // Clear any existing highlight first
  
@@ -709,7 +713,7 @@ case FL_MOUSEWHEEL:
 int lastX, lastY;
 bool isRotating = false;
 bool isPanning = false;
-// #endregion events
+#pragma endregion events
 
 
 void draw_objs(){
@@ -936,7 +940,7 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes){
 //  setbar5per();
 }
  
-// #region tests
+#pragma region tests
 	void test2(){
 		
 		//test
@@ -1088,9 +1092,9 @@ vshapes.push_back(refinedShape);
 // }
 } 
 
-// #endregion tests
+#pragma endregion tests
 
-// #region view_rotate
+#pragma region view_rotate
 void colorisebtn(int idx=-1){
     int idx2=-1;
     if(idx==-1){
@@ -1388,7 +1392,7 @@ vector<int> check_nearest_btn_idx() {
     
     return result;
 }
-// #endregion view_rotate
+#pragma endregion view_rotate
 };
 OCC_Viewer* occv=0;
 

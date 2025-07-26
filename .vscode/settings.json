@@ -76,7 +76,25 @@
         
     
   "editor.insertSpaces": false,
-  "editor.detectIndentation": false,
+  "editor.detectIndentation": false, 
+  "outline-map.follow":"manual",
+  "outline-map.workspace.enabled": false,
+  "outline-map.expand":"manual",
+
+  "regionOutline.supportedLanguages": [
+    "cpp",
+    "c",
+    "javascript",
+    "typescript",
+    "php",
+    "csharp",
+    "java"
+]
+  
+//   "c_region"
+//   "C_Cpp.folding": ["region", "comment"],
+//   "C_Cpp.regionTags": ["//#region", "//#endregion"]
+
   
 "regionHelper.regionBoundaryPatternByLanguageId": {
     "cpp": {

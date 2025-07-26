@@ -1,9 +1,9 @@
-//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss
+//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss -lXi
 
 
 // sudo apt install libasound2-dev acpid wmctrl
 
-// #region Includes
+#pragma region  Includes
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
@@ -98,18 +98,18 @@
 void dbg();
 void refresh();
 using namespace std;
-// #endregion Includes
+#pragma endregion Includes
  
-// #region Globals
+#pragma region  Globals
 Fl_Window* tasbwin;
 Fl_Group* fg;
 vector<Fl_Button*> vbtn;
 struct WindowInfo;
 vector<WindowInfo> vwin;
 
-// #endregion Globals
+#pragma endregion Globals
 
-// #region Dock
+#pragma region  Dock
 void set_dock_properties(Fl_Window* win) {
 #ifdef __linux__
     // Get the X11 display and window handle
@@ -146,9 +146,9 @@ void set_dock_properties(Fl_Window* win) {
 #endif
 }
 
-// #endregion Dock
+#pragma endregion Dock
 
-// #region right_statusbar
+#pragma region  right_statusbar
 std::string read_file(const std::string& path) {
     std::ifstream file(path);
     std::string value;
@@ -176,11 +176,7 @@ bool bat_is_Discharging(){
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Box.H>
 #include <X11/Xlib.h>
-#include <X11/Xatom.h>
-
-#include <FL/Fl.H>
-#include <FL/Fl_Window.H>
-#include <FL/Fl_Box.H>
+#include <X11/Xatom.h> 
 #include <FL/x.H>
 
 Fl_Window* create_system_modal_message(const char* msg) {
@@ -266,9 +262,9 @@ void update_display(Fl_Output* output) {
 
 
 
-// #endregion right_statusbar
+#pragma endregion right_statusbar
 
-// #region Clipboard
+#pragma region  Clipboard
 
 vstring vclipboard;
 Fl_Browser* browserpaste;
@@ -488,7 +484,157 @@ void winpop(void*) {
 
  
 }
+
+#include <iostream>
+#include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
+#include <FL/Fl.H>
+#include <FL/x.H>
+
+
+#include <X11/Xlib.h>
+#include <X11/keysym.h>
+#include <iostream>
+
+void disable_v(Display* dpy, KeyCode kc_v) {
+    KeySym nosym = NoSymbol;
+    XChangeKeyboardMapping(dpy, kc_v, 1, &nosym, 1);
+    XFlush(dpy);
+}
+
+void restore_v(Display* dpy, KeyCode kc_v) {
+    KeySym syms[2] = {XK_v, XK_V};
+    XChangeKeyboardMapping(dpy, kc_v, 2, syms, 2);
+    XFlush(dpy);
+}
+
 int listenkey() {
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) return 1;
+
+    // … (inicialização XInput2, seleção de eventos raw)
+
+    KeyCode kc_super = XKeysymToKeycode(dpy, XStringToKeysym("Super_L"));
+    KeyCode kc_v     = XKeysymToKeycode(dpy, XStringToKeysym("v"));
+    bool super_down = false;
+
+    while (true) {
+        XEvent ev;
+        XNextEvent(dpy, &ev);
+        // … (filtro de GenericEvent + XGetEventData)
+        XIRawEvent* raw = reinterpret_cast<XIRawEvent*>(ev.xcookie.data);
+
+        if (ev.xcookie.evtype == XI_RawKeyPress) {
+            if (raw->detail == kc_super) {
+                super_down = true;
+                disable_v(dpy, kc_v);
+            }
+            else if (raw->detail == kc_v && super_down) {
+                // Aqui já não será enviado 'v' à janela.
+                if(!winpaste) Fl::awake(winpop);
+            }
+        }
+        else if (ev.xcookie.evtype == XI_RawKeyRelease) {
+            if (raw->detail == kc_super) {
+                super_down = false;
+                restore_v(dpy, kc_v);
+            }
+        }
+
+        XFreeEventData(dpy, &ev.xcookie);
+    }
+
+    XCloseDisplay(dpy);
+    return 0;
+}
+
+
+int listenkeyp1() {
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) {
+        std::cerr << "Cannot open display\n";
+        return 1;
+    }
+
+    // 1) Inicializar XInput2
+    int xi_opcode, xev, xerr;
+    if (!XQueryExtension(dpy, "XInputExtension", &xi_opcode, &xev, &xerr)) {
+        std::cerr << "XInput2 not available\n";
+        XCloseDisplay(dpy);
+        return 1;
+    }
+
+    int major = 2, minor = 2;
+    if (XIQueryVersion(dpy, &major, &minor) != Success) {
+        std::cerr << "XInput2 v2.2 not available\n";
+        XCloseDisplay(dpy);
+        return 1;
+    }
+
+    // 2) Preparar máscara para RawKeyPress e RawKeyRelease
+    XIEventMask evmask;
+    unsigned char mask[XIMaskLen(XI_LASTEVENT)] = {0};
+    evmask.deviceid = XIAllMasterDevices;
+    evmask.mask_len = sizeof(mask);
+    evmask.mask = mask;
+    XISetMask(mask, XI_RawKeyPress);
+    XISetMask(mask, XI_RawKeyRelease);
+
+    // 3) Selecionar eventos no root window
+    Window root = DefaultRootWindow(dpy);
+    XISelectEvents(dpy, root, &evmask, 1);
+    XFlush(dpy);
+
+    std::cout << "[INFO] Key listener iniciado (raw XInput2)\n";
+
+    // 4) Preparar keycodes de Super_L e 'v'
+    KeyCode kc_super = XKeysymToKeycode(dpy, XStringToKeysym("Super_L"));
+    KeyCode kc_v     = XKeysymToKeycode(dpy, XStringToKeysym("v"));
+
+    bool super_down = false;
+
+    // 5) Loop de eventos
+    while (true) {
+        XEvent ev;
+        XNextEvent(dpy, &ev);
+
+        if (ev.type == GenericEvent && ev.xcookie.extension == xi_opcode) {
+            if (XGetEventData(dpy, &ev.xcookie)) {
+                XIRawEvent* raw = reinterpret_cast<XIRawEvent*>(ev.xcookie.data);
+
+                if (ev.xcookie.evtype == XI_RawKeyPress) {
+                    // Super_L pressionado?
+                    if (raw->detail == kc_super) {
+                        super_down = true;
+                        // std::cout << "[DEBUG] Super_L pressionado\n";
+                    }
+                    // 'v' enquanto Super está para baixo?
+                    else if (raw->detail == kc_v && super_down) {
+                        // std::cout << "[DEBUG] Super+V detectado\n";
+						if(!winpaste)
+                        	Fl::awake(winpop);
+                    }
+                }
+                else if (ev.xcookie.evtype == XI_RawKeyRelease) {
+                    // Super_L libertado?
+                    if (raw->detail == kc_super) {
+                        super_down = false;
+                        // std::cout << "[DEBUG] Super_L soltado\n";
+                    }
+                }
+
+                XFreeEventData(dpy, &ev.xcookie);
+            }
+        }
+    }
+
+    XCloseDisplay(dpy);
+    return 0;
+}
+
+
+
+int listenkeyp() {
     Display* dpy = XOpenDisplay(nullptr);
     if (!dpy) {
         std::cerr << "Cannot open display\n";
@@ -533,7 +679,126 @@ void closewinpaste(void*){
 	winpaste=0;
 }
 
+#include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
+#include <FL/x.H>  // For fl_xid()
+#include <iostream>
+
+#include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
+#include <FL/Fl.H>
+#include <FL/x.H>
+#include <iostream>
+#include <cstring>
+#include <iostream>
+#include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
+
+// Se preferires usar macro, podes definir assim:
+// #define DEBUG(x) std::cout << x << std::endl;
+
+#include <iostream>
+#include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
+#include <iostream>
+#include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
+
 int listen_mouse_outside_window() {
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) {
+        std::cerr << "Cannot open display\n";
+        return 1;
+    }
+
+    // Verificar extensão XInput2
+    int xi_opcode, event, error;
+    if (!XQueryExtension(dpy, "XInputExtension", &xi_opcode, &event, &error)) {
+        std::cerr << "XInput2 not available\n";
+        XCloseDisplay(dpy);
+        return 1;
+    }
+
+    // Confirmar versão 2.2 ou superior
+    int major = 2, minor = 2;
+    if (XIQueryVersion(dpy, &major, &minor) != Success) {
+        std::cerr << "XInput2 version 2.2 not available\n";
+        XCloseDisplay(dpy);
+        return 1;
+    }
+
+    // Configurar para escutar XI_RawButtonPress
+    XIEventMask evmask;
+    unsigned char mask[XIMaskLen(XI_LASTEVENT)] = {0};
+    evmask.deviceid = XIAllMasterDevices;
+    evmask.mask_len = sizeof(mask);
+    evmask.mask = mask;
+    XISetMask(mask, XI_RawButtonPress);
+
+    Window root = DefaultRootWindow(dpy);
+    XISelectEvents(dpy, root, &evmask, 1);
+    XFlush(dpy);
+
+    std::cout << "[INFO] Mouse listener iniciado (XInput2 - raw events)\n";
+
+    while (true) {
+        XEvent ev;
+        XNextEvent(dpy, &ev);
+
+        if (ev.type == GenericEvent && ev.xcookie.extension == xi_opcode) {
+            if (XGetEventData(dpy, &ev.xcookie)) {
+                if (ev.xcookie.evtype == XI_RawButtonPress) {
+                    // Obter posição do cursor com XQueryPointer
+                    int rx, ry, winx, winy;
+                    unsigned int mask_return;
+                    Window child_return;
+                    XQueryPointer(dpy, root, &root, &child_return,
+                                  &rx, &ry, &winx, &winy, &mask_return);
+
+                    // std::cout << "[DEBUG] Click em posição (" << rx << ", " << ry << ")\n";
+
+                    if (winpaste) {
+                        Window fltk_window = fl_xid(winpaste);
+
+                        // Obter posição da janela
+                        int win_x = 0, win_y = 0;
+                        Window unused_win;
+                        XTranslateCoordinates(dpy, fltk_window, root,
+                                              0, 0, &win_x, &win_y, &unused_win);
+
+                        // Obter dimensões da janela
+                        Window dummy_win;
+                        int dummy_x, dummy_y;
+                        unsigned int w, h, border, depth;
+                        XGetGeometry(dpy, fltk_window, &dummy_win, &dummy_x, &dummy_y,
+                                     &w, &h, &border, &depth);
+
+                        std::cout << "[DEBUG] FLTK window pos: (" << win_x << ", " << win_y
+                                  << "), size: (" << w << "x" << h << ")\n";
+
+                        bool outside =
+                            rx < win_x || rx > win_x + static_cast<int>(w) ||
+                            ry < win_y || ry > win_y + static_cast<int>(h);
+
+                        if (outside) {
+                            std::cout << "[INFO] Click fora da janela detectado\n";
+                            Fl::awake(closewinpaste);  // Fechar janela com a tua função
+                        } else {
+                            std::cout << "[INFO] Click dentro da janela\n";
+                        }
+                    }
+                }
+                XFreeEventData(dpy, &ev.xcookie);
+            }
+        }
+    }
+
+    XCloseDisplay(dpy);
+    return 0;
+}
+
+
+int listen_mouse_outside_windowp() {  
     Display* dpy = XOpenDisplay(nullptr);
     if (!dpy) {
         std::cerr << "Cannot open display\n";
@@ -589,9 +854,9 @@ int listen_mouse_outside_window() {
 
 
 
-// #endregion Clipboard
+#pragma endregion Clipboard
 
-// #region fnbrightnessandvolume
+#pragma region  fnbrightnessandvolume
 
 // sudo apt install libasound2-dev acpid
 // g++ -std=c++17 -o fnhandle fnhandle.cpp -lasound 
@@ -782,9 +1047,9 @@ int listen_fnvolumes() {
 
 
 
-// #endregion fnbrightnessandvolume
+#pragma endregion fnbrightnessandvolume
 
-// #region screensaver
+#pragma region  screensaver
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/extensions/scrnsaver.h>
@@ -838,6 +1103,8 @@ pid_t get_active_window_pid() {
     XCloseDisplay(display);
     return -1;
 }
+
+
 
 // Extrai PIDs dos processos de áudio do output do pactl
 std::vector<pid_t> get_audio_pids() {
@@ -956,9 +1223,9 @@ void initscrensaver() {
     // return 0;
 }
 
-// #endregion screensaver
+#pragma endregion screensaver
 
-// #region Launcher
+#pragma region  Launcher
 struct WindowInfo {
     std::string window_id;
     std::string title;
@@ -1307,18 +1574,19 @@ int eventWindow() {
 void initlauncher(){ 
 	fillApplications(uapps);
 }
-// #endregion Launcher
+#pragma endregion Launcher
 
 
-// #region calculator
+#pragma region  calculator
 
-// #endregion calculator
+#pragma endregion calculator
 
 int main() {
 	Fl::lock();
 	XInitThreads(); 
 
 	initlauncher();
+
 
     int bar_height = 24; // Adjust height as needed
     int screen_w = Fl::w();
@@ -1359,6 +1627,11 @@ int main() {
     
     // Set X11 properties after window is shown
     set_dock_properties(tasbwin);
+
+
+ 
+
+
 	thread([](){
 		listenclipboard();
  	}).detach();
@@ -1370,7 +1643,6 @@ int main() {
 	thread([](){
 		listenkey();
  	}).detach();
-
 
 	std::thread(listen_mouse_outside_window).detach(); 
 

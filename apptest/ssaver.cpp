@@ -1,3 +1,5 @@
+//  g++ ssaver.cpp ../common/general.cpp -I../common -o ssaver -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss
+
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
 #include <X11/extensions/scrnsaver.h>
@@ -32,6 +34,7 @@ void cleanup_display() {
         display = nullptr;
     }
 }
+
 
 // Get PID of active window
 pid_t get_active_window_pid() {
@@ -72,6 +75,10 @@ pid_t get_active_window_pid() {
     return -1;
 }
 
+
+
+
+
 // Get audio PIDs (cached)
 std::vector<pid_t> get_audio_pids() {
     static std::vector<pid_t> cached_pids;
@@ -100,6 +107,8 @@ std::vector<pid_t> get_audio_pids() {
 
     return cached_pids;
 }
+
+
 
 // Cache for process parent relationships
 std::map<pid_t, pid_t> parent_cache;
@@ -149,6 +158,7 @@ bool is_descendant(pid_t child_pid, pid_t parent_pid) {
     return current == parent_pid;
 }
 
+
 // Get idle time using existing display connection
 unsigned long get_idle_time_ms() {
     if (!init_display()) return 0;
@@ -169,22 +179,15 @@ void force_screen_off() {
 }
 
 int main() {
-    constexpr int IDLE_THRESHOLD = 60*5; // 5 minutes
-    constexpr int SLEEP_INTERVAL = 5;    // seconds
-    int idle_seconds = 0;
-    pid_t last_focused_pid = -2;         // Invalid initial value
+    constexpr int IDLE_THRESHOLD = 60*1;   // 5 minutes
+    constexpr int SUSPEND_THRESHOLD = 60*2; // 10 minutes
+    constexpr int SLEEP_INTERVAL = 5;      // seconds
+    bool screen_turned_off = false;
+    pid_t last_focused_pid = -2;           // Invalid initial value
     bool last_audio_state = false;
 
     while (true) {
         unsigned long idle_ms = get_idle_time_ms();
-
-        if (idle_ms < 5000) {
-            // User activity
-            idle_seconds = 0;
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            continue;
-        }
-
         pid_t focused_pid = get_active_window_pid();
         bool audio_focused = false;
 
@@ -210,21 +213,32 @@ int main() {
             audio_focused = last_audio_state;
         }
 
-        if (audio_focused) {
+        // Convert to seconds for easier comparison
+        unsigned long idle_seconds = idle_ms / 1000;
+
+        // Reset state on user activity or audio focus
+        if (idle_ms < 5000 || audio_focused) {
             idle_seconds = 0;
-        } else {
-            idle_seconds += SLEEP_INTERVAL;
+            screen_turned_off = false;
         }
 
         std::cout << "Idle: " << idle_seconds << "s\r" << std::flush;
 
-        if (idle_seconds >= IDLE_THRESHOLD) {
+        // Suspend system after 10 minutes
+        if (idle_seconds >= SUSPEND_THRESHOLD) {
+            std::cout << "\nSuspending system...\n";
+            std::system("systemctl suspend");
+            // Reset after suspend
+            screen_turned_off = false;
+            // Wait longer to avoid immediate re-suspend after wake
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+            continue;
+        } 
+        // Turn off screen after 5 minutes if not done yet
+        else if (idle_seconds >= IDLE_THRESHOLD && !screen_turned_off) {
             std::cout << "\nTurning off screen...\n";
             force_screen_off();
-            idle_seconds = 0;
-            // Longer sleep after turning off screen
-            std::this_thread::sleep_for(std::chrono::seconds(10));
-            continue;
+            screen_turned_off = true;
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(SLEEP_INTERVAL));
