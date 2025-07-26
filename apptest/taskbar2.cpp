@@ -508,7 +508,57 @@ void restore_v(Display* dpy, KeyCode kc_v) {
     XFlush(dpy);
 }
 
+ 
+
 int listenkey() {
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) {
+        std::cerr << "Cannot open display\n";
+        return 1;
+    }
+
+    Window root = DefaultRootWindow(dpy);
+
+    // Obter keycode para 'v'
+    KeyCode kc_v = XKeysymToKeycode(dpy, XStringToKeysym("v"));
+
+    // Máscara de modificação para Super (usualmente Mod4)
+    unsigned int mod = Mod4Mask;
+
+    // Gravar Super+V (com todas variantes de Lock, NumLock etc)
+    for (int i = 0; i < 8; ++i) {
+        XGrabKey(dpy, kc_v, mod | i, root, True,
+                 GrabModeAsync, GrabModeAsync);
+    }
+
+    XSelectInput(dpy, root, KeyPressMask);
+    XFlush(dpy);
+
+    std::cout << "[INFO] A ouvir Super+V...\n";
+
+    while (true) {
+        XEvent ev;
+        XNextEvent(dpy, &ev);
+
+        if (ev.type == KeyPress) {
+            XKeyEvent xkey = ev.xkey;
+
+            if (xkey.keycode == kc_v && (xkey.state & Mod4Mask)) {
+                // Impede que o 'v' seja escrito, executa apenas ação
+                if (!winpaste)
+                    Fl::awake(winpop);
+            }
+        }
+    }
+
+    XUngrabKey(dpy, kc_v, AnyModifier, root);
+    XCloseDisplay(dpy);
+    return 0;
+}
+
+
+
+int listenkeynf() {
     Display* dpy = XOpenDisplay(nullptr);
     if (!dpy) return 1;
 
@@ -549,7 +599,7 @@ int listenkey() {
 }
 
 
-int listenkeyp1() {
+int listenkeypw() {
     Display* dpy = XOpenDisplay(nullptr);
     if (!dpy) {
         std::cerr << "Cannot open display\n";
@@ -668,6 +718,7 @@ int listenkeyp() {
     XCloseDisplay(dpy);
     return 0;
 }
+
 
 void closewinpaste(void*){
 	browserpaste->hide();
