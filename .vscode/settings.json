@@ -8,7 +8,7 @@
     "editor.folding": true,
     "editor.showFoldingControls": "always",
     "editor.scrollbar.vertical": "auto",
-    "editor.scrollbar.horizontal": "auto"
+    "editor.scrollbar.horizontal": "auto", //
     "editor.scrollbar.scrollByPage": true,
 
     "editor.minimap.enabled": false,
@@ -27,7 +27,7 @@
     "C_Cpp.errorSquiggles": "disabled",
     "workbench.colorCustomizations": { 
         // "editor.lineHighlightBackground": "#000000",
-        "editor.selectionHighlightBackground": "#f03737",
+        // "editor.selectionHighlightBackground": "#f03737",
         "editor.selectionHighlightBorder": "#f03737ea",
         // "editor.findMatchBackground": "#FF0000",
         // "editor.findMatchHighlightBackground": "#FF0000",
@@ -35,6 +35,11 @@
         // "editor.selectionBackground": "#ff0000",
         // "editor.inactiveSelectionBackground": "#ff0000",
         // "editor.wordHighlightBackground":"#ff0000",
+
+    // "editor.lineHighlightBackground": "#330000", // Dark red
+    "editor.lineHighlightBorder": "#f5cece" ,     // Optional: Border color
+
+
         "editor.hoverHighlight": true,
         "editor.hoverHighlightBackground": "#00000099",
     },
@@ -89,7 +94,7 @@
     "php",
     "csharp",
     "java"
-]
+],
   
 //   "c_region"
 //   "C_Cpp.folding": ["region", "comment"],

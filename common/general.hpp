@@ -90,6 +90,8 @@ void cotm_function(const std::string &args_names, const std::string &args_values
 // #define cotm(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
 
 // #define cotm(...) {scotmup=0; cotmstd(#__VA_ARGS__); }
+
+#define cotmupset {if(scotmup==0)cout<<endl;}
 #define cotmup {scotmup=1;}
 // Overload operator<< for std::vector<T>
 template <typename T>

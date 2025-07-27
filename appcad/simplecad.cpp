@@ -145,6 +145,7 @@
 #include <SelectMgr_EntityOwner.hxx>
 #include <StdSelect_BRepOwner.hxx>
 #include <TopAbs_ShapeEnum.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
  
 
 #include <chrono>
@@ -254,7 +255,8 @@ struct  OCC_Viewer : public Fl_Window {
         trihedron0_0_0->SetSize(25.0);
         m_context->Display(trihedron0_0_0, Standard_False);
 
- 
+		// BRepMesh_IncrementalMesh::SetParallel(Standard_True);
+
         m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
         setbar5per();
 
@@ -278,7 +280,7 @@ struct  OCC_Viewer : public Fl_Window {
         }
         }
     }
-static void idle_refresh_cb(void*) {
+	static void idle_refresh_cb(void*) {
 	//clear gpu usage each 10 secs
 	glFlush();
 	glFinish();
@@ -361,6 +363,8 @@ void setbar5per() {
 
 #pragma endregion initialization
 	
+
+#pragma region lua
 	struct luadraw;
 	vector<luadraw> vluadraw;
 	struct luadraw{
@@ -423,6 +427,7 @@ void setbar5per() {
 
  
  
+#pragma endregion lua
 #pragma region events
 
 
@@ -578,8 +583,10 @@ if (event == FL_MOVE) {
 		// cotm("test")
 		// printf("%s",cotmlastoutput.c_str());
 		// go_up;
-        cotm("Nothing detected under the mouse.");
+        cotmupset
+		cotm("Nothing detected under the mouse.");
 		cotmup
+
         clearHighlight(); // Nothing detected
     }
 
@@ -609,7 +616,7 @@ if (event == FL_MOVE) {
                         double angle = dy * 0.005; // Rotation sensitivity factor
     	                // Fl::wait(0.01);	
                         m_view->Rotate(0, 0, angle); // Rotate around Z-axis
-                        // projectAndDisplayWithHLR(vshapes);
+                        projectAndDisplayWithHLR(vshapes);
                          redraw(); //  redraw(); // m_view->Update ();
 
 
