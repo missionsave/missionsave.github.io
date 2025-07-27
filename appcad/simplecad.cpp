@@ -867,7 +867,8 @@ da->LineAspect( Prs3d_DatumParts_ZArrow )->SetColor( Quantity_NOC_BLUE  );
     Handle(AIS_ColoredShape) hidden_;
 void projectAndDisplayWithHLRW(const std::vector<TopoDS_Shape>& shapes){
     if(!hlr_on)return;
-    cotm("hlr")
+	perf();
+    // cotm("hlr")
     // m_view->SetImmediateUpdate(Standard_False);
     if (m_context.IsNull() || m_view.IsNull()) {
         std::cerr << "Error: m_context or m_view is null." << std::endl;
@@ -903,20 +904,20 @@ void projectAndDisplayWithHLRW(const std::vector<TopoDS_Shape>& shapes){
 
     hlrAlgo->Projector(projector );
     // hlrAlgo-> ShowAll();
-    perf();
+    // perf();
     hlrAlgo->Update();
-    perf("hlrAlgo->Update()");
+    // perf("hlrAlgo->Update()");
     static bool tes=0;
     // if(!tes)
 	hlrAlgo->Hide();
-    perf("hide");
+    // perf("hide");
     tes=1;
 
     HLRBRep_HLRToShape hlrToShape_(hlrAlgo);
-    perf("hlrToShape");
+    // perf("hlrToShape");
     TopoDS_Shape vEdges_ = hlrToShape_.VCompound();
     TopoDS_Shape hEdges_ = hlrToShape_.HCompound();
-    perf("hlrAlgo->HCompound()");
+    // perf("hlrAlgo->HCompound()");
 
     gp_Trsf invTrsf = aTrsf.Inverted();
     BRepBuilderAPI_Transform transformer(vEdges_, invTrsf);
@@ -948,110 +949,92 @@ void projectAndDisplayWithHLRW(const std::vector<TopoDS_Shape>& shapes){
     m_context->Display(hidden_, 0); 
  
 //  setbar5per();
+	perf("hlr slower");
 }
  
-
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <HLRBRep_PolyAlgo.hxx>
+#include <HLRBRep_PolyHLRToShape.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <HLRBRep_PolyAlgo.hxx>
 #include <HLRBRep_PolyHLRToShape.hxx>
 #include <BRepTools.hxx>
 
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <HLRBRep_PolyAlgo.hxx>
+#include <HLRBRep_PolyHLRToShape.hxx>
+
+ 
+
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes) {
-    if (!hlr_on || shapes.empty()) return;
+    if (!hlr_on) return;
+    perf();
+    // 1. Setup and cleanup
+    if (m_context.IsNull() || m_view.IsNull()) return;
+    m_view->SetComputedMode(Standard_True);
+    m_context->RemoveAll(false);
 
-    // Clear previous results
-    if (!m_context.IsNull()) {
-        if (visible_) m_context->Remove(visible_, false);
-        if (hidden_) m_context->Remove(hidden_, false);
-    }
-
-    // Hide original shapes (crucial step!)
-    for (const auto& shape : vaShape) {
-        m_context->SetDisplayMode(shape, 0, false); // Turn off display
-    }
-
-    // Get view parameters
+    // 2. Get camera orientation (but NOT position)
     const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    gp_Dir viewDirection = -camera->Direction();
-    gp_Dir upDirection = camera->Up();
-    gp_Dir rightDirection = upDirection.Crossed(viewDirection);
-    
-    // Create projector transformation
-    gp_Ax3 viewAx3(camera->Center(), viewDirection, rightDirection);
+    gp_Dir viewDir = -camera->Direction();
+    gp_Dir viewUp = camera->Up();
+    gp_Dir viewRight = viewUp.Crossed(viewDir);
+
+    // 3. Create transformation using ONLY orientation
+    gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight);
     gp_Trsf viewTrsf;
-    viewTrsf.SetTransformation(viewAx3);
-    HLRAlgo_Projector projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
+    viewTrsf.SetTransformation(viewAxes);
 
-    // Prepare edge compound
-    TopoDS_Compound edgeCompound;
-    BRep_Builder builder;
-    builder.MakeCompound(edgeCompound);
+    // 4. Create projector (perspective flag needs negation)
+    HLRAlgo_Projector projector(
+        viewTrsf,
+        !camera->IsOrthographic(), // Important negation here
+        camera->Scale()
+    );
 
-    // Extract and mesh all edges
+    // 5. Prepare geometry with consistent meshing
+    Standard_Real deflection = 0.01;
     for (const auto& shape : shapes) {
-        if (shape.IsNull()) continue;
-        
-        // Create mesh with good quality parameters
-        BRepMesh_IncrementalMesh mesher(shape, 0.01, false, 0.5, true);
-        
-        // Add all edges to compound
-        for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
-            builder.Add(edgeCompound, ex.Current());
+        if (!shape.IsNull()) {
+            BRepMesh_IncrementalMesh(shape, deflection, true, 0.5, false);
         }
     }
 
-    // Setup and compute HLR
+    // 6. Compute HLR
     Handle(HLRBRep_PolyAlgo) hlrAlgo = new HLRBRep_PolyAlgo();
-    hlrAlgo->Load(edgeCompound);
-    hlrAlgo->Projector(projector);
-    
-    try {
-        hlrAlgo->Update();
-    } catch (Standard_Failure& e) {
-        std::cerr << "HLR Update Error: " << e.GetMessageString() << std::endl;
-        return;
+    for (const auto& shape : shapes) {
+        hlrAlgo->Load(shape);
     }
+    hlrAlgo->Projector(projector);
+    hlrAlgo->Update();
 
-    // Extract results
+    // 7. Extract results with PROPER inverse transform
     HLRBRep_PolyHLRToShape hlrToShape;
     hlrToShape.Update(hlrAlgo);
-    hlrToShape.Hide();
-    hlrToShape.Show();
-
-    // Get compounds
-    TopoDS_Shape visibleEdges = hlrToShape.VCompound();
-    TopoDS_Shape hiddenEdges = hlrToShape.HCompound();
-
-    // Transform back to original space
-    gp_Trsf inverseTrsf = viewTrsf.Inverted();
     
-    // Display visible edges (thick black lines)
-    if (!visibleEdges.IsNull()) {
-        BRepBuilderAPI_Transform visibleTransform(visibleEdges, inverseTrsf, true);
-        visible_ = new AIS_Shape(visibleTransform.Shape());
-        visible_->SetColor(Quantity_NOC_BLACK);
-        visible_->SetWidth(3.0);
-        visible_->SetDisplayMode(1); // Wireframe mode
-        m_context->Display(visible_, false);
-    }else {
-		cotm("noshow")
-	}
+    gp_Trsf invTrsf = viewTrsf.Inverted(); // Critical inverse transform
+    
+    // Process visible edges
+    TopoDS_Shape vEdges = hlrToShape.VCompound();
+    BRepBuilderAPI_Transform visTransform(vEdges, invTrsf);
+    visible_ = new AIS_Shape(visTransform.Shape());
+    visible_->SetColor(Quantity_NOC_BLACK);
+    visible_->SetWidth(1.5);
 
-    // Display hidden edges (dashed blue lines)
-    // if (!hiddenEdges.IsNull()) {
-    //     BRepBuilderAPI_Transform hiddenTransform(hiddenEdges, inverseTrsf, true);
-    //     hidden_ = new AIS_ColoredShape(hiddenTransform.Shape());
-        
-    //     Handle(Prs3d_LineAspect) dashedAspect = 
-    //         new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.5);
-    //     hidden_->Attributes()->SetWireAspect(dashedAspect);
-    //     hidden_->SetDisplayMode(1); // Wireframe mode
-    //     m_context->Display(hidden_, false);
-    // }
+    // Process hidden edges
+    TopoDS_Shape hEdges = hlrToShape.HCompound();
+    BRepBuilderAPI_Transform hidTransform(hEdges, invTrsf);
+    hidden_ = new AIS_ColoredShape(hidTransform.Shape());
+    hidden_->Attributes()->SetSeenLineAspect(
+        new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0)
+    );
 
-    // Force redraw
-    // m_view->Redraw();
+    // 8. Display results
+    m_context->Display(visible_, false);
+    m_context->Display(hidden_, false);
+	perf("hlr faster");
 }
+
 
 void projectAndDisplayWithHLRnda(const std::vector<TopoDS_Shape>& shapes) {
 //     if (!hlr_on) return;
