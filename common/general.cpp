@@ -66,12 +66,14 @@ void cotm_function(const std::string &args_names, const std::string &args_values
 bool scotmup=0;
 std::string cotmlastoutput="";
 int get_terminal_width() {
+	#if defined(__linux__)
     struct winsize w;
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
         return w.ws_col;
-    } else {
-        return 80;  // Fallback if detection fails
-    }
+    } 
+	#endif	
+		
+	return 80;  // Fallback if detection fails
 }
 
 void go_up_and_clear_line(const std::string& last_text) {
