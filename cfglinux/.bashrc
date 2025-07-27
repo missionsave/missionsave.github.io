@@ -312,6 +312,47 @@ installdeb() {
   echo "✅ $filename instalado com sucesso!"
 }
 
+install_vbox(){
+
+# Exit on error
+set -e
+
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install required packages
+sudo apt install -y wget curl gnupg2 lsb-release dkms linux-headers-$(uname -r)
+
+# Import Oracle public keys
+wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/vbox.gpg
+wget -q https://www.virtualbox.org/download/oracle_vbox.asc -O- | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/oracle_vbox.gpg
+
+# Add VirtualBox repository
+echo "deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $(lsb_release -cs) contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list
+
+# Update package list
+sudo apt update
+
+# Install VirtualBox
+sudo apt install -y virtualbox-7.0
+
+# Add current user to vboxusers group
+sudo usermod -aG vboxusers $USER
+
+# Download Extension Pack (adjust version if needed)
+EXT_VER="7.0.10"
+wget https://download.virtualbox.org/virtualbox/${EXT_VER}/Oracle_VM_VirtualBox_Extension_Pack-${EXT_VER}.vbox-extpack
+
+# Install Extension Pack
+sudo VBoxManage extpack install --replace Oracle_VM_VirtualBox_Extension_Pack-${EXT_VER}.vbox-extpack --accept-license=33d7284dc4a0ecw381196fda3sfe2ed0e1e8e7ed7f27b9a9ebc4ee22e24bd23c
+
+echo "✅ VirtualBox and Extension Pack installed successfully on Debian 12!"
+echo "🔁 Please reboot your system to apply all changes."
+
+}
+
+
+
 install_vscodeext(){
 
 

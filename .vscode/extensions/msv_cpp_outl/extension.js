@@ -8,12 +8,10 @@ class EnhancedOutlineProvider {
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this._highlightedItem = null;
         this._currentItems = [];
-        this._currentSymbols = [];
         this._context = context;
         this._outputChannel = vscode.window.createOutputChannel('Enhanced Outline Debug');
     }
 
-    // ==================== NOVOS MÉTODOS ADICIONADOS ====================
     showExtensionInfo() {
         try {
             const extensionPath = path.join(this._context.extensionPath, 'extension.js');
@@ -23,16 +21,16 @@ class EnhancedOutlineProvider {
             const diffSeconds = Math.round((now - modifiedTime) / 1000);
 
             this._outputChannel.clear();
-            this._outputChannel.appendLine('=== INFORMAÇÕES DA EXTENSÃO ===');
-            this._outputChannel.appendLine(`📂 Arquivo: ${path.basename(extensionPath)}`);
-            this._outputChannel.appendLine(`📅 Modificado em: ${modifiedTime.toLocaleString()}`);
-            this._outputChannel.appendLine(`🕒 Carregado em: ${now.toLocaleString()}`);
-            this._outputChannel.appendLine(`⏳ Diferença: ${diffSeconds} segundos`);
-            this._outputChannel.appendLine(diffSeconds > 30 ? '⚠️ ATENÇÃO: Possível versão em cache!' : '✅ Extensão atualizada');
-            this._outputChannel.appendLine('==============================');
+            this._outputChannel.appendLine('=== EXTENSION INFO ===');
+            this._outputChannel.appendLine(`📂 File: ${path.basename(extensionPath)}`);
+            this._outputChannel.appendLine(`📅 Modified: ${modifiedTime.toLocaleString()}`);
+            this._outputChannel.appendLine(`🕒 Loaded: ${now.toLocaleString()}`);
+            this._outputChannel.appendLine(`⏳ Age: ${diffSeconds} seconds`);
+            this._outputChannel.appendLine(diffSeconds > 30 ? '⚠️ WARNING: Possible cached version!' : '✅ Extension up-to-date');
+            this._outputChannel.appendLine('======================');
             this._outputChannel.show(true);
         } catch (error) {
-            this._outputChannel.appendLine(`❌ Erro: ${error.message}`);
+            this._outputChannel.appendLine(`❌ Error: ${error.message}`);
         }
     }
 
@@ -40,9 +38,7 @@ class EnhancedOutlineProvider {
         this.showExtensionInfo();
         setTimeout(() => vscode.commands.executeCommand('workbench.action.reloadWindow'), 300);
     }
-    // ====================================================================
 
-    // ... (MÉTODOS EXISTENTES DA SUA EXTENSÃO) ...
     refresh() {
         this._onDidChangeTreeData.fire();
     }
@@ -53,94 +49,32 @@ class EnhancedOutlineProvider {
         return element;
     }
 
-    async getChildren(element) {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return [];
-
-        const document = editor.document;
-        const symbols = await this.getDocumentSymbols(document);
-        const regions = this.parseRegions(document);
-        this._currentSymbols = symbols;
-
-        if (!element) {
-            const items = [];
-            const symbolInsideAnyRegionDeep = (symbol, regions) => {
-                for (const region of regions) {
-                    if (this.symbolInsideRegion(symbol, region.range)) return true;
-                    if (region.children && symbolInsideAnyRegionDeep(symbol, region.children)) return true;
-                }
-                return false;
-            };
-
-            for (const symbol of symbols) {
-                if (!symbolInsideAnyRegionDeep(symbol, regions)) {
-                    items.push(this.createSymbolItem(symbol));
-                }
-            }
-
-            for (const region of regions) {
-                if (!this.regionInsideAnySymbol(region.range, symbols)) {
-                    items.push(this.createRegionItem(region));
-                }
-            }
-
-            this._currentItems = items.sort((a, b) => a.range.start.line - b.range.start.line);
-            return this._currentItems;
-        }
-
-        if (element.contextValue === 'region') {
-            const children = [];
-            if (element.region?.children) {
-                for (const region of element.region.children) {
-                    children.push(this.createRegionItem(region));
-                }
-            }
-
-            const collectSymbolsInRegion = (symbols, range, out = []) => {
-                for (const s of symbols) {
-                    if (this.symbolInsideRegion(s, range)) {
-                        out.push(this.createSymbolItem(s));
-                    }
-                    if (s.children) {
-                        collectSymbolsInRegion(s.children, range, out);
-                    }
-                }
-                return out;
-            };
-
-            collectSymbolsInRegion(this._currentSymbols || [], element.range, children);
-            return children.sort((a, b) => a.range.start.line - b.range.start.line);
-        }
-
-        if (element.contextValue === 'symbol') {
-            const children = [];
-            const regionList = this.parseRegions(document);
-            const childSymbols = element.symbol?.children || [];
-            const filteredChildren = childSymbols.filter(child => !this.symbolInsideAnyRegion(child, regionList));
-
-            for (const region of regionList) {
-                if (this.symbolInsideRegion({ range: region.range }, element.range)) {
-                    children.push(this.createRegionItem(region));
-                }
-            }
-
-            for (const child of filteredChildren) {
-                children.push(this.createSymbolItem(child));
-            }
-
-            return children.sort((a, b) => a.range.start.line - b.range.start.line);
-        }
-
-        return [];
-    }
-
     async getDocumentSymbols(document) {
         try {
             const symbols = await vscode.commands.executeCommand(
-                'vscode.executeDocumentSymbolProvider', 
+                'vscode.executeDocumentSymbolProvider',
                 document.uri
             );
-            return Array.isArray(symbols) ? symbols : [];
+
+            const processSymbol = (symbol) => {
+                const cleanName = symbol.name.split(':')[0].trim();
+                const processedChildren = symbol.children ? symbol.children.map(processSymbol) : [];
+                const range = symbol.range || (
+                    symbol.location ? new vscode.Range(
+                        new vscode.Position(symbol.location.range.start.line, 0),
+                        new vscode.Position(symbol.location.range.end.line, 1000)
+                    ) : undefined
+                );
+
+                return {
+                    ...symbol,
+                    name: cleanName,
+                    children: processedChildren,
+                    range: range
+                };
+            };
+
+            return Array.isArray(symbols) ? symbols.map(processSymbol) : [];
         } catch (e) {
             console.error('Error getting symbols:', e);
             return [];
@@ -191,30 +125,84 @@ class EnhancedOutlineProvider {
         return regions.map(wrap);
     }
 
-    createRegionItem(region) {
-        const item = new vscode.TreeItem(
-            region.name, 
-            vscode.TreeItemCollapsibleState.Collapsed
-        );
-        item.iconPath = new vscode.ThemeIcon('symbol-namespace');
-        item.contextValue = 'region';
-        item.range = region.range;
-        item.region = region;
-        item.command = {
-            command: 'enhancedOutline.revealRange',
-            title: 'Go to Region',
-            arguments: [region.range]
-        };
-        return item;
+    getAllSymbols(symbols) {
+        const result = [];
+        for (const symbol of symbols) {
+            result.push(symbol);
+            if (symbol.children) {
+                result.push(...this.getAllSymbols(symbol.children));
+            }
+        }
+        return result;
+    }
+
+    async getChildren(element) {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return [];
+
+        const document = editor.document;
+        const symbols = await this.getDocumentSymbols(document);
+        const regions = this.parseRegions(document);
+        this._currentSymbols = symbols;
+
+        if (!element) {
+            const allItems = [];
+            const allSymbols = this.getAllSymbols(symbols);
+            for (const symbol of allSymbols) {
+                allItems.push({ type: 'symbol', data: symbol, range: symbol.range });
+            }
+            for (const region of regions) {
+                allItems.push({ type: 'region', data: region, range: region.range });
+            }
+
+            allItems.sort((a, b) => a.range.start.line - b.range.start.line);
+
+            const rootItems = [];
+            const stack = [];
+
+            for (const item of allItems) {
+                while (stack.length > 0 && stack[stack.length - 1].range.end.line < item.range.start.line) {
+                    stack.pop();
+                }
+
+                let treeItem;
+                if (item.type === 'symbol') {
+                    treeItem = this.createSymbolItem(item.data);
+                } else {
+                    treeItem = this.createRegionItem(item.data);
+                }
+
+                if (stack.length === 0) {
+                    rootItems.push(treeItem);
+                } else {
+                    const parent = stack[stack.length - 1];
+                    if (!parent.children) parent.children = [];
+                    parent.children.push(treeItem);
+                }
+
+                if (item.range.start.line < item.range.end.line) {
+                    stack.push(treeItem);
+                }
+            }
+
+            this._currentItems = rootItems;
+            return rootItems;
+        }
+
+        if (element.contextValue === 'region' || element.contextValue === 'symbol') {
+            return element.children || [];
+        }
+
+        return [];
     }
 
     createSymbolItem(symbol) {
-        const item = new vscode.TreeItem(
-            symbol.name,
-            symbol.children?.length > 0 
-                ? vscode.TreeItemCollapsibleState.Collapsed 
-                : vscode.TreeItemCollapsibleState.None
-        );
+        const hasChildren = symbol.children && symbol.children.length > 0;
+        const collapsibleState = hasChildren
+            ? vscode.TreeItemCollapsibleState.Collapsed
+            : vscode.TreeItemCollapsibleState.None;
+
+        const item = new vscode.TreeItem(symbol.name, collapsibleState);
         item.iconPath = this.getSymbolIcon(symbol.kind);
         item.contextValue = 'symbol';
         item.range = symbol.range;
@@ -223,6 +211,23 @@ class EnhancedOutlineProvider {
             command: 'enhancedOutline.revealRange',
             title: 'Go to Symbol',
             arguments: [symbol.range]
+        };
+        return item;
+    }
+
+    createRegionItem(region) {
+        const item = new vscode.TreeItem(
+            region.name, 
+            vscode.TreeItemCollapsibleState.Collapsed
+        );
+        item.iconPath = new vscode.ThemeIcon('folder');
+        item.contextValue = 'region';
+        item.range = region.range;
+        item.region = region;
+        item.command = {
+            command: 'enhancedOutline.revealRange',
+            title: 'Go to Region',
+            arguments: [region.range]
         };
         return item;
     }
@@ -259,32 +264,6 @@ class EnhancedOutlineProvider {
         return new vscode.ThemeIcon(iconMap[kind] || 'symbol-misc');
     }
 
-    symbolInsideRegion(symbol, range) {
-        return symbol.range.start.line > range.start.line && 
-               symbol.range.end.line < range.end.line;
-    }
-
-    symbolInsideAnyRegion(symbol, regions) {
-        for (const region of regions) {
-            if (this.symbolInsideRegion(symbol, region.range)) return true;
-            if (region.children && this.symbolInsideAnyRegion(symbol, region.children)) return true;
-        }
-        return false;
-    }
-
-    regionInsideAnySymbol(regionRange, symbols) {
-        for (const symbol of symbols) {
-            if (regionRange.start.line > symbol.range.start.line && 
-                regionRange.end.line < symbol.range.end.line) {
-                return true;
-            }
-            if (symbol.children && this.regionInsideAnySymbol(regionRange, symbol.children)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     updateHighlightingForPosition(pos) {
         const previous = this._highlightedItem;
         this._highlightedItem = null;
@@ -305,13 +284,11 @@ class EnhancedOutlineProvider {
 function activate(context) {
     const provider = new EnhancedOutlineProvider(context);
     
-    // Mostra informações ao carregar
     provider.showExtensionInfo();
 
-    // Cria botão na barra de status
     const reloadButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    reloadButton.text = '$(debug-restart) Recarregar';
-    reloadButton.tooltip = 'Forçar recarregamento da extensão';
+    reloadButton.text = '$(debug-restart) Reload';
+    reloadButton.tooltip = 'Force reload the extension';
     reloadButton.command = 'enhancedOutline.forceReload';
     reloadButton.show();
 
@@ -324,7 +301,7 @@ function activate(context) {
         reloadButton,
         treeView,
         vscode.commands.registerCommand('enhancedOutline.forceReload', () => {
-            vscode.window.showInformationMessage('Recarregando extensão...');
+            vscode.window.showInformationMessage('Reloading extension...');
             provider.forceReload();
         }),
         vscode.commands.registerCommand('enhancedOutline.showInfo', () => {
@@ -347,7 +324,6 @@ function activate(context) {
         vscode.window.onDidChangeActiveTextEditor(() => provider.refresh())
     );
 
-    // Força mostrar o output após 1 segundo
     setTimeout(() => {
         provider._outputChannel.show(true);
     }, 1000);

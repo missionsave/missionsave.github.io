@@ -508,9 +508,71 @@ void restore_v(Display* dpy, KeyCode kc_v) {
     XFlush(dpy);
 }
 
- 
 
 int listenkey() {
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) {
+        std::cerr << "Cannot open display\n";
+        return 1;
+    }
+
+    Window root = DefaultRootWindow(dpy);
+
+    // --- EXISTING: grab Super+V ---
+    KeyCode kc_v = XKeysymToKeycode(dpy, XStringToKeysym("v"));
+    unsigned int super_mod = Mod4Mask;
+
+    for (int i = 0; i < 8; ++i) {
+        XGrabKey(dpy, kc_v, super_mod | i, root, True,
+                 GrabModeAsync, GrabModeAsync);
+    }
+
+    // --- NEW: grab Print Screen (no modifier) ---
+    KeyCode kc_print = XKeysymToKeycode(dpy, XK_Print);
+    for (int i = 0; i < 8; ++i) {
+        // i covers variants: NumLock, CapsLock, ScrollLock, etc.
+        XGrabKey(dpy, kc_print, i, root, True,
+                 GrabModeAsync, GrabModeAsync);
+    }
+
+    XSelectInput(dpy, root, KeyPressMask);
+    XFlush(dpy);
+
+    std::cout << "[INFO] Listening for Super+V and Print Screen...\n";
+
+    while (true) {
+        XEvent ev;
+        XNextEvent(dpy, &ev);
+
+        if (ev.type == KeyPress) {
+            XKeyEvent xkey = ev.xkey;
+
+            // Super+V handling
+            if (xkey.keycode == kc_v && (xkey.state & super_mod)) {
+                // Your existing action, e.g. paste popup
+                if (!winpaste)
+                    Fl::awake(winpop);
+            }
+
+            // Print Screen handling
+            else if (xkey.keycode == kc_print) {
+                // Launch Flameshot GUI
+				system("maim -s | xclip -selection clipboard -t image/png &");
+
+            }
+        }
+    }
+
+    // Cleanup (never reached in this infinite loop example)
+    XUngrabKey(dpy, kc_v, AnyModifier, root);
+    XUngrabKey(dpy, kc_print, AnyModifier, root);
+    XCloseDisplay(dpy);
+    return 0;
+}
+
+ 
+
+int listenkeyworkwinkey() {
     Display* dpy = XOpenDisplay(nullptr);
     if (!dpy) {
         std::cerr << "Cannot open display\n";
@@ -1691,6 +1753,7 @@ int main() {
 		eventWindow();
  	}).detach();
 	
+	//windowskey+v and printscreen
 	thread([](){
 		listenkey();
  	}).detach();

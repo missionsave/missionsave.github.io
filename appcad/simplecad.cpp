@@ -159,7 +159,7 @@ using namespace std;
 #pragma endregion includes
 
 
-
+ 
 
 Fl_Window* win;
 Fl_Menu_Bar* menu;
@@ -1118,8 +1118,8 @@ void colorisebtn(int idx=-1){
         }
     }
 }
-
-struct sbts {
+ 
+struct sbts { 
     string label;
     std::function<void()> func;
     bool is_setview=0;
@@ -1163,6 +1163,7 @@ struct sbts {
         return nullptr;
     }
 };
+
 vector<sbts> sbt;
 void drawbuttons(float w,int hc1 ){
     // auto& sbt = occv->sbt;
