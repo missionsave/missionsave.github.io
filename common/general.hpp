@@ -72,8 +72,11 @@ extern std::string cotmlastoutput;
 extern bool scotmup;
 #include <iostream>
 #include <string>
+#if defined(__linux__)
 #include <sys/ioctl.h>
+#endif
 #include <unistd.h>
+
 
 int get_terminal_width();
 

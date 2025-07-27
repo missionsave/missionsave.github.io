@@ -312,10 +312,80 @@ installdeb() {
   echo "✅ $filename instalado com sucesso!"
 }
 
+
+
+
+install_vboxsb() {
+    KEY_DIR="$HOME/vbox-signing"
+    KEY_NAME="VBoxSign"
+    MODULES=("vboxdrv" "vboxnetflt" "vboxnetadp" "vboxpci")
+
+    echo "📦 Checking required packages..."
+    if ! dpkg -s openssl mokutil kmod &>/dev/null; then
+        echo "🔒 Some packages are missing. Installing..."
+        sudo apt update
+        sudo apt install -y openssl mokutil kmod
+    else
+        echo "✅ All required packages are installed."
+    fi
+
+    echo "🔧 Creating key directory at $KEY_DIR..."
+    mkdir -p "$KEY_DIR"
+    cd "$KEY_DIR" || {
+        echo "❌ Failed to enter $KEY_DIR"
+        return 1
+    }
+
+    echo "📎 Generating RSA key and certificate..."
+    openssl req -new -x509 -newkey rsa:2048 -keyout "${KEY_NAME}.key" \
+        -out "${KEY_NAME}.crt" -nodes -days 365 \
+        -subj "/CN=VirtualBox Module Signing/" || return 1
+
+    echo "📁 Creating .der for MOK enrollment..."
+    openssl x509 -outform DER -in "${KEY_NAME}.crt" -out "${KEY_NAME}.der"
+
+    echo "🔐 Attempting MOK enrollment..."
+    sudo mokutil --import "${KEY_NAME}.der"
+
+    echo "⏳ You need to reboot and enroll the key via MOK Manager."
+    echo "➡️ After reboot, run: sign_vbox_modules"
+}
+sign_vbox_modules() {
+    KEY_DIR="$HOME/vbox-signing"
+    KEY_NAME="VBoxSign"
+    MODULES=("vboxdrv" "vboxnetflt" "vboxnetadp" "vboxpci")
+    SIGN_TOOL=$(find /usr/src -name sign-file | head -n 1)
+
+    if [ -z "$SIGN_TOOL" ]; then
+        echo "❌ sign-file script not found. You may need linux-headers."
+        return 1
+    fi
+
+    for mod in "${MODULES[@]}"; do
+        MOD_PATH="/lib/modules/$(uname -r)/misc/${mod}.ko"
+        if [ -f "$MOD_PATH" ]; then
+            echo "🔏 Signing $mod..."
+            sudo "$SIGN_TOOL" sha256 "$KEY_DIR/${KEY_NAME}.key" "$KEY_DIR/${KEY_NAME}.crt" "$MOD_PATH"
+        else
+            echo "⚠️ Module not found: $MOD_PATH"
+        fi
+    done
+
+    echo "🔄 Reloading VirtualBox kernel modules..."
+    sudo modprobe -r vboxpci vboxnetadp vboxnetflt vboxdrv || true
+    sudo modprobe vboxdrv
+    sudo modprobe vboxnetflt
+    sudo modprobe vboxnetadp
+    sudo modprobe vboxpci
+
+    echo "🎉 All done! VirtualBox should now work fine with Secure Boot."
+}
+
+
 install_vbox(){
 
 # Exit on error
-set -e
+# set -e
 
 # Update system
 sudo apt update && sudo apt upgrade -y
