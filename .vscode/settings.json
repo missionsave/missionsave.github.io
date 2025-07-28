@@ -44,14 +44,15 @@
         "editor.hoverHighlightBackground": "#00000099",
     },
     "files.associations": {
-        "vector": "cpp",
-        "chrono": "cpp",
-        "format": "cpp",
-        "list": "cpp",
-        "xstring": "cpp",
-        "filesystem": "cpp",
-        "fstream": "cpp"
-    },
+		"vector": "cpp",
+		"chrono": "cpp",
+		"format": "cpp",
+		"list": "cpp",
+		"xstring": "cpp",
+		"filesystem": "cpp",
+		"fstream": "cpp",
+		"image": "cpp"
+	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {
     //     "**/.objw": true,

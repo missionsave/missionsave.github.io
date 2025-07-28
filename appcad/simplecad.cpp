@@ -153,7 +153,12 @@
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <HLRBRep_PolyHLRToShape.hxx>
 #include <BRepCheck_Analyzer.hxx>
- 
+#include <AIS_Shape.hxx>
+#include <Prs3d_Drawer.hxx>
+#include <Prs3d_LineAspect.hxx>
+#include <Quantity_Color.hxx>
+#include <Aspect_TypeOfLine.hxx>
+#include <Graphic3d_NameOfMaterial.hxx>
 
 #include <chrono>
 #include <thread>
@@ -760,6 +765,7 @@ if (event == FL_MOVE) {
     	                // Fl::wait(0.01);	
                         m_view->Rotate(0, 0, angle); // Rotate around Z-axis
                         projectAndDisplayWithHLR(vshapes);
+						// recomputeComputed () ;
                          redraw(); //  redraw(); // m_view->Update ();
 
 
@@ -865,6 +871,43 @@ bool isRotating = false;
 bool isPanning = false;
 #pragma endregion events
 
+struct pashape : public AIS_Shape {
+  // expõe o drawer protegido da AIS_Shape
+  using AIS_Shape::myDrawer;
+
+  pashape(const TopoDS_Shape& shape)
+    : AIS_Shape(shape)
+  {
+    // 1) Cria um novo drawer
+    Handle(Prs3d_Drawer) dr = new Prs3d_Drawer();
+
+    // 2) Linha tracejada vermelha, espessura 2
+    Handle(Prs3d_LineAspect) wireAsp =
+      new Prs3d_LineAspect(
+        Quantity_NOC_BLUE,    // cor vermelha
+        Aspect_TOL_DASH,     // tipo: dash
+        0.5                  // espessura da linha
+      );
+
+    // dr->SetWireAspect(wireAsp);
+    // dr->SetWireDraw(true);
+
+    // 3) (Opcional) Desliga faces, só wireframe 
+
+    // 4) Substitui o drawer interno
+    // SetAttributes(dr);
+	// setColor(dr,Quantity_NOC_RED);  
+	// replaceWithNewOwnAspects();
+	Attributes()->SetLineAspect(wireAsp);
+	Attributes()->SetSeenLineAspect(wireAsp);
+	Attributes()->SetFaceBoundaryAspect(wireAsp);
+	Attributes()->SetWireAspect(wireAsp);
+	Attributes()->SetUnFreeBoundaryAspect(wireAsp);
+	Attributes()->SetFreeBoundaryAspect(wireAsp);
+	Attributes()->SetFaceBoundaryAspect(wireAsp);
+
+  }
+};
 
 
 
@@ -879,14 +922,15 @@ void draw_objs(){
 
 
 
-    // Handle(Prs3d_Drawer) defaultDrawer = m_context->DefaultDrawer();
+    Handle(Prs3d_Drawer) defaultDrawer = m_context->DefaultDrawer();
   
-	// // Set default line widths
+	// Set default line widths
 	// defaultDrawer->WireAspect()->SetWidth(3);
 	// defaultDrawer->LineAspect()->SetWidth(3);
+	// defaultDrawer->SetColor(Quantity_NOC_RED);
     for(int i=0;i<vshapes.size();i++)
     {
-        Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
+        pashape* aShape = new pashape(vshapes[i]);
         // vaShape.push_back(aShape);
         // m_context->SetDisplayMode(aShape, AIS_Shaded, 0); /////////////////////////////
         // m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_True); 
@@ -906,18 +950,30 @@ void draw_objs(){
 
 
 {
-// Acessa os atributos de apresentação
-Handle(Prs3d_Drawer) drawer = aShape->Attributes();
-
-// Define o aspecto de linha tracejada vermelha
-Handle(Prs3d_LineAspect) dashedAspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_DASH, 2.0);
-drawer->SetWireAspect(dashedAspect);
 
 // Define o modo de exibição como wireframe
-m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_True);
+// m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_True);
+
+// Acessa os atributos de apresentação
+// Handle(Prs3d_Drawer) drawer = aShape->Attributes();
+
+// // Define o aspecto de linha tracejada vermelha
+// Handle(Prs3d_LineAspect) dashedAspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_DASH, 2.0);
+// drawer->SetWireAspect(dashedAspect);
+
+// drawer->(Quantity_NOC_RED);
+// aShape->setColor(drawer,Quantity_NOC_RED);
 
 // Exibe a forma com atualização forçada
-m_context->Display(aShape, Standard_True);
+// 	Handle(Prs3d_Drawer) dr1 = aShape->Attributes();
+// if (dr1->WireAspect()->Aspect()->Type() == Aspect_TOL_DASH) {
+//   std::cout << "Linha tracejada aplicada!" << std::endl;
+// } 
+m_context->Display(aShape, Standard_False);
+// m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_True);
+
+
+// m_context->Redisplay(aShape, Standard_True);
 continue;
 }
 
@@ -1351,8 +1407,10 @@ gp_Pnt screenPointFromMouse(int mousex, int mousey) {
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 	
-    m_context->RemoveAll(false);
+    // m_context->RemoveAll(false);
 
+        if(visible_) m_context->Remove(visible_,0);
+        if(hidden_) m_context->Remove(hidden_,0);
 
     // 1. Prepara camera e transformação
     const Handle(Graphic3d_Camera)& camera = m_view->Camera();
@@ -1399,7 +1457,7 @@ gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, dire
     BRepBuilderAPI_Transform visT(vEdges, invTrsf);
     visible_ = new AIS_Shape(visT.Shape());
     visible_->SetColor(Quantity_NOC_BLACK);
-    visible_->SetWidth(1.5);
+    visible_->SetWidth(3);
     m_context->Display(visible_, false);
 
     // Ocultas
@@ -1422,10 +1480,10 @@ gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, dire
     // m_context->Display(hidden_, false);
 
     // 6. Guarda shapes originais para picking
-    vshapes = shapes;
+    // vshapes = shapes;
 
     m_context->UpdateCurrentViewer();
-	draw_objs();
+	// draw_objs();
 }
 
 void projectAndDisplayWithHLRworking(const std::vector<TopoDS_Shape> &shapes) {
