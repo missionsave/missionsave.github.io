@@ -228,7 +228,7 @@ void update_display(Fl_Output* output) {
 
     std::string clock   = get_time();
 
-    output->value((""+battery + "% " + clock).c_str());
+    output->value(("✅"+battery + "% " + clock).c_str());
 
 	if(atoi(battery.c_str())<=5){ 
 		if(bat_is_Discharging()){ 
@@ -1694,7 +1694,35 @@ void initlauncher(){
 
 #pragma endregion calculator
 
+#pragma region net
+#if 0
+#include <netlink/netlink.h>
+#include <netlink/socket.h>
+#include <netlink/msg.h>
+#include <netlink/route/link.h>
+
+Fl_Box* statusBox;
+
+void onLinkChange(struct nl_msg *msg, void *arg) {
+    // Aqui você analisa se a interface caiu
+    Fl::lock(); // necessário para thread-safe
+    statusBox->label("Wi-Fi caiu!");
+    Fl::awake(); // atualiza interface
+}
+
+void startMonitor() {
+    struct nl_sock *sock = nl_socket_alloc();
+    nl_connect(sock, NETLINK_ROUTE);
+    nl_socket_modify_cb(sock, NL_CB_MSG_IN, NL_CB_CUSTOM, onLinkChange, NULL);
+    nl_socket_add_memberships(sock, RTNLGRP_LINK);
+    while (true) nl_recvmsgs_default(sock);
+}
+#endif
+#pragma endregion net
+
 int main() {
+	std::cout << "FLTK Version: " << FL_VERSION << std::endl;
+	std::cout << "FLTK Release: " << FL_RELEASE << std::endl;
 	Fl::lock();
 	XInitThreads(); 
 

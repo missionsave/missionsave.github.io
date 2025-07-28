@@ -1,0 +1,37 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include",
+                "/usr/include/opencascade",
+                "/usr/local/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/g++", // Linux-specific compiler path
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
+            "name": "Windows",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/MinGW/include", // Example MinGW include path
+                "C:/MinGW/lib/gcc/mingw32/6.3.0/include/c++" // Example MinGW C++ include path
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "windowsSdkVersion": "10.0.19041.0", // Example Windows SDK version
+            "compilerPath": "C:/MinGW/bin/g++.exe", // Windows-specific compiler path (MinGW example)
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64" // Or "windows-msvc-x64" for MSVC
+        }
+    ],
+    "version": 4
+}
