@@ -51,7 +51,18 @@
 		"xstring": "cpp",
 		"filesystem": "cpp",
 		"fstream": "cpp",
-		"image": "cpp"
+		"image": "cpp",
+		"array": "cpp",
+		"deque": "cpp",
+		"string": "cpp",
+		"unordered_map": "cpp",
+		"unordered_set": "cpp",
+		"string_view": "cpp",
+		"initializer_list": "cpp",
+		"regex": "cpp",
+		"mixinvector": "cpp",
+		"guieventadapter": "cpp",
+		"iostream": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {

@@ -1,5 +1,5 @@
-//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss -lXi
-
+//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss -lXi -I/usr/include/libnl3
+// sudo setcap cap_net_admin,cap_net_raw+ep ./wifi_connect
 
 // sudo apt install libasound2-dev acpid wmctrl
 
@@ -15,6 +15,7 @@
 #include <string>
 #include <iostream>
 #include <thread>
+#include <mutex>
 
 #ifdef __linux__
 #include <X11/Xlib.h>
@@ -96,7 +97,7 @@
 
 
 void dbg();
-void refresh();
+void refresh(void*);
 using namespace std;
 #pragma endregion Includes
  
@@ -106,12 +107,73 @@ Fl_Group* fg;
 vector<Fl_Button*> vbtn;
 struct WindowInfo;
 vector<WindowInfo> vwin;
+Fl_Button* btest;
 
 #pragma endregion Globals
 
 #pragma region  Dock
 void set_dock_properties(Fl_Window* win) {
-#ifdef __linux__
+	    // Get the X11 display and window handle
+    Display* dpy = fl_display; // FLTK's global X11 display
+    Window xid = fl_xid(win);  // FLTK's X11 window handle
+
+    // Set as dock type
+    Atom wtype = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+    Atom dock_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DOCK", False);
+    XChangeProperty(dpy, xid, wtype, XA_ATOM, 32, PropModeReplace, 
+                   (unsigned char*)&dock_type, 1);
+
+    // Reserve screen space (strut)
+    unsigned long strut[12] = {0};
+    strut[3] = win->h();       // Reserve "bottom" space (height of the bar)
+    strut[10] = 0;            // Start of reserved area (X start)
+    strut[11] = win->w() - 1;  // End of reserved area (X end)
+
+    Atom partial_strut = XInternAtom(dpy, "_NET_WM_STRUT_PARTIAL", False);
+    XChangeProperty(dpy, xid, partial_strut, XA_CARDINAL, 32, PropModeReplace,
+                   (unsigned char*)strut, 12);
+
+    // Backward compatibility
+    Atom simple_strut = XInternAtom(dpy, "_NET_WM_STRUT", False);
+    unsigned long simple[4] = {0, 0, 0, win->h()};
+    XChangeProperty(dpy, xid, simple_strut, XA_CARDINAL, 32, PropModeReplace,
+                   (unsigned char*)simple, 4);
+
+    // Keep window always on top
+    Atom wm_state = XInternAtom(dpy, "_NET_WM_STATE", False);
+    Atom wm_above = XInternAtom(dpy, "_NET_WM_STATE_ABOVE", False);
+    XChangeProperty(dpy, xid, wm_state, XA_ATOM, 32, PropModeAppend,
+                   (unsigned char*)&wm_above, 1);
+
+    // Prevent window from taking focus
+    Atom skip_taskbar = XInternAtom(dpy, "_NET_WM_STATE_SKIP_TASKBAR", False);
+    Atom skip_pager = XInternAtom(dpy, "_NET_WM_STATE_SKIP_PAGER", False);
+    
+    // Add these states to the window
+    Atom states[2] = {skip_taskbar, skip_pager};
+    XChangeProperty(dpy, xid, wm_state, XA_ATOM, 32, PropModeAppend,
+                   (unsigned char*)states, 2);
+
+    // Set input hints to prevent focus
+    XWMHints* hints = XAllocWMHints();
+    hints->flags = InputHint;
+    hints->input = False;  // This window should never receive input focus
+    XSetWMHints(dpy, xid, hints);
+    XFree(hints);
+
+    // Set the window's override_redirect attribute
+    // This prevents window manager from managing our window (including focus)
+    // Comment this out if you need proper strut behavior with some WMs
+    XSetWindowAttributes attrs;
+    attrs.override_redirect = True;
+    XChangeWindowAttributes(dpy, xid, CWOverrideRedirect, &attrs);
+
+    // Some window managers need this to properly handle dock windows
+    Atom wm_desktop = XInternAtom(dpy, "_NET_WM_DESKTOP", False);
+    unsigned long desktop = 0xFFFFFFFF; // Show on all desktops
+    XChangeProperty(dpy, xid, wm_desktop, XA_CARDINAL, 32, PropModeReplace,
+                   (unsigned char*)&desktop, 1);
+#ifdef __linux__1
     // Get the X11 display and window handle
     Display* dpy = fl_display; // FLTK's global X11 display
     Window xid = fl_xid(win);  // FLTK's X11 window handle
@@ -1179,10 +1241,16 @@ int listen_fnvolumes() {
 #include <sstream>
 #include <dirent.h>
 
+mutex mtxgawid;
 // Obtem PID da janela ativa (foco) no X11
 pid_t get_active_window_pid() {
+	mtxgawid.lock();
+
     Display* display = XOpenDisplay(nullptr);
-    if (!display) return -1;
+    if (!display){
+		mtxgawid.unlock();
+		return -1;
+	} 
 
     Atom net_active_window = XInternAtom(display, "_NET_ACTIVE_WINDOW", True);
     Atom net_wm_pid = XInternAtom(display, "_NET_WM_PID", True);
@@ -1201,6 +1269,8 @@ pid_t get_active_window_pid() {
         XFree(prop);
     } else {
         XCloseDisplay(display);
+
+		mtxgawid.unlock();
         return -1;
     }
 
@@ -1210,10 +1280,12 @@ pid_t get_active_window_pid() {
         pid_t pid = *(pid_t*)prop;
         XFree(prop);
         XCloseDisplay(display);
+		mtxgawid.unlock();
         return pid;
     }
 
     XCloseDisplay(display);
+	mtxgawid.unlock();
     return -1;
 }
 
@@ -1302,14 +1374,15 @@ unsigned long get_idle_time_ms() {
 void force_screen_off() {
     std::system("xset dpms force off");
 }
-
+pid_t focused_pid=0;
 void initscrensaver() {
     constexpr int IDLE_THRESHOLD = 60*5; // segundos para desligar o ecrã
     int idle_seconds = 0;
 
     while (true) {
         unsigned long idle_ms = get_idle_time_ms();
-        pid_t focused_pid = get_active_window_pid();
+        focused_pid = get_active_window_pid();
+        // pid_t focused_pid = get_active_window_pid();
 
         if (idle_ms < 1000) {
             // Input recente do rato/teclado: reseta contador
@@ -1345,10 +1418,27 @@ struct WindowInfo {
     int pid;
     std::string process_name;
 	bool is_open=0;
+	pid_t active_pid=0;
+
 };
 
 unordered_map <string,string> uapps;
 vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64"};
+
+Window stringToWindow(const std::string& winStr) {
+    Window win;
+    std::stringstream ss;
+
+    // If the string starts with "0x", interpret as hexadecimal
+    if (winStr.rfind("0x", 0) == 0) {
+        ss << std::hex << winStr;
+    } else {
+        ss << winStr; // assume decimal
+    }
+
+    ss >> win;
+    return win;
+}
 
 std::string getProcessName(int pid) {
     std::ifstream file("/proc/" + std::to_string(pid) + "/comm");
@@ -1375,10 +1465,11 @@ std::vector<WindowInfo> getOpenWindowsInfo() {
         iss >> info.window_id; // 0xID
         std::string desktop_num;		
         iss >> desktop_num;    // Desktop number (ignored)
-		if (desktop_num == "-1") {
-			continue; // Skip sticky windows (appear on all desktops)
-		}
+		// if (desktop_num == "-1") {
+		// 	continue; // Skip sticky windows (appear on all desktops)
+		// }
         iss >> info.pid;       // PID
+		cotm(info.pid);
         std::string hostname;
         iss >> hostname;       // Hostname (ignored)
 
@@ -1386,7 +1477,9 @@ std::vector<WindowInfo> getOpenWindowsInfo() {
         std::getline(iss, title);
         title.erase(0, title.find_first_not_of(" \t\n\r")); // Trim leading spaces
         info.title = title;
-		if(info.title=="")continue;
+		// if(info.title=="")continue;
+
+		info.active_pid=get_active_window_pid();
 
         info.process_name = getProcessName(info.pid);
 
@@ -1534,6 +1627,17 @@ cotm(fullCommand)
     _exit(1);
 }
 
+int teste(bool t=0){if(t)return 9999;else return 7777;}
+void minimizeWindow(Window win) {
+	Display* display = XOpenDisplay(nullptr);
+    if (!display) {
+        std::cerr << "Cannot open X display\n";
+        return;
+    }
+    XIconifyWindow(display, win, DefaultScreen(display));
+    XFlush(display);
+    XCloseDisplay(display);
+}
 
 
 void refresh(void*){ 
@@ -1547,6 +1651,8 @@ void refresh(void*){
 	vbtn.clear();
 	vwin.clear();
 
+	pid_t pid_=get_active_window_pid();
+	cotm(pid_);
 	//pinned
 	perf();
 	vector<WindowInfo> windows = getOpenWindowsInfo();
@@ -1556,6 +1662,7 @@ void refresh(void*){
 		vwin.push_back(WindowInfo());
 		vwin.back().title=pinnedApps[ip];
 		vwin.back().is_open = 0;
+		vwin.back().active_pid =pid_;
 		// cout<<"is "<<vwin.back().is_open<<"\n";
 		for (auto it = windows.begin(); it != windows.end(); /* no ++ here */) {
 			// cotm(it->title,it->pid,it->window_id)
@@ -1573,6 +1680,8 @@ void refresh(void*){
 				// vwin.back().title = uapps[sexecf];
 				vwin.back().window_id = it->window_id;
 				vwin.back().is_open = 1;
+				vwin.back().active_pid =pid_;
+				vwin.back().pid = it->pid;
 // cout<<"equal "<<sexecf<<" "<<sexecp<<"\n";
 				it = windows.erase(it);  // removes and advances the iterator
 			} else {
@@ -1599,11 +1708,15 @@ void refresh(void*){
 				// vwin.back().title = uapps[sexecf];
 				vwin.back().window_id = it->window_id;
 				vwin.back().is_open = 1;
+				vwin.back().active_pid =pid_;
+				vwin.back().pid = it->pid;
 			} else {
 				vwin.push_back(WindowInfo());
 				vwin.back().title = it->title;
 				vwin.back().window_id = it->window_id;
 				vwin.back().is_open = 1;
+				vwin.back().active_pid =pid_;
+				vwin.back().pid = it->pid;
 			}
 		}
 
@@ -1624,7 +1737,14 @@ void refresh(void*){
 			
 			Fl_Button* btn=(Fl_Button*)widget;
 			WindowInfo wi = *((WindowInfo*)data);
+			// pid_t pid=wi.active_pid;
+			pid_t pid=get_active_window_pid();
 
+			cotm(wi.pid,pid,focused_pid);
+			if(wi.pid==pid){
+				minimizeWindow(stringToWindow( wi.window_id));
+				return;
+			}
 // cotm(wi.is_open )
 			if(wi.is_open){
 				activateWindowById(wi.window_id);
@@ -1695,18 +1815,46 @@ void initlauncher(){
 #pragma endregion calculator
 
 #pragma region net
+// sudo apt install libnl-3-dev libnl-genl-3-dev libssl-dev
+
+#include <iostream>
+#include <iomanip>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
+
+std::string generate_psk(const std::string& ssid, const std::string& passphrase) {
+    const int iterations = 4096;
+    const int key_len = 32;
+    unsigned char psk[key_len];
+
+    PKCS5_PBKDF2_HMAC_SHA1(
+        passphrase.c_str(),
+        passphrase.length(),
+        reinterpret_cast<const unsigned char*>(ssid.c_str()),
+        ssid.length(),
+        iterations,
+        key_len,
+        psk
+    );
+
+    std::ostringstream oss;
+    for (int i = 0; i < key_len; ++i)
+        oss << std::hex << std::setfill('0') << std::setw(2) << (int)psk[i];
+
+    return oss.str();
+}
 #if 0
 #include <netlink/netlink.h>
 #include <netlink/socket.h>
 #include <netlink/msg.h>
 #include <netlink/route/link.h>
-
-Fl_Box* statusBox;
+ 
 
 void onLinkChange(struct nl_msg *msg, void *arg) {
+	cotm("net droped");
     // Aqui você analisa se a interface caiu
     Fl::lock(); // necessário para thread-safe
-    statusBox->label("Wi-Fi caiu!");
+    btest->copy_label("Wi-Fi caiu!");
     Fl::awake(); // atualiza interface
 }
 
@@ -1718,6 +1866,7 @@ void startMonitor() {
     while (true) nl_recvmsgs_default(sock);
 }
 #endif
+
 #pragma endregion net
 
 int main() {
@@ -1737,13 +1886,21 @@ int main() {
     tasbwin->color(FL_DARK_RED);
     tasbwin->begin();
 	
-	// Fl_Button* btest=new Fl_Button(screen_w-100,0,100,24,"refresh");
-	// btest->callback([](Fl_Widget*){
-	// 	fg->begin();
-	// 	refresh();
-	// 	fg->end();
-	// 	// win->redraw();
-	// });
+	btest=new Fl_Button(screen_w-280,0,100,24,"refresh");
+	btest->callback([](Fl_Widget* wid){
+		Fl_Button* btn=(Fl_Button*)wid;
+		// pid_t pid_=get_active_window_pid();
+		// stringstream strm;
+		// strm<<pid_;
+		// btn->copy_label(strm.str().c_str());
+
+
+
+		// fg->begin();
+		// refresh();
+		// fg->end();
+		// win->redraw();
+	});
 
     Fl_Output* output = new Fl_Output(screen_w-180,0,180,24);
     output->textfont(FL_COURIER);
@@ -1769,7 +1926,14 @@ int main() {
     // Set X11 properties after window is shown
     set_dock_properties(tasbwin);
 
+	// Prevent window from stealing focus
+    // Display* dpy = fl_display;
+    // Window xid = fl_xid(tasbwin);
 
+    // XSetWindowAttributes attrs;
+    // attrs.override_redirect = True;
+    // XChangeWindowAttributes(dpy, xid, CWOverrideRedirect, &attrs);
+    // XMapRaised(dpy, xid); // Show without focus
  
 
 

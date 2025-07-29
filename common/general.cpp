@@ -254,7 +254,7 @@ struct performance{
     const char* pname; 
     performance(const char*  name=""); //
     void p(const char* prefix=""); //
-} perfinit;
+};
 
 performance::performance(const char*  name){
     pname=name;
@@ -273,9 +273,15 @@ void performance::p(const char* prefix){
 	fflush(stdout);
 	pclock=std::chrono::steady_clock::now();
 }
+performance perfinit;
 void perf(string p){
     if(p==""){perfinit.pclock=std::chrono::steady_clock::now();return;}
     perfinit.p(p.c_str());
+} 
+performance perfinit1;
+void perf1(string p){
+    if(p==""){perfinit1.pclock=std::chrono::steady_clock::now();return;}
+    perfinit1.p(p.c_str());
 } 
 
 

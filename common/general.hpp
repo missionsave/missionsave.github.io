@@ -213,6 +213,7 @@ int countMatches(const std::vector<int>& a, const std::vector<int>& b) {
 
 
 void perf(std::string p="");
+void perf1(std::string p="");
 
 void appwdir();
 

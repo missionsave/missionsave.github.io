@@ -762,9 +762,11 @@ if (event == FL_MOVE) {
                     // Rotate view (OpenCascade)
                     if (dy != 0) {
                         double angle = dy * 0.005; // Rotation sensitivity factor
+						perf();
     	                // Fl::wait(0.01);	
                         m_view->Rotate(0, 0, angle); // Rotate around Z-axis
-                        projectAndDisplayWithHLR(vshapes);
+						perf("vnormal");
+                        // projectAndDisplayWithHLR(vshapes);
 						// recomputeComputed () ;
                          redraw(); //  redraw(); // m_view->Update ();
 
@@ -800,9 +802,12 @@ if (event == FL_MOVE) {
 
         case FL_DRAG: 
             if (isRotating && m_initialized) { 
-                funcfps(12,m_view->Rotation(Fl::event_x(),Fl::event_y());
-                projectAndDisplayWithHLR(vshapes);
-                 redraw(); //  redraw(); // m_view->Update ();
+                funcfps(12,
+					perf();
+					m_view->Rotation(Fl::event_x(),Fl::event_y());
+                	projectAndDisplayWithHLR(vshapes);
+                 	redraw(); //  redraw(); // m_view->Update ();
+					perf("vnormalr");
 
 
                 colorisebtn();    
@@ -1404,9 +1409,9 @@ gp_Pnt screenPointFromMouse(int mousex, int mousey) {
     m_view->Convert(mousex, mousey, X, Y, Z);
     return gp_Pnt(X, Y, 0.0);
 }
-void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes) {
+void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly=0) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
-	
+	perf();
     // m_context->RemoveAll(false);
 
         if(visible_) m_context->Remove(visible_,0);
@@ -1460,6 +1465,8 @@ gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, dire
     visible_->SetWidth(3);
     m_context->Display(visible_, false);
 
+	perf();
+
     // Ocultas
     // hEdges = hlrToShape.HCompound();
     // BRepBuilderAPI_Transform hidT(hEdges, invTrsf);
@@ -1482,8 +1489,9 @@ gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, dire
     // 6. Guarda shapes originais para picking
     // vshapes = shapes;
 
-    m_context->UpdateCurrentViewer();
+    // m_context->UpdateCurrentViewer();
 	// draw_objs();
+	perf("hlrf");
 }
 
 void projectAndDisplayWithHLRworking(const std::vector<TopoDS_Shape> &shapes) {
@@ -2253,7 +2261,7 @@ occv-> m_view->Redraw ();
 		
 		{ "&test", 0, ([](Fl_Widget *, void* v){ 	
             perf();
-			lop(i,0,20)occv->test(i);
+			lop(i,0,40)occv->test(i);
             perf("test");
                 {
 occv->draw_objs();
@@ -2352,7 +2360,7 @@ int main(int argc, char** argv) {
     Fl::lock();    
     int w=1024;
 	int h=576;
-    Fl_Window* win = new Fl_Window(w, h, "FLTK with OpenCASCADE");
+    Fl_Window* win = new Fl_Window(0,0,w, h, "FLTK with OpenCASCADE");
     win->color(FL_RED);
     win->callback([](Fl_Widget *widget, void* ){		
 		if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape) 

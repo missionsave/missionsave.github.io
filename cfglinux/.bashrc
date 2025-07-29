@@ -189,7 +189,7 @@ alias mntdesk='sudo mount -t vboxsf -o exec desk ~/desk && cd ~/desk/missionsave
 alias mntmsv='sudo mount -t vboxsf -o exec missionsave ~/missionsave && cd ~/missionsave/approbot'
 
 alias sshraspi='ssh -X super@192.168.1.190'
-alias mntraspi='sshfs super@192.168.1.190:/ ~/server'
+alias mntraspi='mcd ~/server && sshfs super@192.168.1.190:/ ~/server'
 alias umntraspi='fusermount -u ~/server'
 
 xprarobo(){

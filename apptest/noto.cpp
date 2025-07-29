@@ -44,10 +44,10 @@ int main(int argc, char **argv) {
 
     // Tentativas de nomes de fontes em ordem de preferência
     std::vector<const char*> preferred_font_names = {
-        "Noto Sans Symbols",
-        "Noto Sans Symbols2",
-        "Noto Sans",          // Genérica
-        "Noto Color Emoji",   // Para emojis, mas muitas vezes tem símbolos
+        // "Noto Sans Symbols",
+        // "Noto Sans Symbols2",
+        // "Noto Sans",          // Genérica
+        // "Noto Color Emoji",   // Para emojis, mas muitas vezes tem símbolos
         "DejaVu Sans"         // Boa fonte genérica Unicode no Linux
     };
 
@@ -83,8 +83,9 @@ int main(int argc, char **argv) {
     box->box(FL_FLAT_BOX);
 
     // O caractere de checkmark Unicode (U+2713)
-    const char* text_content = "Tarefa Concluída: \xE2\x9C\x93"; // UTF-8 para U+2713 (✓)
+    // const char* text_content = "Tarefa Concluída: \xE2\x9C\x93"; // UTF-8 para U+2713 (✓)
     // Se você quiser testar o emoji de checkmark completo:
+    const char* text_content = "Tarefa Concluída: ✓ ✅"; // UTF-8 para U+2705 (✅)
     // const char* text_content = "Tarefa Concluída: \xE2\x9C\x85"; // UTF-8 para U+2705 (✅)
     // Se "Noto Color Emoji" estiver instalada, esta é a forma mais robusta de obter emojis.
 
