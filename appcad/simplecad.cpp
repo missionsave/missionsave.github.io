@@ -1147,7 +1147,7 @@ Handle(HLRBRep_PolyAlgo) hlrAlgo;
 // #include <chrono>
 // #include <execution> // Para C++17 paralelismo
 
-#define ENABLE_PARALLEL 1 // Ative se souber que sua build do OpenCascade é thread-safe
+// #define ENABLE_PARALLEL  // Ative se souber que sua build do OpenCascade é thread-safe
 
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
