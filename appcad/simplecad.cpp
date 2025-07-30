@@ -613,9 +613,9 @@ void getvertex() {
             clearHighlight();
         }
     } else {
-        cotmupset
-        cotm("Nothing detected under the mouse.");
-        cotmup
+        // cotmupset
+        // cotm("Nothing detected under the mouse.");
+        // cotmup
         clearHighlight();
     }
 
@@ -740,9 +740,9 @@ if (event == FL_MOVE) {
 		// cotm("test")
 		// printf("%s",cotmlastoutput.c_str());
 		// go_up;
-        cotmupset
-		cotm("Nothing detected under the mouse.");
-		cotmup
+        // cotmupset
+		// cotm("Nothing detected under the mouse.");
+		// cotmup
 
         clearHighlight(); // Nothing detected
     }
@@ -888,6 +888,15 @@ bool isRotating = false;
 bool isPanning = false;
 #pragma endregion events
 
+    Handle(Prs3d_LineAspect) wireAsp =
+      new Prs3d_LineAspect(
+        Quantity_NOC_BLUE,    // cor vermelha
+        Aspect_TOL_DASH,     // tipo: dash
+        0.5                  // espessura da linha
+      );
+	  
+	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+
 struct pashape : public AIS_Shape {
   // expõe o drawer protegido da AIS_Shape
   using AIS_Shape::myDrawer;
@@ -926,10 +935,89 @@ struct pashape : public AIS_Shape {
   }
 };
 
+Standard_Integer currentMode = AIS_WireFrame;
+void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
+    for (std::size_t i = 0; i < vaShape.size(); ++i) {
+        Handle(AIS_Shape) aShape = vaShape[i];
+        if (aShape.IsNull()) continue;
+
+        if (fromcurrentMode == AIS_Shaded) {			
+			hlr_on=1;
+            // Mudar para modo wireframe
+            // aShape->UnsetColor();
+            aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
+            m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
+
+
+            aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
+            aShape->Attributes()->SetLineAspect(wireAsp);
+            aShape->Attributes()->SetSeenLineAspect(wireAsp);
+            aShape->Attributes()->SetWireAspect(wireAsp);
+            aShape->Attributes()->SetUnFreeBoundaryAspect(wireAsp);
+            aShape->Attributes()->SetFreeBoundaryAspect(wireAsp);
+            aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
+        } else {
+			hlr_on=0;
+            // Mudar para modo sombreado
+			 aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
+
+            m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+
+            aShape->SetColor(Quantity_NOC_GRAY70);
+            aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);
+            aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+            // aShape->Attributes()->SetSeenLineAspect(edgeAspect); // opcional
+        }
+
+        m_context->Redisplay(aShape, 0);
+    }
+	if(hlr_on==1){
+		projectAndDisplayWithHLR(vshapes);
+	}else{
+		if(visible_){
+			m_context->Remove(visible_,0);
+			visible_.Nullify();
+		}
+	}
+	currentMode=fromcurrentMode;
+}
 
 
 void draw_objs(){
-    if(hlr_on)return;
+	for(int i=0;i<vshapes.size();i++){
+        Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
+        vaShape.push_back(aShape);
+		m_context->Display(aShape, 0);
+	}
+	toggle_shaded_transp(currentMode);
+	return;
+
+
+    if(!hlr_on){
+	for(int i=0;i<vshapes.size();i++)
+    {
+        Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
+        vaShape.push_back(aShape);
+        m_context->SetDisplayMode(aShape, AIS_Shaded, 0); 
+        // m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_True); 
+
+          
+
+        aShape->SetColor(Quantity_NOC_GRAY70);
+        aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);  
+        Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+        aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+
+
+        aShape->Attributes()->SetSeenLineAspect(edgeAspect);
+        // aShape->SetTransparency(0.5);
+        m_context->Display(aShape, 0); 
+        // m_context->Display(aShape, Standard_True); 
+    }
+		
+		
+		return;
+	}
     m_view->SetComputedMode(Standard_False);    
     // m_context->RemoveAll(false); 
 
@@ -939,7 +1027,7 @@ void draw_objs(){
 
 
 
-    Handle(Prs3d_Drawer) defaultDrawer = m_context->DefaultDrawer();
+    // Handle(Prs3d_Drawer) defaultDrawer = m_context->DefaultDrawer();
   
 	// Set default line widths
 	// defaultDrawer->WireAspect()->SetWidth(3);
@@ -949,7 +1037,7 @@ void draw_objs(){
     {
         pashape* aShape = new pashape(vshapes[i]);
         // vaShape.push_back(aShape);
-        // m_context->SetDisplayMode(aShape, AIS_Shaded, 0); /////////////////////////////
+        // m_context->SetDisplayMode((AIS_Shape*) aShape, AIS_Shaded, 0); /////////////////////////////
         // m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_True); 
 
         //   m_context->Activate(aShape, aShape->SelectionMode(TopAbs_VERTEX));
@@ -1147,12 +1235,13 @@ Handle(HLRBRep_PolyAlgo) hlrAlgo;
 // #include <TopoDS_Face.hxx>
 // #include <chrono>
 // #include <execution> // Para C++17 paralelismo
-#ifndef HAVE_TBB
-#define ENABLE_PARALLEL  // Ative se souber que sua build do OpenCascade é thread-safe
-#endif
+// #ifndef HAVE_TBB
+// #define ENABLE_PARALLEL  // Ative se souber que sua build do OpenCascade é thread-safe
+// #endif
 
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+	perf1();
 
     // 1. Preparar transformação da câmara
     const Handle(Graphic3d_Camera)& camera = m_view->Camera();
@@ -1236,6 +1325,7 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
         visible_->SetInfiniteState(true); // opcional
         m_context->Display(visible_, false);
     }
+	perf1("elapsed hlr");
 }
 
 
@@ -1817,6 +1907,13 @@ static Fl_Menu_Item items[] = {
             Fl_Menu_* menu = static_cast<Fl_Menu_*>(mnu);
             const Fl_Menu_Item* item = menu->mvalue();  // This gets the actually clicked item
             
+				if (!item->value()) { 
+				occv->toggle_shaded_transp(AIS_WireFrame);
+				}else{
+				occv->toggle_shaded_transp(AIS_Shaded);
+				}
+				return;
+
             if (item->value()) {  // Check if the item is checked
                 cotm(1);
                 occv->hlr_on = 1;
@@ -1843,7 +1940,13 @@ occv-> m_view->Redraw ();
 occv->draw_objs();
             perf("draw");
 // occv->m_view->FitAll();
-occv->m_view->Redraw();
+occv->redraw();
+occv->colorisebtn();
+
+
+
+// occv->m_view->Redraw();
+            perf("draw");
 
 // occv->m_view->Update();
 }
