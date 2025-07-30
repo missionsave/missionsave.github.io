@@ -159,6 +159,7 @@
 #include <Quantity_Color.hxx>
 #include <Aspect_TypeOfLine.hxx>
 #include <Graphic3d_NameOfMaterial.hxx>
+#include <Standard_ProgramError.hxx>
 
 #include <chrono>
 #include <thread>
@@ -1146,8 +1147,9 @@ Handle(HLRBRep_PolyAlgo) hlrAlgo;
 // #include <TopoDS_Face.hxx>
 // #include <chrono>
 // #include <execution> // Para C++17 paralelismo
-
+#ifndef HAVE_TBB
 #define ENABLE_PARALLEL  // Ative se souber que sua build do OpenCascade é thread-safe
+#endif
 
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
@@ -1917,6 +1919,11 @@ int main(int argc, char** argv) {
     // setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
 
     std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
+#ifdef HAVE_TBB
+    std::cout << "OpenCASCADE was compiled with TBB support." << std::endl;
+#else
+    std::cout << "OpenCASCADE was NOT compiled with TBB support." << std::endl;
+#endif
 
 	Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
     // #if defined(__linux__)
