@@ -270,7 +270,7 @@ installReload(){
 
 
 
-installdeb() {
+install_deb() {
   local url="$1"
   local filename=$(basename "$url")
 
@@ -310,6 +310,25 @@ installdeb() {
   rm -f "$filename"
 
   echo "✅ $filename instalado com sucesso!"
+}
+
+install_qemu() {
+  echo "🔧 A instalar QEMU/KVM e dependências..."
+  sudo apt update && sudo apt install -y \
+    qemu-kvm \
+    libvirt-daemon-system \
+    libvirt-clients \
+    bridge-utils \
+    virt-manager \
+    ovmf
+
+  echo "👤 A adicionar o utilizador ao grupo libvirt..."
+  sudo usermod -aG libvirt $(whoami)
+
+  echo "🚀 A iniciar e ativar o serviço libvirtd..."
+  sudo systemctl enable --now libvirtd
+
+  echo "✅ Instalação concluída! Reinicia a sessão para aplicar permissões."
 }
 
 

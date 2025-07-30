@@ -1237,7 +1237,7 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
 }
 
 
-void projectAndDisplayWithHLRw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly=0) {
+void projectAndDisplayWithHLRold(const std::vector<TopoDS_Shape>& shapes, bool isDragonly=0) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 
 
@@ -1648,7 +1648,8 @@ void start_animation(void* userdata)
     );
 
     // Start the update timer
-    Fl::add_timeout(0.001, animation_update, userdata);
+    // Fl::add_timeout(0.001, animation_update, userdata);
+    Fl::add_timeout(1.0/12, animation_update, userdata);
 }
 
 static void animation_update(void* userdata)
@@ -1834,7 +1835,7 @@ occv-> m_view->Redraw ();
 		
 		{ "&test", 0, ([](Fl_Widget *, void* v){ 	
             perf();
-			lop(i,0,40)occv->test(i);
+			lop(i,0,40)occv->test(i*5);
             perf("test");
                 {
 occv->draw_objs();
