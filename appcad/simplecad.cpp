@@ -165,6 +165,16 @@
 #include <functional>
 #include <cmath>
 
+
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <BRepTools.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <Graphic3d_Camera.hxx>
+#include <HLRBRep_PolyHLRToShape.hxx>
+#include <AIS_Shape.hxx>
+#include <chrono>
+#include <execution> // Para C++17 paralelismo
+
 #include "general.hpp"
 
 
@@ -752,6 +762,7 @@ if (event == FL_MOVE) {
             }
             break;
 
+		//bar5per
         case FL_DRAG:
             if (Fl::event_state(FL_BUTTON1)) {
                 // Only rotate if drag started in right edge zone
@@ -805,7 +816,7 @@ if (event == FL_MOVE) {
                 funcfps(12,
 					perf();
 					m_view->Rotation(Fl::event_x(),Fl::event_y());
-                	projectAndDisplayWithHLR(vshapes);
+                	projectAndDisplayWithHLR(vshapes,1);
                  	redraw(); //  redraw(); // m_view->Update ();
 					perf("vnormalr");
 
@@ -1106,286 +1117,6 @@ HLRAlgo_Projector projector;
 #include <TopExp.hxx>
 #include <BRep_Tool.hxx>
 #include <BRepAdaptor_Curve.hxx>
-gp_Pnt getAccurateVertexPosition(const gp_Pnt& projectedHLRPnt) {
-    // Ponto HLR como 3D plano Z=0 → recuperar aproximado 3D
-    gp_Pnt approx3D = convertHLRToWorld(projectedHLRPnt);
-
-    // Se quiseres o vértice exato de vshapes cujo projected2d mais se aproxima:
-    gp_Pnt2d screen2d(projectedHLRPnt.X(), projectedHLRPnt.Y());
-    Standard_Real bestDist = RealLast();
-    gp_Pnt bestMatch = approx3D;
-
-    for (auto& s : vshapes) {
-        for (TopExp_Explorer exp(s, TopAbs_VERTEX); exp.More(); exp.Next()) {
-            gp_Pnt P = BRep_Tool::Pnt(TopoDS::Vertex(exp.Current()));
-            // projeta de novo
-            gp_Pnt2d P2;
-            projector.Project(P, P2);
-            double d = (P2.X() - screen2d.X())*(P2.X() - screen2d.X())
-                     + (P2.Y() - screen2d.Y())*(P2.Y() - screen2d.Y());
-            if (d < bestDist) {
-                bestDist = d;
-                bestMatch = P;
-            }
-        }
-    }
-    return bestMatch;
-}
-
-gp_Trsf   invTrsf;     // inversa de viewTrsf
-gp_Pnt convertHLRToWorld(const gp_Pnt& projectedHLRPnt) {
-    // projectedHLRPnt deve estar no plano 2D (Z = 0)
-    return projectedHLRPnt.Transformed(invTrsf);
-}
-gp_Pnt getAccurateVertexPositionprev(const gp_Pnt& inputWorldPoint) {
-    gp_Pnt2d projected2d;
-    projector.Project(inputWorldPoint, projected2d);
-
-    // Transforma para ponto 3D no plano 2D (Z = 0)
-    gp_Pnt screenPnt(projected2d.X(), projected2d.Y(), 0);
-
-    // Procura o vértice original mais próximo com base nessa projeção
-    Standard_Real bestDist = RealLast();
-    gp_Pnt bestMatch;
-
-    for (const auto& shape : vshapes) {
-        for (TopExp_Explorer exp(shape, TopAbs_VERTEX); exp.More(); exp.Next()) {
-            gp_Pnt candidate = BRep_Tool::Pnt(TopoDS::Vertex(exp.Current()));
-
-            gp_Pnt2d projCandidate;
-            projector.Project(candidate, projCandidate);
-            gp_Pnt projCandidate3D(projCandidate.X(), projCandidate.Y(), 0);
-
-            double dist = projCandidate3D.SquareDistance(screenPnt);
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestMatch = candidate;
-            }
-        }
-    }
-
-    return bestMatch;
-}
-
-
-
-
-
-gp_Pnt getAccurateVertexPositionnaofunc(const Handle(AIS_InteractiveContext)& context, int x, int y) {
-    context->MoveTo(x, y, m_view, false);
-    if (context->HasDetected()) {
-        context->InitDetected();
-        for (; context->MoreDetected(); context->NextDetected()) {
-            TopoDS_Shape shape = context->DetectedShape();
-            if (shape.ShapeType() == TopAbs_VERTEX) {
-                return BRep_Tool::Pnt(TopoDS::Vertex(shape));
-            }
-        }
-    }
-    return gp_Pnt(0, 0, 0); // Ou algum ponto nulo padrão
-}
-
-gp_Pnt getAccurateVertexPositionnfunciona(const gp_Pnt& screenPoint) {
-    // 1. First try to find the point in original shapes
-    for (const auto& shape : vshapes) {
-        // Simple bounding box check first
-        Bnd_Box bbox;
-        BRepBndLib::Add(shape, bbox);
-        if (bbox.IsOut(screenPoint)) continue;
-        
-        // Detailed vertex search
-        for (TopExp_Explorer exp(shape, TopAbs_VERTEX); exp.More(); exp.Next()) {
-            gp_Pnt vertex = BRep_Tool::Pnt(TopoDS::Vertex(exp.Current()));
-            if (vertex.SquareDistance(screenPoint) < Precision::SquareConfusion()) {
-                return vertex; // Return exact original position
-            }
-        }
-    }
-	    return screenPoint;
-}
-
-
-
-gp_Pnt convertHLRVertexToWorld(const gp_Pnt& hlrPoint){
-    // 1. First find the closest vertex in either visible or hidden edges
-    TopoDS_Vertex closestVertex;
-    Standard_Real minDist = RealLast();
-    
-    auto checkShape = [&](const TopoDS_Shape& shape) {
-        for (TopExp_Explorer exp(shape, TopAbs_VERTEX); exp.More(); exp.Next()) {
-            gp_Pnt vertexPos = BRep_Tool::Pnt(TopoDS::Vertex(exp.Current()));
-            Standard_Real dist = vertexPos.SquareDistance(hlrPoint);
-            if (dist < minDist) {
-                minDist = dist;
-                closestVertex = TopoDS::Vertex(exp.Current());
-            }
-        }
-    };
-    
-    checkShape(vEdges); // Check visible edges
-    checkShape(hEdges); // Check hidden edges
-
-    // 2. If we found a close vertex, try to get its exact 3D position
-    if (!closestVertex.IsNull()) {
-        // Find the edge containing this vertex
-        TopoDS_Edge containingEdge;
-        auto findContainingEdge = [&](const TopoDS_Shape& shape) {
-            for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next()) {
-                TopoDS_Edge edge = TopoDS::Edge(exp.Current());
-                TopoDS_Vertex v1, v2;
-                TopExp::Vertices(edge, v1, v2);
-                if (v1.IsSame(closestVertex) || v2.IsSame(closestVertex)) {
-                    containingEdge = edge;
-                    return;
-                }
-            }
-        };
-        
-        findContainingEdge(vEdges);
-        findContainingEdge(hEdges);
-
-        // 3. If we found an edge, try to get its exact 3D curve
-        if (!containingEdge.IsNull()) {
-            // Get the parameter of the vertex on the edge
-            Standard_Real param = BRep_Tool::Parameter(closestVertex, containingEdge);
-            
-            // Create curve adaptor for the edge
-            BRepAdaptor_Curve curve(containingEdge);
-            return curve.Value(param); // Return the exact 3D point
-        }
-    }
-
-    // 4. Fallback: Use mathematical projection inversion
-    const gp_Trsf& projTrsf = hlrAlgo->Projector().Transformation();
-    gp_Trsf invTrsf = projTrsf.Inverted();
-    gp_Pnt worldPoint = hlrPoint;
-    worldPoint.Transform(invTrsf);
-    
-    return worldPoint;
-}
-
-
-
- // Conversion function that uses the global projector
-gp_Pnt convertHLRToWorldprev(const gp_Pnt& hlrPoint)
-{
-    // 1. Get the current view parameters
-    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    bool isOrthographic = camera->IsOrthographic();
-    
-    // 2. Get the transformation from the global projector
-    const gp_Trsf& hlrTrsf = projector.Transformation();
-    gp_Trsf inverseTrsf = hlrTrsf;
-    // gp_Trsf inverseTrsf = hlrTrsf.Inverted();
-    
-    // 3. Handle orthographic projection
-    if (isOrthographic) {
-        gp_Pnt worldPoint = hlrPoint;
-        worldPoint.Transform(inverseTrsf);
-        return worldPoint;
-    }
-    // 4. Handle perspective projection
-    else {
-        Standard_Real focus = projector.Focus();
-        Standard_Real Z = focus / (1.0 - hlrPoint.Z()/focus);
-        
-        gp_Pnt perspectivePoint(
-            hlrPoint.X() * Z / focus,
-            hlrPoint.Y() * Z / focus,
-            Z
-        );
-        
-        perspectivePoint.Transform(inverseTrsf);
-        return perspectivePoint;
-    }
-}
-
-void projectAndDisplayWithHLRW(const std::vector<TopoDS_Shape>& shapes){
-    if(!hlr_on)return;
-	perf();
-    // cotm("hlr")
-    // m_view->SetImmediateUpdate(Standard_False);
-    if (m_context.IsNull() || m_view.IsNull()) {
-        std::cerr << "Error: m_context or m_view is null." << std::endl;
-        return;
-    } 
-    m_view->SetComputedMode(Standard_True);
-
-
-    {
-    // m_context->RemoveAll(false); 
-        lop(i,0,vaShape.size()){
-            m_context->Remove(vaShape[i],0);
-        }
-
-        if(visible_) m_context->Remove(visible_,0);
-        if(hidden_) m_context->Remove(hidden_,0);
-    }
-
-    const Handle(Graphic3d_Camera) &theProjector=m_view->Camera();
- 
-    gp_Dir aBackDir = -theProjector->Direction();
-    gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
-    gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
-    gp_Trsf aTrsf;
-    aTrsf.SetTransformation (anAx3); 
-     
-    HLRAlgo_Projector projector (aTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
-
-    Handle(HLRBRep_Algo) hlrAlgo = new HLRBRep_Algo();
-    for (const auto& shp : shapes) {
-        if (!shp.IsNull()) hlrAlgo->Add(shp,0);
-    }
-
-    hlrAlgo->Projector(projector );
-    // hlrAlgo-> ShowAll();
-    // perf();
-    hlrAlgo->Update();
-    // perf("hlrAlgo->Update()");
-    static bool tes=0;
-    // if(!tes)
-	hlrAlgo->Hide();
-    // perf("hide");
-    tes=1;
-
-    HLRBRep_HLRToShape hlrToShape_(hlrAlgo);
-    // perf("hlrToShape");
-    TopoDS_Shape vEdges_ = hlrToShape_.VCompound();
-    TopoDS_Shape hEdges_ = hlrToShape_.HCompound();
-    // perf("hlrAlgo->HCompound()");
-
-    gp_Trsf invTrsf = aTrsf.Inverted();
-    BRepBuilderAPI_Transform transformer(vEdges_, invTrsf);
-    TopoDS_Shape transformedShape = transformer.Shape();
-
-
-    visible_ = new AIS_Shape(transformedShape);
-    visible_->SetColor(Quantity_NOC_BLACK);
-    visible_->SetWidth(1.5);
-    m_context->Display(visible_, false);
-
-    
-    Handle(Prs3d_LineAspect) lineAspect = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
-    // Handle(Prs3d_Drawer) aDrawer = new Prs3d_Drawer();
-    // hEdges_.SetAttributes(aDrawer);
-
-    BRepBuilderAPI_Transform transformerh(hEdges_, invTrsf);
-    TopoDS_Shape transformedShapeh = transformerh.Shape();
-
-
-    hidden_ = new AIS_ColoredShape(transformedShapeh);
-
- 
-    Handle(Prs3d_LineAspect) dashedAspect = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0);
-  
-    hidden_->Attributes()->SetSeenLineAspect(dashedAspect);
- 
-
-    m_context->Display(hidden_, 0); 
- 
-//  setbar5per();
-	perf("hlr slower");
-}
  
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <HLRBRep_PolyAlgo.hxx>
@@ -1404,31 +1135,126 @@ TopoDS_Shape hEdges;
 Handle(HLRBRep_PolyAlgo) hlrAlgo;
 // gp_Trsf glb_invTrsf;
 
-gp_Pnt screenPointFromMouse(int mousex, int mousey) {
-    Standard_Real X, Y, Z;
-    m_view->Convert(mousex, mousey, X, Y, Z);
-    return gp_Pnt(X, Y, 0.0);
-}
-void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly=0) {
-    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
-	perf();
-    // m_context->RemoveAll(false);
 
-        if(visible_) m_context->Remove(visible_,0);
-        if(hidden_) m_context->Remove(hidden_,0);
+// #include <BRepMesh_IncrementalMesh.hxx>
+// #include <BRep_Tool.hxx>
+// #include <BRepBuilderAPI_Transform.hxx>
+// #include <Graphic3d_Camera.hxx>
+// #include <HLRBRep_PolyHLRToShape.hxx>
+// #include <AIS_Shape.hxx>
+// #include <TopExp_Explorer.hxx>
+// #include <TopoDS_Face.hxx>
+// #include <chrono>
+// #include <execution> // Para C++17 paralelismo
+
+#define ENABLE_PARALLEL 1 // Ative se souber que sua build do OpenCascade é thread-safe
+
+void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+
+    // 1. Preparar transformação da câmara
+    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    gp_Dir viewDir = -camera->Direction();
+    gp_Dir viewUp = camera->Up();
+    gp_Dir viewRight = viewUp.Crossed(viewDir);
+    gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+
+    gp_Trsf viewTrsf;
+    viewTrsf.SetTransformation(viewAxes);
+    gp_Trsf invTrsf = viewTrsf.Inverted();
+
+    // 2. Criar projetor HLR
+    projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
+
+    // 3. Meshing (somente se ainda não estiver meshed)
+    Standard_Real deflection = 0.001;
+
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+#else
+    for (const auto& s : shapes) {
+#endif
+        if (s.IsNull()) return;
+
+        bool needsMesh = false;
+        for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+            TopLoc_Location loc;
+            const TopoDS_Face& face = TopoDS::Face(exp.Current());
+            if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+                needsMesh = true;
+                break;
+            }
+        }
+        if (needsMesh) {
+            BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+        }
+#ifdef ENABLE_PARALLEL
+    });
+#else
+    }
+#endif
+
+    // 4. Projeção HLR
+    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+#else
+    for (const auto& s : shapes) {
+#endif
+        if (!s.IsNull()) algo->Load(s);
+#ifdef ENABLE_PARALLEL
+    });
+#else
+    }
+#endif
+
+    algo->Projector(projector);
+    algo->Update();
+
+    // 5. Converter para shape visível
+    HLRBRep_PolyHLRToShape hlrToShape;
+    hlrToShape.Update(algo);
+    TopoDS_Shape vEdges = hlrToShape.VCompound();
+    BRepBuilderAPI_Transform visT(vEdges, invTrsf);
+    TopoDS_Shape result = visT.Shape();
+
+    // 6. Mostrar ou atualizar AIS_Shape
+    if (!visible_.IsNull()) {
+        if (!visible_->Shape().IsEqual(result)) {
+            visible_->SetShape(result);
+            visible_->SetColor(Quantity_NOC_BLACK);
+            visible_->SetWidth(3);
+            visible_->SetInfiniteState(true); // opcional
+            m_context->Redisplay(visible_, false);
+        }
+    } else {
+        visible_ = new AIS_Shape(result);
+        visible_->SetColor(Quantity_NOC_BLACK);
+        visible_->SetWidth(3);
+        visible_->SetInfiniteState(true); // opcional
+        m_context->Display(visible_, false);
+    }
+}
+
+
+void projectAndDisplayWithHLRw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly=0) {
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+
+
+        if(visible_) m_context->Remove(visible_,0); 
 
     // 1. Prepara camera e transformação
     const Handle(Graphic3d_Camera)& camera = m_view->Camera();
     // usa Ax3 completo (posição + orientação)
-gp_Dir viewDir = -camera->Direction(); // direção da visualização
-gp_Dir viewUp = camera->Up();          // vetor para cima
-gp_Dir viewRight = viewUp.Crossed(viewDir); // vetor para a direita
+	gp_Dir viewDir = -camera->Direction(); // direção da visualização
+	gp_Dir viewUp = camera->Up();          // vetor para cima
+	gp_Dir viewRight = viewUp.Crossed(viewDir); // vetor para a direita
 
-gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, direção X
+	gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, direção X
 
     gp_Trsf viewTrsf;
     viewTrsf.SetTransformation(viewAxes);
-    invTrsf = viewTrsf.Inverted();
+    gp_Trsf invTrsf = viewTrsf.Inverted();
 
     // 2. Cria o projector HLR
     projector = HLRAlgo_Projector(
@@ -1438,7 +1264,8 @@ gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, dire
     );
 
     // 3. Malha consistente
-    Standard_Real deflection = 0.01;
+    Standard_Real deflection = 0.001;
+    // Standard_Real deflection = 0.01;
     for (auto& s : shapes) {
         if (!s.IsNull())
             BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
@@ -1465,261 +1292,7 @@ gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight); // origem, direção Z, dire
     visible_->SetWidth(3);
     m_context->Display(visible_, false);
 
-	perf();
-
-    // Ocultas
-    // hEdges = hlrToShape.HCompound();
-    // BRepBuilderAPI_Transform hidT(hEdges, invTrsf);
-    // hidden_ = new AIS_ColoredShape(hidT.Shape());
-
-// Disable selection completely:
-// hidden_->SetPickable(Standard_False); 
-
-// 4. For complete isolation, use owner filtering:
-// m_context->AddFilter(new AIS_TypeFilter(hidden_->DynamicType()->Name()));
-// m_context->Activate(hidden_, 0); // Deactivate all selection modes
-
-
-
-    // hidden_->Attributes()->SetSeenLineAspect(
-    //     new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0)
-    // );
-    // m_context->Display(hidden_, false);
-
-    // 6. Guarda shapes originais para picking
-    // vshapes = shapes;
-
-    // m_context->UpdateCurrentViewer();
-	// draw_objs();
-	perf("hlrf");
 }
-
-void projectAndDisplayWithHLRworking(const std::vector<TopoDS_Shape> &shapes) {
-    if (!hlr_on) return;
-    
-    // 1. Setup and cleanup
-    if (m_context.IsNull() || m_view.IsNull()) return;
-    m_view->SetComputedMode(Standard_True);
-    m_context->RemoveAll(false);
-
-    // 2. Get camera orientation
-    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    gp_Dir viewDir = -camera->Direction();
-    gp_Dir viewUp = camera->Up();
-    gp_Dir viewRight = viewUp.Crossed(viewDir);
-
-    // 3. Create transformation using ONLY orientation
-    gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight);
-    gp_Trsf viewTrsf;
-    viewTrsf.SetTransformation(viewAxes);
-
-    // 4. Create projector
-    projector = HLRAlgo_Projector(
-        viewTrsf,
-        !camera->IsOrthographic(), // Correct negation for perspective
-        camera->Scale()
-    );
-
-    // 5. Prepare geometry with consistent meshing
-    Standard_Real deflection = 0.01;
-    for (const auto& shape : shapes) {
-        if (!shape.IsNull()) {
-            BRepMesh_IncrementalMesh mesher(shape, deflection, true, 0.5, false);
-        }
-    }
-
-    // 6. Compute HLR
-    hlrAlgo = new HLRBRep_PolyAlgo(); //static
-    for (const auto& shape : shapes) {
-        if (!shape.IsNull()) {
-            hlrAlgo->Load(shape);
-        }
-    }
-    hlrAlgo->Projector(projector);
-    hlrAlgo->Update();
-
-    // 7. Extract results
-    HLRBRep_PolyHLRToShape hlrToShape;
-    hlrToShape.Update(hlrAlgo);
-    
-    // Critical inverse transform
-    gp_Trsf invTrsf = viewTrsf.Inverted();
-    // glb_invTrsf=invTrsf;
-    // Process visible edges
-    vEdges = hlrToShape.VCompound();
-    BRepBuilderAPI_Transform visTransform(vEdges, invTrsf);
-    visible_ = new AIS_Shape(visTransform.Shape());
-    visible_->SetColor(Quantity_NOC_BLACK);
-    visible_->SetWidth(1.5);
-
-    // Process hidden edges
-    hEdges = hlrToShape.HCompound();
-    BRepBuilderAPI_Transform hidTransform(hEdges, invTrsf);
-    hidden_ = new AIS_ColoredShape(hidTransform.Shape());
-    hidden_->Attributes()->SetSeenLineAspect(
-        new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0)
-    );
-
-    // 8. Display results
-    m_context->Display(visible_, false);
-    m_context->Display(hidden_, false);
-}
-
-
-void projectAndDisplayWithHLRp1(const std::vector<TopoDS_Shape>& shapes) {
-    if (!hlr_on) return;
-    
-    // 1. Setup and cleanup
-    if (m_context.IsNull() || m_view.IsNull()) return;
-    m_view->SetComputedMode(Standard_True);
-    m_context->RemoveAll(false);
-
-    // 2. Get camera orientation
-    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    gp_Dir viewDir = -camera->Direction();
-    gp_Dir viewUp = camera->Up();
-    gp_Dir viewRight = viewUp.Crossed(viewDir);
-
-    // 3. Create transformation using ONLY orientation
-    gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight);
-    gp_Trsf viewTrsf;
-    viewTrsf.SetTransformation(viewAxes);
-
-    // 4. Create projector
-    projector = HLRAlgo_Projector(
-        viewTrsf,
-        !camera->IsOrthographic(), // Correct negation for perspective
-        camera->Scale()
-    );
-
-    // 5. Prepare geometry with consistent meshing
-    Standard_Real deflection = 0.01;
-    for (const auto& shape : shapes) {
-        if (!shape.IsNull()) {
-            BRepMesh_IncrementalMesh mesher(shape, deflection, true, 0.5, false);
-        }
-    }
-
-    // 6. Compute HLR
-    hlrAlgo = new HLRBRep_PolyAlgo(); //static
-    for (const auto& shape : shapes) {
-        if (!shape.IsNull()) {
-            hlrAlgo->Load(shape);
-        }
-    }
-    hlrAlgo->Projector(projector);
-    hlrAlgo->Update();
-
-    // 7. Extract results
-    HLRBRep_PolyHLRToShape hlrToShape;
-    hlrToShape.Update(hlrAlgo);
-    
-    // Critical inverse transform
-    gp_Trsf invTrsf = viewTrsf.Inverted();
-    
-    // Process visible edges
-    vEdges = hlrToShape.VCompound();
-    BRepBuilderAPI_Transform visTransform(vEdges, invTrsf);
-    visible_ = new AIS_Shape(visTransform.Shape());
-    visible_->SetColor(Quantity_NOC_BLACK);
-    visible_->SetWidth(1.5);
-
-    // Process hidden edges
-    hEdges = hlrToShape.HCompound();
-    BRepBuilderAPI_Transform hidTransform(hEdges, invTrsf);
-    hidden_ = new AIS_ColoredShape(hidTransform.Shape());
-    hidden_->Attributes()->SetSeenLineAspect(
-        new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0)
-    );
-
-    // 8. Display results
-    m_context->Display(visible_, false);
-    m_context->Display(hidden_, false);
-}
-
-
-//could be faster to drag rotation
-void projectAndDisplayWithHLRwell(const std::vector<TopoDS_Shape>& shapes) {
-    if (!hlr_on) return;
-    // perf();
-    // 1. Setup and cleanup
-    if (m_context.IsNull() || m_view.IsNull()) return;
-    m_view->SetComputedMode(Standard_True);
-    m_context->RemoveAll(false);
-
-    // 2. Get camera orientation (but NOT position)
-    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    gp_Dir viewDir = -camera->Direction();
-    gp_Dir viewUp = camera->Up();
-    gp_Dir viewRight = viewUp.Crossed(viewDir);
-
-    // 3. Create transformation using ONLY orientation
-    gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight);
-    gp_Trsf viewTrsf;
-    viewTrsf.SetTransformation(viewAxes);
-
-    // 4. Create projector (perspective flag needs negation)
-    projector=HLRAlgo_Projector(
-        viewTrsf,
-        !camera->IsOrthographic(), // Important negation here
-        camera->Scale()
-    );
-    // HLRAlgo_Projector projector(
-    //     viewTrsf,
-    //     !camera->IsOrthographic(), // Important negation here
-    //     camera->Scale()
-    // );
-
-    // 5. Prepare geometry with consistent meshing
-    Standard_Real deflection = 0.01;
-    for (const auto& shape : shapes) {
-        if (!shape.IsNull()) {
-            BRepMesh_IncrementalMesh(shape, deflection, true, 0.5, false);
-        }
-    }
-
-    // 6. Compute HLR
-    Handle(HLRBRep_PolyAlgo) hlrAlgo = new HLRBRep_PolyAlgo();
-    // Handle(HLRBRep_PolyAlgo) hlrAlgo = new HLRBRep_PolyAlgo();
-    for (const auto& shape : shapes) {
-        hlrAlgo->Load(shape);
-    }
-    hlrAlgo->Projector(projector);
-    hlrAlgo->Update();
-
-    // 7. Extract results with PROPER inverse transform
-    HLRBRep_PolyHLRToShape hlrToShape;
-	perf();
-    hlrToShape.Update(hlrAlgo);
-	perf("hlrAlgo");
-    
-    gp_Trsf invTrsf = viewTrsf.Inverted(); // Critical inverse transform
-    
-    // Process visible edges
-    TopoDS_Shape vEdges = hlrToShape.VCompound();
-    BRepBuilderAPI_Transform visTransform(vEdges, invTrsf);
-    visible_ = new AIS_Shape(visTransform.Shape());
-    visible_->SetColor(Quantity_NOC_BLACK);
-    visible_->SetWidth(1.5);
-
-    // Process hidden edges
-    TopoDS_Shape hEdges = hlrToShape.HCompound();
-    BRepBuilderAPI_Transform hidTransform(hEdges, invTrsf);
-    hidden_ = new AIS_ColoredShape(hidTransform.Shape());
-    hidden_->Attributes()->SetSeenLineAspect(
-        new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0)
-    );
-
-
-	projector=hlrAlgo->Projector();
-
-    // 8. Display results
-    m_context->Display(visible_, false);
-    m_context->Display(hidden_, false);
-	// perf("hlr faster");
-}
-
-
  
 
 #pragma endregion projection
