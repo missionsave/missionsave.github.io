@@ -41,15 +41,17 @@ ifeq ($(OS_NAME), Windows)
 # $(info common: $(LDFLAGS))
 	CXXFLAGS+= -I../common
 	LDFLAGS+= -L. -l:$(LIBNAME)		
-	LDFLAGS+= -L../common/scintilla_370 -l:libscint.a
+
+# 	LDFLAGS+= -L../common/scintilla_370 -l:libscint.a
+
 	CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src
 	# LDFLAGS+=  -L../common/fltk-1.5.x-20250606-5293beea6f7b/bldw/lib 
 	# CXXFLAGS+=  -I../common/fltk-1.5.x-20250606-5293beea6f7b/bldw -I../common/fltk-1.5.x-20250606-5293beea6f7b 
-	LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a    -l:libglew32.a -lopengl32 -lgdi32 -lglu32 -lWs2_32 -lwinspool  
+# 	LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a    -l:libglew32.a -lopengl32 -lgdi32 -lglu32 -lWs2_32 -lwinspool  
 	# LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 	
-	LDFLAGS+= -ltbb12 -l:libtbbbind_2_5.dll.a  -l:libtbbmalloc.dll.a -l:libtbbmalloc_proxy.dll.a
+# 	LDFLAGS+= -ltbb12 -l:libtbbbind_2_5.dll.a  -l:libtbbmalloc.dll.a -l:libtbbmalloc_proxy.dll.a
 	CXXFLAGS+= -I"C:\msys64\mingw64\include\opencascade"
 	# dynamic
 	LDFLAGS+= -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKMesh
@@ -95,18 +97,18 @@ ifeq ($(OS_NAME), Windows)
 	LDFLAGS+= -lfltk_gl -lfltk 
 
 
-	LDFLAGS+= -l:libFreeImage.a
+# 	LDFLAGS+= -l:libFreeImage.a
 	# LDFLAGS+= -lFreeImage
-	LDFLAGS+= -l:liblua.a
+# 	LDFLAGS+= -l:liblua.a
 
 	# LDFLAGS+=  -l:libsqlite3.a
-	LDFLAGS+=  -l:libiconv.a
+# 	LDFLAGS+=  -l:libiconv.a
 	LDFLAGS+=  -l:libstdc++.a
 	LDFLAGS+= -static-libgcc
-	LDFLAGS+= -l:libwinpthread.a
 	# LDFLAGS+= -lGL -lGLU
 	LDFLAGS+= -lfontconfig
 	LDFLAGS +=   -lole32 -luuid -lcomctl32 -l:libcomdlg32.a -lole32 -lgdiplus
+	LDFLAGS+= -l:libwinpthread.a
 endif
 ifeq ($(OS_NAME), Linux)
 	BUILD_DIR := .objl

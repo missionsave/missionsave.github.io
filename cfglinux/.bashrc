@@ -178,6 +178,137 @@ mapwifi(){
 	 nmap -sL 192.168.1.* | grep \(1
 }
 
+
+launchwin8(){
+# https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
+
+# -cdrom virtio-win.iso
+# qemu-system-x86_64 \
+#   -m 2G -smp 2 \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -cdrom virtio-win-0.1.112.iso \
+#   -machine q35,accel=kvm \
+#   -vga virtio \
+#   -net nic,model=virtio -net user \
+#   -enable-kvm
+
+# qemu-system-x86_64 \
+#   -m 1024 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -vga virtio \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio -net user \
+#   -usb -device usb-tablet \
+#   -enable-kvm \
+#   -fsdev local,id=shared_folder,path=/home/super,security_model=mapped \
+#   -device virtio-9p-pci,fsdev=shared_folder,mount_tag=win_share
+
+# qemu-system-x86_64 \
+#   -m 1024 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -vga virtio \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio -net user \
+#   -usb -device usb-tablet \
+#   -enable-kvm \
+#   -fsdev local,id=shared_folder,path=/home/super,security_model=mapped \
+#   -device virtio-9p-pci,fsdev=shared_folder,mount_tag=win_share \
+#   -global isa-fdc.driveA=floppy0 \
+#   -drive file=virtio-win-0.1.112_amd64.vfd,if=none,id=floppy0,format=raw
+
+# qemu-system-x86_64 \
+#   -m 1024 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -vga qxl \
+#   -spice port=5930,disable-ticketing=on \
+#   -device virtio-serial-pci \
+#   -chardev spiceport,name=org.spice-space.webdav.0,id=spicewebdav \
+#   -device virtserialport,chardev=spicewebdav,name=org.spice-space.webdav.0 \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio -net user \
+#   -usb -device usb-tablet \
+#   -enable-kvm
+
+qemu-system-x86_64 \
+  -m 1512 \
+  -smp 4 \
+  -cpu host \
+  -machine q35,accel=kvm \
+  -drive file=win8.1.qcow2,format=qcow2 \
+  -vga virtio \
+  -display sdl,gl=on \
+  -rtc base=localtime,clock=host \
+  -net nic,model=virtio -net user \
+  -usb -device usb-tablet \
+  -enable-kvm
+
+#   -virtfs local,path=/home/super/msv,mount_tag=win_share,security_model=mapped,id=shared_folder \
+#   -cdrom virtio-win.iso
+
+# qemu-system-x86_64 \
+#   -m 1024 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -vga virtio \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio -net user \
+#   -usb -device usb-tablet \
+#   -enable-kvm \
+#   -chardev socket,id=char0,path=/tmp/virtiofs_socket \
+#   -device vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=win_share \
+#   -cdrom virtio-win-0.1.160.iso \
+#   -object memory-backend-file,id=mem,size=1024M,mem-path=/dev/shm,share=on \
+#   -numa node,memdev=mem
+}
+
+
+
+
+
+qemustop(){
+	kill -STOP $(pidof qemu-system-x86_64)
+}
+qemucont(){
+	kill -CONT $(pidof qemu-system-x86_64)
+}
+
+compress() {
+  # Usage: compress <file_or_directory>
+  local target="$1"
+  local name="$(basename "$target")"
+  local output="${name}.tgz"
+
+  if [ ! -e "$target" ]; then
+    echo "❌ Target not found: $target"
+    return 1
+  fi
+
+  echo "📦 Compressing: $target → $output"
+  
+  # Use du to get full size of file or folder
+  local size=$(du -sb "$target" | awk '{print $1}')
+
+  tar -cf - "$target" | pv -s "$size" | gzip > "$output"
+  
+  echo "✅ Done: $output"
+}
+
+
 memc(){
 	awk '{ printf "Orig: %.1f MiB\nCompr: %.1f MiB\nUsado: %.1f MiB\nCompress�o: %.2fx\n", $1/1024/1024, $2/1024/1024, $3/1024/1024, $1/$2 }' /sys/block/zram0/mm_stat
 }
@@ -656,7 +787,8 @@ mem() {
 
 export NNN_FCOLORS='c1e2272e006033f7c6d6abc4'  # Optimized for white bg
 export NNN_COLORS='1234'
-
+export NNN_ARCHIVES="\\.(7z|bz2|gz|tar|tgz|zip|xz|rar)$"
+export NNN_NO_ARCHIVE_FALLBACK=1  # Disable fallback to file explorer
 
 export EDITOR=vim
 export VISUAL=vim

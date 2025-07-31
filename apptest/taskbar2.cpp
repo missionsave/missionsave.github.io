@@ -1239,6 +1239,7 @@ int listen_fnvolumes() {
 #include <chrono>
 #include <thread>
 #include <sstream>
+#include <unordered_set>
 #include <dirent.h>
 
 mutex mtxgawid;
@@ -1496,6 +1497,106 @@ std::vector<WindowInfo> getOpenWindowsInfo() {
 	}
 
 	void fillApplications(std::unordered_map<std::string, std::string>& uapps) {
+	const char* command =
+		"find /usr/share/applications ~/.local/share/applications -name '*.desktop' 2>/dev/null | "
+		"xargs stat --format='%Y %n' 2>/dev/null | "
+		"sort -nr | cut -d' ' -f2- | "
+		"xargs grep -l 'Type=Application' 2>/dev/null | "
+		"xargs grep -L 'NoDisplay=true' 2>/dev/null | "
+		"xargs grep -L 'Hidden=true' 2>/dev/null | "
+		"xargs -d '\\n' awk 'BEGIN{ORS=\"\"} /^Name=/{name=$0; next} /^Exec=/{exec=$0; gsub(/ *%[fFuUdDnNickvm]/, \"\", exec); print name \"\\t\" exec \"\\n\"}'";
+
+	std::array<char, 512> buffer;
+	std::string output;
+	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command, "r"), pclose);
+	if (!pipe) return;
+
+	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+		output += buffer.data();
+	}
+
+	std::istringstream stream(output);
+	std::string line;
+	std::unordered_set<std::string> seen_execs;
+
+	while (std::getline(stream, line)) {
+		size_t tab_pos = line.find('\t');
+		if (tab_pos == std::string::npos)
+			continue;
+
+		std::string name = line.substr(5, tab_pos - 5); // remove "Name="
+		std::string exec = line.substr(tab_pos + 1);
+		if (exec.rfind("Exec=", 0) == 0)
+			exec = exec.substr(5); // remove "Exec="
+
+		trim(name);
+		trim(exec);
+		exec = parseExecCommand(exec);
+
+		if (name.empty() || exec.empty())
+			continue;
+
+		// Skip duplicates
+		if (seen_execs.count(exec))
+			continue;
+		seen_execs.insert(exec);
+
+		cotm(name, exec);
+		uapps[name] = exec;
+	}
+}
+
+	void fillApplications_v2(std::unordered_map<std::string, std::string>& uapps) {
+	const char* command =
+		"find /usr/share/applications ~/.local/share/applications -name '*.desktop' 2>/dev/null | "
+		"xargs stat --format='%Y %n' 2>/dev/null | "
+		"sort -nr | cut -d' ' -f2- | "
+		"xargs grep -l 'Type=Application' 2>/dev/null | "
+		// "xargs grep -L 'NoDisplay=true' 2>/dev/null | "
+		"xargs grep -L 'Hidden=true' 2>/dev/null | "
+		"xargs -d '\\n' awk 'BEGIN{ORS=\"\"} /^(Name=|Exec=)/{print $0\"\\n\"}' | "
+		"paste - -";
+	// const char* command =
+	// 	"find /usr/share/applications ~/.local/share/applications -name '*.desktop' 2>/dev/null | "
+	// 	"xargs stat --format='%Y %n' 2>/dev/null | "
+	// 	"sort -nr | cut -d' ' -f2- | "
+	// 	"xargs grep -l 'Type=Application' 2>/dev/null | "
+	// 	"xargs grep -L 'NoDisplay=true' 2>/dev/null | "
+	// 	"xargs grep -L 'Hidden=true' 2>/dev/null | "
+	// 	"xargs -d '\\n' awk 'BEGIN{ORS=\"\"} /^(Name=|Exec=)/{print $0\"\\n\"}' | "
+	// 	"paste - -";
+
+	std::array<char, 512> buffer;
+	std::string output;
+	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command, "r"), pclose);
+	if (!pipe) return;
+
+	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+		output += buffer.data();
+	}
+
+	std::istringstream stream(output);
+	std::string line;
+
+	while (std::getline(stream, line)) {
+		size_t name_pos = line.find("Name=");
+		size_t exec_pos = line.find("Exec=");
+		if (name_pos == std::string::npos || exec_pos == std::string::npos)
+			continue;
+
+		std::string name = line.substr(name_pos + 5, exec_pos - name_pos - 6);
+		std::string exec = line.substr(exec_pos + 5);
+
+		cotm(name, exec);
+
+		exec = parseExecCommand(exec);
+		trim(name);
+		trim(exec);
+		uapps[name] = exec;
+	}
+}
+
+	void fillApplications_v1(std::unordered_map<std::string, std::string>& uapps) {
 		const char* command =
 			"grep -rl 'Type=Application' /usr/share/applications ~/.local/share/applications 2>/dev/null | "
 			"xargs grep -L 'NoDisplay=true' 2>/dev/null | "
@@ -1522,18 +1623,25 @@ std::vector<WindowInfo> getOpenWindowsInfo() {
 			size_t exec_pos = line.find("Exec=");
 			if (name_pos == std::string::npos || exec_pos == std::string::npos)
 				continue;
+			
+			
 
 			std::string name = line.substr(name_pos + 5, exec_pos - name_pos - 6);
 			std::string exec = line.substr(exec_pos + 5);
 
+			cotm(name,exec);
+
 			// Remove placeholders like %F
 			// exec = std::regex_replace(exec, placeholder_re, "");
 			string res=parseExecCommand(exec);
+			trim(name);
 			trim(res);
 			uapps[name] = res; 
 
 		}
 	}
+
+
 std::vector<std::string> getProcessArgs(int pid) {
     std::vector<std::string> args;
     std::ifstream file("/proc/" + std::to_string(pid) + "/cmdline", std::ios::binary);
@@ -1551,7 +1659,7 @@ std::vector<std::string> getProcessArgs(int pid) {
             start = i + 1;
         }
     }
-
+	cotm("getProcessArgs",args);
     return args;
 }
 string getExecByPid(int pid){
@@ -1567,6 +1675,7 @@ string getExecByPid(int pid){
 
 #include <optional>
 
+// implement value find duplicates
 std::optional<std::string> findKeyByValue(
     const std::unordered_map<std::string, std::string>& uapps,
     const std::string& targetValue
@@ -1584,7 +1693,8 @@ void activateWindowById(const std::string& winId) {
 }
 
 
-void launch(const std::string& execCommand, bool dropPrivileges=true) {
+void launch(const std::string & execCommandr, bool dropPrivileges=true) {
+	string execCommand=parseExecCommand(execCommandr);
     pid_t pid = fork();
 
     if (pid < 0) {
@@ -1669,12 +1779,13 @@ void refresh(void*){
 			// if()
 			if(it->title==""){++it; continue;}
 			string sexecp = getExecByPid(it->pid);
-			string sexec = parseExecCommand(sexecp); 
+			string sexec =  (sexecp); 
+			// string sexec = parseExecCommand(sexecp); 
 			trim(sexec);
 			// cotm(pinnedApps[ip] ,sexecp,sexec)
 			string sexecf = findKeyByValue(uapps, sexec).value_or("");
 			// string sexecf = findKeyByValue(uapps, sexecp).value_or("");
-
+			cotm(pinnedApps[ip],sexecf,sexec);
 			if (pinnedApps[ip] == sexecf) {
 				vwin.back().title = sexecf;
 				// vwin.back().title = uapps[sexecf];
@@ -1955,6 +2066,9 @@ int main() {
 	std::thread(listen_fnvolumes).detach();
 	std::thread(initscrensaver).detach();
     std::system("xset b off");
+
+
+	cotm(uapps.size());
 
     return Fl::run();
 }

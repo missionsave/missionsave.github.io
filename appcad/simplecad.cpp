@@ -888,14 +888,8 @@ bool isRotating = false;
 bool isPanning = false;
 #pragma endregion events
 
-    Handle(Prs3d_LineAspect) wireAsp =
-      new Prs3d_LineAspect(
-        Quantity_NOC_BLUE,    // cor vermelha
-        Aspect_TOL_DASH,     // tipo: dash
-        0.5                  // espessura da linha
-      );
-	  
-	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect( Quantity_NOC_BLUE,  Aspect_TOL_DASH, 0.5 );	  
+Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
 
 struct pashape : public AIS_Shape {
   // expõe o drawer protegido da AIS_Shape
@@ -980,6 +974,7 @@ void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 		}
 	}
 	currentMode=fromcurrentMode;
+	redraw();
 }
 
 
@@ -990,131 +985,7 @@ void draw_objs(){
 		m_context->Display(aShape, 0);
 	}
 	toggle_shaded_transp(currentMode);
-	return;
 
-
-    if(!hlr_on){
-	for(int i=0;i<vshapes.size();i++)
-    {
-        Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
-        vaShape.push_back(aShape);
-        m_context->SetDisplayMode(aShape, AIS_Shaded, 0); 
-        // m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_True); 
-
-          
-
-        aShape->SetColor(Quantity_NOC_GRAY70);
-        aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);  
-        Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
-        aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
-
-
-        aShape->Attributes()->SetSeenLineAspect(edgeAspect);
-        // aShape->SetTransparency(0.5);
-        m_context->Display(aShape, 0); 
-        // m_context->Display(aShape, Standard_True); 
-    }
-		
-		
-		return;
-	}
-    m_view->SetComputedMode(Standard_False);    
-    // m_context->RemoveAll(false); 
-
-
-        // if(visible_) m_context->Remove(visible_,0);
-        // if(hidden_) m_context->Remove(hidden_,0);
-
-
-
-    // Handle(Prs3d_Drawer) defaultDrawer = m_context->DefaultDrawer();
-  
-	// Set default line widths
-	// defaultDrawer->WireAspect()->SetWidth(3);
-	// defaultDrawer->LineAspect()->SetWidth(3);
-	// defaultDrawer->SetColor(Quantity_NOC_RED);
-    for(int i=0;i<vshapes.size();i++)
-    {
-        pashape* aShape = new pashape(vshapes[i]);
-        // vaShape.push_back(aShape);
-        // m_context->SetDisplayMode((AIS_Shape*) aShape, AIS_Shaded, 0); /////////////////////////////
-        // m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_True); 
-
-        //   m_context->Activate(aShape, aShape->SelectionMode(TopAbs_VERTEX));
-        //   m_context->Activate(aShape, aShape->SelectionMode(TopAbs_EDGE));
-
-
-
-    // m_context->SetMode(aShape, TopAbs_VERTEX, Standard_True); // Enable vertex mode for 'aisShape'
-    // m_context->SetMode(aShape, TopAbs_EDGE, Standard_True);   // Enable edge mode for 'aisShape' (if you still want to pick edges too)
-    // m_context->SetMode(aShape, TopAbs_FACE, Standard_True);   // Enable face mode for 'aisShape'
-
-    // // You can also adjust sensitivity for point picking.
-    // // A smaller value means you need to be closer.
-    // m_context->SetSelectionSensitivity(0.5);
-
-
-{
-
-// Define o modo de exibição como wireframe
-// m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_True);
-
-// Acessa os atributos de apresentação
-// Handle(Prs3d_Drawer) drawer = aShape->Attributes();
-
-// // Define o aspecto de linha tracejada vermelha
-// Handle(Prs3d_LineAspect) dashedAspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_DASH, 2.0);
-// drawer->SetWireAspect(dashedAspect);
-
-// drawer->(Quantity_NOC_RED);
-// aShape->setColor(drawer,Quantity_NOC_RED);
-
-// Exibe a forma com atualização forçada
-// 	Handle(Prs3d_Drawer) dr1 = aShape->Attributes();
-// if (dr1->WireAspect()->Aspect()->Type() == Aspect_TOL_DASH) {
-//   std::cout << "Linha tracejada aplicada!" << std::endl;
-// } 
-m_context->Display(aShape, Standard_False);
-// m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_True);
-
-
-// m_context->Redisplay(aShape, Standard_True);
-continue;
-}
-
-
-
-m_context->SetDisplayMode(aShape, AIS_WireFrame, false);
-
-
-    // aShape->Attributes()->SetSeenLineAspect(
-    //     new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0)
-    // );
-Handle(Prs3d_Drawer) drawer = aShape->Attributes();
-drawer->SetFaceBoundaryDraw(false); // Don't draw edges on shaded shapes
-
-
-
-// Set dashed blue lines
-drawer->SetSeenLineAspect(new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_SOLID, 3.0));
-// drawer->SetSeenLineAspect(new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0));
-
-
-
-
-
-        // aShape->SetColor(Quantity_NOC_GRAY70);
-        // aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);  
-        // Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_DASH, 1.0);
-        // // Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
-        // aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
-
-
-        // aShape->Attributes()->SetSeenLineAspect(edgeAspect);
-        // aShape->SetTransparency(0.5);
-        m_context->Display(aShape, 0); 
-        // m_context->Display(aShape, Standard_True); 
-    }
 } 
 TopoDS_Shape pl() {
     int x=-150;

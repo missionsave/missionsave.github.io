@@ -62,7 +62,8 @@
 		"regex": "cpp",
 		"mixinvector": "cpp",
 		"guieventadapter": "cpp",
-		"iostream": "cpp"
+		"iostream": "cpp",
+		"sstream": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {
