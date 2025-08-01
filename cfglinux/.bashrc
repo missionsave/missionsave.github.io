@@ -241,18 +241,62 @@ launchwin8(){
 #   -usb -device usb-tablet \
 #   -enable-kvm
 
-qemu-system-x86_64 \
+
+#almost good
+# qemu-system-x86_64 \
+#   -m 1512 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -vga virtio \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio -net user \
+#   -usb -device usb-tablet \
+#   -enable-kvm \
+#   -device usb-host,vendorid=0x0781,productid=0x5591 \
+#   -fsdev local,id=shared_dev,path=/home/super/vms,security_model=none \
+#   -device virtio-9p-pci,fsdev=shared_dev,mount_tag=shared_folder \
+#   -cdrom virtio-win-0.1.229.iso
+
+
+#   -device usb-host,vendorid=0x0781,productid=0x5591 \
+
+  qemu-system-x86_64 \
   -m 1512 \
   -smp 4 \
   -cpu host \
   -machine q35,accel=kvm \
   -drive file=win8.1.qcow2,format=qcow2 \
+  -cdrom virtio-win-0.1.229.iso \
   -vga virtio \
   -display sdl,gl=on \
   -rtc base=localtime,clock=host \
-  -net nic,model=virtio -net user \
+  -net nic,model=virtio \
+  -net user \
   -usb -device usb-tablet \
+  -device usb-host,vendorid=0x0781,productid=0x5591 \
+  -fsdev local,id=shared_dev,path=/home/super/vms,security_model=none \
+  -device virtio-9p-pci,fsdev=shared_dev,mount_tag=shared_folder \
   -enable-kvm
+
+
+#almost good
+# qemu-system-x86_64 \
+#   -m 1512 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -vga virtio \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio -net user \
+#   -usb -device usb-tablet \
+#   -enable-kvm \
+#   -device qemu-xhci,id=xhci \
+#   -device usb-host,bus=xhci.0,vendorid=0x0781,productid=0x5591
 
 #   -virtfs local,path=/home/super/msv,mount_tag=win_share,security_model=mapped,id=shared_folder \
 #   -cdrom virtio-win.iso
@@ -274,6 +318,23 @@ qemu-system-x86_64 \
 #   -cdrom virtio-win-0.1.160.iso \
 #   -object memory-backend-file,id=mem,size=1024M,mem-path=/dev/shm,share=on \
 #   -numa node,memdev=mem
+
+
+
+# qemu-system-x86_64 \
+#   -m 1512 -smp 4 -cpu host -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -drive file=virtio-win.iso,media=cdrom \
+#   -vga virtio -display sdl,gl=on \
+#   -net nic,model=virtio -net user \
+#   -usb -device usb-tablet \
+#   -device qemu-xhci,id=xhci \
+#   -device usb-host,bus=xhci.0,vendorid=0x0781,productid=0x5591 \
+#   -enable-kvm
+
+
+
+
 }
 
 

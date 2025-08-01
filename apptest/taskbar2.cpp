@@ -1424,7 +1424,7 @@ struct WindowInfo {
 };
 
 unordered_map <string,string> uapps;
-vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64"};
+vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64","PeaZip"};
 
 Window stringToWindow(const std::string& winStr) {
     Window win;
