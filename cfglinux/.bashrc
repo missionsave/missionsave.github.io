@@ -179,6 +179,13 @@ mapwifi(){
 }
 
 
+# msys2 dll of exe on bash
+# make sure your executable is in the build64/ directory
+# Copies each required DLL that isn't already in build64/
+collectlibs(){
+ldd build64/*|grep -iv system32|grep -vi windows|grep -v :$  | cut -f2 -d\> | cut -f1 -d\( | tr \\ / |while read a; do ! [ -e "build64/`basename $a`" ] && cp -v "$a" build64/; done
+}
+
 launchwin8(){
 # https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
 
@@ -263,7 +270,7 @@ launchwin8(){
 
 #   -device usb-host,vendorid=0x0781,productid=0x5591 \
 
-  qemu-system-x86_64 \
+  $1 qemu-system-x86_64 \
   -m 1512 \
   -smp 4 \
   -cpu host \
