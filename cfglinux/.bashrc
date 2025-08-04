@@ -270,22 +270,38 @@ launchwin8(){
 
 #   -device usb-host,vendorid=0x0781,productid=0x5591 \
 
-  $1 qemu-system-x86_64 \
-  -m 1512 \
+#   $1 qemu-system-x86_64 \
+#   -m 1512 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -cdrom virtio-win-0.1.229.iso \
+#   -vga virtio \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio \
+#   -net user \
+#   -usb -device usb-tablet \
+#   -device usb-host,vendorid=0x0781,productid=0x5591 \
+#   -fsdev local,id=shared_dev,path=/home/super/vms,security_model=none \
+#   -device virtio-9p-pci,fsdev=shared_dev,mount_tag=shared_folder \
+#   -enable-kvm
+
+qemu-system-x86_64 \
+  -m 2048 \
   -smp 4 \
   -cpu host \
   -machine q35,accel=kvm \
   -drive file=win8.1.qcow2,format=qcow2 \
-  -cdrom virtio-win-0.1.229.iso \
+  -cdrom virtio-win-0.1.248.iso \
   -vga virtio \
+  -device virtio-gpu-gl-pci \
   -display sdl,gl=on \
   -rtc base=localtime,clock=host \
   -net nic,model=virtio \
   -net user \
   -usb -device usb-tablet \
-  -device usb-host,vendorid=0x0781,productid=0x5591 \
-  -fsdev local,id=shared_dev,path=/home/super/vms,security_model=none \
-  -device virtio-9p-pci,fsdev=shared_dev,mount_tag=shared_folder \
   -enable-kvm
 
 
@@ -467,6 +483,339 @@ installReload(){
 	installDesk "tmux $(uname -m)" "xterm -e tmux new-session -A -s $(uname -m) bash"
 }
 
+#!/bin/bash
+# install_wifi.sh
+# Script de instalação de Wi-Fi com IP estático sem DHCP nem resolvconf.
+# Deve ser executado como root: sudo ./install_wifi.sh
+
+install_wifi_v1() {
+  # 1. Detecta gateway padrão e prefixo de rede
+  local GATEWAY=$(ip route | awk '/^default/ {print $3; exit}')
+  local PREFIX=$(ip route | awk '/^default/ {print $1}' | cut -d/ -f2)
+  # Assume máscara /24 se PREFIX não for 24
+  [ "$PREFIX" != "24" ] && PREFIX=24
+  local NETMASK="255.255.255.0"
+  # Extrai os três primeiros octetos do gateway
+  local NET=$(echo $GATEWAY | awk -F. '{print $1 "." $2 "." $3}')
+  
+  # 2. Varredura de IP livre (100–254)
+  local START=100
+  local END=254
+  local IP=""
+  for i in $(seq $START $END); do
+    local CANDIDATE="${NET}.${i}"
+    ping -c1 -W1 $CANDIDATE &>/dev/null
+    if [ $? -ne 0 ]; then
+      IP=$CANDIDATE
+      break
+    fi
+  done
+
+  if [ -z "$IP" ]; then
+    echo "❌ Nenhum IP livre encontrado em ${NET}.${START}–${NET}.${END}."
+    return 1
+  fi
+
+  echo "✅ IP livre encontrado: $IP"
+  
+  # 3. Gera /etc/network/interfaces
+  cat <<EOF > /etc/network/interfaces
+auto wlan0
+iface wlan0 inet static
+    address $IP
+    netmask $NETMASK
+    gateway $GATEWAY
+    dns-nameservers 1.1.1.1 8.8.8.8
+    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+EOF
+
+  # 4. Cria /etc/rc.local para ativar wlan0 no boot
+  cat <<EOF > /etc/rc.local
+#!/bin/sh -e
+# Levanta a interface Wi-Fi com a configuração estática definida
+ifdown wlan0 2>/dev/null
+ifup wlan0
+exit 0
+EOF
+  chmod +x /etc/rc.local
+
+  echo "🎉 Configuração concluída. Reinicie para aplicar."
+}
+
+install_wifi_d1() {
+  # Detecta interface wireless
+  IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2; exit}')
+  if [ -z "$IFACE" ]; then
+    echo "❌ Interface Wi-Fi não encontrada."
+    return 1
+  fi
+  echo "✅ Interface detectada: $IFACE"
+
+  # Detecta gateway e calcula IP estático
+  local GATEWAY=$(ip route | awk '/^default/ {print $3; exit}')
+  local PREFIX=$(ip route | awk '/^default/ {print $1}' | cut -d/ -f2)
+  [ "$PREFIX" != "24" ] && PREFIX=24
+  local NETMASK="255.255.255.0"
+  local NET=$(echo $GATEWAY | awk -F. '{print $1 "." $2 "." $3}')
+
+  # Varredura IP livre
+  local START=100
+  local END=254
+  local IP=""
+  for i in $(seq $START $END); do
+    local CANDIDATE="${NET}.${i}"
+    ping -c1 -W1 $CANDIDATE &>/dev/null
+    if [ $? -ne 0 ]; then
+      IP=$CANDIDATE
+      break
+    fi
+  done
+  if [ -z "$IP" ]; then
+    echo "❌ Nenhum IP livre encontrado."
+    return 1
+  fi
+  echo "✅ IP livre: $IP"
+
+  # Configura /etc/network/interfaces
+  sudo tee /etc/network/interfaces > /dev/null <<EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet static
+    address $IP
+    netmask $NETMASK
+    gateway $GATEWAY
+    dns-nameservers 1.1.1.1 8.8.8.8
+EOF
+
+  # Serviço systemd: wpa_supplicant
+  sudo tee /etc/systemd/system/wpa_supplicant-$IFACE.service > /dev/null <<EOF
+[Unit]
+Description=wpa_supplicant para $IFACE
+After=network-pre.target
+Wants=network-pre.target
+
+[Service]
+ExecStart=/sbin/wpa_supplicant -B -i$IFACE -c/etc/wpa_supplicant/wpa_supplicant.conf -u
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Serviço systemd: configurar IP estático
+  sudo tee /etc/systemd/system/wifi-static-$IFACE.service > /dev/null <<EOF
+[Unit]
+Description=Configura IP estático para $IFACE
+After=wpa_supplicant-$IFACE.service network.target
+
+[Service]
+ExecStart=/bin/bash -c '/sbin/ifdown $IFACE || true; /sbin/ifup $IFACE'
+Restart=on-failure
+RestartSec=5
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Permissões de rede
+  sudo usermod -aG netdev $USER
+
+  # Ativação dos serviços
+  sudo systemctl daemon-reload
+  sudo systemctl enable wpa_supplicant-$IFACE.service
+  sudo systemctl enable wifi-static-$IFACE.service
+
+  echo "🎉 Instalação concluída!"
+  echo "Para iniciar manualmente:"
+  echo "  sudo systemctl start wpa_supplicant-$IFACE.service"
+  echo "  sudo systemctl start wifi-static-$IFACE.service"
+  echo "Use wpa_cli -i $IFACE para gerir redes."
+}
+
+
+install_wifi() {
+  # Detecta interface wireless
+  IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2; exit}')
+  if [ -z "$IFACE" ]; then
+    echo "❌ Interface Wi-Fi não encontrada."
+    return 1
+  fi
+  echo "✅ Interface detectada: $IFACE"
+
+  # Configuração de IP estático (mantido igual)
+  local GATEWAY=$(ip route | awk '/^default/ {print $3; exit}')
+  if [ -z "$GATEWAY" ]; then
+    echo "⚠️ Gateway padrão não encontrado. Continuando sem gateway..."
+    local NET="192.168.1"
+    local GATEWAY="$NET.1"
+  else
+    local NET=$(echo $GATEWAY | awk -F. '{print $1 "." $2 "." $3}')
+  fi
+  
+  local NETMASK="255.255.255.0"
+  local IP="${NET}.$(shuf -i 100-250 -n 1)"
+
+  # Configura /etc/network/interfaces
+  sudo tee /etc/network/interfaces > /dev/null <<EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet static
+    address $IP
+    netmask $NETMASK
+    gateway $GATEWAY
+    dns-nameservers 1.1.1.1 8.8.8.8
+EOF
+
+  # Configuração CORRIGIDA do serviço wpa_supplicant
+  sudo tee /etc/systemd/system/wpa_supplicant.service > /dev/null <<EOF
+[Unit]
+Description=WPA supplicant
+Before=network.target
+After=dbus.service
+
+[Service]
+Type=simple
+ExecStart=/sbin/wpa_supplicant -B -i $IFACE -c/etc/wpa_supplicant/wpa_supplicant.conf
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Habilita e inicia os serviços
+  sudo systemctl daemon-reload
+  sudo systemctl enable wpa_supplicant.service
+  sudo systemctl start wpa_supplicant.service
+
+  echo "🎉 Configuração completa!"
+  echo "Reinicie o sistema ou execute:"
+  echo "  sudo systemctl restart wpa_supplicant.service"
+  echo "  sudo ifdown $IFACE && sudo ifup $IFACE"
+}
+
+
+install_wifi_v3() {
+  # Detecta interface wireless (a mais usada)
+  IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2; exit}')
+  if [ -z "$IFACE" ]; then
+    echo "❌ Interface Wi-Fi não encontrada."
+    return 1
+  fi
+  echo "✅ Interface detectada: $IFACE"
+
+  # Detecta gateway e calcula IP estático
+  local GATEWAY=$(ip route | awk '/^default/ {print $3; exit}')
+  local PREFIX=$(ip route | awk '/^default/ {print $1}' | cut -d/ -f2)
+  [ "$PREFIX" != "24" ] && PREFIX=24
+  local NETMASK="255.255.255.0"
+  local NET=$(echo $GATEWAY | awk -F. '{print $1 "." $2 "." $3}')
+
+  # Varredura IP livre
+  local START=100
+  local END=254
+  local IP=""
+  for i in $(seq $START $END); do
+    local CANDIDATE="${NET}.${i}"
+    ping -c1 -W1 $CANDIDATE &>/dev/null
+    if [ $? -ne 0 ]; then
+      IP=$CANDIDATE
+      break
+    fi
+  done
+  if [ -z "$IP" ]; then
+    echo "❌ Nenhum IP livre encontrado."
+    return 1
+  fi
+  echo "✅ IP livre: $IP"
+
+  # Gera /etc/network/interfaces
+  sudo tee /etc/network/interfaces > /dev/null <<EOF
+auto lo
+iface lo inet loopback
+
+auto $IFACE
+iface $IFACE inet static
+    address $IP
+    netmask $NETMASK
+    gateway $GATEWAY
+    dns-nameservers 1.1.1.1 8.8.8.8
+EOF
+
+  # Cria serviço systemd para wpa_supplicant
+  sudo tee /etc/systemd/system/wpa_supplicant-$IFACE.service > /dev/null <<EOF
+[Unit]
+Description=wpa_supplicant para $IFACE
+After=wpa_supplicant-$IFACE.service network.target
+
+[Service]
+ExecStart=/sbin/wpa_supplicant -B -i$IFACE -c/etc/wpa_supplicant/wpa_supplicant.conf -u
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Cria serviço systemd para configurar interface estática
+  sudo tee /etc/systemd/system/wifi-static-$IFACE.service > /dev/null <<EOF
+[Unit]
+Description=Configura IP estático para $IFACE
+After=wpa_supplicant-$IFACE.service
+
+[Service]
+ExecStart=/bin/bash -c '/sbin/ifdown $IFACE || true; /sbin/ifup $IFACE'
+Restart=on-failure
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  sudo usermod -aG netdev $USER
+  
+  # Ativa serviços
+  sudo systemctl daemon-reexec
+  sudo systemctl daemon-reload
+  sudo systemctl enable wpa_supplicant-$IFACE.service
+  sudo systemctl enable wifi-static-$IFACE.service
+
+  echo "🎉 Instalação completa!"
+  echo "Reinicie o sistema ou inicie manualmente:"
+  echo "  sudo systemctl start wpa_supplicant-$IFACE.service"
+  echo "  sudo systemctl start wifi-static-$IFACE.service"
+  echo "Use wpa_cli -i $IFACE para gerir redes."
+}
+
+uninstall_wifi_man() {
+  echo "🛑 Desativando gerenciadores de rede..."
+
+  sudo systemctl disable --now NetworkManager.service 2>/dev/null && echo "✓ NetworkManager desativado" || echo "• NetworkManager não encontrado"
+  sudo systemctl disable --now wicd.service           2>/dev/null && echo "✓ wicd desativado" || echo "• wicd não encontrado"
+  sudo systemctl disable --now systemd-networkd.service 2>/dev/null && echo "✓ systemd-networkd desativado" || echo "• systemd-networkd não encontrado"
+  sudo systemctl disable --now dhcpcd.service         2>/dev/null && echo "✓ dhcpcd desativado" || echo "• dhcpcd não encontrado"
+  sudo systemctl disable --now wpa_supplicant.service 2>/dev/null && echo "✓ wpa_supplicant (systemd) desativado" || echo "• wpa_supplicant (systemd) não encontrado"
+
+  echo "🧹 Limpando arquivos residuais..."
+
+  # Evita que NetworkManager reative após update
+  sudo systemctl mask NetworkManager.service 2>/dev/null
+  sudo systemctl mask systemd-networkd.service 2>/dev/null
+  sudo systemctl mask dhcpcd.service 2>/dev/null
+
+  # Remove netplan config se existir
+  if [ -d /etc/netplan ]; then
+    echo "⚠️ Encontrado /etc/netplan, apagando config..."
+    sudo rm -v /etc/netplan/*.yaml
+  fi
+
+  echo "✅ Finalizado. Reboot recomendado."
+}
 
 
 install_deb() {

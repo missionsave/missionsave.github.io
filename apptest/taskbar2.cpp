@@ -1,4 +1,5 @@
 //  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss -lXi -I/usr/include/libnl3
+//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss -lXi $(pkg-config --cflags --libs  dbus-1) 
 // sudo setcap cap_net_admin,cap_net_raw+ep ./wifi_connect
 
 // sudo apt install libasound2-dev acpid wmctrl
@@ -8,6 +9,8 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Box.H>
+// #include <FL/Fl_PNG_Image.H>
+#include <FL/Fl_Help_View.H>
 #include <FL/Fl_Browser.H>
 #include <FL/fl_ask.H>
 #include <FL/x.H> // X11-specific functions
@@ -84,7 +87,7 @@
 #include <FL/fl_draw.H>
 #include <vector>
 #include <cstring>
-#include <FL/Fl_Output.H>
+#include <FL/Fl_Text_Display.H>
 #include <fstream>
 #include <string>
 #include <ctime>
@@ -98,6 +101,7 @@
 
 void dbg();
 void refresh(void*);
+bool isWifiConnected();
 using namespace std;
 #pragma endregion Includes
  
@@ -284,14 +288,58 @@ Fl_Window* create_system_modal_message(const char* msg) {
     return popup;
 }
 
-void update_display(Fl_Output* output) {
+void update_display(Fl_Help_View* output) {
     std::string battery = read_file("/sys/class/power_supply/BAT0/capacity"); 
 	// std::string status  = read_file("/sys/class/power_supply/BAT0/status");
 
     std::string clock   = get_time();
 
-    output->value(("✅"+battery + "% " + clock).c_str());
 
+// 1. Build a single-row, two-cell table that spans 100% width
+// std::ostringstream html;
+// html << "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\">"
+//      << "  <tr>"
+//      // spacer cell to push the second cell flush right
+//      << "    <td width=\"99%\"></td>"
+//      // our content cell, top-aligned and right-aligned
+//      << "    <td align=\"right\" valign=\"top\">"
+//      <<      "<font color=\"green\">wifi </font>" 
+//                << battery << "% " << clock
+//      << "    </td>"
+//      << "  </tr>"
+//      << "</table>";
+
+// // 2. Set the HTML and force the view back to the very top
+// output->value(html.str().c_str());
+// // output->topline(0);
+
+
+
+// output->wrap(0);
+Fl::set_font(FL_SYMBOL, "Noto Color Emoji");
+// Fl::set_font(FL_SYMBOL, "Noto Sans Symbols");
+std::ostringstream html;
+html<<"<center>"
+	// <<"<font face=arial  color=green><b>wifi</b></font>"
+	<<"<font face=symbol >📡📶</font>"
+	<<"<font face=symbol >🔋</font>"
+	<<"<font face=helvetica  color=green><b>"<<battery<<"%"<<"</b>"<<" </font>"
+	<<"<font face=helvetica  color=black><b>"<<clock<<"</b>"<<" </font>";
+
+output->value(html.str().c_str());
+
+
+
+    // output->value(("<center><font face=symbol color=green>wifi 🔋</font> 🔋"+battery + "% " + clock+"").c_str());
+    // output->value(("<center><font color=green>wifi </font>"+battery + "% " + clock+"").c_str());
+	// output->align(FL_ALIGN_RIGHT);
+	// output->leftline(20);
+
+output->deactivate();
+
+
+	// output->topline(0);
+	// output->value(("<table width=\"100%\"><tr><td align=\"right\"><font color=\"green\">wifi </font>" + battery + "% " + clock + "</td></tr></table>").c_str());
 	if(atoi(battery.c_str())<=5){ 
 		if(bat_is_Discharging()){ 
 			// sleep(3);
@@ -1926,59 +1974,647 @@ void initlauncher(){
 #pragma endregion calculator
 
 #pragma region net
-// sudo apt install libnl-3-dev libnl-genl-3-dev libssl-dev
 
-#include <iostream>
-#include <iomanip>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
 
-std::string generate_psk(const std::string& ssid, const std::string& passphrase) {
-    const int iterations = 4096;
-    const int key_len = 32;
-    unsigned char psk[key_len];
+bool isWifiConnected() {
+    const std::string interface = "wlp2s0"; // Change this to match your system
+    const std::string cmd = "wpa_cli status";
+    // const std::string cmd = "wpa_cli -i " + interface + " status";
 
-    PKCS5_PBKDF2_HMAC_SHA1(
-        passphrase.c_str(),
-        passphrase.length(),
-        reinterpret_cast<const unsigned char*>(ssid.c_str()),
-        ssid.length(),
-        iterations,
-        key_len,
-        psk
-    );
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) return false;
 
-    std::ostringstream oss;
-    for (int i = 0; i < key_len; ++i)
-        oss << std::hex << std::setfill('0') << std::setw(2) << (int)psk[i];
+    char buffer[256];
+    std::string result;
 
-    return oss.str();
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        result += buffer;
+    }
+
+    pclose(pipe);
+
+    return result.find("wpa_state=COMPLETED") != std::string::npos;
 }
+
+
 #if 0
-#include <netlink/netlink.h>
-#include <netlink/socket.h>
-#include <netlink/msg.h>
-#include <netlink/route/link.h>
- 
+#include <FL/Fl.H>
+#include <FL/Fl_Window.H>
+#include <FL/Fl_Browser.H>
+#include <FL/Fl_Input.H>
+#include <FL/Fl_Button.H>
+#include <FL/Fl_Box.H>
+#include <dbus/dbus.h>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cstdlib>
+#include <unistd.h>
+#include <sstream>
+#include "general.hpp"
 
-void onLinkChange(struct nl_msg *msg, void *arg) {
-	cotm("net droped");
-    // Aqui você analisa se a interface caiu
-    Fl::lock(); // necessário para thread-safe
-    btest->copy_label("Wi-Fi caiu!");
-    Fl::awake(); // atualiza interface
+#include <sys/socket.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>       // IFF_RUNNING
+#include <linux/if_link.h> // ifinfomsg (no conflito com net/if.h)
+
+#ifndef IFF_LOWER_UP
+#define IFF_LOWER_UP 0x10000
+#endif
+
+#include <unistd.h>
+#include <iostream>
+#include <thread>
+#include <iostream>
+#include <fstream>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <vector>
+
+using namespace std;
+
+void start_dhclient_with_dns(const std::string& dns) {
+    const std::string conf_path = "/tmp/dhclient_custom.conf";
+
+    // 1. Criar ficheiro de config temporário
+    std::ofstream conf(conf_path);
+    if (!conf) {
+        std::cerr << "Erro ao criar config temporário\n";
+        return;
+    }
+    conf << "supersede domain-name-servers " << dns << ";\n";
+    conf.close();
+
+    // 2. Criar filho
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        return;
+    }
+
+    if (pid == 0) {
+        // Código do filho — executa o comando
+        const char* argv[] = {
+            "sudo",                    // precisa do path absoluto se "sudo" não estiver em /usr/bin
+            "dhclient",
+            "-1",
+            "-nw",
+            "-cf",
+            conf_path.c_str(),
+            nullptr
+        };
+
+        execvp("sudo", const_cast<char* const*>(argv));
+        perror("execvp falhou");
+        _exit(127);  // se exec falhar
+    } else {
+        // Código do pai — espera o filho terminar
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status)) {
+            std::cout << "dhclient saiu com código " << WEXITSTATUS(status) << "\n";
+        } else {
+            std::cerr << "dhclient terminou de forma inesperada\n";
+        }
+    }
 }
 
-void startMonitor() {
-    struct nl_sock *sock = nl_socket_alloc();
-    nl_connect(sock, NETLINK_ROUTE);
-    nl_socket_modify_cb(sock, NL_CB_MSG_IN, NL_CB_CUSTOM, onLinkChange, NULL);
-    nl_socket_add_memberships(sock, RTNLGRP_LINK);
-    while (true) nl_recvmsgs_default(sock);
+
+void listen_netlink() {
+    int sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+    if (sock < 0) {
+        perror("socket");
+        return;
+    }
+
+    sockaddr_nl addr{};
+    addr.nl_family = AF_NETLINK;
+    addr.nl_groups = RTMGRP_LINK | RTMGRP_IPV4_IFADDR;
+
+    if (bind(sock, (sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        close(sock);
+        return;
+    }
+
+    std::cout << "Listening for link changes...\n";
+
+    char buf[4096];
+    while (true) {
+        int len = recv(sock, buf, sizeof(buf), 0);
+        if (len < 0) continue;
+
+        nlmsghdr *nh;
+        for (nh = (nlmsghdr*)buf; NLMSG_OK(nh, len); nh = NLMSG_NEXT(nh, len)) {
+            // if (nh->nlmsg_type == RTM_NEWLINK){
+			// 	cotm("RTM_NEWLINK")
+
+			// 	//implement only if dhclient not in execution
+			// 	start_dhclient_with_dns("8.8.8.8");
+			// }
+			if (nh->nlmsg_type == RTM_NEWLINK) {
+				struct ifinfomsg *ifi = (struct ifinfomsg*)NLMSG_DATA(nh);
+
+				bool link_up = ifi->ifi_flags & IFF_RUNNING;
+				bool physical_up = ifi->ifi_flags & IFF_LOWER_UP;
+
+				cout<<"RTM_NEWLINK: ifindex = " << ifi->ifi_index
+					<< " running=" << link_up
+					<< " lower_up=" << physical_up<<endl;
+
+				if (!link_up || !physical_up) {
+					cotm("Link down → maybe disconnected");
+					// Aqui podes matar dhclient se quiser, ou reagir
+				} else {
+					cotm("Link up → talvez reconectado");
+					// Aqui podes iniciar dhclient, se não estiver já ativo
+				}
+			}
+			if(nh->nlmsg_type == RTM_DELLINK) { 
+				cotm("RTM_DELLINK")
+            }
+        }
+    }
+
+    close(sock);
+}
+
+
+
+
+
+
+
+// Globals
+static DBusConnection* conn = nullptr;
+static std::string iface_path;
+static std::vector<std::string> bss_paths;
+static std::vector<std::string> ssids;
+static Fl_Browser* browser;
+
+
+// Checa erro D-Bus e encerra se necessário
+void check_error(DBusError &err) {
+    if (dbus_error_is_set(&err)) {
+        std::cerr << "D-Bus Error: " << err.name << " - " << err.message << std::endl;
+        dbus_error_free(&err);
+        exit(1);
+    }
+}
+
+
+
+// Mata possíveis gerenciadores de Wi-Fi conflitantes
+void kill_managers() {
+    const char* services[] = {
+        "systemctl stop wpa_supplicant",
+        "killall wpa_supplicant",
+		"systemctl stop NetworkManager", 
+        "systemctl stop iwd",
+        "killall wpa_supplicant",
+        "killall iwd",
+        "killall NetworkManager",
+		"killall dhclient"
+    };
+
+    for (const auto& cmd : services) {
+        std::system(cmd);
+    }
+
+    std::cout << "[INFO] WiFi services disabled (temporarily).\n";
+    system("pkill -9 NetworkManager wpa_supplicant connman wicd 2>/dev/null");
+    sleep(1);
+}
+
+// Inicia wpa_supplicant em modo D-Bus
+void start_wpa_supplicant() {
+    system("wpa_supplicant -u -s -O DIR=/run/wpa_supplicant GROUP=netdev &");
+    sleep(1);
+}
+
+// Conecta ao barramento system D-Bus
+void connect_dbus() {
+    DBusError err;
+    dbus_error_init(&err);
+    conn = dbus_bus_get(DBUS_BUS_SYSTEM, &err);
+    check_error(err);
+}
+
+// Cria interface wlp2s0 via D-Bus
+void create_interface(const char* ifname) {
+    DBusError err;
+    dbus_error_init(&err);
+
+    DBusMessage* msg = dbus_message_new_method_call(
+        "fi.w1.wpa_supplicant1",
+        "/fi/w1/wpa_supplicant1",
+        "fi.w1.wpa_supplicant1",
+        "CreateInterface");
+    if (!msg) {
+        std::cerr << "Failed to create D-Bus message\n";
+        exit(1);
+    }
+
+    DBusMessageIter args, dict, entry, variant;
+    dbus_message_iter_init_append(msg, &args);
+    dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+    // Ifname
+    const char* key_if = "Ifname";
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key_if);
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "s", &variant);
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &ifname);
+    dbus_message_iter_close_container(&entry, &variant);
+    dbus_message_iter_close_container(&dict, &entry);
+
+    // Driver
+    const char* key_drv = "Driver";
+    const char* driver = "nl80211";
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key_drv);
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "s", &variant);
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &driver);
+    dbus_message_iter_close_container(&entry, &variant);
+    dbus_message_iter_close_container(&dict, &entry);
+
+    dbus_message_iter_close_container(&args, &dict);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
+    dbus_message_unref(msg);
+    check_error(err);
+
+    const char* path = nullptr;
+    DBusMessageIter riter;
+    if (dbus_message_iter_init(reply, &riter) &&
+        dbus_message_iter_get_arg_type(&riter) == DBUS_TYPE_OBJECT_PATH) {
+        dbus_message_iter_get_basic(&riter, &path);
+    }
+    dbus_message_unref(reply);
+
+    if (!path) {
+        std::cerr << "CreateInterface returned null path\n";
+        exit(1);
+    }
+    iface_path = path;
+    std::cout << "Interface created at: " << iface_path << std::endl;
+}
+
+// Dispara Scan via D-Bus
+void trigger_scan() {
+    DBusError err;
+    dbus_error_init(&err);
+
+    DBusMessage* msg = dbus_message_new_method_call(
+        "fi.w1.wpa_supplicant1",
+        iface_path.c_str(),
+        "fi.w1.wpa_supplicant1.Interface",
+        "Scan");
+
+    if (!msg) {
+        std::cerr << "Cannot create Scan message\n";
+        exit(1);
+    }
+
+    DBusMessageIter args, dict, entry, variant;
+    dbus_message_iter_init_append(msg, &args);
+    dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+    // Type=active
+    const char* key = "Type";
+    const char* val = "active";
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key);
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "s", &variant);
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &val);
+    dbus_message_iter_close_container(&entry, &variant);
+    dbus_message_iter_close_container(&dict, &entry);
+
+    dbus_message_iter_close_container(&args, &dict);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
+    dbus_message_unref(msg);
+    check_error(err);
+    if (reply) dbus_message_unref(reply);
+
+    std::cout << "[INFO] Scan started...\n";
+    sleep(2);
+}
+
+// Lê propriedade array of object paths "BSSs"
+std::vector<std::string> get_bss_list() {
+    std::vector<std::string> list;
+    DBusError err;
+    dbus_error_init(&err);
+
+    DBusMessage* msg = dbus_message_new_method_call(
+        "fi.w1.wpa_supplicant1",
+        iface_path.c_str(),
+        "org.freedesktop.DBus.Properties",
+        "Get");
+    if (!msg) exit(1);
+
+    const char* iface = "fi.w1.wpa_supplicant1.Interface";
+    const char* prop = "BSSs";
+    DBusMessageIter args;
+    dbus_message_iter_init_append(msg, &args);
+    dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &iface);
+    dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &prop);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
+    dbus_message_unref(msg);
+    check_error(err);
+
+    DBusMessageIter rit, var, arr;
+    dbus_message_iter_init(reply, &rit);
+    dbus_message_iter_recurse(&rit, &var);
+    dbus_message_iter_recurse(&var, &arr);
+
+    while (dbus_message_iter_get_arg_type(&arr) == DBUS_TYPE_OBJECT_PATH) {
+        const char* path;
+        dbus_message_iter_get_basic(&arr, &path);
+        list.emplace_back(path);
+        dbus_message_iter_next(&arr);
+    }
+    dbus_message_unref(reply);
+    return list;
+}
+
+// Lê propriedade "SSID" de um BSS
+std::string get_ssid(const std::string& bss_path) {
+    DBusError err;
+    dbus_error_init(&err);
+
+    DBusMessage* msg = dbus_message_new_method_call(
+        "fi.w1.wpa_supplicant1",
+        bss_path.c_str(),
+        "org.freedesktop.DBus.Properties",
+        "Get");
+    const char* iface = "fi.w1.wpa_supplicant1.BSS";
+    const char* prop = "SSID";
+    DBusMessageIter args;
+    dbus_message_iter_init_append(msg, &args);
+    dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &iface);
+    dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &prop);
+
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
+    dbus_message_unref(msg);
+    check_error(err);
+
+    DBusMessageIter rit, var, arr;
+    dbus_message_iter_init(reply, &rit);
+    dbus_message_iter_recurse(&rit, &var);
+    dbus_message_iter_recurse(&var, &arr);
+
+    std::string ssid;
+    while (dbus_message_iter_get_arg_type(&arr) == DBUS_TYPE_BYTE) {
+        uint8_t b;
+        dbus_message_iter_get_basic(&arr, &b);
+        ssid.push_back(static_cast<char>(b));
+        dbus_message_iter_next(&arr);
+    }
+    dbus_message_unref(reply);
+    return ssid;
+}
+
+// Callback para conectar à rede
+void connect_to_network(const std::string& ssid, const std::string& password) {
+    DBusError err;
+    dbus_error_init(&err);
+
+    // 1. Adiciona nova rede com propriedades
+    DBusMessage* add_msg = dbus_message_new_method_call(
+        "fi.w1.wpa_supplicant1",
+        iface_path.c_str(),
+        "fi.w1.wpa_supplicant1.Interface",
+        "AddNetwork");
+
+    DBusMessageIter args, dict, entry, variant, array_iter;
+    dbus_message_iter_init_append(add_msg, &args);
+    dbus_message_iter_open_container(&args, DBUS_TYPE_ARRAY, "{sv}", &dict);
+
+    // Adiciona "ssid"
+    const char* key_ssid = "ssid";
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key_ssid);
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "ay", &variant);
+    dbus_message_iter_open_container(&variant, DBUS_TYPE_ARRAY, "y", &array_iter);
+    for (char c : ssid) {
+        uint8_t byte = c;
+        dbus_message_iter_append_basic(&array_iter, DBUS_TYPE_BYTE, &byte);
+    }
+    dbus_message_iter_close_container(&variant, &array_iter);
+    dbus_message_iter_close_container(&entry, &variant);
+    dbus_message_iter_close_container(&dict, &entry);
+
+    // Adiciona "psk"
+    const char* key_psk = "psk";
+    const char* psk_value = password.c_str();
+    dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, nullptr, &entry);
+    dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &key_psk);
+    dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "s", &variant);
+    dbus_message_iter_append_basic(&variant, DBUS_TYPE_STRING, &psk_value);
+    dbus_message_iter_close_container(&entry, &variant);
+    dbus_message_iter_close_container(&dict, &entry);
+
+    dbus_message_iter_close_container(&args, &dict);
+
+    DBusMessage* add_reply = dbus_connection_send_with_reply_and_block(conn, add_msg, -1, &err);
+    dbus_message_unref(add_msg);
+    check_error(err);
+
+    const char* net_path = nullptr;
+    if (dbus_message_iter_init(add_reply, &args) &&
+        dbus_message_iter_get_arg_type(&args) == DBUS_TYPE_OBJECT_PATH) {
+        dbus_message_iter_get_basic(&args, &net_path);
+    }
+    std::string network_path = net_path ? net_path : "";
+    dbus_message_unref(add_reply);
+
+    if (network_path.empty()) {
+        std::cerr << "Failed to create network path\n";
+        return;
+    }
+
+    // 2. Seleciona a rede
+    DBusMessage* sel_msg = dbus_message_new_method_call(
+        "fi.w1.wpa_supplicant1",
+        iface_path.c_str(),
+        "fi.w1.wpa_supplicant1.Interface",
+        "SelectNetwork");
+
+    dbus_message_iter_init_append(sel_msg, &args);
+    dbus_message_iter_append_basic(&args, DBUS_TYPE_OBJECT_PATH, &network_path);
+
+    DBusMessage* sel_reply = dbus_connection_send_with_reply_and_block(conn, sel_msg, -1, &err);
+    dbus_message_unref(sel_msg);
+    check_error(err);
+    if (sel_reply) dbus_message_unref(sel_reply);
+
+    std::cout << "Connecting to network: " << ssid << std::endl;
+}
+
+// Callback—ao clicar rede, pede senha e conecta
+void browser_cb(Fl_Widget* w, void*) {
+    int idx = browser->value();  // 1-based
+    if (idx < 1 || idx > (int)ssids.size()) return;
+
+    // Janela de senha
+    Fl_Window* pwd_win = new Fl_Window(300,100,"Password");
+    Fl_Input* input = new Fl_Input(10,10,280,25,"Password:");
+    Fl_Button* btn = new Fl_Button(110,50,80,30,"Connect");
+    pwd_win->end();
+    pwd_win->show();
+
+    btn->callback([](Fl_Widget* w, void* v) {
+        Fl_Input* in = (Fl_Input*)v;
+        std::string password = in->value();
+        int idx = browser->value() - 1;
+        std::string ssid = ssids[idx];
+
+        // Fecha a janela de senha
+        Fl_Window* win = (Fl_Window*)in->parent();
+        win->hide();
+        delete win;
+
+        // Conecta à rede
+        connect_to_network(ssid, password);
+
+        // Mostra mensagem de confirmação
+        Fl_Window* ok = new Fl_Window(200,80,"Connecting");
+        Fl_Box* fb = new Fl_Box(20,20,160,20,"Connecting to network...");
+        Fl_Button* bn = new Fl_Button(60,50,80,25,"OK");
+        bn->callback([](Fl_Widget* w, void*) {
+
+// sudo dhclient -1 -nw -cf <(echo 'supersede domain-name-servers 8.8.8.8;')
+            w->parent()->hide();
+            delete w->parent();
+        });
+        ok->end();
+        ok->show();
+    }, input);
+}
+
+// Função para executar comandos shell e capturar output
+std::string exec_command(const char* cmd) {
+    char buffer[256];
+    std::string result = "";
+    FILE* pipe = popen(cmd, "r");
+    if (!pipe) return "error";
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        result += buffer;
+    }
+    pclose(pipe);
+    return result;
+}
+std::string find_wifi_interface() {
+    // Primeiro tenta com iw
+    std::string iw_result = exec_command("iw dev | awk '/Interface/ {print $2}'");
+    if (!iw_result.empty() && iw_result.find("error") == std::string::npos) {
+        std::istringstream iss(iw_result);
+        std::string iface;
+        while (std::getline(iss, iface)) {
+            if (!iface.empty() && iface.back() == '\n')
+                iface.pop_back();
+            if (!iface.empty()) return iface;
+        }
+    }
+	return "wlan0";
+}
+int lnet() {
+    // 1. Para outros gerenciadores e inicia o wpa_supplicant
+    kill_managers();
+    start_wpa_supplicant();
+
+    // 2. Conecta D-Bus e cria interface
+    connect_dbus(); 
+    create_interface(find_wifi_interface().c_str());
+    // create_interface("wlp2s0");
+
+    // 3. Escaneia e obtém BSSs
+    trigger_scan();
+    sleep(3);
+    bss_paths = get_bss_list();
+
+    std::cout << "Found " << bss_paths.size() << " networks\n";
+    
+    // 4. Extrai SSIDs
+    ssids.clear();
+    for (auto &p : bss_paths) {
+        ssids.push_back(get_ssid(p));
+    }
+	
+	Fl_Group::current(nullptr); // important
+    // 5. Monta UI FLTK
+    Fl_Window* win = new Fl_Window(300, 400, "Wi-Fi Networks");
+    browser = new Fl_Browser(10, 10, 280, 380);
+    for (auto &s : ssids) browser->add(s.c_str());
+    browser->type(FL_HOLD_BROWSER);
+    browser->callback(browser_cb);
+    win->end();
+    win->show();
+
+	std::thread listener(listen_netlink);
+    listener.detach();
+
+    // return Fl::run();
 }
 #endif
 
 #pragma endregion net
+ 
+class MixedFontWidget : public Fl_Box {
+public:
+    int emoji_font_index = -1;
+    MixedFontWidget(int X, int Y, int W, int H) : Fl_Box(X, Y, W, H) {
+
+    int num_fonts = Fl::set_fonts(0); // Initialize font list and get count
+
+		for (int i = 0; i < num_fonts; ++i) {
+			const char* font_name = Fl::get_font_name(i);
+			if (font_name) {
+				std::string name_str = font_name;
+				// Look for common emoji font names (case-insensitive where possible)
+				if (name_str.find("Noto Color Emoji") != std::string::npos ||
+				// if (name_str.find("Noto Color Emoji") != std::string::npos ||
+					name_str.find("Segoe UI Emoji") != std::string::npos ||
+					name_str.find("Apple Color Emoji") != std::string::npos) {
+					emoji_font_index = i;
+					break; // Found one, stop searching
+				}
+			}
+		}
+
+	}
+
+    void draw() override {
+        // Fundo branco
+        fl_color(FL_WHITE);
+        fl_rectf(x(), y(), w(), h());
+
+        int xpos = x() + 10;
+        int ypos = y() + h()-5;
+
+        // Texto normal
+        fl_color(FL_BLACK);
+        fl_font(FL_HELVETICA, 13);
+        fl_draw("Status:", xpos, ypos);
+
+        // Avançar a posição do texto
+        xpos += fl_width("Status: ") + 5;
+
+        // Texto emoji/símbolo (⚠ pode depender da fonte do sistema!)
+        fl_font(emoji_font_index, 13); // Se a fonte suportar os emojis
+        fl_draw("📶 WiFi OK ", xpos, ypos);
+        xpos += fl_width("📶 WiFi OK ") + 5;
+
+        // Outro símbolo
+        fl_draw("🔋 73%", xpos, ypos);
+    }
+};
+
+
 
 int main() {
 	std::cout << "FLTK Version: " << FL_VERSION << std::endl;
@@ -1997,14 +2633,14 @@ int main() {
     tasbwin->color(FL_DARK_RED);
     tasbwin->begin();
 	
-	btest=new Fl_Button(screen_w-280,0,100,24,"refresh");
+	btest=new Fl_Button(screen_w-320,0,100,24,"refresh ");
 	btest->callback([](Fl_Widget* wid){
 		Fl_Button* btn=(Fl_Button*)wid;
 		// pid_t pid_=get_active_window_pid();
 		// stringstream strm;
 		// strm<<pid_;
 		// btn->copy_label(strm.str().c_str());
-
+		// lnet();
 
 
 		// fg->begin();
@@ -2012,11 +2648,36 @@ int main() {
 		// fg->end();
 		// win->redraw();
 	});
+ 
+    Fl_Help_View* output = new Fl_Help_View(screen_w-220,0,220,24);
+	output->scrollbar_size(-1); 
+	// output->textfont(FL_HELVETICA_BOLD);
+	output->textsize(14);
+	// output->scrollbar_width(0);
+	// output->wrap_mode(Fl_Text_Display::WRAP_NONE, 0);
+    // output->textfont(FL_COURIER);
+    // output->textsize(14);
+    // output->readonly(1);
 
-    Fl_Output* output = new Fl_Output(screen_w-180,0,180,24);
-    output->textfont(FL_COURIER);
-    output->textsize(14);
-    output->readonly(1);
+
+
+
+
+// MyOverlay* overlay=new MyOverlay(output->x(), output->y(),output->w(),output->h());
+
+// Agora põe o botão por cima:
+Fl_Button* btn = new Fl_Button (output->x(), output->y(),output->w(),output->h());
+btn->box(FL_NO_BOX);  // Sem borda/fundo
+	btn->callback([](Fl_Widget* wid){
+		Fl_Button* btn=(Fl_Button*)wid;
+		cotm("config") 
+	});
+
+
+// MixedFontWidget *widget = new MixedFontWidget(output->x()-400, output->y(),output->w(),output->h());
+
+
+
 
 
 

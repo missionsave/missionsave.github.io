@@ -2,12 +2,15 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Box.H>
+#include <FL/Fl_Help_View.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/fl_draw.H>
 
 #include <iostream>
 #include <string>
+#include <sstream>
+using namespace std;
 
 int main(int argc, char **argv) {
     Fl_Window *window = new Fl_Window(500, 350, "FLTK Noto & Emoji Example");
@@ -22,6 +25,7 @@ int main(int argc, char **argv) {
             std::string name_str = font_name;
             // Look for common emoji font names (case-insensitive where possible)
             if (name_str.find("Noto Color Emoji") != std::string::npos ||
+            // if (name_str.find("Noto Color Emoji") != std::string::npos ||
                 name_str.find("Segoe UI Emoji") != std::string::npos ||
                 name_str.find("Apple Color Emoji") != std::string::npos) {
                 emoji_font_index = i;
@@ -48,8 +52,17 @@ int main(int argc, char **argv) {
     // --- Button setup ---
     // If emoji_font_index is found, try using it directly for the button's emoji
     // Otherwise, it will fallback to FL_FREE_FONT's fallback.
+
+
+	stringstream strm;
+	strm<<u8"a"<<"test";
+	// strm<<u8"😊"<<"test";
+
     Fl_Button *button = new Fl_Button(50, 50, 180, 40, u8"😊");
+	button->copy_label(strm.str().c_str());
+    // Fl_Button *button = new Fl_Button(50, 50, 180, 40, u8"😊");
     if (emoji_font_index != -1) {
+        // button->labelfont(FL_FREE_FONT);
         button->labelfont(emoji_font_index); // Use the detected emoji font for button
     } else {
         button->labelfont(FL_FREE_FONT); // Fallback to Noto Sans or system default

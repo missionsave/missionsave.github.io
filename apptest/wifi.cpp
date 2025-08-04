@@ -1,3 +1,7 @@
+//  g++ wifi.cpp -lnl-3 -lnl-genl-3 -o wifi -I/usr/include/libnl3 -lcrypto
+//  g++ wifi.cpp -l:libnl-3.a -l:libnl-genl-3.a -o wifi -I/usr/include/libnl3 -l:libcrypto.a
+
+
 #include <netlink/netlink.h>
 #include <netlink/genl/genl.h>
 #include <netlink/genl/ctrl.h>
@@ -22,11 +26,85 @@ struct WiFiNetwork {
     int signal_dbm;
     int frequency;
 };
+std::string iface ="wlan0";
 
 #include <iostream>
 #include <iomanip>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+void disableWiFi() {
+    // Attempt to stop services commonly used for WiFi
+    const char* services[] = {
+        "systemctl stop NetworkManager",
+        "systemctl stop wpa_supplicant",
+        "systemctl stop iwd",
+        "killall wpa_supplicant",
+        "killall iwd",
+        "killall NetworkManager"
+    };
+
+    for (const auto& cmd : services) {
+        std::system(cmd);
+    }
+
+    std::cout << "[INFO] WiFi services disabled (temporarily).\n";
+}
+
+void setDNS() {
+    int ret = std::system("resolvectl dns wlan0 8.8.8.8");  // Try with resolvectl first
+    if (ret != 0) {
+        // Fallback: overwrite /etc/resolv.conf (requires root)
+        std::ofstream resolv("/etc/resolv.conf");
+        if (resolv.is_open()) {
+            resolv << "nameserver 8.8.8.8\n";
+            resolv.close();
+            std::cout << "[INFO] DNS set to 8.8.8.8 via /etc/resolv.conf\n";
+        } else {
+            std::cerr << "[ERROR] Failed to write /etc/resolv.conf. Try running as root.\n";
+        }
+    } else {
+        std::cout << "[INFO] DNS set to 8.8.8.8 using resolvectl.\n";
+    }
+}
+
+std::string getLocalIP() {
+    struct ifaddrs *ifaddr, *ifa;
+    std::string localIP = "0.0.0.0";
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return localIP;
+    }
+
+    for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET)
+            continue;
+
+        std::string iface(ifa->ifa_name);
+        if (iface != "lo") { // skip loopback
+            char ip[INET_ADDRSTRLEN];
+            void* addr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+            inet_ntop(AF_INET, addr, ip, INET_ADDRSTRLEN);
+            localIP = ip;
+            break;
+        }
+    }
+
+    freeifaddrs(ifaddr);
+    return localIP;
+}
+
 
 std::string generate_psk(const std::string& ssid, const std::string& passphrase) {
     const int iterations = 4096;
@@ -314,7 +392,7 @@ static void socket_timeout(struct nl_sock* sock, int timeout_ms) {
 
 // Aguarda conclusão do scan com timeout preciso
 // Aguarda conclusão do scan com timeout preciso
-bool wait_scan_done(struct nl_sock* sock, int if_index) {
+bool wait_scan_done_v1(struct nl_sock* sock, int if_index) {
     using namespace std::chrono;
     auto start = steady_clock::now();
     const int timeout_ms = 4000; // 4 segundos
@@ -345,6 +423,53 @@ bool wait_scan_done(struct nl_sock* sock, int if_index) {
         }
     }
     return false;
+}
+
+
+bool wait_scan_done(struct nl_sock* sock, int if_index) {
+    using namespace std::chrono;
+    auto start = steady_clock::now();
+    const int timeout_ms = 4000; // 4 seconds
+
+    bool scan_done = false;
+
+    // Callback to process incoming scan messages
+    auto handler = [](struct nl_msg* msg, void* arg) -> int {
+        struct nlmsghdr* hdr = nlmsg_hdr(msg);
+        if (hdr->nlmsg_type == NL80211_CMD_NEW_SCAN_RESULTS) {
+            bool* done = static_cast<bool*>(arg);
+            *done = true;
+            return NL_STOP;
+        }
+        if (hdr->nlmsg_type == NL80211_CMD_SCAN_ABORTED) {
+            std::cerr << "[ERROR] Scan aborted.\n";
+            return NL_STOP;
+        }
+        return NL_OK;
+    };
+
+    nl_socket_modify_cb(sock, NL_CB_VALID, NL_CB_CUSTOM, handler, &scan_done);
+
+    while (duration_cast<milliseconds>(steady_clock::now() - start).count() < timeout_ms) {
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(nl_socket_get_fd(sock), &rfds);
+
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 200000; // 200ms
+
+        int ret = select(nl_socket_get_fd(sock) + 1, &rfds, nullptr, nullptr, &tv);
+        if (ret > 0) {
+            nl_recvmsgs_default(sock);
+            if (scan_done) break;
+        } else if (ret < 0) {
+            perror("select");
+            break;
+        }
+    }
+
+    return scan_done;
 }
 
 // Processa resultados do scan com parsing melhorado
@@ -430,8 +555,53 @@ struct WiFiConnector {
         if (sock) nl_socket_free(sock);
     }
 
+	bool connect(const std::string& ifname, const std::string& ssid, const std::string& psk_hex) {
+    int ifindex = if_nametoindex(ifname.c_str());
+    if (ifindex == 0) return false;
+
+    struct nl_msg* msg = nlmsg_alloc();
+    if (!msg) return false;
+
+    genlmsg_put(msg, 0, 0, nl80211_id, 0, 0, NL80211_CMD_CONNECT, 0);
+    nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifindex);
+    nla_put(msg, NL80211_ATTR_SSID, ssid.size(), ssid.c_str());
+
+    // Converter PSK hexadecimal para bytes
+    unsigned char psk[32];
+    for (int i = 0; i < 32; ++i) {
+        unsigned int byte;
+        sscanf(psk_hex.c_str() + 2 * i, "%2x", &byte);
+        psk[i] = static_cast<unsigned char>(byte);
+    }
+
+    nla_put(msg, NL80211_ATTR_PMK, 32, psk);
+
+    // Opcional: também no bloco CRYPTO
+    struct nlattr* crypto = nla_nest_start(msg, NL80211_ATTR_CRYPTO);
+    nla_put(msg, NL80211_CRYPTO_ATTR_KEY, 32, psk);
+    nla_nest_end(msg, crypto);
+
+    // Callback para receber resposta do kernel
+    bool success = false;
+    auto ack_handler = [](struct nl_msg* msg, void* arg) -> int {
+        bool* ok = static_cast<bool*>(arg);
+        *ok = true;
+        return NL_STOP;
+    };
+    nl_socket_modify_cb(sock, NL_CB_VALID, NL_CB_CUSTOM, ack_handler, &success);
+
+    int err = nl_send_auto_complete(sock, msg);
+    nlmsg_free(msg);
+
+    // Esperar resposta
+    if (err >= 0)
+        nl_recvmsgs_default(sock);
+
+    return success;
+}
+
     // Conecta à rede especificada usando SSID e PSK em hexadecimal
-    bool connect(const std::string& ifname, const std::string& ssid, const std::string& psk_hex) {
+    bool connect_v1(const std::string& ifname, const std::string& ssid, const std::string& psk_hex) {
         int ifindex = if_nametoindex(ifname.c_str());
         if (ifindex == 0) return false;
 
@@ -473,17 +643,122 @@ struct WiFiConnector {
 
 
 
+#include <cstdlib>
+#include <string>
+#include <iostream>
 
+bool connectWiFi(const std::string& iface, const std::string& ssid, const std::string& psk) {
+    std::string cmd = "sudo iw dev " + iface + " connect \"" + ssid + "\" key 0:" + psk;
+    int ret = std::system(cmd.c_str());
+    if (ret != 0) {
+        std::cerr << "Falha ao conectar-se à rede WiFi." << std::endl;
+        return false;
+    }
+    return true;
+}
+
+#include <cstdlib>
+#include <fstream>
+#include <thread>
+#include <chrono>
+
+bool connectWithWpaSupplicant(const std::string& iface, const std::string& ssid, const std::string& psk) {
+    std::string confFile = "/tmp/wpa_supplicant.conf";
+
+    // Cria o arquivo temporário
+    std::ofstream conf(confFile);
+    if (!conf) return false;
+    conf << "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n";
+    conf << "network={\n";
+    conf << "    ssid=\"" << ssid << "\"\n";
+    conf << "    psk=" << psk << "\n";
+    conf << "}\n";
+    conf.close();
+
+    // Inicia wpa_supplicant em background
+    // std::string startCmd = "sudo wpa_supplicant -i" + iface + " -c" + confFile;
+    std::string startCmd = "sudo wpa_supplicant -B -i" + iface + " -c" + confFile;
+    if (std::system(startCmd.c_str()) != 0) return false;
+
+    // Espera 3 segundos pela conexão
+    std::this_thread::sleep_for(std::chrono::seconds(3));
+
+    // Opcional: obtém IP via DHCP (1 tentativa)
+    std::string dhcpCmd = "sudo dhclient -1 " + iface;
+    std::system(dhcpCmd.c_str());
+
+    // Encerra wpa_supplicant (se quiser liberar RAM)
+    // std::string killCmd = "sudo pkill -f 'wpa_supplicant -i" + iface + "'";
+    // std::system(killCmd.c_str());
+
+    return true;
+}
+// #include <wpa_ctrl.h>
+// #include <cstdio>
+// #include <cstring>
+
+// bool connectToWiFi(const char* iface, const char* ssid, const char* psk) {
+//     struct wpa_ctrl* ctrl;
+//     char cmd[256], reply[1024];
+//     size_t reply_len;
+
+//     // Conecta ao wpa_supplicant (socket UNIX)
+//     ctrl = wpa_ctrl_open(iface);
+//     if (!ctrl) {
+//         perror("Failed to connect to wpa_supplicant");
+//         return false;
+//     }
+
+//     // Adiciona uma nova rede
+//     snprintf(cmd, sizeof(cmd), "ADD_NETWORK");
+//     if (wpa_ctrl_request(ctrl, cmd, strlen(cmd), reply, &reply_len, NULL) < 0) {
+//         wpa_ctrl_close(ctrl);
+//         return false;
+//     }
+//     int net_id = atoi(reply);
+
+//     // Configura SSID
+//     snprintf(cmd, sizeof(cmd), "SET_NETWORK %d ssid \"%s\"", net_id, ssid);
+//     if (wpa_ctrl_request(ctrl, cmd, strlen(cmd), reply, &reply_len, NULL) < 0) {
+//         wpa_ctrl_close(ctrl);
+//         return false;
+//     }
+
+//     // Configura PSK
+//     snprintf(cmd, sizeof(cmd), "SET_NETWORK %d psk \"%s\"", net_id, psk);
+//     if (wpa_ctrl_request(ctrl, cmd, strlen(cmd), reply, &reply_len, NULL) < 0) {
+//         wpa_ctrl_close(ctrl);
+//         return false;
+//     }
+
+//     // Habilita a rede
+//     snprintf(cmd, sizeof(cmd), "ENABLE_NETWORK %d", net_id);
+//     if (wpa_ctrl_request(ctrl, cmd, strlen(cmd), reply, &reply_len, NULL) < 0) {
+//         wpa_ctrl_close(ctrl);
+//         return false;
+//     }
+
+//     // Salva a configuração
+//     wpa_ctrl_request(ctrl, "SAVE_CONFIG", 11, reply, &reply_len, NULL);
+
+//     wpa_ctrl_close(ctrl);
+//     return true;
+// }
 // Função principal com fluxo otimizado
 int main() {
+
+	// disableWiFi();
+	// sleep(4);
+	// std::system("sudo wpa_supplicant -u -s -O DIR=/run/wpa_supplicant GROUP=netdev &"); 
     std::cout << "🚀 Iniciando scanner Wi-Fi...\n";
     
     // Descobre interface
-    std::string iface = find_wifi_interface();
+    iface = find_wifi_interface();
     if (iface.empty()) {
         std::cerr << "❌ Nenhuma interface Wi-Fi encontrada\n";
         return 1;
     }
+	// trim(iface);
     std::cout << "🧭 Interface: " << iface << "\n";
     
     // Verifica estado da interface
@@ -563,7 +838,7 @@ int main() {
         std::cout << "   - Permissões (execute como root)\n";
         std::cout << "   - Estado da interface (ifconfig " << iface << ")\n";
         std::cout << "   - Driver Wi-Fi (lsmod | grep iwl)\n";
-        return 1;
+        // return 1;
     }
     
     // Remove duplicatas e ordena por sinal
@@ -598,7 +873,41 @@ int main() {
         std::cout << "\n";
     }
     
-	startMonitor();
+
+
+std::string ssid = "Vodafone-6CDAF1";
+std::string pass = "passsw";
+std::string psk = generate_psk(ssid, pass);
+connectWithWpaSupplicant(iface,ssid,psk);
+// connectWiFi(iface,ssid,psk);
+startMonitor();
+return 0;
+sleep(10);
+
+
+if(0){	WiFiConnector connector;
+std::string ssid = "Vodafone-6CDAF1";
+std::string pass = "passsw";
+std::string psk = generate_psk(ssid, pass);
+std::cout<<"psk "<<psk<<std::endl;
+if (connector.connect(iface, ssid, psk)) {
+    std::cout << "Conectando a " << ssid << "...\n";
+} else {
+    std::cerr << "Falha ao iniciar conexão\n";
+}
+	sleep(20);
+	// startMonitor();
+}
 
     return 0;
 }
+
+// sudo iw dev wlp2s0 connect SSID key 0:PSK
+// sudo iw dev wlp2s0 connect Vodafone-6CDAF1 key 0:70e35f11f344aa4adbb7eb050d9686fd374496e0977fa61f9c4736b290c0b780
+
+
+// sudo dhclient -1 -nw -cf <(echo 'supersede domain-name-servers 8.8.8.8;')
+
+// dhclient -1 wlp2s0
+
+

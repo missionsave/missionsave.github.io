@@ -931,6 +931,7 @@ struct pashape : public AIS_Shape {
 
 Standard_Integer currentMode = AIS_WireFrame;
 void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
+	perf1();
     for (std::size_t i = 0; i < vaShape.size(); ++i) {
         Handle(AIS_Shape) aShape = vaShape[i];
         if (aShape.IsNull()) continue;
@@ -965,6 +966,8 @@ void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 
         m_context->Redisplay(aShape, 0);
     }
+	
+	perf1("toggle_shaded_transp");
 	if(hlr_on==1){
 		projectAndDisplayWithHLR(vshapes);
 	}else{
@@ -979,11 +982,13 @@ void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 
 
 void draw_objs(){
+	perf1("");
 	for(int i=0;i<vshapes.size();i++){
         Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
         vaShape.push_back(aShape);
 		m_context->Display(aShape, 0);
 	}
+	perf1("draw_objs");
 	toggle_shaded_transp(currentMode);
 
 } 
