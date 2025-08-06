@@ -337,6 +337,7 @@ Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
     void draw() override { 
         if (!m_initialized) return;	 
         m_view->Update();
+		m_view->Redraw(); //new 
     }
 
     void resize(int X, int Y, int W, int H) override {
@@ -2738,7 +2739,7 @@ int main(int argc, char** argv) {
 	// win->position(Fl::w()/2-win->w()/2,10); 
 	win->position(0,0);  
     win->show(argc, argv); 
-	// win->flush(); 
+	win->flush(); 
     // win->maximize();
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
