@@ -173,6 +173,11 @@
 #include <Graphic3d_Camera.hxx>
 #include <HLRBRep_PolyHLRToShape.hxx>
 #include <AIS_Shape.hxx>
+#include <Standard_Transient.hxx>
+#include <SelectMgr_EntityOwner.hxx>
+#include <SelectMgr_SelectableObject.hxx>
+#include <AIS_InteractiveObject.hxx>
+
 #include <chrono>
 #include <execution> // Para C++17 paralelismo
 
@@ -198,7 +203,7 @@ void open_cb() {
 }
 
 struct OCC_Viewer;
-struct  OCC_Viewer : public Fl_Window {
+struct  OCC_Viewer : public Fl_Double_Window {
 // public:
 #pragma region initialization
     Handle(Aspect_DisplayConnection) m_display_connection;
@@ -217,7 +222,7 @@ struct  OCC_Viewer : public Fl_Window {
  
 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
-        : Fl_Window(X, Y, W, H, L) { 
+        : Fl_Double_Window(X, Y, W, H, L) { 
 			// nested;
 			
 		Fl::add_timeout(10, idle_refresh_cb,0);
@@ -266,6 +271,8 @@ struct  OCC_Viewer : public Fl_Window {
     // m_context->SetSelectionSensitivity(0.05);
 
 
+		SetupHighlightLineType(m_context);
+		// SetupDashedHighlight(m_context);
 
 
         aCtx = m_graphic_driver->GetSharedContext();
@@ -320,8 +327,7 @@ struct  OCC_Viewer : public Fl_Window {
         Fl_Window::resize(X, Y, W, H);
         if (m_initialized) {
             m_view->MustBeResized();
-            setbar5per();
-            m_view->Redraw(); 
+            setbar5per(); 
         }
     }
  
@@ -386,13 +392,77 @@ void setbar5per() {
 }
 
 
+
+/// Configure dashed highlight lines without conversion errors
+void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
+{
+    // 1. Create a drawer for highlights
+    Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
+    // customDrawer->SetDisplayMode(1);  // wireframe only
+
+    // // 2. Build the raw Graphic3d aspect
+    // Handle(Graphic3d_AspectLine3d) rawAspect =
+    //     new Graphic3d_AspectLine3d(Quantity_NOC_RED,
+    //                                Aspect_TOL_DASH,
+    //                                5.0);
+
+    // // 3. Wrap it in a Prs3d_LineAspect
+    // Handle(Prs3d_LineAspect) lineAspect =
+    //     new Prs3d_LineAspect(rawAspect);
+
+    // // 4. Apply color, transparency, and the wrapped aspect
+    // customDrawer->SetColor(Quantity_NOC_RED);
+    // customDrawer->SetTransparency(0.3f);
+    // customDrawer->SetLineAspect(lineAspect);
+	// // customDrawer->Setwi
+
+
+
+            // customDrawer->SetLineAspect(lineAspect);
+            // customDrawer->SetSeenLineAspect(lineAspect);
+            // customDrawer->SetWireAspect(lineAspect);
+            // customDrawer->SetUnFreeBoundaryAspect(lineAspect);
+            // customDrawer->SetFreeBoundaryAspect(lineAspect);
+            // customDrawer->SetFaceBoundaryAspect(lineAspect);
+
+            customDrawer->SetLineAspect(highlightaspect);
+            customDrawer->SetSeenLineAspect(highlightaspect);
+            customDrawer->SetWireAspect(highlightaspect);
+            customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
+            customDrawer->SetFreeBoundaryAspect(highlightaspect);
+            customDrawer->SetFaceBoundaryAspect(highlightaspect);
+
+    customDrawer->SetColor(Quantity_NOC_RED);
+    customDrawer->SetTransparency(0.3f);
+
+
+
+
+    // 5. Assign to all highlight modes
+    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic,  customDrawer);
+    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, customDrawer);
+    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,       customDrawer);
+    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected,      customDrawer);
+}
+
+
 #pragma endregion initialization
 	
 
 #pragma region lua
 	struct luadraw;
-	vector<luadraw> vluadraw;
+	// vector<luadraw*> vlua;
+	unordered_map<string,luadraw*> ulua;
+	template <typename T>
+	struct ManagedPtrWrapper : public Standard_Transient {
+		T* ptr;
+		ManagedPtrWrapper(T* p) : ptr(p) {}
+		~ManagedPtrWrapper() { delete ptr; } // free automatically
+	};
 	struct luadraw{
+		string name="";
+		bool protectedshape=0;
+
 		string command="";
 		TopoDS_Shape shape; 
 		Handle(AIS_Shape) ashape; 
@@ -402,10 +472,29 @@ void setbar5per() {
 		gp_Dir xdir =  gp_Dir(1, 0, 0);
 		gp_Trsf trsf;
 		gp_Trsf trsftmp; 
-		luadraw(){
+		OCC_Viewer* occv;
+		luadraw(string _name,OCC_Viewer* p=0): occv(p) {
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
 			trsf.Invert();
+			name=_name;
+			ashape = new AIS_Shape(shape);
+
+			// allocate something for the application and hand ownership to the wrapper 
+			Handle(ManagedPtrWrapper<luadraw>) wrapper = new ManagedPtrWrapper<luadraw>(this);
+
+			// store the wrapper in the AIS object via SetOwner()
+			ashape->SetOwner(wrapper);
+
+			// ashape->SetUserData(new ManagedPtrWrapper<luadraw>(this));
+        	occv->vaShape.push_back(ashape);
+			occv->m_context->Display(ashape, 0);
+			occv->vaShape.push_back(ashape);
+			occv->ulua[name]=this;
+		}
+		void redisplay(){
+			ashape->Set(shape); 
+			occv->m_context->Redisplay(ashape, 0);
 		}
 		void rotate(int angle,gp_Dir normal={0,0,1}){
 			trsftmp = gp_Trsf();
@@ -418,6 +507,26 @@ void setbar5per() {
 			trsftmp.SetTranslation(gp_Vec(x, y, z));
 			trsf  *= trsftmp; 
 		}
+		void fuse(luadraw &tofuse1,luadraw &tofuse2 ){
+			Handle(AIS_Shape) af1=tofuse1.ashape;
+			Handle(AIS_Shape) af2=tofuse2.ashape;
+			TopoDS_Shape ts1=tofuse1.shape;
+			TopoDS_Shape ts2=tofuse2.shape; 
+
+			BRepAlgoAPI_Fuse fuse(ts1, ts2);
+			fuse.Build();
+			if (!fuse.IsDone()) {
+				// handle error
+			}
+			TopoDS_Shape fusedShape = fuse.Shape();
+
+			// Refine the result
+			ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true); // merge faces, edges, vertices
+			unify.Build();
+			this->shape = unify.Shape();
+		}
+		
+		
 		void dofromstart(){
 			gp_Pnt p1(0, 0,0);
 			gp_Pnt p2(100, 0,0);
@@ -436,7 +545,7 @@ void setbar5per() {
 			wireBuilder.Add(e1);
 			wireBuilder.Add(e2);
 			wireBuilder.Add(e3);
-			// wireBuilder.Add(e4);
+			wireBuilder.Add(e4);
 			TopoDS_Wire wire = wireBuilder.Wire();
 
 			face = BRepBuilderAPI_MakeFace(wire);
@@ -622,58 +731,40 @@ void getvertex() {
     m_context->UpdateCurrentViewer();
 }
 
+ 
+// retorna ponteiro luadraw* (ou nullptr)
+luadraw* lua_detected(Handle(SelectMgr_EntityOwner) entOwner)
+{
+    // if (!entOwner.IsNull()) {
+    //     // 1) tenta obter o Selectable associado ao entOwner
+    //     if (entOwner->HasSelectable()) {
+    //         Handle(SelectMgr_SelectableObject) selObj = entOwner->Selectable();
+    //         // SelectableObject é a base de AIS_InteractiveObject, faz downcast
+    //         Handle(AIS_InteractiveObject) ao = Handle(AIS_InteractiveObject)::DownCast(selObj);
+    //         if (!ao.IsNull() && ao->HasOwner()) {
+    //             Handle(Standard_Transient) owner = ao->GetOwner();
+    //             Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+    //             if (!w.IsNull()) return w->ptr; // devolve o ponteiro armazenado
+    //         }
+    //     }
+    // }
 
-int handle(int event) override { 
-    static int start_y;
-    const int edge_zone = this->w() * 0.05; // 5% right edge zone
-
-// #include <SelectMgr_EntityOwner.hxx>
-// #include <StdSelect_BRepOwner.hxx>
-// #include <TopAbs_ShapeEnum.hxx> // Ensure this is included for TopAbs_VERTEX etc.
-
-// ... (your existing OCCViewerWindow class methods) ...
-
-// In your initializeOCC() method:
-// Ensure SetSelectionSensitivity is set appropriately for small vertices.
-// For a sphere of radius 10, 0.02 or 0.05 is a good starting point.
-// m_context->SetSelectionSensitivity(0.02);
+    // Alternativa: tenta obter directamente o interactive object detectado pelo contexto
+    if (!m_context.IsNull()) {
+        Handle(AIS_InteractiveObject) detected = m_context->DetectedInteractive();
+        if (!detected.IsNull() && detected->HasOwner()) {
+            Handle(Standard_Transient) owner = detected->GetOwner();
+            Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+            if (!w.IsNull()) return w->ptr;
+        }
+    }
+    return nullptr;
+}
 
 
-// In your createSampleShape() method:
-// Remove any AIS_InteractiveContext::SetMode() calls here, as we will control it directly in FL_MOVE
-// The default selection behavior on the AIS_Shape itself is sufficient for this approach.
 
-
-// In your handle(int event) method:
-if (event == FL_MOVE) {
-    int x = Fl::event_x();
-    int y = Fl::event_y();
-	mousex=x;
-	mousey=y;
-	// getvertex();
-	// return 1;
+void ev_highlight(){
 	
-// {// 1) guarda mousex/mousey (já fazes isso)
-// gp_Pnt screenHLR = screenPointFromMouse(mousex, mousey);
-
-// // 2) converte para 3D
-// gp_Pnt worldApprox = convertHLRToWorld(screenHLR);
-
-// // 3) (opcional) vertex exato mais próximo
-// gp_Pnt trueVertex = getAccurateVertexPosition(screenHLR);
-
-// // Imprime para debug
-// printf("Mouse → HLR2D: (%.3f,%.3f)\n", screenHLR.X(), screenHLR.Y());
-// printf("Approx world 3D: (%.3f,%.3f,%.3f)\n",
-//        worldApprox.X(), worldApprox.Y(), worldApprox.Z());
-// printf("Best match vertex: (%.3f,%.3f,%.3f)\n",
-//        trueVertex.X(), trueVertex.Y(), trueVertex.Z());}
-
-
-
-
-
-
     // Start with a clean slate for the custom highlight
     clearHighlight();
 
@@ -684,20 +775,30 @@ if (event == FL_MOVE) {
     //     m_context->Deactivate(mode);
     // }
     // You might also need: m_context->Deactivate(0); // If 0 means "all" or a special mode.
-
+	
     // 2. Activate ONLY vertex selection mode for this specific picking operation.
     // This uses the AIS_Shape::SelectionMode utility, which correctly returns 0 for TopAbs_VERTEX.
+    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
-
-
+    if(!hlr_on){
+		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
+	}else{
+		m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+	}
     // 3. Perform the picking operations
-    m_context->MoveTo(x, y, m_view, Standard_False);
+    m_context->MoveTo(mousex, mousey, m_view, Standard_False);
 
-
-    m_context->SelectDetected(AIS_SelectionScheme_Replace);
+	m_context->SelectDetected(AIS_SelectionScheme_Replace);
 
     // 4. Get the detected owner
     Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
+
+	if (!anOwner.IsNull()  ){
+	luadraw* ldd=lua_detected(anOwner);
+	if(ldd){
+	cotm(ldd->name);
+	}
+	}
 
     // 5. Deactivate vertex mode immediately after picking
     // This is crucial if you only want vertex picking *during* hover,
@@ -748,6 +849,58 @@ if (event == FL_MOVE) {
     }
 
     m_context->UpdateCurrentViewer(); // Update the viewer to show/hide highlight
+}
+int handle(int event) override { 
+    static int start_y;
+    const int edge_zone = this->w() * 0.05; // 5% right edge zone
+
+// #include <SelectMgr_EntityOwner.hxx>
+// #include <StdSelect_BRepOwner.hxx>
+// #include <TopAbs_ShapeEnum.hxx> // Ensure this is included for TopAbs_VERTEX etc.
+
+// ... (your existing OCCViewerWindow class methods) ...
+
+// In your initializeOCC() method:
+// Ensure SetSelectionSensitivity is set appropriately for small vertices.
+// For a sphere of radius 10, 0.02 or 0.05 is a good starting point.
+// m_context->SetSelectionSensitivity(0.02);
+
+
+// In your createSampleShape() method:
+// Remove any AIS_InteractiveContext::SetMode() calls here, as we will control it directly in FL_MOVE
+// The default selection behavior on the AIS_Shape itself is sufficient for this approach.
+
+
+// In your handle(int event) method:
+if (event == FL_MOVE) {
+    int x = Fl::event_x();
+    int y = Fl::event_y();
+	mousex=x;
+	mousey=y;
+	// getvertex();
+	// return 1;
+	
+// {// 1) guarda mousex/mousey (já fazes isso)
+// gp_Pnt screenHLR = screenPointFromMouse(mousex, mousey);
+
+// // 2) converte para 3D
+// gp_Pnt worldApprox = convertHLRToWorld(screenHLR);
+
+// // 3) (opcional) vertex exato mais próximo
+// gp_Pnt trueVertex = getAccurateVertexPosition(screenHLR);
+
+// // Imprime para debug
+// printf("Mouse → HLR2D: (%.3f,%.3f)\n", screenHLR.X(), screenHLR.Y());
+// printf("Approx world 3D: (%.3f,%.3f,%.3f)\n",
+//        worldApprox.X(), worldApprox.Y(), worldApprox.Z());
+// printf("Best match vertex: (%.3f,%.3f,%.3f)\n",
+//        trueVertex.X(), trueVertex.Y(), trueVertex.Z());}
+
+
+	ev_highlight();
+
+
+
     return 1;
 }
 
@@ -817,7 +970,8 @@ if (event == FL_MOVE) {
                 funcfps(12,
 					perf();
 					m_view->Rotation(Fl::event_x(),Fl::event_y());
-                	projectAndDisplayWithHLR(vshapes,1);
+                	projectAndDisplayWithHLR(vaShape,1);
+                	// projectAndDisplayWithHLR(vshapes,1);
                  	redraw(); //  redraw(); // m_view->Update ();
 					perf("vnormalr");
 
@@ -890,6 +1044,7 @@ bool isPanning = false;
 
 Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect( Quantity_NOC_BLUE,  Aspect_TOL_DASH, 0.5 );	  
 Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
 
 struct pashape : public AIS_Shape {
   // expõe o drawer protegido da AIS_Shape
@@ -929,56 +1084,6 @@ struct pashape : public AIS_Shape {
   }
 };
 
-Standard_Integer currentMode = AIS_WireFrame;
-void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
-	perf1();
-    for (std::size_t i = 0; i < vaShape.size(); ++i) {
-        Handle(AIS_Shape) aShape = vaShape[i];
-        if (aShape.IsNull()) continue;
-
-        if (fromcurrentMode == AIS_Shaded) {			
-			hlr_on=1;
-            // Mudar para modo wireframe
-            // aShape->UnsetColor();
-            aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
-            m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
-
-
-            aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
-            aShape->Attributes()->SetLineAspect(wireAsp);
-            aShape->Attributes()->SetSeenLineAspect(wireAsp);
-            aShape->Attributes()->SetWireAspect(wireAsp);
-            aShape->Attributes()->SetUnFreeBoundaryAspect(wireAsp);
-            aShape->Attributes()->SetFreeBoundaryAspect(wireAsp);
-            aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
-        } else {
-			hlr_on=0;
-            // Mudar para modo sombreado
-			 aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
-
-            m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
-
-            aShape->SetColor(Quantity_NOC_GRAY70);
-            aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);
-            aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
-            // aShape->Attributes()->SetSeenLineAspect(edgeAspect); // opcional
-        }
-
-        m_context->Redisplay(aShape, 0);
-    }
-	
-	perf1("toggle_shaded_transp");
-	if(hlr_on==1){
-		projectAndDisplayWithHLR(vshapes);
-	}else{
-		if(visible_){
-			m_context->Remove(visible_,0);
-			visible_.Nullify();
-		}
-	}
-	currentMode=fromcurrentMode;
-	redraw();
-}
 
 
 void draw_objs(){
@@ -1072,28 +1177,64 @@ da->LineAspect( Prs3d_DatumParts_ZArrow )->SetColor( Quantity_NOC_BLUE  );
 
 
 #pragma region projection
-
-#include <HLRAlgo_Projector.hxx>
-#include <gp_Trsf.hxx>
-#include <gp_Pnt.hxx>
  
-HLRAlgo_Projector projector;
-
-#include <TopExp.hxx>
-#include <BRep_Tool.hxx>
-#include <BRepAdaptor_Curve.hxx>
  
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <HLRBRep_PolyAlgo.hxx>
-#include <HLRBRep_PolyHLRToShape.hxx>
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <HLRBRep_PolyAlgo.hxx>
-#include <HLRBRep_PolyHLRToShape.hxx>
-#include <BRepTools.hxx>
+HLRAlgo_Projector projector; 
 
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <HLRBRep_PolyAlgo.hxx>
-#include <HLRBRep_PolyHLRToShape.hxx>
+
+Standard_Integer currentMode = AIS_WireFrame;
+void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
+	perf1();
+    for (std::size_t i = 0; i < vaShape.size(); ++i) {
+        Handle(AIS_Shape) aShape = vaShape[i];
+        if (aShape.IsNull()) continue;
+
+        if (fromcurrentMode == AIS_Shaded) {			
+			hlr_on=1;
+            // Mudar para modo wireframe
+            // aShape->UnsetColor();
+            aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
+            m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
+
+
+            aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
+            aShape->Attributes()->SetLineAspect(wireAsp);
+            aShape->Attributes()->SetSeenLineAspect(wireAsp);
+            aShape->Attributes()->SetWireAspect(wireAsp);
+            aShape->Attributes()->SetUnFreeBoundaryAspect(wireAsp);
+            aShape->Attributes()->SetFreeBoundaryAspect(wireAsp);
+            aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
+        } else {
+			hlr_on=0;
+            // Mudar para modo sombreado
+			 aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
+
+            m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+
+            aShape->SetColor(Quantity_NOC_GRAY70);
+            aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);
+            aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+            // aShape->Attributes()->SetSeenLineAspect(edgeAspect); // opcional
+        }
+
+        m_context->Redisplay(aShape, 0);
+    }
+	
+	perf1("toggle_shaded_transp");
+	if(hlr_on==1){
+		projectAndDisplayWithHLR(vaShape);
+		// projectAndDisplayWithHLR(vshapes);
+	}else{
+		if(visible_){
+			m_context->Remove(visible_,0);
+			visible_.Nullify();
+		}
+	}
+	currentMode=fromcurrentMode;
+	redraw();
+}
+
+
 
 TopoDS_Shape vEdges;
 TopoDS_Shape hEdges;
@@ -1114,6 +1255,124 @@ Handle(HLRBRep_PolyAlgo) hlrAlgo;
 // #ifndef HAVE_TBB
 // #define ENABLE_PARALLEL  // Ative se souber que sua build do OpenCascade é thread-safe
 // #endif
+
+void projectAndDisplayWithHLR( const std::vector<Handle(AIS_Shape)>& vaShape,  bool isDragonly = false){
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull())
+        return;
+
+    perf1();
+
+    // 1. Prepare camera transform
+    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    gp_Dir viewDir   = -camera->Direction();
+    gp_Dir viewUp    = camera->Up();
+    gp_Dir viewRight = viewUp.Crossed(viewDir);
+    gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight);
+
+    gp_Trsf viewTrsf; 
+    viewTrsf.SetTransformation(viewAxes);
+    gp_Trsf invTrsf = viewTrsf.Inverted();
+
+    // 2. Create HLR projector
+    projector = HLRAlgo_Projector(
+        viewTrsf,
+        !camera->IsOrthographic(),
+        camera->Scale()
+    );
+
+    // 3. Meshing (only if not already meshed)
+    Standard_Real deflection = 0.001;
+
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, vaShape.begin(), vaShape.end(),
+        [&](const Handle(AIS_Shape)& ash)
+        {
+            if (ash.IsNull()) return;
+            TopoDS_Shape s = ash->Shape();
+            bool needsMesh = false;
+            for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+                TopLoc_Location loc;
+                const TopoDS_Face& face = TopoDS::Face(exp.Current());
+                if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+                    needsMesh = true;
+                    break;
+                }
+            }
+            if (needsMesh) {
+                BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+            }
+        }
+    );
+#else
+    for (const auto& ash : vaShape) {
+        if (ash.IsNull()) continue;
+        TopoDS_Shape s = ash->Shape();
+        bool needsMesh = false;
+        for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+            TopLoc_Location loc;
+            const TopoDS_Face& face = TopoDS::Face(exp.Current());
+            if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+                needsMesh = true;
+                break;
+            }
+        }
+        if (needsMesh) {
+            BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+        }
+    }
+#endif
+
+    // 4. HLR projection
+    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, vaShape.begin(), vaShape.end(),
+        [&](const Handle(AIS_Shape)& ash)
+        {
+            if (ash.IsNull()) return;
+            algo->Load(ash->Shape());
+        }
+    );
+#else
+    for (const auto& ash : vaShape) {
+        if (!ash.IsNull()) {
+            algo->Load(ash->Shape());
+        }
+    }
+#endif
+
+    algo->Projector(projector);
+    algo->Update();
+
+    // 5. Convert to visible shape
+    HLRBRep_PolyHLRToShape hlrToShape;
+    hlrToShape.Update(algo);
+    TopoDS_Shape vEdges   = hlrToShape.VCompound();
+    BRepBuilderAPI_Transform visT(vEdges, invTrsf);
+    TopoDS_Shape result   = visT.Shape();
+
+    // 6. Display or update AIS_Shape
+    if (!visible_.IsNull()) {
+        if (!visible_->Shape().IsEqual(result)) {
+            visible_->SetShape(result);
+            visible_->SetColor(Quantity_NOC_BLACK);
+            visible_->SetWidth(3);
+            visible_->SetInfiniteState(true);
+            m_context->Redisplay(visible_, false);
+        }
+    } else {
+        visible_ = new AIS_Shape(result);
+        visible_->SetColor(Quantity_NOC_BLACK);
+        visible_->SetWidth(3);
+        visible_->SetInfiniteState(true);
+        m_context->Display(visible_, false);
+    }
+
+    perf1("elapsed hlra");
+}
+
+
+
+
 
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
@@ -1201,7 +1460,7 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
         visible_->SetInfiniteState(true); // opcional
         m_context->Display(visible_, false);
     }
-	perf1("elapsed hlr");
+	perf1("elapsed hlr1");
 }
 
 
@@ -1268,12 +1527,17 @@ void projectAndDisplayWithHLRold(const std::vector<TopoDS_Shape>& shapes, bool i
 	void test2(){
 		
 		//test
-		luadraw test;
-		// test.translate(10);
+		luadraw* test=new luadraw("consegui",this);
+		test->translate(10);
 		// test.translate(0,10);
 		// test.rotate(90);
-		test.dofromstart();
-		vshapes.push_back(test.shape);
+		test->dofromstart();
+		test->redisplay();
+		// vshapes.push_back(test.shape);
+// m_context->UpdateCurrentViewer();
+
+toggle_shaded_transp(currentMode);
+
 	}
 
     void test(int rot=45){
@@ -1312,7 +1576,8 @@ TopoDS_Shape refinedShape = unify.Shape();
     gp_Pnt origin=gp_Pnt(0, 0, 100);
     gp_Dir normal=gp_Dir(0,0,1);
 gp_Dir xdir =   gp_Dir(0, 1, 0);
-gp_Dir ydir =   gp_Dir(0.866025, -0.5, 0);
+gp_Dir ydir =   gp_Dir(0.1, -0.5, 0);
+// gp_Dir ydir =   gp_Dir(0.866025, -0.5, 0);
 // gp_Ax2 ax3(origin, normal);
 gp_Ax2 ax3(origin, normal, xdir);
 // ax3.SetYDirection(ydir);
@@ -1920,7 +2185,7 @@ int main(int argc, char** argv) {
     Fl::lock();    
     int w=1024;
 	int h=576;
-    Fl_Window* win = new Fl_Window(0,0,w, h, "FLTK with OpenCASCADE");
+    Fl_Double_Window* win = new Fl_Double_Window(0,0,w, h, "FLTK with OpenCASCADE");
     win->color(FL_RED);
     win->callback([](Fl_Widget *widget, void* ){		
 		if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape) 
@@ -1942,7 +2207,7 @@ int main(int argc, char** argv) {
 
     
     occv->drawbuttons(woccbtn->w(),hc1);
-
+	content1->end();
     woccbtn->resizable(content1);
     
 	win->clear_visible_focus(); 	 
@@ -1957,10 +2222,10 @@ int main(int argc, char** argv) {
 	// win->resize(x, y+22, _w, _h-22);
 
     occv->initialize_opencascade();
-    // occv->test2();
-    occv->test();
+    occv->test2();
+    // occv->test();
     {
-occv->draw_objs();
+// occv->draw_objs();
 occv->m_view->FitAll();
 // occv->redraw();
 // occv->m_view->Update();

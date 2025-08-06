@@ -100,6 +100,219 @@ dupv() {
   fi
 }
 
+upload_v2(){
+	source "$HOME/.lftp_sftp_login"
+	lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST"
+	set ftp:ssl-force true
+	set ssl:verify-certificate no
+	mirror --reverse --only-newer "/home/super/msv/site" "/htdocs/test"
+}
+
+upload() {
+  echo "📂 Loading credentials from .lftp_sftp_login..."
+  source "$HOME/.lftp_sftp_login"
+
+  echo "🔗 Connecting to $FTP_HOST with user $FTP_USER..."
+  lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<EOF
+  echo "🔒 Enforcing SSL and skipping certificate verification..."
+  set ftp:ssl-force true
+  set ssl:verify-certificate no
+
+  echo "⏫ Starting upload: syncing /home/super/msv/site to /htdocs/test..."
+  mirror --reverse --only-newer --verbose "/home/super/msv/site" "/htdocs/test"
+  echo "✅ Upload complete."
+
+  quit
+EOF
+}
+
+
+
+
+upload_v1() {
+    # Load credentials
+    source ~/.lftp_sftp_login
+
+    # Ensure required variables are set
+    : "${FTP_USER:?}" "${FTP_PASS:?}" "${FTP_HOST:?}"
+echo "1"
+    # Local and remote directories
+    LOCAL_DIR="/home/super/msv/site"
+    REMOTE_DIR="/htdocs/test"
+
+    # Log file (user-writable)
+    LOG_FILE="$HOME/sftp_upload.log"
+
+    # Temporary file to capture lftp output
+    TMP_LOG=$(mktemp)
+echo "2"
+    # Run lftp with mirror
+    lftp -u "$SFTP_USER","$SFTP_PASS" ftp://"$FTP_HOST" <<EOF >"$TMP_LOG" 2>&1
+set ftp:ssl-force true
+set ssl:verify-certificate no
+mirror --reverse --only-newer "$LOCAL_DIR" "$REMOTE_DIR"
+bye
+EOF
+
+echo "3"
+
+    # Check if anything was uploaded
+    if grep -q '^Transferring file' "$TMP_LOG"; then
+        echo "[`date '+%Y-%m-%d %H:%M:%S'`] Files uploaded:" >> "$LOG_FILE"
+        grep '^Transferring file' "$TMP_LOG" >> "$LOG_FILE"
+        echo >> "$LOG_FILE"
+    fi
+
+    # Cleanup
+    rm -f "$TMP_LOG"
+}
+upload_debug() {
+    # Load credentials file (use variables SFTP_USER, SFTP_PASS, SFTP_HOST)
+    if [ -f "$HOME/.lftp_sftp_login" ]; then
+        # example file should export SFTP_USER, SFTP_PASS, SFTP_HOST
+        # or define them as: SFTP_USER=... SFTP_PASS=... SFTP_HOST=...
+        # safer: source into subshell to avoid polluting environment if you prefer
+        source "$HOME/.lftp_sftp_login"
+    else
+        echo "Credentials file $HOME/.lftp_sftp_login not found" >&2
+        return 2
+    fi
+
+    # sanity checks
+    : "${SFTP_USER:?SFTP_USER not set in ~/.lftp_sftp_login}"
+    : "${SFTP_PASS:?SFTP_PASS not set in ~/.lftp_sftp_login}"
+    : "${SFTP_HOST:?SFTP_HOST not set in ~/.lftp_sftp_login}"
+
+    LOCAL_DIR="/home/super/msv/site"
+    REMOTE_DIR="/htdocs/test"
+    LOG_FILE="$HOME/sftp_upload.log"
+    TMP_LOG=$(mktemp)
+
+    # overall timeout in seconds for the whole lftp invocation
+    LFTP_TIMEOUT=30
+
+    echo "Starting lftp (timeout ${LFTP_TIMEOUT}s)..."
+
+    # run lftp under timeout to guarantee the function returns
+    # redirect stdout+stderr to TMP_LOG for inspection
+    timeout "${LFTP_TIMEOUT}" \
+    lftp -u "${SFTP_USER}","${SFTP_PASS}" ftps://"${SFTP_HOST}" <<'LFTPCMD' >"$TMP_LOG" 2>&1
+# lftp commands below (runs on remote side once connected)
+# debug level (lots of output — set lower if too verbose)
+set debug 3
+
+# make lftp fail quickly on command error instead of interactively waiting
+set cmd:fail-exit yes
+
+# connection timeouts and retries for the network handshake
+set net:timeout 7
+set net:max-retries 1
+
+# automatically accept new host keys (only if you trust the host)
+# set sftp:auto-confirm yes
+set ftp:ssl-allow yes
+set ssl:verify-certificate no
+
+# the actual sync operation (upload only newer)
+mirror --reverse --only-newer "/home/super/msv/site" "/htdocs/test"
+
+bye
+LFTPCMD
+
+    rc=$?
+    echo "lftp finished with exit code: $rc"
+
+    # If timeout's outer command killed it, timeout returns 124 (or 137 if killed by SIGKILL)
+    if [ $rc -eq 124 ] || [ $rc -eq 137 ]; then
+        echo "ERROR: lftp timed out (exit code $rc). See $TMP_LOG for details." >&2
+        sed -n '1,200p' "$TMP_LOG"
+        rm -f "$TMP_LOG"
+        return $rc
+    fi
+
+    # print debug output to terminal (first N lines) so you can see handshake info quickly
+    echo "=== lftp debug output (head) ==="
+    sed -n '1,200p' "$TMP_LOG"
+    echo "=== end head ==="
+
+    # If anything was uploaded, append to user log
+    if grep -q '^Transferring file' "$TMP_LOG"; then
+        printf '[%s] Files uploaded:\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+        grep '^Transferring file' "$TMP_LOG" >> "$LOG_FILE"
+        printf '\n' >> "$LOG_FILE"
+        echo "Files were uploaded — see $LOG_FILE"
+    else
+        echo "No files uploaded."
+    fi
+
+    # cleanup
+    rm -f "$TMP_LOG"
+    return 0
+}
+upload_debug_ftps() {
+    # Load credentials (expects FTP_USER, FTP_PASS, FTP_HOST)
+    if [ -f "$HOME/.lftp_sftp_login" ]; then
+        source "$HOME/.lftp_sftp_login"
+    else
+        echo "Credentials file $HOME/.lftp_sftp_login not found" >&2
+        return 2
+    fi
+
+    : "${FTP_USER:?FTP_USER not set in ~/.lftp_sftp_login}"
+    : "${FTP_PASS:?FTP_PASS not set in ~/.lftp_sftp_login}"
+    : "${FTP_HOST:?FTP_HOST not set in ~/.lftp_sftp_login}"
+
+    LOCAL_DIR="/home/super/msv/site"
+    REMOTE_DIR="/htdocs/test"
+    LOG_FILE="$HOME/sftp_upload.log"
+    TMP_LOG=$(mktemp)
+    LFTP_TIMEOUT=40   # adjust if your connection is slow
+
+    echo "Starting FTPS upload (timeout ${LFTP_TIMEOUT}s)..."
+
+    timeout "${LFTP_TIMEOUT}" \
+    lftp -u "${FTP_USER}","${FTP_PASS}" ftp://"${FTP_HOST}" <<'LFTPCMD' >"$TMP_LOG" 2>&1
+# Use explicit FTPS: connect plain FTP then upgrade to TLS
+set ftp:ssl-force true
+set ssl:verify-certificate no
+
+# fail-fast on command errors
+
+# network timeouts/retries
+
+# Do the sync (upload only newer)
+mirror --reverse --only-newer "/home/super/msv/site" "/htdocs/test"
+
+bye
+LFTPCMD
+
+    rc=$?
+    echo "lftp finished with exit code: $rc"
+
+    if [ $rc -eq 124 ] || [ $rc -eq 137 ]; then
+        echo "ERROR: lftp timed out (exit code $rc). See $TMP_LOG for details." >&2
+        sed -n '1,200p' "$TMP_LOG"
+        rm -f "$TMP_LOG"
+        return $rc
+    fi
+
+    echo "=== lftp output (head) ==="
+    sed -n '1,200p' "$TMP_LOG"
+    echo "=== end head ==="
+
+    if grep -q '^Transferring file' "$TMP_LOG"; then
+        printf '[%s] Files uploaded:\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$LOG_FILE"
+        grep '^Transferring file' "$TMP_LOG" >> "$LOG_FILE"
+        printf '\n' >> "$LOG_FILE"
+        echo "Files were uploaded — see $LOG_FILE"
+    else
+        echo "No files uploaded."
+    fi
+
+    rm -f "$TMP_LOG"
+    return 0
+}
+
 
 # Override xclip to log clipboard changes
 function xclip() {
@@ -175,7 +388,10 @@ sshtprev() {
 
 
 mapwifi(){
-	 nmap -sL 192.168.1.* | grep \(1
+	sudo arp-scan --interface=wlp2s0 --localnet
+	#  nmap  -e wlp2s0 -sn 192.168.1.* | grep \(1
+	#  nmap  -e wlp2s0 -sL 192.168.1.* | grep \(1
+	#  nmap -sL 192.168.1.* | grep \(1
 }
 
 

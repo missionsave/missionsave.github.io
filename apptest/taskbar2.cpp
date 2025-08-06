@@ -2564,57 +2564,6 @@ int lnet() {
 
 #pragma endregion net
  
-class MixedFontWidget : public Fl_Box {
-public:
-    int emoji_font_index = -1;
-    MixedFontWidget(int X, int Y, int W, int H) : Fl_Box(X, Y, W, H) {
-
-    int num_fonts = Fl::set_fonts(0); // Initialize font list and get count
-
-		for (int i = 0; i < num_fonts; ++i) {
-			const char* font_name = Fl::get_font_name(i);
-			if (font_name) {
-				std::string name_str = font_name;
-				// Look for common emoji font names (case-insensitive where possible)
-				if (name_str.find("Noto Color Emoji") != std::string::npos ||
-				// if (name_str.find("Noto Color Emoji") != std::string::npos ||
-					name_str.find("Segoe UI Emoji") != std::string::npos ||
-					name_str.find("Apple Color Emoji") != std::string::npos) {
-					emoji_font_index = i;
-					break; // Found one, stop searching
-				}
-			}
-		}
-
-	}
-
-    void draw() override {
-        // Fundo branco
-        fl_color(FL_WHITE);
-        fl_rectf(x(), y(), w(), h());
-
-        int xpos = x() + 10;
-        int ypos = y() + h()-5;
-
-        // Texto normal
-        fl_color(FL_BLACK);
-        fl_font(FL_HELVETICA, 13);
-        fl_draw("Status:", xpos, ypos);
-
-        // Avançar a posição do texto
-        xpos += fl_width("Status: ") + 5;
-
-        // Texto emoji/símbolo (⚠ pode depender da fonte do sistema!)
-        fl_font(emoji_font_index, 13); // Se a fonte suportar os emojis
-        fl_draw("📶 WiFi OK ", xpos, ypos);
-        xpos += fl_width("📶 WiFi OK ") + 5;
-
-        // Outro símbolo
-        fl_draw("🔋 73%", xpos, ypos);
-    }
-};
-
-
 
 int main() {
 	std::cout << "FLTK Version: " << FL_VERSION << std::endl;
