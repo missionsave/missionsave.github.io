@@ -213,7 +213,8 @@ void open_cb() {
 }
 
 struct OCC_Viewer;
-struct  OCC_Viewer : public Fl_Double_Window {
+struct  OCC_Viewer : public Fl_Window {
+// struct  OCC_Viewer : public Fl_Double_Window {
 // public:
 #pragma region initialization
     Handle(Aspect_DisplayConnection) m_display_connection;
@@ -238,7 +239,8 @@ Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
  
 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
-        : Fl_Double_Window(X, Y, W, H, L) { 
+        : Fl_Window(X, Y, W, H, L) { 
+        // : Fl_Double_Window(X, Y, W, H, L) { 
 			// nested;
 			
 		Fl::add_timeout(10, idle_refresh_cb,0);
@@ -2751,7 +2753,7 @@ int main(int argc, char** argv) {
     {
 // occv->draw_objs();
 occv->m_view->FitAll();
-// occv->redraw();
+occv->redraw(); //for win
 // occv->m_view->Update();
 }
     return Fl::run();
