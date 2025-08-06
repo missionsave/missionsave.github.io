@@ -900,7 +900,8 @@ int handle(int event) override {
 // In your createSampleShape() method:
 // Remove any AIS_InteractiveContext::SetMode() calls here, as we will control it directly in FL_MOVE
 // The default selection behavior on the AIS_Shape itself is sufficient for this approach.
-
+cout<<"eis\n";
+cotm("ei",event)
 
 // In your handle(int event) method:
 if (event == FL_MOVE) {
