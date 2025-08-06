@@ -407,6 +407,7 @@ void setbar5per() {
 /// Configure dashed highlight lines without conversion errors
 void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 {
+	return;
     // 1. Create a drawer for highlights
     Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
     // customDrawer->SetDisplayMode(1);  // wireframe only
