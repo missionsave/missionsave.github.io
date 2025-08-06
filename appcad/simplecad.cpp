@@ -234,6 +234,7 @@ struct  OCC_Viewer : public Fl_Double_Window {
 	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect( Quantity_NOC_BLUE,  Aspect_TOL_DASH, 0.5 );	  
 Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
 Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
+Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
  
 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
@@ -413,7 +414,7 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 {
 	cotm(0)
     // 1. Create a drawer for highlights
-    Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
+    // Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
     // customDrawer->SetDisplayMode(1);  // wireframe only
 
     // // 2. Build the raw Graphic3d aspect
