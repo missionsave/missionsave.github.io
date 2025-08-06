@@ -192,6 +192,16 @@ using namespace std;
 
 Fl_Window* win;
 Fl_Menu_Bar* menu;
+class AIS_NonSelectableShape : public AIS_Shape {
+public:
+    AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {}
+
+    void ComputeSelection(const Handle(SelectMgr_Selection)&,
+                          const Standard_Integer) override
+    {
+        // Do nothing -> no selectable entities created
+    }
+};
 
 void open_cb() {
     Fl_File_Chooser chooser(".", "*", Fl_File_Chooser::SINGLE, "Escolha um arquivo");
@@ -217,7 +227,8 @@ struct  OCC_Viewer : public Fl_Double_Window {
     bool hlr_on = false;
     std::vector<TopoDS_Shape> vshapes; 
     std::vector<Handle(AIS_Shape)> vaShape; 
-	Handle(AIS_Shape) visible_;
+	Handle(AIS_NonSelectableShape) visible_;
+	// Handle(AIS_Shape) visible_;
     Handle(AIS_ColoredShape) hidden_;
  
 
@@ -460,10 +471,13 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 		~ManagedPtrWrapper() { delete ptr; } // free automatically
 	};
 	struct luadraw{
-		string name="";
 		bool protectedshape=0;
 
 		string command="";
+
+
+		string name="";
+		bool visible_hardcoded=1;
 		TopoDS_Shape shape; 
 		Handle(AIS_Shape) ashape; 
 		TopoDS_Face face;
@@ -493,8 +507,15 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			occv->ulua[name]=this;
 		}
 		void redisplay(){
+			BRepBuilderAPI_Transform transformer(shape, trsf);
+			shape=transformer.Shape();
 			ashape->Set(shape); 
-			occv->m_context->Redisplay(ashape, 0);
+			if(visible_hardcoded){
+				occv->m_context->Redisplay(ashape, 0);
+			}
+			if(!visible_hardcoded && occv->m_context->IsDisplayed(ashape)){
+				occv->m_context->Erase(ashape, Standard_False);
+			}
 		}
 		void rotate(int angle,gp_Dir normal={0,0,1}){
 			trsftmp = gp_Trsf();
@@ -507,6 +528,14 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			trsftmp.SetTranslation(gp_Vec(x, y, z));
 			trsf  *= trsftmp; 
 		}
+		void extrude(float qtd=0){
+			// gp_Vec extrusionVec(dir);
+			gp_Vec extrusionVec(normal);
+			extrusionVec *= qtd;
+    		TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(shape, extrusionVec).Shape();
+			shape=extrudedShape;
+		}
+		
 		void fuse(luadraw &tofuse1,luadraw &tofuse2 ){
 			Handle(AIS_Shape) af1=tofuse1.ashape;
 			Handle(AIS_Shape) af2=tofuse2.ashape;
@@ -550,9 +579,10 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 
 			face = BRepBuilderAPI_MakeFace(wire);
 
+			shape = face;
 			//final
-			BRepBuilderAPI_Transform transformer(face, trsf);
-			shape= transformer.Shape();
+			// BRepBuilderAPI_Transform transformer(face, trsf);
+			// shape= transformer.Shape();
 
 		}
 
@@ -735,29 +765,29 @@ void getvertex() {
 // retorna ponteiro luadraw* (ou nullptr)
 luadraw* lua_detected(Handle(SelectMgr_EntityOwner) entOwner)
 {
-    // if (!entOwner.IsNull()) {
-    //     // 1) tenta obter o Selectable associado ao entOwner
-    //     if (entOwner->HasSelectable()) {
-    //         Handle(SelectMgr_SelectableObject) selObj = entOwner->Selectable();
-    //         // SelectableObject é a base de AIS_InteractiveObject, faz downcast
-    //         Handle(AIS_InteractiveObject) ao = Handle(AIS_InteractiveObject)::DownCast(selObj);
-    //         if (!ao.IsNull() && ao->HasOwner()) {
-    //             Handle(Standard_Transient) owner = ao->GetOwner();
-    //             Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
-    //             if (!w.IsNull()) return w->ptr; // devolve o ponteiro armazenado
-    //         }
-    //     }
-    // }
-
-    // Alternativa: tenta obter directamente o interactive object detectado pelo contexto
-    if (!m_context.IsNull()) {
-        Handle(AIS_InteractiveObject) detected = m_context->DetectedInteractive();
-        if (!detected.IsNull() && detected->HasOwner()) {
-            Handle(Standard_Transient) owner = detected->GetOwner();
-            Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
-            if (!w.IsNull()) return w->ptr;
+    if (!entOwner.IsNull()) {
+        // 1) tenta obter o Selectable associado ao entOwner
+        if (entOwner->HasSelectable()) {
+            Handle(SelectMgr_SelectableObject) selObj = entOwner->Selectable();
+            // SelectableObject é a base de AIS_InteractiveObject, faz downcast
+            Handle(AIS_InteractiveObject) ao = Handle(AIS_InteractiveObject)::DownCast(selObj);
+            if (!ao.IsNull() && ao->HasOwner()) {
+                Handle(Standard_Transient) owner = ao->GetOwner();
+                Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+                if (!w.IsNull()) return w->ptr; // devolve o ponteiro armazenado
+            }
         }
     }
+
+    // Alternativa: tenta obter directamente o interactive object detectado pelo contexto
+    // if (!m_context.IsNull()) {
+    //     Handle(AIS_InteractiveObject) detected = m_context->DetectedInteractive();
+    //     if (!detected.IsNull() && detected->HasOwner()) {
+    //         Handle(Standard_Transient) owner = detected->GetOwner();
+    //         Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+    //         if (!w.IsNull()) return w->ptr;
+    //     }
+    // }
     return nullptr;
 }
 
@@ -970,8 +1000,8 @@ if (event == FL_MOVE) {
                 funcfps(12,
 					perf();
 					m_view->Rotation(Fl::event_x(),Fl::event_y());
-                	projectAndDisplayWithHLR(vaShape,1);
-                	// projectAndDisplayWithHLR(vshapes,1);
+                	// projectAndDisplayWithHLR(vaShape,1);
+                	projectAndDisplayWithHLR(vshapes,1);
                  	redraw(); //  redraw(); // m_view->Update ();
 					perf("vnormalr");
 
@@ -1222,8 +1252,8 @@ void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 	
 	perf1("toggle_shaded_transp");
 	if(hlr_on==1){
-		projectAndDisplayWithHLR(vaShape);
-		// projectAndDisplayWithHLR(vshapes);
+		// projectAndDisplayWithHLR(vaShape);
+		projectAndDisplayWithHLR(vshapes);
 	}else{
 		if(visible_){
 			m_context->Remove(visible_,0);
@@ -1256,7 +1286,9 @@ Handle(HLRBRep_PolyAlgo) hlrAlgo;
 // #define ENABLE_PARALLEL  // Ative se souber que sua build do OpenCascade é thread-safe
 // #endif
 
-void projectAndDisplayWithHLR( const std::vector<Handle(AIS_Shape)>& vaShape,  bool isDragonly = false){
+
+
+void projectAndDisplayWithHLR_vnotwrk( const std::vector<Handle(AIS_Shape)>& vaShape,  bool isDragonly = false){
     if (!hlr_on || m_context.IsNull() || m_view.IsNull())
         return;
 
@@ -1305,7 +1337,133 @@ void projectAndDisplayWithHLR( const std::vector<Handle(AIS_Shape)>& vaShape,  b
     );
 #else
     for (const auto& ash : vaShape) {
-        if (ash.IsNull()) continue;
+        if (ash.IsNull() || !m_context->IsDisplayed(ash)) continue;
+        TopoDS_Shape s = ash->Shape();
+        bool needsMesh = false;
+        for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+            TopLoc_Location loc;
+            const TopoDS_Face& face = TopoDS::Face(exp.Current());
+            if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+                needsMesh = true;
+                break;
+            }
+        }
+        if (needsMesh) {
+            BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+        }
+    }
+#endif
+
+    // 4. HLR projection
+Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+#ifdef ENABLE_PARALLEL
+std::for_each(std::execution::par, vaShape.begin(), vaShape.end(),
+    [&](const Handle(AIS_Shape)& ash)
+    {
+        if (ash.IsNull()) return;
+        algo->Load(ash->Shape());
+    }
+);
+#else
+for (const auto& ash : vaShape) {
+    if (!ash.IsNull() && m_context->IsDisplayed(ash)) {
+        algo->Load(ash->Shape());
+    }
+}
+#endif
+
+algo->Projector(projector);
+algo->Update();
+
+// 5. Convert to visible shape
+HLRBRep_PolyHLRToShape hlrToShape;
+hlrToShape.Update(algo);
+TopoDS_Shape vEdges = hlrToShape.VCompound();
+TopoDS_Shape result = vEdges;  // Alteração aqui: sem invTrsf
+
+// 6. Display or update AIS_Shape
+if (!visible_.IsNull()) {
+    if (!visible_->Shape().IsEqual(result)) {
+        visible_->SetShape(result);
+        visible_->SetColor(Quantity_NOC_BLACK);
+        visible_->SetWidth(3);
+        visible_->SetInfiniteState(true);
+        m_context->Redisplay(visible_, false);
+    }
+} else {
+    visible_ = new AIS_NonSelectableShape(result);
+    visible_->SetColor(Quantity_NOC_BLACK);
+    visible_->SetWidth(3);
+    visible_->SetInfiniteState(true);
+    m_context->Display(visible_, false);
+}
+    perf1("elapsed hlra");
+}
+
+
+ 
+
+void fillvectopo(){
+	vshapes.clear();
+	for(int i=0;i<vaShape.size();i++){
+		if(!m_context->IsDisplayed(vaShape[i])) continue;
+        vshapes.push_back(vaShape[i]->Shape());
+	}
+	cotm(vshapes.size());
+}
+
+void projectAndDisplayWithHLR_bug( const std::vector<Handle(AIS_Shape)>& vaShape,  bool isDragonly = false){
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull())
+        return;
+
+    perf1();
+
+    // 1. Prepare camera transform
+    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    gp_Dir viewDir   = -camera->Direction();
+    gp_Dir viewUp    = camera->Up();
+    gp_Dir viewRight = viewUp.Crossed(viewDir);
+    gp_Ax3 viewAxes(gp_Pnt(0,0,0), viewDir, viewRight);
+
+    gp_Trsf viewTrsf; 
+    viewTrsf.SetTransformation(viewAxes);
+    gp_Trsf invTrsf = viewTrsf.Inverted();
+
+    // 2. Create HLR projector
+    projector = HLRAlgo_Projector(
+        viewTrsf,
+        !camera->IsOrthographic(),
+        camera->Scale()
+    );
+
+    // 3. Meshing (only if not already meshed)
+    Standard_Real deflection = 0.001;
+    // deflection = 0.00005;
+
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, vaShape.begin(), vaShape.end(),
+        [&](const Handle(AIS_Shape)& ash)
+        {
+            if (ash.IsNull()) return;
+            TopoDS_Shape s = ash->Shape();
+            bool needsMesh = false;
+            for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+                TopLoc_Location loc;
+                const TopoDS_Face& face = TopoDS::Face(exp.Current());
+                if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+                    needsMesh = true;
+                    break;
+                }
+            }
+            if (needsMesh) {
+                BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+            }
+        }
+    );
+#else
+    for (const auto& ash : vaShape) {
+        if (ash.IsNull() ) continue;
+        // if (ash.IsNull() || !m_context->IsDisplayed(ash)) continue;
         TopoDS_Shape s = ash->Shape();
         bool needsMesh = false;
         for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
@@ -1334,7 +1492,8 @@ void projectAndDisplayWithHLR( const std::vector<Handle(AIS_Shape)>& vaShape,  b
     );
 #else
     for (const auto& ash : vaShape) {
-        if (!ash.IsNull()) {
+        if (!ash.IsNull() ) {
+        // if (!ash.IsNull() && m_context->IsDisplayed(ash)) {
             algo->Load(ash->Shape());
         }
     }
@@ -1360,20 +1519,223 @@ void projectAndDisplayWithHLR( const std::vector<Handle(AIS_Shape)>& vaShape,  b
             m_context->Redisplay(visible_, false);
         }
     } else {
-        visible_ = new AIS_Shape(result);
+        visible_ = new AIS_NonSelectableShape(result);
+        // visible_ = new AIS_Shape(result);
         visible_->SetColor(Quantity_NOC_BLACK);
         visible_->SetWidth(3);
         visible_->SetInfiniteState(true);
         m_context->Display(visible_, false);
     }
+	
+	// visible_->SetSelectionPriority(0);
+// m_context->RemoveSelectionMode(visible_, 0);
+// m_context->SetSelectable(visible_, Standard_False);
+	// m_context->Deactivate(visible_, 0);
+
+	// 0 = default selection mode
+// m_context->Deactivate(visible_, 0);  
+
+// // If you want to be extra sure, deactivate all modes:
+// for (int mode = 0; mode <= 9; ++mode) {
+//     m_context->Deactivate(visible_, mode);
+// }
 
     perf1("elapsed hlra");
 }
 
 
 
+void projectAndDisplayWithHLR_nda(const std::vector<TopoDS_Shape>& shapes, bool v = 1) {
+    if (m_context.IsNull() || m_view.IsNull()) {
+        std::cerr << "Error: Context or View is null\n";
+        return;
+    }
+
+    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    if (camera.IsNull()) {
+        std::cerr << "Error: Camera is null\n";
+        return;
+    }
+
+    // Ensure triangulation before HLR
+    Standard_Real deflection = 0.001;
+    for (const auto& s : shapes) {
+        if (!s.IsNull()) {
+            BRepMesh_IncrementalMesh mesh(s, deflection);
+        }
+    }
+
+    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+
+    // Load entire shapes, not individual faces
+    for (const auto& s : shapes) {
+        if (!s.IsNull()) {
+            algo->Load(s);
+        }
+    }
+
+    // Set up view transformation with eye as origin
+    gp_Pnt eye = camera->Eye();
+    gp_Dir dir = camera->Direction();  // From eye to center
+    gp_Dir up = camera->Up();
+    gp_Dir right = up.Crossed(dir);  // Right-handed system
+    gp_Ax3 viewAxes(eye, dir, right);
+    gp_Trsf viewTrsf;
+    viewTrsf.SetTransformation(viewAxes);
+
+    // Set up projector with appropriate focus
+    double focus = camera->IsOrthographic() ? 0.0 : camera->Distance();
+    HLRAlgo_Projector projector(viewTrsf, !camera->IsOrthographic(), focus);
+    algo->Projector(projector);
+    algo->Update();
+
+    HLRBRep_PolyHLRToShape hlrToShape;
+    hlrToShape.Update(algo);
+
+    TopoDS_Shape vEdges = hlrToShape.VCompound();
+    if (vEdges.IsNull()) {
+        std::cerr << "HLR result is empty\n";
+        return;
+    }
+
+    // Use vEdges directly as final shape (no inverse transformation needed)
+    TopoDS_Shape finalShape = vEdges;
+
+    if (!visible_.IsNull()) {
+        if (!visible_->Shape().IsEqual(finalShape)) {
+            visible_->Set(finalShape);
+            m_context->Redisplay(visible_, false);
+        }
+    } else {
+        visible_ = new AIS_NonSelectableShape(finalShape);
+        visible_->SetColor(Quantity_NOC_BLACK);
+        visible_->SetWidth(2.0);
+        visible_->SetInfiniteState(true);
+        m_context->Display(visible_, false);
+    }
+}
 
 
+
+
+void projectAndDisplayWithHLR_notw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+    perf1();
+
+    // --- 0. grab camera
+    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    if (camera.IsNull()) return;
+
+    // camera direction: OpenCASCADE camera->Direction() points from eye to target
+    gp_Dir viewDir = -camera->Direction(); // we want "view ray" from eye into scene
+    gp_Dir viewUp  = camera->Up();
+    gp_Dir viewRight = viewUp.Crossed(viewDir);
+
+    // --- 1. Build a pure-rotation Ax3 at the origin (no translation)
+    // This is the frame that defines the projector rotation (eye orientation).
+    gp_Ax3 rotAx3(gp_Pnt(0.0, 0.0, 0.0), viewDir, viewRight);
+    gp_Trsf rotTrsf;
+    rotTrsf.SetTransformation(rotAx3); // pure rotation (and maybe scale/reflection if axes are funky)
+
+    // --- 2. Build a translation that moves world so that camera center becomes the origin
+    // We'll translate shapes by 'trsl' so that the camera is at (0,0,0) for the projector.
+    gp_Trsf trsl;
+    trsl.SetTranslation(camera->Center(), gp_Pnt(0.0, 0.0, 0.0));
+    gp_Trsf invTrsl = trsl.Inverted();
+
+    // NOTE: We *do not* multiply rotation and translation into one transform for the projector.
+    // The projector should see only the rotation; translation is applied to shapes (or inverted after HLR).
+
+    // --- 3. Create projector (rotation-only). Keep perspective flag & scale from camera.
+    projector = HLRAlgo_Projector(rotTrsf, !camera->IsOrthographic(), camera->Scale());
+
+    // --- 4. Meshing: ensure shapes are meshed adequately for stable silhouette detection
+    // Tweak deflection as needed; smaller values -> finer mesh -> more stable silhouettes.
+    Standard_Real deflection = 0.001; // <-- adjust downward (0.0005, 0.0001) for higher quality/stability
+
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+#else
+    for (const auto& s : shapes) {
+#endif
+        if (s.IsNull()) continue;
+
+        bool needsMesh = false;
+        for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+            TopLoc_Location loc;
+            const TopoDS_Face& face = TopoDS::Face(exp.Current());
+            if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+                needsMesh = true;
+                break;
+            }
+        }
+        if (needsMesh) {
+            // create mesh in world coordinates — translation doesn't matter for triangulation quality
+            BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+        }
+#ifdef ENABLE_PARALLEL
+    });
+#else
+    }
+#endif
+
+    // --- 5. Prepare HLR algorithm and load shapes (no transform needed here)
+    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+#else
+    for (const auto& s : shapes) {
+#endif
+        if (!s.IsNull()) algo->Load(s);
+#ifdef ENABLE_PARALLEL
+    });
+#else
+    }
+#endif
+
+    // give algo the projector (rotation-only)
+    algo->Projector(projector);
+
+    // Optional: if your OpenCASCADE has these methods you can tune them:
+    // algo->SetAngularTolerance(myAngularTol); // <-- reduce flicker across silhouette threshold
+    // algo->SetOffset(myOffset); // <-- if present, can tweak numeric offset used by classification
+
+    algo->Update();
+
+    // --- 6. Convert HLR result to visible-edge shape
+    HLRBRep_PolyHLRToShape hlrToShape;
+    hlrToShape.Update(algo);
+    TopoDS_Shape vEdges = hlrToShape.VCompound();
+
+    // --- 7. Now undo the earlier translation: transform visible edges back into world space
+    // We earlier considered shapes as translated so camera sits at origin. Now move edges back.
+    BRepBuilderAPI_Transform visT(vEdges, invTrsl);
+    // TopoDS_Shape result = visT.Shape();
+    TopoDS_Shape result = vEdges;
+
+    // --- 8. Display / update AIS_Shape
+    if (!visible_.IsNull()) {
+        if (!visible_->Shape().IsEqual(result)) {
+            visible_->SetShape(result);
+            visible_->SetColor(Quantity_NOC_BLACK);
+            visible_->SetWidth(3);
+            visible_->SetInfiniteState(true); // optional, but preserves display regardless of view
+            m_context->Redisplay(visible_, false);
+        }
+    } else {
+        visible_ = new AIS_NonSelectableShape(result);
+        visible_->SetColor(Quantity_NOC_BLACK);
+        visible_->SetWidth(3);
+        visible_->SetInfiniteState(true); // optional
+        m_context->Display(visible_, false);
+    }
+
+    perf1("elapsed hlr1");
+}
+
+
+#define ENABLE_PARALLEL
+//less precision
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 	perf1();
@@ -1384,12 +1746,37 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
     gp_Dir viewUp = camera->Up();
     gp_Dir viewRight = viewUp.Crossed(viewDir);
     gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+    // gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
 
     gp_Trsf viewTrsf;
     viewTrsf.SetTransformation(viewAxes);
     gp_Trsf invTrsf = viewTrsf.Inverted();
 
+
+	
+    // const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    // gp_Dir viewDir = -camera->Direction();
+    // gp_Dir viewUp = camera->Up();
+    // gp_Dir viewRight = viewUp.Crossed(viewDir);
+    // gp_Ax3 viewAxes(camera->Center(), viewDir, viewRight);
+
+    // gp_Trsf viewTrsf;
+    // viewTrsf.SetTransformation(viewAxes);
+    // gp_Trsf invTrsf = viewTrsf.Inverted();
+
+	
+
+
+    // const Handle(Graphic3d_Camera)& theProjector = m_view->Camera();
+	// gp_Dir aBackDir = -theProjector->Direction();
+    // gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
+    // gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
+    // gp_Trsf viewTrsf;
+    // viewTrsf.SetTransformation (anAx3);
+    // gp_Trsf invTrsf = viewTrsf.Inverted(); 
+
     // 2. Criar projetor HLR
+    // projector = HLRAlgo_Projector(viewTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
     projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
 
     // 3. Meshing (somente se ainda não estiver meshed)
@@ -1411,6 +1798,7 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
                 break;
             }
         }
+		needsMesh = true;
         if (needsMesh) {
             BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
         }
@@ -1454,7 +1842,7 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
             m_context->Redisplay(visible_, false);
         }
     } else {
-        visible_ = new AIS_Shape(result);
+        visible_ = new AIS_NonSelectableShape(result);
         visible_->SetColor(Quantity_NOC_BLACK);
         visible_->SetWidth(3);
         visible_->SetInfiniteState(true); // opcional
@@ -1514,13 +1902,102 @@ void projectAndDisplayWithHLRold(const std::vector<TopoDS_Shape>& shapes, bool i
     // Visíveis
     vEdges = hlrToShape.VCompound();
     BRepBuilderAPI_Transform visT(vEdges, invTrsf);
-    visible_ = new AIS_Shape(visT.Shape());
+    visible_ = new AIS_NonSelectableShape(visT.Shape());
     visible_->SetColor(Quantity_NOC_BLACK);
     visible_->SetWidth(3);
     m_context->Display(visible_, false);
 
 }
+ //precision
+void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
+    if(!hlr_on)return;
+	perf();
+    // cotm("hlr")
+    // m_view->SetImmediateUpdate(Standard_False);
+    if (m_context.IsNull() || m_view.IsNull()) {
+        std::cerr << "Error: m_context or m_view is null." << std::endl;
+        return;
+    } 
+    // m_view->SetComputedMode(Standard_True);
+
+
+    {
+    // m_context->RemoveAll(false); 
+        // lop(i,0,vaShape.size()){
+        //     m_context->Remove(vaShape[i],0);
+        // }
+
+        if(visible_) m_context->Remove(visible_,0);
+        if(hidden_) m_context->Remove(hidden_,0);
+    }
+
+    const Handle(Graphic3d_Camera) &theProjector=m_view->Camera();
  
+    gp_Dir aBackDir = -theProjector->Direction();
+    gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
+    gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
+    gp_Trsf aTrsf;
+    aTrsf.SetTransformation (anAx3); 
+     
+    HLRAlgo_Projector projector (aTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
+
+    Handle(HLRBRep_Algo) hlrAlgo = new HLRBRep_Algo();
+    for (const auto& shp : shapes) {
+        if (!shp.IsNull()) hlrAlgo->Add(shp,0);
+    }
+
+    hlrAlgo->Projector(projector );
+    // hlrAlgo-> ShowAll();
+    // perf();
+    hlrAlgo->Update();
+    // perf("hlrAlgo->Update()");
+    static bool tes=0;
+    // if(!tes)
+	hlrAlgo->Hide();
+    // perf("hide");
+    tes=1;
+
+    HLRBRep_HLRToShape hlrToShape_(hlrAlgo);
+    // perf("hlrToShape");
+    TopoDS_Shape vEdges_ = hlrToShape_.VCompound();
+    // TopoDS_Shape hEdges_ = hlrToShape_.HCompound();
+    // perf("hlrAlgo->HCompound()");
+
+    gp_Trsf invTrsf = aTrsf.Inverted();
+    BRepBuilderAPI_Transform transformer(vEdges_, invTrsf);
+    TopoDS_Shape transformedShape = transformer.Shape();
+
+
+    visible_ = new AIS_NonSelectableShape(transformedShape);
+    // visible_ = new AIS_Shape(transformedShape);
+    visible_->SetColor(Quantity_NOC_BLACK);
+    visible_->SetWidth(1.5);
+    m_context->Display(visible_, false);
+
+    
+    // Handle(Prs3d_LineAspect) lineAspect = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
+    // // Handle(Prs3d_Drawer) aDrawer = new Prs3d_Drawer();
+    // // hEdges_.SetAttributes(aDrawer);
+
+    // BRepBuilderAPI_Transform transformerh(hEdges_, invTrsf);
+    // TopoDS_Shape transformedShapeh = transformerh.Shape();
+
+
+    // hidden_ = new AIS_ColoredShape(transformedShapeh);
+
+ 
+    // Handle(Prs3d_LineAspect) dashedAspect = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0);
+  
+    // hidden_->Attributes()->SetSeenLineAspect(dashedAspect);
+ 
+
+    // m_context->Display(hidden_, 0); 
+ 
+//  setbar5per();
+	perf("hlr slower");
+}
+
+
 
 #pragma endregion projection
 #pragma region tests
@@ -1528,13 +2005,51 @@ void projectAndDisplayWithHLRold(const std::vector<TopoDS_Shape>& shapes, bool i
 		
 		//test
 		luadraw* test=new luadraw("consegui",this);
-		test->translate(10);
+		test->visible_hardcoded=0;
+		// test->translate(10);
 		// test.translate(0,10);
 		// test.rotate(90);
 		test->dofromstart();
 		test->redisplay();
+
+		
+		luadraw* test1=new luadraw("test1",this);
+		test1->visible_hardcoded=0;
+		test1->shape=test->shape;
+		test1->extrude(20);		
+		test1->translate(100.0);
+		test1->redisplay();
+		
+		luadraw* test2=new luadraw("test2",this);
+		test2->visible_hardcoded=0;
+		test2->shape=test->shape;
+		test2->extrude(20);
+		test2->translate(100,10);	
+		test2->rotate(40);	
+		test2->redisplay();
+
+		
+		luadraw* test3=new luadraw("test3",this);
+		test3->fuse(*test1,*test2);
+		// test3->shape
+		// test2->extrude(-20);
+		// test2->translate(100,10);	
+		// test2->rotate(40);	
+		test3->redisplay();
+
+		luadraw* test4=new luadraw("test4",this);
+		test4->shape=test3->shape;
+		// test3->fuse(*test1,*test2);
+		// test3->shape
+		// test2->extrude(-20);
+		test4->translate(150,10);	
+		// test2->rotate(40);	
+		test4->redisplay();
+
 		// vshapes.push_back(test.shape);
 // m_context->UpdateCurrentViewer();
+
+fillvectopo();
 
 toggle_shaded_transp(currentMode);
 
@@ -2185,6 +2700,7 @@ int main(int argc, char** argv) {
     Fl::lock();    
     int w=1024;
 	int h=576;
+    // Fl_Window* win = new Fl_Window(0,0,w, h, "FLTK with OpenCASCADE");
     Fl_Double_Window* win = new Fl_Double_Window(0,0,w, h, "FLTK with OpenCASCADE");
     win->color(FL_RED);
     win->callback([](Fl_Widget *widget, void* ){		
@@ -2207,25 +2723,26 @@ int main(int argc, char** argv) {
 
     
     occv->drawbuttons(woccbtn->w(),hc1);
-	content1->end();
+	// content1->end();
     woccbtn->resizable(content1);
     
 	win->clear_visible_focus(); 	 
 	woccbtn->color(0x7AB0CfFF);
 	win->resizable(content);	
 	// win->position(Fl::w()/2-win->w()/2,10); 
-	win->position(0,0); 
+	win->position(0,0);  
     win->show(argc, argv); 
+	win->flush(); 
     // win->maximize();
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 
     occv->initialize_opencascade();
-    occv->test2();
-    // occv->test();
+    // occv->test2();
+    occv->test();
     {
-// occv->draw_objs();
+occv->draw_objs();
 occv->m_view->FitAll();
 // occv->redraw();
 // occv->m_view->Update();

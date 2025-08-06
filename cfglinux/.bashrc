@@ -388,10 +388,15 @@ sshtprev() {
 
 
 mapwifi(){
-	sudo arp-scan --interface=wlp2s0 --localnet
+	# sudo arp-scan --interface=wlp2s0 --localnet
 	#  nmap  -e wlp2s0 -sn 192.168.1.* | grep \(1
 	#  nmap  -e wlp2s0 -sL 192.168.1.* | grep \(1
-	#  nmap -sL 192.168.1.* | grep \(1
+	# sudo bash -c 'echo "search lan\nnameserver 192.168.1.1" > /etc/resolv.conf'
+# sudo bash -c 'cat > /etc/default/zramswap <<EOF
+# ALGO=lz4
+# PERCENT=50
+# EOF'
+	nmap -sL 192.168.1.* | grep \(1
 }
 
 
