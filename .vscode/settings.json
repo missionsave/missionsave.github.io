@@ -114,7 +114,8 @@
 		"streambuf": "cpp",
 		"thread": "cpp",
 		"cinttypes": "cpp",
-		"typeinfo": "cpp"
+		"typeinfo": "cpp",
+		"streamoperator": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {
