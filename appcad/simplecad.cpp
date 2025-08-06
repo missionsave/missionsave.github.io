@@ -794,7 +794,7 @@ luadraw* lua_detected(Handle(SelectMgr_EntityOwner) entOwner)
 
 
 void ev_highlight(){
-	
+	cotm(0)
     // Start with a clean slate for the custom highlight
     clearHighlight();
 
@@ -815,11 +815,12 @@ void ev_highlight(){
 	}else{
 		m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
 	}
+	cotm("a")
     // 3. Perform the picking operations
     m_context->MoveTo(mousex, mousey, m_view, Standard_False);
 
 	m_context->SelectDetected(AIS_SelectionScheme_Replace);
-
+cotm("b")
     // 4. Get the detected owner
     Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
 cotm(1)
@@ -903,6 +904,7 @@ int handle(int event) override {
 
 // In your handle(int event) method:
 if (event == FL_MOVE) {
+	cotm("m")
     int x = Fl::event_x();
     int y = Fl::event_y();
 	mousex=x;
