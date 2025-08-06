@@ -115,7 +115,8 @@
 		"thread": "cpp",
 		"cinttypes": "cpp",
 		"typeinfo": "cpp",
-		"streamoperator": "cpp"
+		"streamoperator": "cpp",
+		"*.lxx": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {

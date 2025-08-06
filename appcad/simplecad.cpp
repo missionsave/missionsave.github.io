@@ -7,6 +7,7 @@
 
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H> 
+#include <FL/Fl_Gl_Window.H>
 #include <FL/Fl_File_Chooser.H> 
 #include <FL/x.H>
 #include <GL/gl.h>
@@ -213,8 +214,9 @@ void open_cb() {
 }
 
 struct OCC_Viewer;
-struct  OCC_Viewer : public Fl_Window {
-// struct  OCC_Viewer : public Fl_Double_Window {
+// struct  OCC_Viewer : public Fl_Gl_Window {
+// struct  OCC_Viewer : public Fl_Window {
+struct  OCC_Viewer : public Fl_Double_Window {
 // public:
 #pragma region initialization
     Handle(Aspect_DisplayConnection) m_display_connection;
@@ -239,10 +241,12 @@ Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
  
 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
-        : Fl_Window(X, Y, W, H, L) { 
-        // : Fl_Double_Window(X, Y, W, H, L) { 
+        // : Fl_Gl_Window(X, Y, W, H, L) { 
+        // : Fl_Window(X, Y, W, H, L) { 
+        : Fl_Double_Window(X, Y, W, H, L) { 
 			// nested;
-			
+		// mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+		    
 		Fl::add_timeout(10, idle_refresh_cb,0);
     }
      
@@ -314,7 +318,7 @@ Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
         m_view->FitAll();
         m_initialized = true; 		
         redraw();  
-        m_view->Redraw(); 
+        m_view->Redraw();  
 
         {
         const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -339,14 +343,15 @@ Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
     void draw() override { 
         if (!m_initialized) return;	 
         m_view->Update();
-		m_view->Redraw(); //new 
+		// m_view->Redraw(); //new 
+		// flush();
     }
 
     void resize(int X, int Y, int W, int H) override {
         Fl_Window::resize(X, Y, W, H);
         if (m_initialized) {
             m_view->MustBeResized();
-            setbar5per(); 
+            setbar5per();  
         }
     }
  
@@ -2692,8 +2697,9 @@ int main(int argc, char** argv) {
 #else
     std::cout << "OpenCASCADE was NOT compiled with TBB support." << std::endl;
 #endif
-
+	Fl::visual(FL_DOUBLE|FL_INDEX);
 	Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+
     // #if defined(__linux__)
     // // #if defined(__linux__) && defined(__aarch64__)
     //     Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
@@ -2724,6 +2730,8 @@ int main(int argc, char** argv) {
 
     int hc1=24;
     occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1);
+	    // Enable double buffering for smoother rendering
+    
 
     Fl_Window* woccbtn = new Fl_Window(0,h-hc1,occv->w(),hc1, "");
     content->add(woccbtn); 
