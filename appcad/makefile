@@ -93,7 +93,7 @@ ifeq ($(OS_NAME), Windows)
 	LDFLAGS += -Wl,-Bdynamic
 
 	LDFLAGS+=  -lopengl32 -lgdi32 -lglu32 -lWs2_32 -lwinspool  
-# 	LDFLAGS+= -ltbb12 -l:libtbbbind_2_5.dll.a  -l:libtbbmalloc.dll.a -l:libtbbmalloc_proxy.dll.a
+	LDFLAGS+= -ltbb12 -l:libtbbbind_2_5.dll.a  -l:libtbbmalloc.dll.a -l:libtbbmalloc_proxy.dll.a
 # 	LDFLAGS+= -lfltk_gl -lfltk 
 	LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a
 
