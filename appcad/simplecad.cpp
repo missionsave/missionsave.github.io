@@ -230,6 +230,10 @@ struct  OCC_Viewer : public Fl_Double_Window {
 	Handle(AIS_NonSelectableShape) visible_;
 	// Handle(AIS_Shape) visible_;
     Handle(AIS_ColoredShape) hidden_;
+
+	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect( Quantity_NOC_BLUE,  Aspect_TOL_DASH, 0.5 );	  
+Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
  
 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
@@ -407,7 +411,7 @@ void setbar5per() {
 /// Configure dashed highlight lines without conversion errors
 void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 {
-	return;
+	cotm(0)
     // 1. Create a drawer for highlights
     Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
     // customDrawer->SetDisplayMode(1);  // wireframe only
@@ -436,24 +440,26 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
             // customDrawer->SetUnFreeBoundaryAspect(lineAspect);
             // customDrawer->SetFreeBoundaryAspect(lineAspect);
             // customDrawer->SetFaceBoundaryAspect(lineAspect);
-
+cotm(1)
             customDrawer->SetLineAspect(highlightaspect);
             customDrawer->SetSeenLineAspect(highlightaspect);
-            customDrawer->SetWireAspect(highlightaspect);
+      cotm(2)
+			customDrawer->SetWireAspect(highlightaspect);
             customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
             customDrawer->SetFreeBoundaryAspect(highlightaspect);
             customDrawer->SetFaceBoundaryAspect(highlightaspect);
-
+cotm(3)
     customDrawer->SetColor(Quantity_NOC_RED);
     customDrawer->SetTransparency(0.3f);
 
-
+cotm(4)
 
 
     // 5. Assign to all highlight modes
     ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic,  customDrawer);
     ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, customDrawer);
-    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,       customDrawer);
+   cotm(5)
+	ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,       customDrawer);
     ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected,      customDrawer);
 }
 
@@ -789,13 +795,13 @@ luadraw* lua_detected(Handle(SelectMgr_EntityOwner) entOwner)
     //         if (!w.IsNull()) return w->ptr;
     //     }
     // }
-    return 0;//nullptr;
+    return nullptr;
 }
 
 
 
 void ev_highlight(){
-	cotm(0)
+	
     // Start with a clean slate for the custom highlight
     clearHighlight();
 
@@ -816,22 +822,21 @@ void ev_highlight(){
 	}else{
 		m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
 	}
-	cotm("a")
     // 3. Perform the picking operations
     m_context->MoveTo(mousex, mousey, m_view, Standard_False);
 
 	m_context->SelectDetected(AIS_SelectionScheme_Replace);
-cotm("b")
+
     // 4. Get the detected owner
     Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
-cotm(1)
+
 	if (!anOwner.IsNull()  ){
 	luadraw* ldd=lua_detected(anOwner);
 	if(ldd){
 	cotm(ldd->name);
 	}
 	}
-cotm(2)
+
     // 5. Deactivate vertex mode immediately after picking
     // This is crucial if you only want vertex picking *during* hover,
     // and want other selection behaviors (e.g., selecting faces on click) at other times.
@@ -901,12 +906,10 @@ int handle(int event) override {
 // In your createSampleShape() method:
 // Remove any AIS_InteractiveContext::SetMode() calls here, as we will control it directly in FL_MOVE
 // The default selection behavior on the AIS_Shape itself is sufficient for this approach.
-cout<<"eis\n";
-cotm("ei",event)
+
 
 // In your handle(int event) method:
 if (event == FL_MOVE) {
-	cotm("m")
     int x = Fl::event_x();
     int y = Fl::event_y();
 	mousex=x;
@@ -1076,9 +1079,7 @@ bool isRotating = false;
 bool isPanning = false;
 #pragma endregion events
 
-Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect( Quantity_NOC_BLUE,  Aspect_TOL_DASH, 0.5 );	  
-Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
-Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
+
 
 struct pashape : public AIS_Shape {
   // expõe o drawer protegido da AIS_Shape
