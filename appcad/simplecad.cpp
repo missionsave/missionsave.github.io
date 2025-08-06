@@ -2739,10 +2739,10 @@ int main(int argc, char** argv) {
 	// win->resize(x, y+22, _w, _h-22);
 
     occv->initialize_opencascade();
-    // occv->test2();
-    occv->test();
+    occv->test2();
+    // occv->test();
     {
-occv->draw_objs();
+// occv->draw_objs();
 occv->m_view->FitAll();
 // occv->redraw();
 // occv->m_view->Update();
