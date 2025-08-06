@@ -788,7 +788,7 @@ luadraw* lua_detected(Handle(SelectMgr_EntityOwner) entOwner)
     //         if (!w.IsNull()) return w->ptr;
     //     }
     // }
-    return nullptr;
+    return 0;//nullptr;
 }
 
 
@@ -822,14 +822,14 @@ void ev_highlight(){
 
     // 4. Get the detected owner
     Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
-
+cotm(1)
 	if (!anOwner.IsNull()  ){
 	luadraw* ldd=lua_detected(anOwner);
 	if(ldd){
 	cotm(ldd->name);
 	}
 	}
-
+cotm(2)
     // 5. Deactivate vertex mode immediately after picking
     // This is crucial if you only want vertex picking *during* hover,
     // and want other selection behaviors (e.g., selecting faces on click) at other times.
