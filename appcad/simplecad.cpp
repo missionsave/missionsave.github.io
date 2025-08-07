@@ -213,7 +213,7 @@ void open_cb() {
     }
 }
 
-struct OCC_Viewer;
+// struct OCC_Viewer;
 // struct  OCC_Viewer : public Fl_Gl_Window {
 #ifdef _WIN32
 struct  OCC_Viewer : public Fl_Window {
@@ -503,6 +503,7 @@ cotm(4)
 		string name="";
 		bool visible_hardcoded=1;
 		TopoDS_Shape shape; 
+		// std::shared_ptr<TopoDS_Shape> shape; 
 		Handle(AIS_Shape) ashape; 
 		TopoDS_Face face;
 		gp_Pnt origin=gp_Pnt(0, 0, 0);
@@ -536,10 +537,15 @@ cotm(4)
 			ashape->Set(shape); 
 			if(visible_hardcoded){
 				occv->m_context->Redisplay(ashape, 0);
+			}else{
+				occv->m_context->Erase(ashape, Standard_False);
 			}
 			if(!visible_hardcoded && occv->m_context->IsDisplayed(ashape)){
 				occv->m_context->Erase(ashape, Standard_False);
 			}
+		}
+		void display(){
+			occv->m_context->Display(ashape, 0);
 		}
 		void rotate(int angle,gp_Dir normal={0,0,1}){
 			trsftmp = gp_Trsf();
@@ -2053,6 +2059,7 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 		
 		luadraw* test3=new luadraw("test3",this);
 		test3->fuse(*test1,*test2);
+		test3->visible_hardcoded=0;
 		// test3->shape
 		// test2->extrude(-20);
 		// test2->translate(100,10);	
@@ -2061,17 +2068,38 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 
 		luadraw* test4=new luadraw("test4",this);
 		test4->shape=test3->shape;
+		test4->visible_hardcoded=0;
 		// test3->fuse(*test1,*test2);
 		// test3->shape
 		// test2->extrude(-20);
-		test4->translate(150,10);	
+		test4->translate(100,10);	
 		// test2->rotate(40);	
 		test4->redisplay();
+		
+		
+perf(); 
+		luadraw* test5=new luadraw("test5",this);
+		test5->fuse(*test3,*test4);
+		test5->redisplay();
+		
+
+		test1->display();
+		test1->translate(0,0,100);
+		test1->visible_hardcoded=1;
+		test1->redisplay();
+		// lop(i,0,140){
+		// luadraw* test6=new luadraw("test5"+to_string(i),this);
+		// test6->shape=test5->shape;
+		// test6->rotate(i);
+		// test6->redisplay();
+		// }
+perf("bench");
 
 		// vshapes.push_back(test.shape);
 // m_context->UpdateCurrentViewer();
 
 fillvectopo();
+
 
 toggle_shaded_transp(currentMode);
 
