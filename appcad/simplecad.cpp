@@ -215,8 +215,12 @@ void open_cb() {
 
 struct OCC_Viewer;
 // struct  OCC_Viewer : public Fl_Gl_Window {
-// struct  OCC_Viewer : public Fl_Window {
+#ifdef _WIN32
+struct  OCC_Viewer : public Fl_Window {
+#endif
+#ifdef __linux__
 struct  OCC_Viewer : public Fl_Double_Window {
+#endif
 // public:
 #pragma region initialization
     Handle(Aspect_DisplayConnection) m_display_connection;
@@ -242,8 +246,12 @@ Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
         // : Fl_Gl_Window(X, Y, W, H, L) { 
-        // : Fl_Window(X, Y, W, H, L) { 
+		#ifdef _WIN32
+        : Fl_Window(X, Y, W, H, L) { 
+		#endif
+		#ifdef __linux__
         : Fl_Double_Window(X, Y, W, H, L) { 
+		#endif
 			// nested;
 		// mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 		    
