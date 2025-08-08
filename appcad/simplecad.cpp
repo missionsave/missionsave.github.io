@@ -184,14 +184,17 @@
 
 #include "general.hpp"
 
+void scint_init(int x,int y,int w,int h);
+
+#define flwindow Fl_Window  
+#ifdef __linux__
+#define flwindow Fl_Double_Window
+#endif
 
 using namespace std;
 #pragma endregion includes
 
-
  
-
-Fl_Window* win;
 Fl_Menu_Bar* menu;
 class AIS_NonSelectableShape : public AIS_Shape {
 public:
@@ -213,15 +216,7 @@ void open_cb() {
     }
 }
 
-// struct OCC_Viewer;
-// struct  OCC_Viewer : public Fl_Gl_Window {
-#ifdef _WIN32
-struct  OCC_Viewer : public Fl_Window {
-#endif
-#ifdef __linux__
-struct  OCC_Viewer : public Fl_Double_Window {
-#endif
-// public:
+struct  OCC_Viewer : public flwindow {
 #pragma region initialization
     Handle(Aspect_DisplayConnection) m_display_connection;
     Handle(OpenGl_GraphicDriver) m_graphic_driver;
@@ -234,33 +229,19 @@ struct  OCC_Viewer : public Fl_Double_Window {
     bool hlr_on = false;
     std::vector<TopoDS_Shape> vshapes; 
     std::vector<Handle(AIS_Shape)> vaShape; 
-	Handle(AIS_NonSelectableShape) visible_;
-	// Handle(AIS_Shape) visible_;
+	Handle(AIS_NonSelectableShape) visible_; 
     Handle(AIS_ColoredShape) hidden_;
 
 	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect( Quantity_NOC_BLUE,  Aspect_TOL_DASH, 0.5 );	  
-Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
-Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
-Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
+	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
+	Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
  
 
-    OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
-        // : Fl_Gl_Window(X, Y, W, H, L) { 
-		#ifdef _WIN32
-        : Fl_Window(X, Y, W, H, L) { 
-		#endif
-		#ifdef __linux__
-        : Fl_Double_Window(X, Y, W, H, L) { 
-		#endif
-			// nested;
-		// mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
-		    
+    OCC_Viewer(int X, int Y, int W, int H, const char* L = 0): flwindow(X, Y, W, H, L) { 
 		Fl::add_timeout(10, idle_refresh_cb,0);
     }
-     
-
-	
- 
+   
     void initialize_opencascade() { 
         // Get native window handle
 #ifdef _WIN32
@@ -427,8 +408,7 @@ void setbar5per() {
 
 /// Configure dashed highlight lines without conversion errors
 void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
-{
-	cotm(0)
+{ 
     // 1. Create a drawer for highlights
     // Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
     // customDrawer->SetDisplayMode(1);  // wireframe only
@@ -457,19 +437,17 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
             // customDrawer->SetUnFreeBoundaryAspect(lineAspect);
             // customDrawer->SetFreeBoundaryAspect(lineAspect);
             // customDrawer->SetFaceBoundaryAspect(lineAspect);
-cotm(1)
-            customDrawer->SetLineAspect(highlightaspect);
-            customDrawer->SetSeenLineAspect(highlightaspect);
-      cotm(2)
-			customDrawer->SetWireAspect(highlightaspect);
-            customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
-            customDrawer->SetFreeBoundaryAspect(highlightaspect);
-            customDrawer->SetFaceBoundaryAspect(highlightaspect);
-cotm(3)
+ 
+	customDrawer->SetLineAspect(highlightaspect);
+	customDrawer->SetSeenLineAspect(highlightaspect); 
+	customDrawer->SetWireAspect(highlightaspect);
+	customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
+	customDrawer->SetFreeBoundaryAspect(highlightaspect);
+	customDrawer->SetFaceBoundaryAspect(highlightaspect);
+ 
     customDrawer->SetColor(Quantity_NOC_RED);
     customDrawer->SetTransparency(0.3f);
-
-cotm(4)
+ 
 
 
     // 5. Assign to all highlight modes
@@ -484,7 +462,7 @@ cotm(4)
 #pragma endregion initialization
 	
 
-#pragma region lua
+#pragma region luastruct
 	struct luadraw;
 	// vector<luadraw*> vlua;
 	unordered_map<string,luadraw*> ulua;
@@ -527,8 +505,7 @@ cotm(4)
 
 			// ashape->SetUserData(new ManagedPtrWrapper<luadraw>(this));
         	occv->vaShape.push_back(ashape);
-			occv->m_context->Display(ashape, 0);
-			occv->vaShape.push_back(ashape);
+			occv->m_context->Display(ashape, 0); 
 			occv->ulua[name]=this;
 		}
 		void redisplay(){
@@ -539,6 +516,7 @@ cotm(4)
 				occv->m_context->Redisplay(ashape, 0);
 			}else{
 				occv->m_context->Erase(ashape, Standard_False);
+				cotm(8)
 			}
 			if(!visible_hardcoded && occv->m_context->IsDisplayed(ashape)){
 				occv->m_context->Erase(ashape, Standard_False);
@@ -586,10 +564,10 @@ cotm(4)
 		}
 		
 		
-		void dofromstart(){
+		void dofromstart(int x=0){
 			gp_Pnt p1(0, 0,0);
-			gp_Pnt p2(100, 0,0);
-			gp_Pnt p3(100, 50,0);
+			gp_Pnt p2(100+x, 0,0);
+			gp_Pnt p3(100+x, 50,0);
 			gp_Pnt p4(0, 50,0);
 
 			// Criar arestas
@@ -621,7 +599,23 @@ cotm(4)
 
  
  
+#pragma endregion luastruct
+#pragma region lua
+
+
+
+
+
+
 #pragma endregion lua
+#pragma region scint
+
+
+
+
+
+
+#pragma endregion scint
 #pragma region events
 
 
@@ -1433,11 +1427,12 @@ if (!visible_.IsNull()) {
 
 void fillvectopo(){
 	vshapes.clear();
+	cotm(vaShape.size(),vshapes.size());
 	for(int i=0;i<vaShape.size();i++){
 		if(!m_context->IsDisplayed(vaShape[i])) continue;
         vshapes.push_back(vaShape[i]->Shape());
 	}
-	cotm(vshapes.size());
+	cotm(vaShape.size(),vshapes.size());
 }
 
 void projectAndDisplayWithHLR_bug( const std::vector<Handle(AIS_Shape)>& vaShape,  bool isDragonly = false){
@@ -2030,7 +2025,7 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 #pragma endregion projection
 #pragma region tests
 	void test2(){
-		
+		perf();
 		//test
 		luadraw* test=new luadraw("consegui",this);
 		test->visible_hardcoded=0;
@@ -2077,7 +2072,7 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 		test4->redisplay();
 		
 		
-perf(); 
+// perf(); 
 		luadraw* test5=new luadraw("test5",this);
 		test5->fuse(*test3,*test4);
 		test5->redisplay();
@@ -2093,13 +2088,14 @@ perf();
 		// test6->rotate(i);
 		// test6->redisplay();
 		// }
-perf("bench");
+
 
 		// vshapes.push_back(test.shape);
 // m_context->UpdateCurrentViewer();
 
+perf();
 fillvectopo();
-
+perf("bench");
 
 toggle_shaded_transp(currentMode);
 
@@ -2726,33 +2722,21 @@ glFinish();
 int main(int argc, char** argv) { 
     Fl::use_high_res_GL(1);
     // setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
-
+	std::cout << "FLTK version: "
+              << FL_MAJOR_VERSION << "."
+              << FL_MINOR_VERSION << "."
+              << FL_PATCH_VERSION << std::endl;
     std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
-#ifdef HAVE_TBB
-    std::cout << "OpenCASCADE was compiled with TBB support." << std::endl;
-#else
-    std::cout << "OpenCASCADE was NOT compiled with TBB support." << std::endl;
-#endif
+
 	Fl::visual(FL_DOUBLE|FL_INDEX);
 	Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
-    // #if defined(__linux__)
-    // // #if defined(__linux__) && defined(__aarch64__)
-    //     Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
-    // // #else
-    // //     Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
-    // #endif
-    // #if defined(_WIN32)
-	// 	Fl::gl_visual(FL_OPENGL3 | FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
-    // #endif
-
-    Fl::scheme("gleam");
+     Fl::scheme("gleam");
     
     Fl::lock();    
     int w=1024;
-	int h=576;
-    // Fl_Window* win = new Fl_Window(0,0,w, h, "FLTK with OpenCASCADE");
-    Fl_Double_Window* win = new Fl_Double_Window(0,0,w, h, "FLTK with OpenCASCADE");
+	int h=576; 
+    Fl_Double_Window* win = new Fl_Double_Window(0,0,w, h, "simplecad");
     win->color(FL_RED);
     win->callback([](Fl_Widget *widget, void* ){		
 		if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape) 
@@ -2762,12 +2746,14 @@ int main(int argc, char** argv) {
     menu = new Fl_Menu_Bar(0, 0,w,22);  
 	menu->menu(items); 
   
+    int hc1=24;
+
     Fl_Group* content = new Fl_Group(0, 22, w, h-22); 
 
-    int hc1=24;
+	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+
     occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1);
-	    // Enable double buffering for smoother rendering
-    
+    content->add(occv); 
 
     Fl_Window* woccbtn = new Fl_Window(0,h-hc1,occv->w(),hc1, "");
     content->add(woccbtn); 

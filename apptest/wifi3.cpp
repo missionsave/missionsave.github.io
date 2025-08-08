@@ -557,8 +557,8 @@ int main() {
 
     // 2. Conecta D-Bus e cria interface
     connect_dbus(); 
-    create_interface(find_wifi_interface().c_str());
-    // create_interface("wlp2s0");
+    // create_interface(find_wifi_interface().c_str());
+    create_interface("wlp2s0");
 
     // 3. Escaneia e obtém BSSs
     trigger_scan();

@@ -1019,8 +1019,8 @@ uninstall_wifi_man() {
   sudo systemctl disable --now NetworkManager.service 2>/dev/null && echo "✓ NetworkManager desativado" || echo "• NetworkManager não encontrado"
   sudo systemctl disable --now wicd.service           2>/dev/null && echo "✓ wicd desativado" || echo "• wicd não encontrado"
   sudo systemctl disable --now systemd-networkd.service 2>/dev/null && echo "✓ systemd-networkd desativado" || echo "• systemd-networkd não encontrado"
-#   sudo systemctl disable --now dhcpcd.service         2>/dev/null && echo "✓ dhcpcd desativado" || echo "• dhcpcd não encontrado"
-#   sudo systemctl disable --now wpa_supplicant.service 2>/dev/null && echo "✓ wpa_supplicant (systemd) desativado" || echo "• wpa_supplicant (systemd) não encontrado"
+  sudo systemctl disable --now dhcpcd.service         2>/dev/null && echo "✓ dhcpcd desativado" || echo "• dhcpcd não encontrado"
+  sudo systemctl disable --now wpa_supplicant.service 2>/dev/null && echo "✓ wpa_supplicant (systemd) desativado" || echo "• wpa_supplicant (systemd) não encontrado"
 
   echo "🧹 Limpando arquivos residuais..."
 
@@ -1345,6 +1345,14 @@ ffmpeg -f x11grab -framerate 10 -video_size 640x480 -i :0.0 \
 }
 
 
+
+
+mntpenid() {
+    sudo mkdir -p ~/pen
+    if ! mountpoint -q ~/pen; then
+        sudo mount -o uid=$(id -u),gid=$(id -g),umask=000 /dev/"$1" ~/pen
+    fi
+}
 
 
 

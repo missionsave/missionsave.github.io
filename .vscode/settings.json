@@ -7,12 +7,11 @@
     "editor.scrollbar.vertical": "visible",
     "editor.folding": true,
     "editor.showFoldingControls": "always",
-    "editor.scrollbar.vertical": "auto",
-    "editor.scrollbar.horizontal": "auto", //
+    // "editor.scrollbar.vertical": "auto",
+    "editor.scrollbar.horizontal": "hidden", //
     "editor.scrollbar.scrollByPage": true,
 
-    "editor.minimap.enabled": false,
-    "editor.showFoldingControls": "always",
+    "editor.minimap.enabled": false, 
     "notebook.showFoldingControls": "always",
     "editor.scrollBeyondLastLine": false,
     "makefile.makePath": "c:/msys64/mingw64/bin/mingw32-make.exe",
@@ -116,7 +115,33 @@
 		"cinttypes": "cpp",
 		"typeinfo": "cpp",
 		"streamoperator": "cpp",
-		"*.lxx": "cpp"
+		"*.lxx": "cpp",
+		"quat": "cpp",
+		"vec2b": "cpp",
+		"vec2d": "cpp",
+		"vec2f": "cpp",
+		"vec2i": "cpp",
+		"vec2s": "cpp",
+		"vec2ub": "cpp",
+		"vec2ui": "cpp",
+		"vec2us": "cpp",
+		"vec3b": "cpp",
+		"vec3d": "cpp",
+		"vec3f": "cpp",
+		"vec3i": "cpp",
+		"vec3s": "cpp",
+		"vec3ub": "cpp",
+		"vec3ui": "cpp",
+		"vec3us": "cpp",
+		"vec4b": "cpp",
+		"vec4d": "cpp",
+		"vec4f": "cpp",
+		"vec4i": "cpp",
+		"vec4s": "cpp",
+		"vec4ub": "cpp",
+		"vec4ui": "cpp",
+		"vec4us": "cpp",
+		"viewport": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {
@@ -142,8 +167,7 @@
 
 	
     
-     
-    "makefile.makePath": "c:/msys64/mingw64/bin/mingw32-make.exe",
+      
     "workbench.colorTheme": "Visual Studio Light",
     "editor.fontWeight": "bold",
     "terminal.integrated.fontWeightBold": true,

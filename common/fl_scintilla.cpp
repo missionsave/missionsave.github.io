@@ -75,7 +75,11 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
     SetNotify(cb_editor, this); 
     helperinit();
 	SendEditor(SCI_AUTOCSETAUTOHIDE,0);
+
+
+
 }
+
     //  void fl_scintilla::resize(int x, int y, int w, int h)  {
     //     // Redimensiona o box para manter margens de 10 px
     //    Fl_Window* p=window(); 
@@ -735,9 +739,12 @@ void fl_scintilla::searchshow(){
 }
 // void fl_scintilla::toggleSearch(){
 // }
-void fl_scintilla::helperinit(){     
+void fl_scintilla::helperinit(){  
+	// cotm(x())   
     window()->begin();
-    toggleSearchGroup=new Fl_Window(0,h()-22*5,w(),44); 
+	// cotm(x())    
+    toggleSearchGroup=new Fl_Window(x(),h()-22*5,w(),44); 
+    // toggleSearchGroup=new Fl_Window(0,h()-22*5,w(),44); 
     toggleSearchGroup->box(FL_FLAT_BOX);
     toggleSearchGroup->color(FL_GRAY); 
     toggleSearchGroup->begin();
@@ -758,7 +765,7 @@ void fl_scintilla::helperinit(){
 
 	// Fl_Browser
     window()->begin(); 
-    navigator=new Fl_Group(0,    0+toggleSearchGroup->y()+toggleSearchGroup->h(),w(),h()-(toggleSearchGroup->y()+toggleSearchGroup->h()-22));
+    navigator=new Fl_Group(x(),    0+toggleSearchGroup->y()+toggleSearchGroup->h(),w(),h()-(toggleSearchGroup->y()+toggleSearchGroup->h()-22));
     
     navigator->box(FL_FLAT_BOX);
     navigator->color(FL_BLUE);

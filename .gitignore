@@ -26,6 +26,7 @@
 
 !/appcad
 !simplecad.cpp
+!scintlua.cpp
 
 !/approbot
 !frobot.cpp
@@ -70,13 +71,13 @@
 !/cfglinux/*
 !/cfglinux/**/*
 
-*_v1
-*_v2
-*_v3
-*_v4
-*_v5
-*_v6
-*_v7
-*_v8
-*_v9
+*_v1*
+*_v2*
+*_v3*
+*_v4*
+*_v5*
+*_v6*
+*_v7*
+*_v8*
+*_v9*
 *delet*

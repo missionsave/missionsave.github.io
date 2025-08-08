@@ -122,8 +122,10 @@ ifeq ($(OS_NAME), Linux)
 	
 	# CXXFLAGS+= `fltk-config --cxxflags` -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_THREAD_SAFE -D_REENTRANT
 	# LDFLAGS+= `fltk-config --ldflags` 
-	# LDFLAGS+= -L../common/scintilla_370 -l:libscintl.a	
-	# CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src
+	
+	LDFLAGS+= -L../common/scintilla_370 -l:libscintl.a	
+	CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src
+	
 	# LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 	
@@ -190,7 +192,9 @@ endif
 
 # lib files
 SRC_LIB :=  \
-    ../common/general.cpp
+    scintlua.cpp \
+    ../common/general.cpp \
+    ../common/fl_scintilla.cpp
 
 # exec
 SRC_APP := \

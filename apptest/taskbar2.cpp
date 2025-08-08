@@ -1427,7 +1427,7 @@ pid_t focused_pid=0;
 void initscrensaver() {
     constexpr int IDLE_THRESHOLD = 60*5; // segundos para desligar o ecrã
     int idle_seconds = 0;
-
+	int interval=30;
     while (true) {
         unsigned long idle_ms = get_idle_time_ms();
         focused_pid = get_active_window_pid();
@@ -1438,7 +1438,7 @@ void initscrensaver() {
             idle_seconds = 0;
         } else if (focused_pid == -1 || !is_audio_focused(focused_pid)) {
             // Sem foco ou áudio não relacionado com a janela ativa: incrementa contador
-            idle_seconds++;
+            idle_seconds+=interval;
         } else {
             // Áudio relacionado com a janela ativa: reseta contador
             idle_seconds = 0;
@@ -1452,7 +1452,7 @@ void initscrensaver() {
             idle_seconds = 0;
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(interval));
     }
 
     // return 0;
@@ -1472,7 +1472,7 @@ struct WindowInfo {
 };
 
 unordered_map <string,string> uapps;
-vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64","PeaZip"};
+vector<string> pinnedApps={"Google Chrome","Visual Studio Code","tmux x86_64"};
 
 Window stringToWindow(const std::string& winStr) {
     Window win;
@@ -2563,7 +2563,13 @@ int lnet() {
 #endif
 
 #pragma endregion net
- 
+#pragma region bottomright
+
+
+
+
+
+#pragma endregion bottomright
 
 int main() {
 	std::cout << "FLTK Version: " << FL_VERSION << std::endl;
