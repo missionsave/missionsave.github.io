@@ -220,7 +220,7 @@ void fl_scintilla::set_lua(){
 		SendEditor(SCI_STYLESETFONT, i, (sptr_t)fntname);
 		SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, RGB(0, 0, 0));
 		SendEditor(SCI_STYLESETSIZE, i, 11);  
-		// SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
+		SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
 	} 
  
 	string keys0="function end if then local print for do while break return until else in elseif true false goto require";
