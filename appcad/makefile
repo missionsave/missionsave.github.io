@@ -42,9 +42,9 @@ ifeq ($(OS_NAME), Windows)
 	CXXFLAGS+= -I../common
 	LDFLAGS+= -L. -l:$(LIBNAME)		
 
-# 	LDFLAGS+= -L../common/scintilla_370 -l:libscint.a
-
+	LDFLAGS+= -L../common/scintilla_370 -l:libscint.a
 	CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src
+
 	# LDFLAGS+=  -L../common/fltk-1.5.x-20250606-5293beea6f7b/bldw/lib 
 	# CXXFLAGS+=  -I../common/fltk-1.5.x-20250606-5293beea6f7b/bldw -I../common/fltk-1.5.x-20250606-5293beea6f7b 
 # 	LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a    -l:libglew32.a -lopengl32 -lgdi32 -lglu32 -lWs2_32 -lwinspool  
