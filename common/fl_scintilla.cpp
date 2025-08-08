@@ -196,18 +196,22 @@ void fl_scintilla::save(){
 }
 
 
+//  fc-scan "DejaVuSans-Bold.ttf" | grep family
 //  fc-scan "Cascadia Mono PL SemiBold 600.otf" | grep family
 //         family: "Cascadia Mono PL"(s) "Cascadia Mono PL SemiBold"(s)
 //         familylang: "en"(s) "en"(s)
 std::string load_app_font(const std::string& filename);
 
 void fl_scintilla::set_lua(){ 
-	string loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
+	string loaded = load_app_font("DejaVuSans-Bold.ttf");
+	// string loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 	cotm(loaded);
 	// const char* fntname="Consolas";
 
 	#ifdef __linux__
-	const char* fntname="Cascadia Mono PL SemiBold";
+	// const char* fntname="DejaVu Sans";
+	const char* fntname=loaded.c_str();
+	// const char* fntname="Cascadia Mono PL SemiBold";
 	#else
 	const char* fntname=loaded.c_str();
 	#endif
@@ -220,7 +224,7 @@ void fl_scintilla::set_lua(){
 		SendEditor(SCI_STYLESETFONT, i, (sptr_t)fntname);
 		SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, RGB(0, 0, 0));
 		SendEditor(SCI_STYLESETSIZE, i, 11);  
-		SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
+		// SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
 	} 
  
 	string keys0="function end if then local print for do while break return until else in elseif true false goto require";
