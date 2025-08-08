@@ -240,6 +240,7 @@ struct  OCC_Viewer : public flwindow {
 
     OCC_Viewer(int X, int Y, int W, int H, const char* L = 0): flwindow(X, Y, W, H, L) { 
 		Fl::add_timeout(10, idle_refresh_cb,0);
+
     }
    
     void initialize_opencascade() { 
@@ -2773,6 +2774,7 @@ int main(int argc, char** argv) {
 	// win->position(Fl::w()/2-win->w()/2,10); 
 	win->position(0,0);  
     win->show(argc, argv); 
+	while (!win->shown()) Fl::wait();
 	win->wait_for_expose();     // wait, until displayed
 	occv->wait_for_expose();     // wait, until displayed
 	Fl::flush();                // make sure everything gets drawn
@@ -2783,9 +2785,9 @@ int main(int argc, char** argv) {
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 	// sleepms(200);
-	return Fl::run();
     occv->initialize_opencascade();
 
+	return Fl::run();
 
 	// content->begin();
 	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
