@@ -882,7 +882,7 @@ int Fl_Scintilla::DragOver()
 		Scintilla::Point pt = Scintilla::Point::FromInts(Fl::event_x()-swt_.rc_client.x, Fl::event_y()-swt_.rc_client.y);
 		SetDragPosition(SPositionFromLocation(pt, false, false, UserVirtualSpace()));
 
-#if WIN32
+#ifdef WIN32
 		Fl::wait(0);
 #endif
 
