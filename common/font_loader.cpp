@@ -1,4 +1,3 @@
-// font_loader.cpp  static std::string load_app_font(const std::string& filename)
 #pragma once
 #include <string>
 #include <vector>
@@ -20,8 +19,6 @@
 #endif
 
 #include "general.hpp"
-
-// namespace appfont {
 
 static std::string dirname_of(const std::string& path) {
     auto pos = path.find_last_of("/\\");
@@ -47,10 +44,9 @@ static std::string executable_path() {
     return std::string(buf, (len ? len : 0));
 #elif defined(__APPLE__)
     uint32_t size = 0;
-    _NSGetExecutablePath(nullptr, &size); // get required size
+    _NSGetExecutablePath(nullptr, &size);
     std::vector<char> tmp(size + 1);
     if (_NSGetExecutablePath(tmp.data(), &size) != 0) return {};
-    // realpath to resolve symlinks
     char resolved[PATH_MAX];
     if (realpath(tmp.data(), resolved)) return std::string(resolved);
     return std::string(tmp.data());
@@ -66,22 +62,19 @@ static std::string app_dir() {
     return dirname_of(executable_path());
 }
 
-// Try common locations relative to the executable
 static std::vector<std::string> candidate_paths(const std::string& filename) {
     std::vector<std::string> paths;
     auto base = app_dir();
-    paths.push_back(join_path(base, filename));                 // alongside executable
+    paths.push_back(join_path(base, filename));
 #if defined(__APPLE__)
-    // In a bundled .app: MyApp.app/Contents/MacOS/<exe>
-    // Resources are at:  MyApp.app/Contents/Resources/
     paths.push_back(join_path(join_path(base, "../Resources"), filename));
-    paths.push_back(join_path(join_path(base, "../../Resources"), filename)); // in case of alternate layouts
+    paths.push_back(join_path(join_path(base, "../../Resources"), filename));
 #endif
-    paths.push_back(join_path(join_path(base, "fonts"), filename)); // ./fonts/<file>
+    paths.push_back(join_path(join_path(base, "fonts"), filename));
     return paths;
 }
+
 #if defined(_WIN32)
-// Convert UTF-8 path to a wide string
 static std::wstring utf8_to_wstring(const std::string& utf8) {
     int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
     std::wstring wstr(wlen, L'\0');
@@ -89,17 +82,16 @@ static std::wstring utf8_to_wstring(const std::string& utf8) {
     return wstr;
 }
 #endif
-// Platform-specific registration
+
 static bool register_font_file(const std::string& absPath) {
 #if defined(_WIN32)
     std::wstring path = utf8_to_wstring(absPath);
     int added = AddFontResourceExW(path.c_str(), FR_PRIVATE, 0);
     if (added > 0) {
         SendMessageW(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
-        sleepms(100); // Add ~100ms delay here to let GDI update
+        sleepms(100);
         return true;
     }
-
 #elif defined(__APPLE__)
     CFStringRef cfPath = CFStringCreateWithCString(nullptr, absPath.c_str(), kCFStringEncodingUTF8);
     if (!cfPath) return false;
@@ -111,29 +103,14 @@ static bool register_font_file(const std::string& absPath) {
     if (error) CFRelease(error);
     CFRelease(url);
     return ok;
-
 #else
-    // Linux/Unix with Fontconfig
     if (!FcInit()) return false;
     FcConfig* cfg = FcConfigGetCurrent();
     if (!cfg) cfg = FcInitLoadConfigAndFonts();
     FcBool ok = FcConfigAppFontAddFile(cfg, reinterpret_cast<const FcChar8*>(absPath.c_str()));
-    // Optional: rebuild font set for immediate availability
     FcConfigBuildFonts(cfg);
     return ok == FcTrue;
 #endif
-}
-
-// Load font by filename located in app dir (or typical subdirs). Returns absolute path if loaded.
-std::string load_app_font_v1(const std::string& filename) {
-    for (const auto& p : candidate_paths(filename)) {
-        // Quick existence check
-        FILE* f = std::fopen(p.c_str(), "rb");
-        if (!f) continue;
-        std::fclose(f);
-        if (register_font_file(p)) return p;
-    }
-    return {};
 }
 
 std::string load_app_font(const std::string& filename) {
@@ -145,28 +122,22 @@ std::string load_app_font(const std::string& filename) {
         if (!register_font_file(p))
             continue;
 
-        // Successfully registered — now detect face name
-        #if defined(_WIN32)
-        struct FaceFinder {
-            std::string found;
-            static int CALLBACK EnumFontFamExProc(const LOGFONTW* lf, const TEXTMETRIC*, DWORD, LPARAM lParam) {
-                auto* self = reinterpret_cast<FaceFinder*>(lParam);
-                char buffer[LF_FACESIZE];
-                WideCharToMultiByte(CP_UTF8, 0, lf->lfFaceName, -1, buffer, sizeof(buffer), nullptr, nullptr);
-                self->found = buffer;
-                return 0; // Stop after first match
-            }
-        };
-        FaceFinder finder;
-        HDC hdc = GetDC(nullptr);
-        LOGFONTW lf = {};
-        lf.lfCharSet = DEFAULT_CHARSET;
-        EnumFontFamiliesExW(hdc, &lf, (FONTENUMPROCW)FaceFinder::EnumFontFamExProc, reinterpret_cast<LPARAM>(&finder), 0);
-        ReleaseDC(nullptr, hdc);
-        return finder.found;
+#if defined(_WIN32)
+        std::wstring widePath = utf8_to_wstring(p);
+        wchar_t name[LF_FACESIZE] = {};
+        DWORD size = sizeof(name);
 
-        #elif defined(__APPLE__)
-        // Use CoreText to get PostScript name
+        BOOL ok = GetFontResourceInfoW(widePath.c_str(), &size, name, 1);
+        if (ok && name[0]) {
+            char converted[LF_FACESIZE];
+            WideCharToMultiByte(CP_UTF8, 0, name, -1, converted, sizeof(converted), nullptr, nullptr);
+            return std::string(converted);
+        }
+        auto slash = p.find_last_of("/\\");
+        auto dot = p.find_last_of(".");
+        return p.substr(slash + 1, dot - slash - 1);
+
+#elif defined(__APPLE__)
         CFStringRef cfPath = CFStringCreateWithCString(nullptr, p.c_str(), kCFStringEncodingUTF8);
         CFURLRef url = CFURLCreateWithFileSystemPath(nullptr, cfPath, kCFURLPOSIXPathStyle, false);
         CFRelease(cfPath);
@@ -184,15 +155,12 @@ std::string load_app_font(const std::string& filename) {
         CFRelease(name);
         return std::string(buffer);
 
-        #else
-        // Linux/Fontconfig: Return basename fallback
+#else
         auto slash = p.find_last_of("/\\");
         auto dot = p.find_last_of(".");
         return p.substr(slash + 1, dot - slash - 1);
-        #endif
+#endif
     }
 
     return {};
 }
-
-// } // namespace appfont
