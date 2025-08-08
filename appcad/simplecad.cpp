@@ -2750,7 +2750,7 @@ int main(int argc, char** argv) {
 
     Fl_Group* content = new Fl_Group(0, 22, w, h-22); 
 
-	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
     occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1);
     content->add(occv); 
