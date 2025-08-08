@@ -208,7 +208,7 @@ void fl_scintilla::set_lua(){
 
 	#ifdef __linux__
 	const char* fntname="Cascadia Mono PL SemiBold";
-	#elif
+	#else
 	const char* fntname="Cascadia Mono PL";
 	#endif
 
