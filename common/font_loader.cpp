@@ -7,6 +7,12 @@
 #if defined(_WIN32)
   #include <windows.h>
   #include <wingdi.h>
+  extern "C" BOOL WINAPI GetFontResourceInfoW(
+    LPCWSTR lpPathname,   // Path to the font file
+    LPDWORD lpBytes,      // Size of the buffer / receives size of returned data
+    LPVOID lpBuffer,      // Buffer to receive the requested info
+    DWORD dwType          // Type of information to retrieve
+);
   
 #elif defined(__APPLE__)
   #include <mach-o/dyld.h>
