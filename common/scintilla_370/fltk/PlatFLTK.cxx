@@ -137,7 +137,17 @@ Scintilla::FontID FontCached::FindOrCreate(const Scintilla::FontParameters &fp)
 				break;
 			}
 		}
-		FontCached *fc = new FontCached(ff, (char*)fp.faceName, (int)fp.size);
+		int useSize = (int)fp.size;
+#if defined(_WIN32)
+// #if defined(PLAT_FLTK_WIN32) || defined(_WIN32) || defined(__WIN32__)
+    HDC hdc = GetDC(NULL);
+    if (hdc) {
+        useSize = MulDiv(useSize, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        ReleaseDC(NULL, hdc);
+    }
+#endif
+    FontCached *fc = new FontCached(ff, (char*)fp.faceName, useSize);
+
 		fc->next = first;
 		first = fc;
 		ret = fc->fid;

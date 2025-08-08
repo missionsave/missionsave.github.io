@@ -2769,7 +2769,7 @@ int main(int argc, char** argv) {
     woccbtn->resizable(content1);
     
 
-Fl_Group::current(content);
+	Fl_Group::current(content);
 	// content->begin();
 	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
