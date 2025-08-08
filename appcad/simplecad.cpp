@@ -186,7 +186,8 @@
 
 void scint_init(int x,int y,int w,int h);
 
-#define flwindow Fl_Window  
+#define flwindow Fl_Double_Window  
+// #define flwindow Fl_Window  
 #ifdef __linux__
 #define flwindow Fl_Double_Window
 #endif
@@ -2728,7 +2729,7 @@ int main(int argc, char** argv) {
               << FL_PATCH_VERSION << std::endl;
     std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
 
-	Fl::visual(FL_DOUBLE|FL_INDEX);
+	// Fl::visual(FL_DOUBLE|FL_INDEX);
 	Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
      Fl::scheme("gleam");
