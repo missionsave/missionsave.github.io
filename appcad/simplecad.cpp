@@ -2778,6 +2778,12 @@ int main(int argc, char** argv) {
 	// win->resize(x, y+22, _w, _h-22);
 
     occv->initialize_opencascade();
+
+
+	content->begin();
+	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+
+
     occv->test2();
     // occv->test();
     {
