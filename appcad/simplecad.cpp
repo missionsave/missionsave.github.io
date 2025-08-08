@@ -2771,15 +2771,16 @@ int main(int argc, char** argv) {
 	// win->position(Fl::w()/2-win->w()/2,10); 
 	win->position(0,0);  
     win->show(argc, argv); 
-	win->flush(); 
+	// win->flush(); 
 
     // win->maximize();
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 
-	occv->show();
-	occv->wait_for_expose ();
+	Fl::wait(50);
+	// occv->show();
+	// occv->wait_for_expose ();
     occv->initialize_opencascade();
     occv->test2();
     // occv->test();
