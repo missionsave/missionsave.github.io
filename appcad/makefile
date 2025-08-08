@@ -39,6 +39,8 @@ endif
 ifeq ($(OS_NAME), Windows)
 # $(eval $(common))
 # $(info common: $(LDFLAGS))
+	CXXFLAGS+= -DWIN32 
+
 	CXXFLAGS+= -I../common
 	LDFLAGS+= -L. -l:$(LIBNAME)		
 
