@@ -50,6 +50,7 @@
 !lua_preprocessor.c
 !font_loader.cpp
 !Cascadia Mono PL SemiBold 600.otf
+!DejaVuSans-Bold.ttf
 
 !fl_scintilla.*
 
