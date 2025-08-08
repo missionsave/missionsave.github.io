@@ -217,12 +217,14 @@ void fl_scintilla::set_lua(){
 
 	#ifdef __linux__
 	// const char* fntname="DejaVu Sans";
-	const char* fntname=loaded.c_str();
+	// const char* fntname=loaded.c_str();
 	// const char* fntname="Cascadia Mono PL SemiBold";
 	#else
 	// const char* fntname="DejaVu Sans";
-	const char* fntname=loaded.c_str();
+	// const char* fntname=loaded.c_str();
 	#endif
+	
+	const char* fntname="Arial";
 
 	// const char* fntname="Cascadia Code";
     SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
@@ -231,7 +233,7 @@ void fl_scintilla::set_lua(){
 	for (int i = 0; i < STYLE_LASTPREDEFINED; ++i) {
 		SendEditor(SCI_STYLESETFONT, i, (sptr_t)fntname);
 		SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, RGB(0, 0, 0));
-		SendEditor(SCI_STYLESETSIZE, i, 10);  
+		SendEditor(SCI_STYLESETSIZE, i, 12);  
 		// SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
 	} 
  
