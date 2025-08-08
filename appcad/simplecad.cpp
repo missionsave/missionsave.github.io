@@ -2778,7 +2778,7 @@ Fl::flush();                // make sure everything gets drawn
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
-
+	sleepms(200);
     occv->initialize_opencascade();
 
 
