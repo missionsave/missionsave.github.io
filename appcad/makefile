@@ -198,6 +198,7 @@ endif
 SRC_LIB :=  \
     scintlua.cpp \
     ../common/general.cpp \
+    ../common/font_loader.cpp \
     ../common/fl_scintilla.cpp
 
 # exec

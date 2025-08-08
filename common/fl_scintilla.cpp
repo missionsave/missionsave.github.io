@@ -194,9 +194,12 @@ void fl_scintilla::save(){
 		// if(callbackOnSave)voidToFunc(callbackOnSave,string)(filenamecurrent); 
 	}
 }
+std::string load_app_font(const std::string& filename);
 void fl_scintilla::set_lua(){ 
+	auto loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 	// const char* fntname="Consolas";
-	const char* fntname="Cascadia Code";
+	const char* fntname="Cascadia Mono PL SemiBold";
+	// const char* fntname="Cascadia Code";
     SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
     SendEditor(SCI_SETLEXER, SCLEX_LUA);
 	// printf("STYLE_LASTPREDEFINED %d\n",STYLE_LASTPREDEFINED);
