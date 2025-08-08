@@ -246,6 +246,7 @@ struct  OCC_Viewer : public flwindow {
         // Get native window handle
 #ifdef _WIN32
 		Fl::wait(); 
+		make_current();
         HWND hwnd = (HWND)fl_xid(this);
         Handle(WNT_Window) wind = new WNT_Window(hwnd);
         m_display_connection = new Aspect_DisplayConnection("");
