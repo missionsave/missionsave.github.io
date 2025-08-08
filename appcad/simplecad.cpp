@@ -2772,6 +2772,7 @@ int main(int argc, char** argv) {
 	win->position(0,0);  
     win->show(argc, argv); 
 	win->flush(); 
+	win->wait_for_expose ();
     // win->maximize();
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
