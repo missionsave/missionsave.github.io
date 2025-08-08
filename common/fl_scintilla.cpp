@@ -214,7 +214,7 @@ void fl_scintilla::set_lua(){
 	// const char* fntname="Cascadia Mono PL SemiBold";
 	#else
 	const char* fntname="DejaVu Sans";
-	const char* fntname=loaded.c_str();
+	// const char* fntname=loaded.c_str();
 	#endif
 
 	// const char* fntname="Cascadia Code";
