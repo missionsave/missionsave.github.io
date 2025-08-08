@@ -19,6 +19,8 @@
   #include <fontconfig/fontconfig.h>
 #endif
 
+#include "general.hpp"
+
 // namespace appfont {
 
 static std::string dirname_of(const std::string& path) {
@@ -78,16 +80,25 @@ static std::vector<std::string> candidate_paths(const std::string& filename) {
     paths.push_back(join_path(join_path(base, "fonts"), filename)); // ./fonts/<file>
     return paths;
 }
-
+#if defined(_WIN32)
+// Convert UTF-8 path to a wide string
+static std::wstring utf8_to_wstring(const std::string& utf8) {
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+    std::wstring wstr(wlen, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, &wstr[0], wlen);
+    return wstr;
+}
+#endif
 // Platform-specific registration
 static bool register_font_file(const std::string& absPath) {
 #if defined(_WIN32)
-    int added = AddFontResourceExA(absPath.c_str(), FR_PRIVATE, 0);
+    std::wstring path = utf8_to_wstring(absPath);
+    int added = AddFontResourceExW(path.c_str(), FR_PRIVATE, 0);
     if (added > 0) {
-        SendMessageA(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
+        SendMessageW(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
+        sleepms(100); // Add ~100ms delay here to let GDI update
         return true;
     }
-    return false;
 
 #elif defined(__APPLE__)
     CFStringRef cfPath = CFStringCreateWithCString(nullptr, absPath.c_str(), kCFStringEncodingUTF8);
