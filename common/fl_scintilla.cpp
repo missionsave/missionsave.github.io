@@ -224,7 +224,7 @@ void fl_scintilla::set_lua(){
 	// const char* fntname=loaded.c_str();
 	#endif
 	
-	const char* fntname="Arial";
+	const char* fntname="";
 
 	// const char* fntname="Cascadia Code";
     SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
