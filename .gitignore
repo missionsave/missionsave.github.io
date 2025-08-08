@@ -65,7 +65,7 @@
 !/**/scintilla_370/src
 !/**/scintilla_370/src/*
 !/**/scintilla_370/src/*
-!/**/scintilla_370/fltest.*
+!/**/scintilla_370/fltest.cpp
 
 !cfglinux
 !/cfglinux/*

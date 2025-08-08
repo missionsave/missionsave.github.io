@@ -20,6 +20,7 @@ else
 	endif
 endif
 ifeq ($(OS_NAME), Windows)
+	CXXFLAGS+= -DWIN32 
 	LDFLAGS+= -L. -l:$(LIBNAME)
 	# LDFLAGS+=  -L../fltk-1.5.x-20250606-5293beea6f7b/bldw/lib
 	# CXXFLAGS+=  -I../fltk-1.5.x-20250606-5293beea6f7b/bldw -I../fltk-1.5.x-20250606-5293beea6f7b 
