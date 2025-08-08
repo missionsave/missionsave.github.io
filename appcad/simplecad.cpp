@@ -2783,6 +2783,7 @@ int main(int argc, char** argv) {
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 	// sleepms(200);
+	return Fl::run();
     occv->initialize_opencascade();
 
 
