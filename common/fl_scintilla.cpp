@@ -194,12 +194,24 @@ void fl_scintilla::save(){
 		// if(callbackOnSave)voidToFunc(callbackOnSave,string)(filenamecurrent); 
 	}
 }
+
+
+//  fc-scan "Cascadia Mono PL SemiBold 600.otf" | grep family
+//         family: "Cascadia Mono PL"(s) "Cascadia Mono PL SemiBold"(s)
+//         familylang: "en"(s) "en"(s)
 std::string load_app_font(const std::string& filename);
+
 void fl_scintilla::set_lua(){ 
 	auto loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 	cotm(loaded);
 	// const char* fntname="Consolas";
+
+	#ifdef __linux__
 	const char* fntname="Cascadia Mono PL SemiBold";
+	#elif
+	const char* fntname="Cascadia Mono PL";
+	#endif
+
 	// const char* fntname="Cascadia Code";
     SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
     SendEditor(SCI_SETLEXER, SCLEX_LUA);
