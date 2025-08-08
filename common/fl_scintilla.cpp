@@ -203,18 +203,24 @@ void fl_scintilla::save(){
 std::string load_app_font(const std::string& filename);
 
 void fl_scintilla::set_lua(){ 
-	string loaded = load_app_font("DejaVuSans-Bold.ttf");
+	std::ifstream f("DejaVuSans.ttf", std::ios::binary);
+if (!f) throw std::runtime_error("Cannot open font file at path: " );
+	string loaded = load_app_font("DejaVuSansMono.ttf");
+
+
+
+
 	// string loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 	cotm(loaded);
 	// const char* fntname="Consolas";
 
 	#ifdef __linux__
-	const char* fntname="DejaVu Sans";
-	// const char* fntname=loaded.c_str();
+	// const char* fntname="DejaVu Sans";
+	const char* fntname=loaded.c_str();
 	// const char* fntname="Cascadia Mono PL SemiBold";
 	#else
-	const char* fntname="DejaVu Sans";
-	// const char* fntname=loaded.c_str();
+	// const char* fntname="DejaVu Sans";
+	const char* fntname=loaded.c_str();
 	#endif
 
 	// const char* fntname="Cascadia Code";
@@ -224,8 +230,8 @@ void fl_scintilla::set_lua(){
 	for (int i = 0; i < STYLE_LASTPREDEFINED; ++i) {
 		SendEditor(SCI_STYLESETFONT, i, (sptr_t)fntname);
 		SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, RGB(0, 0, 0));
-		SendEditor(SCI_STYLESETSIZE, i, 11);  
-		// SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
+		SendEditor(SCI_STYLESETSIZE, i, 12);  
+		SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
 	} 
  
 	string keys0="function end if then local print for do while break return until else in elseif true false goto require";
