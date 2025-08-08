@@ -245,6 +245,7 @@ struct  OCC_Viewer : public flwindow {
     void initialize_opencascade() { 
         // Get native window handle
 #ifdef _WIN32
+		Fl::wait(); 
         HWND hwnd = (HWND)fl_xid(this);
         Handle(WNT_Window) wind = new WNT_Window(hwnd);
         m_display_connection = new Aspect_DisplayConnection("");
@@ -2780,7 +2781,7 @@ int main(int argc, char** argv) {
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
-	sleepms(200);
+	// sleepms(200);
     occv->initialize_opencascade();
 
 
