@@ -2753,7 +2753,7 @@ int main(int argc, char** argv) {
 
     Fl_Group* content = new Fl_Group(0, 22, w, h-22); 
 
-	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
     occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1);
     content->add(occv); 
@@ -2768,6 +2768,13 @@ int main(int argc, char** argv) {
 	// content1->end();
     woccbtn->resizable(content1);
     
+
+Fl_Group::current(content);
+	// content->begin();
+	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+
+
+
 	win->clear_visible_focus(); 	 
 	woccbtn->color(0x7AB0CfFF);
 	win->resizable(content);	
@@ -2787,10 +2794,11 @@ int main(int argc, char** argv) {
 	// sleepms(200);
     occv->initialize_opencascade();
 
-	return Fl::run();
-
+	// return Fl::run();
+// Fl_Group::current(content);
 	// content->begin();
-	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+// 	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+// content->end();
 
 
     occv->test2();
