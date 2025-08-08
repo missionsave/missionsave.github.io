@@ -186,12 +186,10 @@
 
 void scint_init(int x,int y,int w,int h);
 
-// #define flwindow Fl_Window  
+#define flwindow Fl_Window  
 #ifdef __linux__
 #define flwindow Fl_Double_Window
 #endif
-
-#define flwindow Fl_Gl_Window  
 
 using namespace std;
 #pragma endregion includes
@@ -2730,8 +2728,8 @@ int main(int argc, char** argv) {
               << FL_PATCH_VERSION << std::endl;
     std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
 
-	// Fl::visual(FL_DOUBLE|FL_INDEX);
-	// Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+	Fl::visual(FL_DOUBLE|FL_INDEX);
+	Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
      Fl::scheme("gleam");
     
@@ -2752,12 +2750,10 @@ int main(int argc, char** argv) {
 
     Fl_Group* content = new Fl_Group(0, 22, w, h-22); 
 
+	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
     occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1);
     content->add(occv); 
-
-	content->begin();
-	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
     Fl_Window* woccbtn = new Fl_Window(0,h-hc1,occv->w(),hc1, "");
     content->add(woccbtn); 
@@ -2775,16 +2771,12 @@ int main(int argc, char** argv) {
 	// win->position(Fl::w()/2-win->w()/2,10); 
 	win->position(0,0);  
     win->show(argc, argv); 
-	// win->flush(); 
-
+	win->flush(); 
     // win->maximize();
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 
-	Fl::wait(50);
-	// occv->show();
-	// occv->wait_for_expose ();
     occv->initialize_opencascade();
     occv->test2();
     // occv->test();
