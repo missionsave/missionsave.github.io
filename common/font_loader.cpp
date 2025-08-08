@@ -6,6 +6,8 @@
 
 #if defined(_WIN32)
   #include <windows.h>
+  #include <wingdi.h>
+  
 #elif defined(__APPLE__)
   #include <mach-o/dyld.h>
   #include <CoreFoundation/CoreFoundation.h>
