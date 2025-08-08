@@ -216,8 +216,9 @@ void fl_scintilla::set_lua(){
 	cotm(loaded);
 	// const char* fntname="Consolas";
 	// const char* fntname="Cascadia Mono PL SemiBold";
-	const char* fntname=loaded.c_str();
 
+	const char* fntname=loaded.c_str();
+sleepms(500);
 	#ifdef __linux__
 	// const char* fntname="DejaVu Sans";
 	// const char* fntname=loaded.c_str();
