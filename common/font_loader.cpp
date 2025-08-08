@@ -114,7 +114,7 @@ static bool register_font_file(const std::string& absPath) {
 }
 
 // Load font by filename located in app dir (or typical subdirs). Returns absolute path if loaded.
-std::string load_app_font(const std::string& filename) {
+std::string load_app_font_v1(const std::string& filename) {
     for (const auto& p : candidate_paths(filename)) {
         // Quick existence check
         FILE* f = std::fopen(p.c_str(), "rb");
@@ -122,6 +122,65 @@ std::string load_app_font(const std::string& filename) {
         std::fclose(f);
         if (register_font_file(p)) return p;
     }
+    return {};
+}
+
+std::string load_app_font(const std::string& filename) {
+    for (const auto& p : candidate_paths(filename)) {
+        FILE* f = std::fopen(p.c_str(), "rb");
+        if (!f) continue;
+        std::fclose(f);
+
+        if (!register_font_file(p))
+            continue;
+
+        // Successfully registered — now detect face name
+        #if defined(_WIN32)
+        struct FaceFinder {
+            std::string found;
+            static int CALLBACK EnumFontFamExProc(const LOGFONTW* lf, const TEXTMETRIC*, DWORD, LPARAM lParam) {
+                auto* self = reinterpret_cast<FaceFinder*>(lParam);
+                char buffer[LF_FACESIZE];
+                WideCharToMultiByte(CP_UTF8, 0, lf->lfFaceName, -1, buffer, sizeof(buffer), nullptr, nullptr);
+                self->found = buffer;
+                return 0; // Stop after first match
+            }
+        };
+        FaceFinder finder;
+        HDC hdc = GetDC(nullptr);
+        LOGFONTW lf = {};
+        lf.lfCharSet = DEFAULT_CHARSET;
+        EnumFontFamiliesExW(hdc, &lf, (FONTENUMPROCW)FaceFinder::EnumFontFamExProc, reinterpret_cast<LPARAM>(&finder), 0);
+        ReleaseDC(nullptr, hdc);
+        return finder.found;
+
+        #elif defined(__APPLE__)
+        // Use CoreText to get PostScript name
+        CFStringRef cfPath = CFStringCreateWithCString(nullptr, p.c_str(), kCFStringEncodingUTF8);
+        CFURLRef url = CFURLCreateWithFileSystemPath(nullptr, cfPath, kCFURLPOSIXPathStyle, false);
+        CFRelease(cfPath);
+        CTFontDescriptorRef descriptor = CTFontManagerCreateFontDescriptorFromDataURL(url);
+        CFRelease(url);
+        if (!descriptor) return filename;
+        CTFontRef font = CTFontCreateWithFontDescriptor(descriptor, 0.0, nullptr);
+        CFRelease(descriptor);
+        if (!font) return filename;
+        CFStringRef name = CTFontCopyPostScriptName(font);
+        CFRelease(font);
+        if (!name) return filename;
+        char buffer[256];
+        CFStringGetCString(name, buffer, sizeof(buffer), kCFStringEncodingUTF8);
+        CFRelease(name);
+        return std::string(buffer);
+
+        #else
+        // Linux/Fontconfig: Return basename fallback
+        auto slash = p.find_last_of("/\\");
+        auto dot = p.find_last_of(".");
+        return p.substr(slash + 1, dot - slash - 1);
+        #endif
+    }
+
     return {};
 }
 

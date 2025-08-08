@@ -202,14 +202,14 @@ void fl_scintilla::save(){
 std::string load_app_font(const std::string& filename);
 
 void fl_scintilla::set_lua(){ 
-	auto loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
+	string loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 	cotm(loaded);
 	// const char* fntname="Consolas";
 
 	#ifdef __linux__
 	const char* fntname="Cascadia Mono PL SemiBold";
 	#else
-	const char* fntname="Cascadia Mono PL";
+	const char* fntname=loaded.c_str();
 	#endif
 
 	// const char* fntname="Cascadia Code";
