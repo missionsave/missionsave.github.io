@@ -509,21 +509,45 @@ launchwin8(){
 #   -device virtio-9p-pci,fsdev=shared_dev,mount_tag=shared_folder \
 #   -enable-kvm
 
+
+#goooood
+# qemu-system-x86_64 \
+#   -m 2048 \
+#   -smp 4 \
+#   -cpu host \
+#   -machine q35,accel=kvm \
+#   -drive file=win8.1.qcow2,format=qcow2 \
+#   -vga virtio \
+#   -device virtio-gpu-gl-pci \
+#   -display sdl,gl=on \
+#   -rtc base=localtime,clock=host \
+#   -net nic,model=virtio \
+#   -net user \
+#   -usb -device usb-tablet \
+#   -enable-kvm \
+#   -cdrom virtio-win-0.1.189.iso
+# #   -cdrom virtio-win-0.1.248.iso 
+
+
 qemu-system-x86_64 \
   -m 2048 \
   -smp 4 \
   -cpu host \
   -machine q35,accel=kvm \
   -drive file=win8.1.qcow2,format=qcow2 \
-  -cdrom virtio-win-0.1.248.iso \
   -vga virtio \
-  -device virtio-gpu-gl-pci \
-  -display sdl,gl=on \
+  -device virtio-gpu-pci \
+  -display sdl,gl=off \
   -rtc base=localtime,clock=host \
   -net nic,model=virtio \
   -net user \
   -usb -device usb-tablet \
-  -enable-kvm
+  -enable-kvm \
+  -cdrom virtio-win-0.1.189.iso
+
+
+
+
 
 
 #almost good

@@ -71,6 +71,8 @@ bool loading=0;
 
 
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {
+	
+	floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
     set_lua();
     SetNotify(cb_editor, this); 
     helperinit();
@@ -206,19 +208,19 @@ void fl_scintilla::set_lua(){
 // 	std::ifstream f("DejaVuSans.ttf", std::ios::binary);
 // if (!f) throw std::runtime_error("Cannot open font file at path: " );
 	// string loaded = load_app_font("DejaVuSans-Bold.ttf");
-	string loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
+	// string floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 	// string loaded = load_app_font("DejaVuSansMono.ttf");
 
 
 
 
 	// string loaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
-	cotm(loaded);
+	// cotm(floaded);
 	// const char* fntname="Consolas";
 	// const char* fntname="Cascadia Mono PL SemiBold";
 
-	const char* fntname=loaded.c_str();
-sleepms(500);
+	const char* fntname=floaded.c_str();
+// sleepms(500);
 	#ifdef __linux__
 	// const char* fntname="DejaVu Sans";
 	// const char* fntname=loaded.c_str();

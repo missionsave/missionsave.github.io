@@ -2786,7 +2786,7 @@ int main(int argc, char** argv) {
 	occv->wait_for_expose();     // wait, until displayed
 	Fl::flush();                // make sure everything gets drawn
 	win->flush(); 
-	occv->flush(); 
+	// occv->flush(); 
     // win->maximize();
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
