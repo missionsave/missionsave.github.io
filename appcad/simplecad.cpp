@@ -458,7 +458,7 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
     ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, customDrawer);
    cotm(5)
 	// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,       customDrawer);
-    // ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected,      customDrawer);
+    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected,      customDrawer);
 }
 
 
