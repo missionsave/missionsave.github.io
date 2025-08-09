@@ -69,6 +69,11 @@ bool loading=0;
 
 #include "fl_scintilla.hpp"
 
+//  fc-scan "DejaVuSans-Bold.ttf" | grep family
+//  fc-scan "Cascadia Mono PL SemiBold 600.otf" | grep family
+//         family: "Cascadia Mono PL"(s) "Cascadia Mono PL SemiBold"(s)
+//         familylang: "en"(s) "en"(s)
+std::string load_app_font(const std::string& filename);
 
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {
 	
@@ -198,11 +203,7 @@ void fl_scintilla::save(){
 }
 
 
-//  fc-scan "DejaVuSans-Bold.ttf" | grep family
-//  fc-scan "Cascadia Mono PL SemiBold 600.otf" | grep family
-//         family: "Cascadia Mono PL"(s) "Cascadia Mono PL SemiBold"(s)
-//         familylang: "en"(s) "en"(s)
-std::string load_app_font(const std::string& filename);
+
 
 void fl_scintilla::set_lua(){ 
 // 	std::ifstream f("DejaVuSans.ttf", std::ios::binary);
@@ -239,7 +240,7 @@ void fl_scintilla::set_lua(){
 	for (int i = 0; i < STYLE_LASTPREDEFINED; ++i) {
 		SendEditor(SCI_STYLESETFONT, i, (sptr_t)fntname);
 		SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, RGB(0, 0, 0));
-		SendEditor(SCI_STYLESETSIZE, i, 12);  
+		SendEditor(SCI_STYLESETSIZE, i, 10);  
 		// SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
 	} 
  
@@ -679,7 +680,7 @@ void setscint(fl_scintilla* editor,string filename){
 		// sci_setStyleCommon(SCINTILLA(editor[ieditor]));
 		// sci_setStyleC(SCINTILLA(editor[ieditor]));
 	thread([]{
-		sleepms(500);
+		sleepms(300);//500
 		loading=0;
 	}).detach();
 } 
