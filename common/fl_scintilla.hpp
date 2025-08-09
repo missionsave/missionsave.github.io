@@ -39,7 +39,7 @@ struct FileEntry {
 };
  struct fl_scintilla : public Fl_Scintilla {  
     std::string filename="";
-	string floaded="";
+	std::sstring floaded="";
     sptr_t curr_file_pointer=0;
     std::string comment;
     std::unordered_map<sptr_t,uptr_t> filesfirstline;  
