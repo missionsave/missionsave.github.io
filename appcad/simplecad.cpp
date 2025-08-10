@@ -480,7 +480,7 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 
 		string command="";
 
-
+ 
 		string name="";
 		bool visible_hardcoded=1;
 		TopoDS_Shape shape; 
@@ -2708,7 +2708,19 @@ glFinish();
 			// fl_message(val.c_str());
 		}), (void*)menu },
 		{ 0 },
-	
+
+
+		
+	{ "&test", 0, ([](Fl_Widget *, void* v){ 
+		cotm("test")
+			// // lua_init();
+			// // getallsqlitefuncs();
+			// string val=getfunctionhelp();
+			// cot1(val);
+			// fl_message(val.c_str());
+		}), (void*)menu },
+		{ 0 },
+
 	{ 0 } // End marker
 };
 
@@ -2775,7 +2787,7 @@ int main(int argc, char** argv) {
 
 
 
-	win->clear_visible_focus(); 	 
+	// win->clear_visible_focus(); 	 
 	woccbtn->color(0x7AB0CfFF);
 	win->resizable(content);	
 	// win->position(Fl::w()/2-win->w()/2,10); 

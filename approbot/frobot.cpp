@@ -1280,7 +1280,7 @@ if(0){
 	menu->find_item("&View/Fit")->do_callback(menu);
 
   
-	win->clear_visible_focus(); 	 
+	// win->clear_visible_focus(); 	 
 	// win->color(0x7AB0CfFF);
 	win->color(FL_RED);
 	win->resizable(content);

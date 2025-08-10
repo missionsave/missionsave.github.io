@@ -1433,7 +1433,7 @@ void initscrensaver() {
         focused_pid = get_active_window_pid();
         // pid_t focused_pid = get_active_window_pid();
 
-        if (idle_ms < 1000) {
+        if (idle_ms < 1000*interval) {
             // Input recente do rato/teclado: reseta contador
             idle_seconds = 0;
         } else if (focused_pid == -1 || !is_audio_focused(focused_pid)) {
@@ -1755,7 +1755,7 @@ void launch(const std::string & execCommandr, bool dropPrivileges=true) {
     }
 
     // Optional: setsid() if you really want (but usually unnecessary for GUI apps)
-    // setsid();
+    setsid();
 
     if (dropPrivileges) {
         uid_t ruid = getuid();
@@ -1765,12 +1765,12 @@ void launch(const std::string & execCommandr, bool dropPrivileges=true) {
     }
 
     // Optional: Silence stdio
-    // fclose(stdin);
-    // fclose(stdout);
-    // fclose(stderr);
-    // stdin  = fopen("/dev/null", "r");
-    // stdout = fopen("/dev/null", "w");
-    // stderr = fopen("/dev/null", "w");
+    fclose(stdin);
+    fclose(stdout);
+    fclose(stderr);
+    stdin  = fopen("/dev/null", "r");
+    stdout = fopen("/dev/null", "w");
+    stderr = fopen("/dev/null", "w");
 
     const char* display = getenv("DISPLAY");
 	cotm(display)

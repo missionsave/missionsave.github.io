@@ -74,17 +74,143 @@ bool loading=0;
 //         family: "Cascadia Mono PL"(s) "Cascadia Mono PL SemiBold"(s)
 //         familylang: "en"(s) "en"(s)
 std::string load_app_font(const std::string& filename);
+class FixedSubWindow;
+FixedSubWindow* wFind=0;
 
+
+
+class FixedSubWindow : public Fl_Window {
+public:
+class searchinput : public Fl_Input {
+public:
+	FixedSubWindow* wFind; 
+    bool showing_placeholder = true;
+    const char* placeholder_text = "Find";
+    searchinput(int x, int y, int w, int h, const char* label = 0)
+        : Fl_Input(x, y, w, h, label) { 
+		box(FL_FLAT_BOX);         // Removes 3D bevel
+		color(FL_WHITE);          // Sets background to white
+		textcolor(FL_BLACK);      // Optional: text color
+		textfont(FL_HELVETICA_BOLD);   // Optional: font
+		textsize(14);
+    }
+
+    int handle(int event) override {
+		// cotm(event,FL_FOCUS,FL_SHOW,FL_ENTER);
+		if(event==FL_FOCUS){
+			bool nothing=strlen(value()) == 0;
+			if (nothing)value(placeholder_text);
+			position(0);                    // Move cursor to start
+			mark(strlen(value()));
+			if(!nothing && wFind){
+				wFind->scint->SendEditor(SCI_HOME);
+				// wFind->scint->SendEditor(SCI_LINEUP);
+				cotm("callb")
+				wFind->bdown->do_callback(); 
+			}
+			cotm(value())
+			return 1;
+		}
+
+ 
+        return Fl_Input::handle(event);
+    }
+};
+
+
+    int fixed_w, fixed_h;
+	searchinput* search;
+	fl_scintilla* scint;
+	Fl_Box* tmi;
+	Fl_Button* bdown;
+	Fl_Button* bup;
+
+    FixedSubWindow(int X, int Y, int W, int H, const char* L = 0)
+        : Fl_Window(X, Y, W, H, L), fixed_w(W), fixed_h(H) {
+			Fl_Button* bclose=new Fl_Button(w()-21,1,20,20,"✕"); 
+			bclose->callback([](Fl_Widget *widget, void* v){
+				((FixedSubWindow*)v)->scint->take_focus();
+				// focus(((FixedSubWindow*)v)->parent());
+				((FixedSubWindow*)v)->hide();
+			},this);
+
+			search=new searchinput(1,1,w()*0.45,20); 
+			search->wFind=this; 
+			// search->box(FL_FLAT_BOX);         // Removes 3D bevel
+			// search->color(FL_WHITE);          // Sets background to white
+			// search->textcolor(FL_BLACK);      // Optional: text color
+			// search->textfont(FL_HELVETICA_BOLD);   // Optional: font
+			// search->textsize(14);
+			// search->value("Find");
+			int xs=search->w()+1;
+			bup=new Fl_Button(xs,1,20,20,"↑"); 
+			bdown=new Fl_Button(xs+20,1,20,20,"↓");
+			bdown->callback([](Fl_Widget *widget, void* v){
+				FixedSubWindow* wFind=((FixedSubWindow*)v);
+				auto [totalMatches, matchIndex] = wFind->scint->csearch( wFind->search->value(),1  );
+				string tm=to_string(matchIndex+1)+"/"+to_string(totalMatches);
+				wFind->tmi->copy_label(tm.c_str());
+			},this);
+			bup->callback([](Fl_Widget *widget, void* v){
+				FixedSubWindow* wFind=((FixedSubWindow*)v);
+				auto [totalMatches, matchIndex] = wFind->scint->csearch( wFind->search->value(),0 );
+				string tm=to_string(matchIndex+1)+"/"+to_string(totalMatches);
+				wFind->tmi->copy_label(tm.c_str());
+			},this);
+			tmi=new Fl_Box(xs+20+20,1,20,20);
+			// tmi->label("1/4");
+
+			
+			// search->callback([](Fl_Widget *widget, void* v){
+			// 	FixedSubWindow* wFind=((FixedSubWindow*)v);
+			// 	wFind->scint->csearch( wFind->search->value(),1  );
+
+			// },this);
+ 
+		}
+	int handle(int event) override {
+		// cotm(event,FL_SHOW);
+			if (event==FL_SHOW) {
+			}
+		if(event==FL_KEYDOWN && Fl::event_key()==FL_Escape){ 
+			if(wFind)wFind->hide();
+		}
+		return Fl_Window::handle(event); 
+	}
+
+    void resize(int X, int Y, int W, int H) override {
+        // Ignore W and H, keep fixed size 
+        Fl_Window::resize(parent()->x()+parent()->w()-fixed_w-16, Y, fixed_w, fixed_h);
+    }
+};
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {
 	
 	floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
+
+
+	string fstd=load_app_font("DejaVuSans-Bold.ttf");
+	// string fstd=load_app_font("DejaVuSans.ttf");
+	Fl::set_font(FL_HELVETICA, fstd.c_str());
+	// Fl::set_font(FL_HELVETICA, "Noto Color Emoji");
+
+
     set_lua();
     SetNotify(cb_editor, this); 
     helperinit();
 	SendEditor(SCI_AUTOCSETAUTOHIDE,0);
 
+}
+string fl_scintilla::getSelected(){
+	int start = SendEditor(SCI_GETSELECTIONSTART, 0, 0);
+	int end = SendEditor(SCI_GETSELECTIONEND, 0, 0);
+	int length = end - start;
 
+	char* buffer = new char[length + 1];
+	SendEditor(SCI_GETSELTEXT, 0, (sptr_t)buffer);
 
+	std::string selectedText(buffer);
+	delete[] buffer;
+	return selectedText;
 }
 
     //  void fl_scintilla::resize(int x, int y, int w, int h)  {
@@ -109,12 +235,26 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='f'){
 			// cotm("f") 
-            searchshow();
+			if(!wFind){
+				Fl_Group::current(parent()); // important
+				int sz=190;
+				wFind=new FixedSubWindow(x()+w()-sz-16,22,sz,22,"@25-> ⚲");
+				wFind->scint=this; 
+				wFind->color(FL_RED);
+				// cotm("findinit")	 
+			}  
+			string gs=getSelected(); 
+			wFind->show();
+			// wFind->wait_for_expose ();
+			wFind->scint=this;
+			wFind->search->value(gs.c_str());
+			wFind->search->take_focus();
             return 1;
         }
 
 		if(e==FL_KEYDOWN && Fl::event_key()==FL_Escape){
-			// cotm("esc") 
+			cotm("esc") 
+			if(wFind)wFind->hide();
 			SendEditor(SCI_AUTOCCANCEL);
 			return 1;
 		}
@@ -758,52 +898,15 @@ void fl_scintilla::setnsaved(){
 	}
 }
 
-
-bool toggleSearchVisible=1;
 extern Fl_Menu_Bar* menu;
-void fl_scintilla::searchhide(){
-    if(!toggleSearchVisible)return; 
-    toggleSearchGroup->hide();  
-    size(w(),toggleSearchGroup->y()+toggleSearchGroup->h()-22*1);
-    window()-> redraw(); 
-    toggleSearchVisible=0; 
-}
-void fl_scintilla::searchshow(){
-    if(toggleSearchVisible)return; 
-    toggleSearchGroup->show();  
-    size(w(),toggleSearchGroup->y()-22);
-    window()-> redraw(); 
-    toggleSearchVisible=1; 
-}
-// void fl_scintilla::toggleSearch(){
-// }
-void fl_scintilla::helperinit(){  
-	// cotm(x())   
-    window()->begin();
-	// cotm(x())    
-    toggleSearchGroup=new Fl_Window(x(),h()-22*5,w(),44); 
-    // toggleSearchGroup=new Fl_Window(0,h()-22*5,w(),44); 
-    toggleSearchGroup->box(FL_FLAT_BOX);
-    toggleSearchGroup->color(FL_GRAY); 
-    toggleSearchGroup->begin();
-    
-    int xs=39;
-    Fl_Input* Search=new Fl_Input(39,0,w()*0.4,22,"Find:"); 
-    Fl_Button* bup=new Fl_Button(w()*0.4+xs,0,20,22,"↑"); 
-    Fl_Button* bdown=new Fl_Button(w()*0.4+xs+20,0,20,22,"↓"); 
-    Fl_Button* bclose=new Fl_Button(w()-22,0,20,22,"✕"); 
 
-    bclose->callback([](Fl_Widget *widget, void* v){
-        ((fl_scintilla*)v)->searchhide();
-    },this); 
 
-    toggleSearchGroup->end(); 
-    // toggleSearchGroup->resizable(toggleSearchGroup); 
-    // child_to_local(toggleSearchGroup);
-
+void fl_scintilla::helperinit(){   
 	// Fl_Browser
     window()->begin(); 
-    navigator=new Fl_Group(x(),    0+toggleSearchGroup->y()+toggleSearchGroup->h(),w(),h()-(toggleSearchGroup->y()+toggleSearchGroup->h()-22));
+	int sz=22*3;
+    size(w(),h()-sz); 
+    navigator=new Fl_Group(x(), h()+22 ,w(),sz);
     
     navigator->box(FL_FLAT_BOX);
     navigator->color(FL_BLUE);
@@ -883,9 +986,71 @@ void fl_scintilla::helperinit(){
 
     window()->end();
     child_to_local(navigator);
-
-    size(w(),h()-22*6); 
-    searchhide();
-
+	Fl_Group::current(nullptr);
 
 }
+
+
+#pragma region find
+
+std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int flags ) {
+    if (!needle || !*needle) return {0, -1};
+
+    const int docLen   = SendEditor(SCI_GETTEXTLENGTH);
+    const int matchLen = (int)strlen(needle);
+
+    if (matchLen <= 0 || docLen <= 0) return {0, -1};
+
+    // Collect all non-overlapping match starts
+    std::vector<int> posList;
+    SendEditor(SCI_SETSEARCHFLAGS, flags, 0);
+    SendEditor(SCI_SETTARGETSTART, 0, 0);
+    SendEditor(SCI_SETTARGETEND, docLen, 0);
+
+    int pos = SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)needle);
+    while (pos != -1) {
+        posList.push_back(pos);
+        SendEditor(SCI_SETTARGETSTART, pos + matchLen, 0);
+        SendEditor(SCI_SETTARGETEND, docLen, 0);
+        pos = SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)needle);
+    }
+
+    if (posList.empty()) return {0, -1};
+
+    // Use selection bounds to avoid re-selecting the same match
+    const int selStart = SendEditor(SCI_GETSELECTIONSTART, 0, 0);
+    const int selEnd   = SendEditor(SCI_GETSELECTIONEND, 0, 0);
+
+    // Choose next index symmetrically (VSCode-style)
+    int idx = -1;
+    if (dirDown) {
+        // Next is the first match whose start is >= selection end
+        for (int i = 0; i < (int)posList.size(); ++i) {
+            if (posList[i] >= selEnd) { idx = i; break; }
+        }
+        if (idx == -1) idx = 0; // wrap to first
+    } else {
+        // Previous is the last match whose start is < selection start
+        for (int i = (int)posList.size() - 1; i >= 0; --i) {
+            if (posList[i] < selStart) { idx = i; break; }
+        }
+        if (idx == -1) idx = (int)posList.size() - 1; // wrap to last
+    }
+
+    const int foundPos = posList[idx];
+
+    // Move and select
+    SendEditor(SCI_GOTOPOS, foundPos, 0);
+    SendEditor(SCI_SETSEL, foundPos, foundPos + matchLen);
+
+    // Return (total matches, 0-based index of the current hit)
+    return { (int)posList.size(), idx };
+}
+
+
+
+
+
+#pragma endregion find
+
+

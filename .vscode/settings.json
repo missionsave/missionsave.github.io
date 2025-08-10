@@ -141,7 +141,8 @@
 		"vec4ub": "cpp",
 		"vec4ui": "cpp",
 		"vec4us": "cpp",
-		"viewport": "cpp"
+		"viewport": "cpp",
+		"callback": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {

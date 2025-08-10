@@ -4,6 +4,7 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Browser.H>
+#include <FL/Fl_Button.H>
 #include "Fl_Scintilla.h"
     
 #include "general.hpp"
@@ -37,6 +38,9 @@ struct FileEntry {
         return filename == other.filename;
     }
 };
+
+#include <vector>
+#include <tuple>
  struct fl_scintilla : public Fl_Scintilla {  
     std::string filename="";
 	std::string floaded="";
@@ -47,11 +51,17 @@ struct FileEntry {
     fl_scintilla(int X, int Y, int W, int H, const char* l = 0);
     // void resize(int x, int y, int w, int h) override;
     int handle(int e)override;
+	std::string getSelected();
+
+	std::tuple<int,int> csearch(const char* needle, bool dirDown = true, int flags = SCFIND_MATCHCASE);
+
+
     void save();
     void setnsaved();
     void set_lua(); 
     Fl_Group * navigator;
-    Fl_Window* toggleSearchGroup; 
+    // Fl_Window* toggleSearchGroup; 
+    Fl_Button* btntop; 
     void helperinit();
     void searchshow();
     void searchhide(); 
@@ -63,4 +73,8 @@ struct FileEntry {
     void navigatorSetUpdated();
     std::vector<FileEntry> lfiles;
     void find(bool dir);
+
+	void findinit();
 };
+
+
