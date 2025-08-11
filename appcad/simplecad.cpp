@@ -203,6 +203,8 @@ using namespace std;
 
  
 Fl_Menu_Bar* menu;
+Fl_Group* content;
+Fl_Window* ldg;
 class AIS_NonSelectableShape : public AIS_Shape {
 public:
     AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {}
@@ -254,6 +256,7 @@ struct  OCC_Viewer : public flwindow {
     }
    
     void initialize_opencascade() { 
+		perf();
         // Get native window handle
 #ifdef _WIN32
 		Fl::wait(); 
@@ -268,7 +271,6 @@ struct  OCC_Viewer : public flwindow {
         m_display_connection = new Aspect_DisplayConnection(display);
         Handle(Xw_Window) wind = new Xw_Window(m_display_connection, win);
 #endif
-
         m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
 
         m_viewer = new V3d_Viewer(m_graphic_driver);
@@ -276,10 +278,16 @@ struct  OCC_Viewer : public flwindow {
         m_viewer->SetLightOn();
         m_context = new AIS_InteractiveContext(m_viewer);
         m_view = m_viewer->CreateView();
-
         m_view->SetWindow(wind); 
 
+
+			content->remove(ldg);  // Remove from current position
+content->add(ldg);     // Add again to move it to the top
+content->redraw();
+// return;
+
         m_view->SetImmediateUpdate(Standard_False);  
+
 
         // m_context->SetAutomaticHilight(true);  
 
@@ -318,9 +326,12 @@ struct  OCC_Viewer : public flwindow {
 
         m_view->MustBeResized();
         m_view->FitAll();
-        m_initialized = true; 		
+		
+        m_initialized = true; 	
+
         redraw();  
-        m_view->Redraw();  
+        // m_view->Redraw();  
+		perf("occvload");
 
         {
         const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -335,6 +346,11 @@ struct  OCC_Viewer : public flwindow {
             std::cout << "glGetString() failed — no OpenGL context active!" << std::endl;
         }
         }
+		
+		// content->remove(ldg); 
+		// ldg->hide();
+		Fl::add_timeout(0.4, [](void* d){ auto l=(Fl_Box*)d; l->parent()->remove(l); l->hide(); }, ldg);
+
     }
 	static void idle_refresh_cb(void*) {
 	//clear gpu usage each 10 secs
@@ -2936,12 +2952,20 @@ int main(int argc, char** argv) {
   
     int hc1=24;
 
-    Fl_Group* content = new Fl_Group(0, 22, w, h-22); 
+    content = new Fl_Group(0, 22, w, h-22); 
+    // Fl_Group* content = new Fl_Group(0, 22, w, h-22); 
 
 	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
+		// win->begin();
+
+		// ldg->show();
+
+		// win->show(argc, argv); return Fl::run();
+
     occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1); 
     content->add(occv); 
+	// occv->label("Loading");
 
     Fl_Window* woccbtn = new Fl_Window(0,h-hc1,occv->w(),hc1, "");
     content->add(woccbtn); 
@@ -2958,7 +2982,14 @@ int main(int argc, char** argv) {
 	// content->begin();
 	scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
-
+		Fl_Group::current(content);
+		ldg=new Fl_Window(w-500,h-22*4,100,22,"loading");
+		Fl_Box* ldgb=new Fl_Box(0,0,100,22,"Loading...");
+		// ldgb->copy_label("Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading ");
+		ldgb->color(FL_GREEN);
+		ldgb->labelcolor(FL_RED);
+		// win->add(ldg); 
+		// win->flush();
 
 	// win->clear_visible_focus(); 	 
 	woccbtn->color(0x7AB0CfFF);
@@ -2971,13 +3002,20 @@ int main(int argc, char** argv) {
 	occv->wait_for_expose();     // wait, until displayed
 	Fl::flush();                // make sure everything gets drawn
 	win->flush(); 
+
+  
+	
 	// occv->flush(); 
     // win->maximize();
 	// int x, y, _w, _h; 
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 	// sleepms(200);
+
+	cotm("preoccvload")
+	// Fl::flush();
     occv->initialize_opencascade();
+	cotm("occvload")
 
 	// return Fl::run();
 // Fl_Group::current(content);
