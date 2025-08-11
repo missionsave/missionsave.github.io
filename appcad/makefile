@@ -104,7 +104,7 @@ ifeq ($(OS_NAME), Windows)
 
 # 	LDFLAGS+= -l:libFreeImage.a
 	# LDFLAGS+= -lFreeImage
-# 	LDFLAGS+= -l:liblua.a
+	LDFLAGS+= -l:liblua.a
 
 	# LDFLAGS+=  -l:libsqlite3.a
 # 	LDFLAGS+=  -l:libiconv.a
@@ -144,7 +144,7 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+= -lTKViewerTest -lTKXDEDRAW -lTKTopTest -lTKExpress -lTKFeat -lTKBinXCAF -lTKBinTObj -lTKBinL -lTKBin -lTKTObjDRAW -lTKTObj -lTKVCAF -lTKLCAF -lTKDCAF -lTKCAF -lTKCDF -lTKXmlXCAF -lTKXmlTObj -lTKXmlL -lTKXml -lTKXSDRAWPLY -lTKXSDRAWOBJ -lTKXSDRAWGLTF -lTKXSDRAWVRML -lTKXSDRAWSTEP -lTKXSDRAWIGES -lTKXSDRAWDE -lTKXSDRAW -lTKQADraw -lTKDraw -lTKDEVRML -lTKDEGLTF -lTKDEPLY -lTKDECascade -lTKDEOBJ -lTKDEIGES -lTKDESTEP -lTKDE -lTKXMesh -lTKXCAF -lTKOpenGl -lTKV3d -lTKXSBase -lTKService -lTKOpenGlTest  -lTKRWMesh -lTKMeshVS -lTKMesh -lTKHLR -lTKOffset -lTKBO -lTKBool -lTKShHealing -lTKPrim -lTKTopAlgo -lTKBRep -lTKFillet -lTKGeomAlgo -lTKGeomBase -lTKG3d -lTKG2d -lTKMath -lTKStd -lTKernel
 
 
-	# LDFLAGS+= -llua5.4
+	LDFLAGS+= -llua5.4
 	# LDFLAGS+=  -lsqlite3 
 	LDFLAGS+= -lfltk_gl -lfltk 
 	# LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a 
@@ -183,7 +183,7 @@ ifeq ($(OS_NAME), Arm)
 
 # 	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 	
-# 	LDFLAGS+= -llua5.4
+	LDFLAGS+= -llua5.4
 	# LDFLAGS+=  -lsqlite3 
 	LDFLAGS+= -lfltk_gl -lfltk 
 	# LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a 

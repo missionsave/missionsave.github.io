@@ -5,6 +5,9 @@
 #endif
 #include "fl_scintilla.hpp"
 
+using namespace std;
+
+void lua_str(string str,bool isfile);
 
 struct scint : public fl_scintilla { 
 	scint(int X, int Y, int W, int H, const char* l = 0)
@@ -26,7 +29,7 @@ int scint::handle(int e){
 	}
 	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()==FL_F + 2){
 		cotm("f2",filename);
-		// lua_str(filename,1);
+		lua_str(filename,1);
 		return 1; 
 	}
 	if(e==FL_UNFOCUS)SendEditor(SCI_AUTOCCANCEL);

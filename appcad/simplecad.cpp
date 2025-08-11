@@ -182,6 +182,13 @@
 #include <chrono>
 #include <execution> // Para C++17 paralelismo
 
+#ifdef _WIN32 
+#include <lua.hpp>
+	#else
+#include <lua5.4/lua.hpp> 
+#endif
+
+
 #include "general.hpp"
 
 void scint_init(int x,int y,int w,int h);
@@ -215,6 +222,9 @@ void open_cb() {
         printf("Arquivo selecionado: %s\n", chooser.value());
     }
 }
+
+
+
 
 struct  OCC_Viewer : public flwindow {
 #pragma region initialization
@@ -334,7 +344,8 @@ struct  OCC_Viewer : public flwindow {
 }
     void draw() override { 
         if (!m_initialized) return;	 
-        m_view->Update();
+		m_context->UpdateCurrentViewer();
+        // m_view->Update();
 		// m_view->Redraw(); //new 
 		// flush();
     }
@@ -599,18 +610,12 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 
 	};
 
-
+ 
  
  
 #pragma endregion luastruct
-#pragma region lua
 
 
-
-
-
-
-#pragma endregion lua
 #pragma region scint
 
 
@@ -1236,10 +1241,11 @@ da->LineAspect( Prs3d_DatumParts_ZArrow )->SetColor( Quantity_NOC_BLUE  );
  
 HLRAlgo_Projector projector; 
 
-
+ 
 Standard_Integer currentMode = AIS_WireFrame;
 void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 	perf1();
+	cotm(vaShape.size())
     for (std::size_t i = 0; i < vaShape.size(); ++i) {
         Handle(AIS_Shape) aShape = vaShape[i];
         if (aShape.IsNull()) continue;
@@ -1277,16 +1283,18 @@ void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 	
 	perf1("toggle_shaded_transp");
 	if(hlr_on==1){
+		cotm("hlr1")
 		// projectAndDisplayWithHLR(vaShape);
 		projectAndDisplayWithHLR(vshapes);
 	}else{
-		if(visible_){
+		cotm("hlr0")
+		if(!visible_.IsNull()){
 			m_context->Remove(visible_,0);
 			visible_.Nullify();
 		}
 	}
 	currentMode=fromcurrentMode;
-	redraw();
+	// redraw();
 }
 
 
@@ -2031,13 +2039,14 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 		perf();
 		//test
 		luadraw* test=new luadraw("consegui",this);
-		test->visible_hardcoded=0;
+		// test->visible_hardcoded=0;
 		// test->translate(10);
 		// test.translate(0,10);
 		// test.rotate(90);
 		test->dofromstart();
 		test->redisplay();
 
+		return;
 		
 		luadraw* test1=new luadraw("test1",this);
 		test1->visible_hardcoded=0;
@@ -2551,6 +2560,164 @@ vector<int> check_nearest_btn_idx() {
 };
 OCC_Viewer* occv=0;
 
+
+#pragma region lua
+
+
+	int close(lua_State* L){
+		luaL_error(L, "close() called!");
+		return 0;
+	}
+	int Part(lua_State* L){
+		cotm("luatest")
+		cotm(lua_gettop(L));
+
+		OCC_Viewer::luadraw* test=new OCC_Viewer::luadraw("consegui",occv);
+		// test->visible_hardcoded=0;
+		// test->translate(10);
+		// test.translate(0,10);
+		// test.rotate(90);
+		test->dofromstart();
+		test->redisplay();
+
+		
+perf();
+occv->fillvectopo();
+perf("bench");
+
+occv->toggle_shaded_transp(occv->currentMode);
+
+		
+occv->m_view->FitAll();
+// occv->redraw(); //for win
+
+
+
+
+
+
+	// 	lua_funcs_mtx.lock();
+	//     if(all_cancel){lua_funcs_mtx.unlock(); return 0;}
+
+	// 	// while(pool.size()>0)sleepms(500);
+	// 	// cot(lua_gettop(L));
+	// 	int sz=lua_gettop(L); 
+	// 	vfloat p(3);
+	// 	// lop(i,0,3)cot1(lua_tonumber(L,i+1));
+	// 	lop(i,0,3)p[i]=lua_tonumber(L,i+1);
+	// 	vbool lock_axle(ve.size());
+	// 	lop(i,3,sz)lock_axle[i-3]=lua_tonumber(L,i+1);
+		
+	// // cot1(lock_axle);pausa
+	// 	posik(vec3(p[0],p[1],p[2]),lock_axle);	
+	// 	// while(running==1)sleepms(500);
+	// 	lua_funcs_mtx.unlock(); 
+		return 1;
+	} 
+
+
+	lua_State* L;
+
+	#define setluafunc(val,desc){ lua_pushcfunction(L, val); lua_setglobal(L, #val); \
+		if (luafuncs.count(val) == 0)luafuncs[val]=desc; }
+	
+	unordered_map<lua_CFunction ,string> luafuncs;
+
+	string getfunctionhelp(){ 
+		string val;
+		for (const auto& pair : luafuncs) {
+			// lua_CFunction func = pair.first; 
+			val+=(pair.second)+"\n\n";	 
+		}
+		return val;
+	}
+	void lua_hook(lua_State* L, lua_Debug* ar) {
+		int cl=(ar->currentline);
+		// if (lua_getstack(L, 0, ar)) {
+			lua_getinfo(L, "nSl", ar);
+			cotm(cl,ar->source,ar->name) 
+		// }
+	}
+	void luainit(){
+		if(L)return;
+		cotm("init_lua")
+		L=luaL_newstate();
+		luaL_openlibs(L); 
+
+		// lua_sethook(L, lua_hook, LUA_MASKLINE, 0);
+		
+		// Get current package.path
+		lua_getglobal(L, "package");
+		lua_getfield(L, -1, "path");
+		const char* current_path = lua_tostring(L, -1);
+
+		// Construct new path
+		std::string new_path = "./lua/?.lua;";
+		new_path += current_path;
+
+		// Set package.path
+		lua_pop(L, 1); // pop old path string
+		lua_pushstring(L, new_path.c_str());
+		lua_setfield(L, -2, "path");
+		lua_pop(L, 1); // pop 'package' table
+
+
+		setluafunc(Part,"Part(title,axle2,...)\
+			Sets the rotation angle of the servos of the arm.");
+
+
+
+		setluafunc(close,"close()\
+			Exit script.");
+	}
+
+nmutex lua_mtx("lua_mtx",1);
+void lua_str(string str,bool isfile){	
+    thread([](string str,bool isfile){ 
+		lua_mtx.lock();
+		luainit();
+        // init_luas.init();
+        // cotm(lua_mtx.waiting_threads.load())
+        // if(all_cancel && lua_mtx.waiting_threads.load()<=1){
+        //     all_cancel=0;
+        //     lua_mtx.unlock();
+        //     return;
+        // }
+        // if(all_cancel){lua_mtx.unlock(); return;}
+
+        int status;
+        if (isfile) {
+            status = luaL_loadfile(L, str.c_str());
+        } else {
+            status = luaL_loadstring(L, str.c_str());
+        }
+
+        if (status == LUA_OK) {
+            if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
+                std::cerr << "Runtime error: " << lua_tostring(L, -1) << std::endl;
+                lua_pop(L, 1);
+            }
+        } else {
+            std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
+            lua_pop(L, 1);
+        }
+
+        // cotm(2)
+        lua_close(L);
+        L=0;
+		lua_mtx.unlock();
+	},str,isfile).detach(); 
+
+}
+
+
+
+#pragma endregion lua
+
+
+
+
+
 static Fl_Menu_Item items[] = {
 	// Main menu items
 	{ "&File", 0, 0, 0, FL_SUBMENU },
@@ -2773,7 +2940,7 @@ int main(int argc, char** argv) {
 
 	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
 
-    occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1);
+    occv = new OCC_Viewer(0, 22, w*0.62, h-22-hc1); 
     content->add(occv); 
 
     Fl_Window* woccbtn = new Fl_Window(0,h-hc1,occv->w(),hc1, "");
@@ -2819,13 +2986,13 @@ int main(int argc, char** argv) {
 // content->end();
 
 
-    occv->test2();
-    // occv->test();
-    {
-// occv->draw_objs();
-occv->m_view->FitAll();
-occv->redraw(); //for win
-// occv->m_view->Update();
-}
+//     occv->test2();
+//     // occv->test();
+//     {
+// // occv->draw_objs();
+// occv->m_view->FitAll();
+// occv->redraw(); //for win
+// // occv->m_view->Update();
+// }
     return Fl::run();
 }

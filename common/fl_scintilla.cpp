@@ -151,10 +151,11 @@ public:
 			// search->value("Find");
 			int xs=search->w()+1;
 			bup=new Fl_Button(xs,1,20,20,"@-38->"); 
-			// bup->
-			bup->labeltype(FL_NORMAL_LABEL);
+			bup->labelcolor(FL_RED);
+			// bup->labeltype(FL_NORMAL_LABEL);
 			bdown=new Fl_Button(xs+20,1,20,20,"@-32->");
-			bdown->labeltype(FL_NORMAL_LABEL);
+			bdown->labelcolor(FL_RED);
+			// bdown->labeltype(FL_NORMAL_LABEL);
 			bdown->callback([](Fl_Widget *widget, void* v){
 				FixedSubWindow* wFind=((FixedSubWindow*)v);
 				auto [totalMatches, matchIndex] = wFind->scint->csearch( wFind->search->value(),1  );
@@ -190,7 +191,8 @@ public:
 
     void resize(int X, int Y, int W, int H) override {
         // Ignore W and H, keep fixed size 
-        Fl_Window::resize(parent()->x()+parent()->w()-fixed_w-16, Y, fixed_w, fixed_h);
+        Fl_Window::resize(scint->x()+scint->w()-fixed_w-16, Y, fixed_w, fixed_h);
+        // Fl_Window::resize(parent()->x()+parent()->w()-fixed_w-16, Y, fixed_w, fixed_h);
     }
 };
 void fl_scintilla::searchshow(){
@@ -270,7 +272,10 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	
 	// floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 
-
+	floaded = Fl::get_font(FL_HELVETICA_BOLD);
+	cotm(floaded)
+	floaded = Fl::get_font_name(FL_HELVETICA_BOLD);
+	cotm(floaded)
 	// string fstd=load_app_font("DejaVuSans-Bold.ttf");
 	// string fstd=load_app_font("DejaVuSans.ttf");
 	// Fl::set_font(FL_HELVETICA, fstd.c_str());
