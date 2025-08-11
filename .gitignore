@@ -49,7 +49,7 @@
 !stream_interactive.*
 !lua_preprocessor.cpp
 !font_loader.cpp
-!Cascadia Mono PL SemiBold 600.otf
+# !Cascadia Mono PL SemiBold 600.otf
 # !DejaVuSans-Bold.ttf
 
 !fl_scintilla.*

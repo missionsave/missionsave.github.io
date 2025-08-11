@@ -10,7 +10,7 @@ ifneq ($(dbg),)
 	CXXFLAGS+= -g -O0 -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer
 	LDFLAGS+= -fsanitize=address,undefined
 else
-	CXXFLAGS+= -Os -flto -w -Wfatal-errors -DNDEBUG
+	CXXFLAGS+= -Os -flto=auto -w -Wfatal-errors -DNDEBUG
 	LDFLAGS+= -s
 endif
 
@@ -27,6 +27,7 @@ SRC_LIB :=  \
 	movement.cpp \
 	scint.cpp \
     ../common/fl_scintilla.cpp \
+    ../common/font_loader.cpp \
     ../common/general.cpp
 
 # exec

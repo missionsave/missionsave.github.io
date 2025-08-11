@@ -134,7 +134,7 @@ public:
 
     FixedSubWindow(int X, int Y, int W, int H, const char* L = 0)
         : Fl_Window(X, Y, W, H, L), fixed_w(W), fixed_h(H) {
-			Fl_Button* bclose=new Fl_Button(w()-21,1,20,20,"✕"); 
+			Fl_Button* bclose=new Fl_Button(w()-21,1,20,20,"x"); 
 			bclose->callback([](Fl_Widget *widget, void* v){
 				((FixedSubWindow*)v)->scint->take_focus();
 				// focus(((FixedSubWindow*)v)->parent());
@@ -150,8 +150,11 @@ public:
 			// search->textsize(14);
 			// search->value("Find");
 			int xs=search->w()+1;
-			bup=new Fl_Button(xs,1,20,20,"↑"); 
-			bdown=new Fl_Button(xs+20,1,20,20,"↓");
+			bup=new Fl_Button(xs,1,20,20,"@-38->"); 
+			// bup->
+			bup->labeltype(FL_NORMAL_LABEL);
+			bdown=new Fl_Button(xs+20,1,20,20,"@-32->");
+			bdown->labeltype(FL_NORMAL_LABEL);
 			bdown->callback([](Fl_Widget *widget, void* v){
 				FixedSubWindow* wFind=((FixedSubWindow*)v);
 				auto [totalMatches, matchIndex] = wFind->scint->csearch( wFind->search->value(),1  );
@@ -265,12 +268,12 @@ std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int 
 
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {
 	
-	floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
+	// floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 
 
-	string fstd=load_app_font("DejaVuSans-Bold.ttf");
+	// string fstd=load_app_font("DejaVuSans-Bold.ttf");
 	// string fstd=load_app_font("DejaVuSans.ttf");
-	Fl::set_font(FL_HELVETICA, fstd.c_str());
+	// Fl::set_font(FL_HELVETICA, fstd.c_str());
 	// Fl::set_font(FL_HELVETICA, "Noto Color Emoji");
 
 

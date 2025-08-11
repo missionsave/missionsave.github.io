@@ -2733,7 +2733,7 @@ glFinish();
 
  
 
-
+std::string load_app_font(const std::string& filename);
 int main(int argc, char** argv) { 
     Fl::use_high_res_GL(1);
     // setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
@@ -2746,7 +2746,13 @@ int main(int argc, char** argv) {
 	Fl::visual(FL_DOUBLE|FL_INDEX);
 	Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
-     Fl::scheme("gleam");
+    Fl::scheme("gleam");
+
+	// string floaded = load_app_font("Courier Prime Bold.otf");
+	// string floaded = load_app_font("DejaVuSansMono.ttf");
+	// string floaded = load_app_font("FiraGO-SemiBold.otf");
+	// string floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf"); 
+	// Fl::set_font(FL_HELVETICA, floaded.c_str()); 
     
     Fl::lock();    
     int w=1024;
