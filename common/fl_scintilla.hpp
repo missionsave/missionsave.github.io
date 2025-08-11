@@ -54,27 +54,22 @@ struct FileEntry {
 	std::string getSelected();
 
 	std::tuple<int,int> csearch(const char* needle, bool dirDown = true, int flags = SCFIND_MATCHCASE);
+    void searchshow(); 
 
 
     void save();
     void setnsaved();
     void set_lua(); 
-    Fl_Group * navigator;
-    // Fl_Window* toggleSearchGroup; 
+    Fl_Group * navigator;  
     Fl_Button* btntop; 
     void helperinit();
-    void searchshow();
-    void searchhide(); 
     Fl_Browser* bfiles;
     Fl_Browser* bfilesmodified;
     Fl_Browser* bfunctions;
     vint vline;
     void getfuncs();
     void navigatorSetUpdated();
-    std::vector<FileEntry> lfiles;
-    void find(bool dir);
-
-	void findinit();
+    std::vector<FileEntry> lfiles; 
 };
 
 

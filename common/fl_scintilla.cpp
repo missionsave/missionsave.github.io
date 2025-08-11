@@ -1,3 +1,5 @@
+#pragma region Includes_globals
+
 #ifndef SC_CP_UTF8
 #define SC_CP_UTF8 65001
 #endif
@@ -51,6 +53,8 @@ namespace fs = std::filesystem;
 
 #include "general.hpp"
 
+#include "fl_scintilla.hpp"
+
 #define MARGIN_FOLD_INDEX 3
 
 using namespace Scintilla;
@@ -67,17 +71,20 @@ struct sfiles{
 unordered_map<string,sfiles> files;
 bool loading=0;
 
-#include "fl_scintilla.hpp"
 
 //  fc-scan "DejaVuSans-Bold.ttf" | grep family
 //  fc-scan "Cascadia Mono PL SemiBold 600.otf" | grep family
 //         family: "Cascadia Mono PL"(s) "Cascadia Mono PL SemiBold"(s)
 //         familylang: "en"(s) "en"(s)
 std::string load_app_font(const std::string& filename);
+
+
+#pragma endregion Includes_globals
+
+#pragma region find
+
 class FixedSubWindow;
 FixedSubWindow* wFind=0;
-
-
 
 class FixedSubWindow : public Fl_Window {
 public:
@@ -183,6 +190,79 @@ public:
         Fl_Window::resize(parent()->x()+parent()->w()-fixed_w-16, Y, fixed_w, fixed_h);
     }
 };
+void fl_scintilla::searchshow(){
+	if(!wFind){
+		Fl_Group::current(parent()); // important
+		int sz=190;
+		wFind=new FixedSubWindow(x()+w()-sz-16,22,sz,22,"@25-> ⚲");
+		wFind->scint=this; 
+		wFind->color(FL_RED);
+		// cotm("findinit")	 
+	}  
+	string gs=getSelected(); 
+	wFind->show();
+	// wFind->wait_for_expose ();
+	wFind->scint=this;
+	wFind->search->value(gs.c_str());
+	wFind->search->take_focus();
+}
+std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int flags ) {
+    if (!needle || !*needle) return {0, -1};
+
+    const int docLen   = SendEditor(SCI_GETTEXTLENGTH);
+    const int matchLen = (int)strlen(needle);
+
+    if (matchLen <= 0 || docLen <= 0) return {0, -1};
+
+    // Collect all non-overlapping match starts
+    std::vector<int> posList;
+    SendEditor(SCI_SETSEARCHFLAGS, flags, 0);
+    SendEditor(SCI_SETTARGETSTART, 0, 0);
+    SendEditor(SCI_SETTARGETEND, docLen, 0);
+
+    int pos = SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)needle);
+    while (pos != -1) {
+        posList.push_back(pos);
+        SendEditor(SCI_SETTARGETSTART, pos + matchLen, 0);
+        SendEditor(SCI_SETTARGETEND, docLen, 0);
+        pos = SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)needle);
+    }
+
+    if (posList.empty()) return {0, -1};
+
+    // Use selection bounds to avoid re-selecting the same match
+    const int selStart = SendEditor(SCI_GETSELECTIONSTART, 0, 0);
+    const int selEnd   = SendEditor(SCI_GETSELECTIONEND, 0, 0);
+
+    // Choose next index symmetrically (VSCode-style)
+    int idx = -1;
+    if (dirDown) {
+        // Next is the first match whose start is >= selection end
+        for (int i = 0; i < (int)posList.size(); ++i) {
+            if (posList[i] >= selEnd) { idx = i; break; }
+        }
+        if (idx == -1) idx = 0; // wrap to first
+    } else {
+        // Previous is the last match whose start is < selection start
+        for (int i = (int)posList.size() - 1; i >= 0; --i) {
+            if (posList[i] < selStart) { idx = i; break; }
+        }
+        if (idx == -1) idx = (int)posList.size() - 1; // wrap to last
+    }
+
+    const int foundPos = posList[idx];
+
+    // Move and select
+    SendEditor(SCI_GOTOPOS, foundPos, 0);
+    SendEditor(SCI_SETSEL, foundPos, foundPos + matchLen);
+
+    // Return (total matches, 0-based index of the current hit)
+    return { (int)posList.size(), idx };
+}
+
+
+#pragma endregion find
+
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {
 	
 	floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
@@ -235,20 +315,7 @@ string fl_scintilla::getSelected(){
 
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='f'){
 			// cotm("f") 
-			if(!wFind){
-				Fl_Group::current(parent()); // important
-				int sz=190;
-				wFind=new FixedSubWindow(x()+w()-sz-16,22,sz,22,"@25-> ⚲");
-				wFind->scint=this; 
-				wFind->color(FL_RED);
-				// cotm("findinit")	 
-			}  
-			string gs=getSelected(); 
-			wFind->show();
-			// wFind->wait_for_expose ();
-			wFind->scint=this;
-			wFind->search->value(gs.c_str());
-			wFind->search->take_focus();
+			searchshow();
             return 1;
         }
 
@@ -991,66 +1058,6 @@ void fl_scintilla::helperinit(){
 }
 
 
-#pragma region find
 
-std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int flags ) {
-    if (!needle || !*needle) return {0, -1};
-
-    const int docLen   = SendEditor(SCI_GETTEXTLENGTH);
-    const int matchLen = (int)strlen(needle);
-
-    if (matchLen <= 0 || docLen <= 0) return {0, -1};
-
-    // Collect all non-overlapping match starts
-    std::vector<int> posList;
-    SendEditor(SCI_SETSEARCHFLAGS, flags, 0);
-    SendEditor(SCI_SETTARGETSTART, 0, 0);
-    SendEditor(SCI_SETTARGETEND, docLen, 0);
-
-    int pos = SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)needle);
-    while (pos != -1) {
-        posList.push_back(pos);
-        SendEditor(SCI_SETTARGETSTART, pos + matchLen, 0);
-        SendEditor(SCI_SETTARGETEND, docLen, 0);
-        pos = SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)needle);
-    }
-
-    if (posList.empty()) return {0, -1};
-
-    // Use selection bounds to avoid re-selecting the same match
-    const int selStart = SendEditor(SCI_GETSELECTIONSTART, 0, 0);
-    const int selEnd   = SendEditor(SCI_GETSELECTIONEND, 0, 0);
-
-    // Choose next index symmetrically (VSCode-style)
-    int idx = -1;
-    if (dirDown) {
-        // Next is the first match whose start is >= selection end
-        for (int i = 0; i < (int)posList.size(); ++i) {
-            if (posList[i] >= selEnd) { idx = i; break; }
-        }
-        if (idx == -1) idx = 0; // wrap to first
-    } else {
-        // Previous is the last match whose start is < selection start
-        for (int i = (int)posList.size() - 1; i >= 0; --i) {
-            if (posList[i] < selStart) { idx = i; break; }
-        }
-        if (idx == -1) idx = (int)posList.size() - 1; // wrap to last
-    }
-
-    const int foundPos = posList[idx];
-
-    // Move and select
-    SendEditor(SCI_GOTOPOS, foundPos, 0);
-    SendEditor(SCI_SETSEL, foundPos, foundPos + matchLen);
-
-    // Return (total matches, 0-based index of the current hit)
-    return { (int)posList.size(), idx };
-}
-
-
-
-
-
-#pragma endregion find
 
 

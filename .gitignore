@@ -47,7 +47,7 @@
 !/common
 !general.*
 !stream_interactive.*
-!lua_preprocessor.c
+!lua_preprocessor.cpp
 !font_loader.cpp
 !Cascadia Mono PL SemiBold 600.otf
 # !DejaVuSans-Bold.ttf
