@@ -347,6 +347,7 @@ content->redraw();
         }
         }
 		
+		toggle_shaded_transp(currentMode);
 		// content->remove(ldg); 
 		// ldg->hide();
 		Fl::add_timeout(0.4, [](void* d){ auto l=(Fl_Box*)d; l->parent()->remove(l); l->hide(); }, ldg);
@@ -495,14 +496,19 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 #pragma region luastruct
 	struct luadraw;
 	// vector<luadraw*> vlua;
-	unordered_map<string,luadraw*> ulua;
+	unordered_map<string,OCC_Viewer::luadraw*> ulua; 
+	// unordered_map<string,luadraw*> ulua; 
 	template <typename T>
 	struct ManagedPtrWrapper : public Standard_Transient {
 		T* ptr;
 		ManagedPtrWrapper(T* p) : ptr(p) {}
-		~ManagedPtrWrapper() { delete ptr; } // free automatically
+		    ~ManagedPtrWrapper() override {
+			if(ptr)delete ptr; // delete when wrapper is destroyed
+		} 
 	};
+	 
 	struct luadraw{
+    // DEFINE_STANDARD_RTTI_INLINE(luadraw, Standard_Transient)
 		bool protectedshape=0;
 
 		string command="";
@@ -520,11 +526,50 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 		gp_Trsf trsf;
 		gp_Trsf trsftmp; 
 		OCC_Viewer* occv;
-		luadraw(string _name,OCC_Viewer* p=0): occv(p) {
+        // RTTI declaration
+        // DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
+		luadraw(string _name="test",OCC_Viewer* p=0): occv(p),name(_name) {
+// {
+//     // First find the element
+//     auto it = occv->ulua.find(name);
+    
+//     // Check if found
+//     if (it != occv->ulua.end()) {
+//         // Store pointer before erasure
+//         luadraw* ptr = it->second;
+        
+//         // First erase from map (removes the mapping)
+//         occv->ulua.erase(it);
+        
+//         // Then safely delete the object
+//         if (ptr) {
+//             delete ptr;
+//         }
+//     }
+// }
+
+
+// for (size_t i = 0; i < occv->vaShape.size(); ) {  // No increment here
+//     if (ashape == occv->vaShape[i]) {        
+//         // Erase the element from the vector
+//         occv->vaShape.erase(occv->vaShape.begin() + i);
+//         cotm("erased")
+// 		break;
+//         // Don't increment i here because erase() shifts elements
+//     } else {
+//         // Only increment if no erasure happened
+//         i++;
+//     }
+// }
+
+
+
+
+
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
 			trsf.Invert();
-			name=_name;
+			// name=_name;
 			ashape = new AIS_Shape(shape);
 
 			// allocate something for the application and hand ownership to the wrapper 
@@ -536,7 +581,8 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			// ashape->SetUserData(new ManagedPtrWrapper<luadraw>(this));
         	occv->vaShape.push_back(ashape);
 			occv->m_context->Display(ashape, 0); 
-			occv->ulua[name]=this;
+			// occv->ulua[name]=this;
+			// occv->ulua[name] = std::unique_ptr<luadraw>(this);
 		}
 		void redisplay(){
 			BRepBuilderAPI_Transform transformer(shape, trsf);
@@ -555,9 +601,17 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 		void display(){
 			occv->m_context->Display(ashape, 0);
 		}
-		void rotate(int angle,gp_Dir normal={0,0,1}){
+		// void rotate(int angle){
+		// void rotate(int angle,gp_Dir normal={0,0,1}){
+		// 	trsftmp = gp_Trsf();
+		// 	// gp_Dir normal=gp_Dir(0,1,0);
+		// 	trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
+		// 	trsf  *= trsftmp;
+		// }
+		void rotate(int angle,float x=0,float y=0, float z=0){
+		// void rotate(int angle,gp_Dir normal={0,0,1}){
 			trsftmp = gp_Trsf();
-			// gp_Dir normal=gp_Dir(0,1,0);
+			gp_Dir normal=gp_Dir(x, y, z);
 			trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
 			trsf  *= trsftmp;
 		}
@@ -627,7 +681,19 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 	};
 
  
- 
+luadraw* getluadraw_from_ashape(const Handle(AIS_Shape)& ashape) {
+    Handle(Standard_Transient) owner = ashape->GetOwner();
+    if (!owner.IsNull()) {
+        Handle(ManagedPtrWrapper<luadraw>) wrapper =
+            Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+
+        if (!wrapper.IsNull() && wrapper->ptr) {
+            return wrapper->ptr;
+        }
+    }
+    return nullptr;
+}
+
  
 #pragma endregion luastruct
 
@@ -2061,8 +2127,7 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 		// test.rotate(90);
 		test->dofromstart();
 		test->redisplay();
-
-		return;
+ 
 		
 		luadraw* test1=new luadraw("test1",this);
 		test1->visible_hardcoded=0;
@@ -2076,7 +2141,7 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 		test2->shape=test->shape;
 		test2->extrude(20);
 		test2->translate(100,10);	
-		test2->rotate(40);	
+		test2->rotate(40,0,0,1);	
 		test2->redisplay();
 
 		
@@ -2126,6 +2191,15 @@ fillvectopo();
 perf("bench");
 
 toggle_shaded_transp(currentMode);
+
+		// OCC_Viewer::luadraw* tt= ulua["test5"];
+		// m_context->Remove(tt->ashape,0);
+		// delete tt;
+
+
+
+
+
 
 	}
 
@@ -2578,6 +2652,34 @@ OCC_Viewer* occv=0;
 
 
 #pragma region lua
+#include <sol/sol.hpp>
+
+void deletelua(string name){
+	auto it = occv->ulua.find(name);
+	if (it != occv->ulua.end()) {
+		// 2. Get the pointer before erasure
+		OCC_Viewer::luadraw* tt = it->second;
+		// cotm(2)
+		// 3. Remove from OpenCASCADE context first
+		if (!tt->ashape.IsNull() && !occv->m_context.IsNull()) {
+			occv->m_context->Remove(tt->ashape, 0);
+		}
+		// cotm(3)
+		// 4. Remove from vector if present
+		auto& va = occv->vaShape;
+		va.erase(std::remove(va.begin(), va.end(), tt->ashape), va.end());
+		// cotm(4)
+		// 5. Delete the object
+		// delete tt;
+		// it->second=0;
+		// 6. Finally erase from map
+		// cotm(5)
+		occv->ulua.erase(it);
+		// cotm(6)
+	}
+}
+
+
 
 
 	int close(lua_State* L){
@@ -2604,35 +2706,83 @@ perf("bench");
 occv->toggle_shaded_transp(occv->currentMode);
 
 		
-occv->m_view->FitAll();
-// occv->redraw(); //for win
+// occv->m_view->FitAll();
+occv->redraw(); //for win
 
 
-
-
-
-
-	// 	lua_funcs_mtx.lock();
-	//     if(all_cancel){lua_funcs_mtx.unlock(); return 0;}
-
-	// 	// while(pool.size()>0)sleepms(500);
-	// 	// cot(lua_gettop(L));
-	// 	int sz=lua_gettop(L); 
-	// 	vfloat p(3);
-	// 	// lop(i,0,3)cot1(lua_tonumber(L,i+1));
-	// 	lop(i,0,3)p[i]=lua_tonumber(L,i+1);
-	// 	vbool lock_axle(ve.size());
-	// 	lop(i,3,sz)lock_axle[i-3]=lua_tonumber(L,i+1);
-		
-	// // cot1(lock_axle);pausa
-	// 	posik(vec3(p[0],p[1],p[2]),lock_axle);	
-	// 	// while(running==1)sleepms(500);
-	// 	lua_funcs_mtx.unlock(); 
 		return 1;
 	} 
 
 
 	lua_State* L;
+	static std::unique_ptr<sol::state> G;
+ 
+ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
+    // store global pointer for the factory
+    // g_occv = occv;
+
+    // create the usertype for the real C++ class
+    lua.new_usertype<OCC_Viewer::luadraw>(
+        "luadraw",
+        // no constructor exposed to Lua directly (we provide a factory instead)
+        sol::no_constructor,
+
+        // properties
+        "name", &OCC_Viewer::luadraw::name,
+        "visible_hardcoded", &OCC_Viewer::luadraw::visible_hardcoded,
+
+        // methods (bind member functions)
+        "redisplay", &OCC_Viewer::luadraw::redisplay,
+        "display", &OCC_Viewer::luadraw::display,
+        // bind rotate as a member that takes single int (degrees)
+		"rotate",  &OCC_Viewer::luadraw::rotate,
+		"rotatex", [](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 1.f, 0.f, 0.f); },
+		"rotatey", [](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 1.f, 0.f); },
+		"rotatez", [](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 0.f, 1.f); },
+        "translate", &OCC_Viewer::luadraw::translate,
+        "extrude", &OCC_Viewer::luadraw::extrude,
+        // fuse expects two luadraw references; sol2 will convert Lua objects to C++ refs
+        "fuse", &OCC_Viewer::luadraw::fuse,
+        "dofromstart", &OCC_Viewer::luadraw::dofromstart
+    );
+
+    // factory function available in Lua as `luadraw_new(name)`
+    // returns a shared_ptr so the Lua GC owns the object lifetime safely.
+    lua.set_function("luadraw_new", [occv](const std::string& name) {
+		auto* luaDrawPtr = new OCC_Viewer::luadraw(name, occv);
+        // Create with the OCC_Viewer* automatically injected
+        return *luaDrawPtr;
+        // return std::make_shared<OCC_Viewer::luadraw>(name, occv);
+    });
+
+    // optional: convenience alias to create and store in OCC_Viewer map like your example
+    // if you want a function that mimics `OCC_Viewer::luadraw* test=new OCC_Viewer::luadraw("consegui",occv);`
+    lua.set_function("luadraw_new_raw", [occv](const std::string& name) -> OCC_Viewer::luadraw* {
+        // allocate raw pointer and return it -- caller (C++ side) must manage lifetime
+        return new OCC_Viewer::luadraw(name, occv);
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	#define setluafunc(val,desc){ lua_pushcfunction(L, val); lua_setglobal(L, #val); \
 		if (luafuncs.count(val) == 0)luafuncs[val]=desc; }
@@ -2655,27 +2805,43 @@ occv->m_view->FitAll();
 		// }
 	}
 	void luainit(){
-		if(L)return;
-		cotm("init_lua")
-		L=luaL_newstate();
-		luaL_openlibs(L); 
+    if (G) return;
+	if(!occv)cotm("occv not init")
 
-		// lua_sethook(L, lua_hook, LUA_MASKLINE, 0);
+    G = std::make_unique<sol::state>();
+    auto& lua = *G;
+
+    lua.open_libraries(sol::lib::base, sol::lib::package);
+
+    // Adjust package.path
+    lua["package"]["path"] = std::string("./lua/?.lua;") + std::string(lua["package"]["path"]);
+
+    // Example: if you need the raw lua_State* for C APIs
+    L = lua.lua_state();
+    // lua_sethook(L, my_hook, LUA_MASKLINE, 0);
+
+
+		bind_luadraw(lua, occv);
+
+
+
+
 		
-		// Get current package.path
-		lua_getglobal(L, "package");
-		lua_getfield(L, -1, "path");
-		const char* current_path = lua_tostring(L, -1);
+	    // Bind types
+    // bind_occt_value_types(lua);
+    // bind_occ_viewer_type(lua);
+    // bind_luadraw(lua);
 
-		// Construct new path
-		std::string new_path = "./lua/?.lua;";
-		new_path += current_path;
+    // Make your OCC_Viewer* available to Lua (as a usertype instance)
+    // lua["occv"] = occv;
 
-		// Set package.path
-		lua_pop(L, 1); // pop old path string
-		lua_pushstring(L, new_path.c_str());
-		lua_setfield(L, -2, "path");
-		lua_pop(L, 1); // pop 'package' table
+    // // Optional: a convenience factory if you prefer function-call style
+    // lua.set_function("new_luadraw", [occv](const std::string& name) -> OCC_Viewer::luadraw* {
+    //     return new OCC_Viewer::luadraw(name, occv);
+    // });
+
+
+
 
 
 		setluafunc(Part,"Part(title,axle2,...)\
@@ -2689,7 +2855,7 @@ occv->m_view->FitAll();
 
 nmutex lua_mtx("lua_mtx",1);
 void lua_str(string str,bool isfile){	
-    thread([](string str,bool isfile){ 
+    thread([](string str,bool isfile,OCC_Viewer* occv){ 
 		lua_mtx.lock();
 		luainit();
         // init_luas.init();
@@ -2700,6 +2866,78 @@ void lua_str(string str,bool isfile){
         //     return;
         // }
         // if(all_cancel){lua_mtx.unlock(); return;}
+
+
+		//temporario
+		// {
+		// OCC_Viewer::luadraw* tt= ulua["test5"];
+		// m_context->Remove(tt->ashape,0);
+		// delete tt;
+		// occv->ulua.clear();
+		// occv->m_context->RemoveAll(0);
+		// occv->vaShape.clear(); 
+		// Delete all pointers and clear the map
+		// deletelua("test5");
+// auto it = occv->ulua.begin();
+// while (it != occv->ulua.end()) {
+//     deletelua(it->second->name);  // Your deletion function
+//     // OR do it directly:
+//     /*
+//     OCC_Viewer::luadraw* ptr = it->second;
+//     if (!ptr->ashape.IsNull() && !occv->m_context.IsNull()) {
+//         occv->m_context->Remove(ptr->ashape, 0);
+//     }
+//     delete ptr;
+//     */
+//     // it--;  // Returns next valid iterator
+// }
+// // occv->ulua.clear();  // Clear the map entries
+// cotm("All elements removed from ulua");
+		// }
+
+		
+		// lop(i,0,occv->vaShape.size()){
+		// 	// OCC_Viewer::luadraw*ld= occv->getluadraw_from_ashape(occv->vaShape[i]);
+		// 	// if(ld){
+		// 	// 	cotm(1)
+		// 	// 	delete ld;
+		// 	// 	ld=nullptr;
+		// 	// }
+		// 	occv->m_context->Remove(occv->vaShape[i],0);
+		// }
+		// cotm(2)
+		// occv->vaShape.clear();
+		// occv->ulua.clear();
+
+
+
+// 		for (auto& ashape : occv->vaShape) {
+//     occv->m_context->Remove(ashape, 0);
+// }
+// auto& va = occv->vaShape;
+// va.erase(std::unique(va.begin(), va.end()), va.end());
+// occv->vaShape.clear();
+// occv->ulua.clear();
+
+
+    for (auto& ashape : occv->vaShape) {
+        if (!ashape.IsNull()) {
+            occv->m_context->Remove(ashape, 0);
+        }
+    }
+    occv->vaShape.clear();
+
+
+
+
+
+
+	// 	while (!occv->ulua.empty()) {
+    // auto it = occv->ulua.begin();
+	// cotm(it->second->name)
+    // deletelua(it->second->name);
+// }
+
 
         int status;
         if (isfile) {
@@ -2713,16 +2951,28 @@ void lua_str(string str,bool isfile){
                 std::cerr << "Runtime error: " << lua_tostring(L, -1) << std::endl;
                 lua_pop(L, 1);
             }
+			
+perf();
+occv->fillvectopo();
+perf("bench");
+occv->toggle_shaded_transp(occv->currentMode);
+occv->redraw();
+
         } else {
             std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
             lua_pop(L, 1);
         }
 
+
         // cotm(2)
-        lua_close(L);
-        L=0;
+        // lua_close(L);
+        // L=0;
+	// 	    if (G) {
+    //     // G->collect_garbage(); // optional, run GC before closing
+    //     G.reset();
+    // }
 		lua_mtx.unlock();
-	},str,isfile).detach(); 
+	},str,isfile,occv).detach(); 
 
 }
 
@@ -3024,13 +3274,13 @@ int main(int argc, char** argv) {
 // content->end();
 
 
-//     occv->test2();
-//     // occv->test();
-//     {
-// // occv->draw_objs();
-// occv->m_view->FitAll();
-// occv->redraw(); //for win
-// // occv->m_view->Update();
-// }
+    occv->test2();
+    // occv->test();
+    {
+// occv->draw_objs();
+occv->m_view->FitAll(0);
+occv->redraw(); //for win
+// occv->m_view->Update();
+}
     return Fl::run();
 }

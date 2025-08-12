@@ -288,6 +288,16 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	SendEditor(SCI_AUTOCSETAUTOHIDE,0);
 
 }
+bool isFilenameValid(const char *filename) {
+    if (!filename) return false;
+    size_t len = strlen(filename);
+    if (len > 255) return false;
+    try {
+        return std::filesystem::exists(filename);
+    } catch (...) {
+        return false;
+    }
+}
 string fl_scintilla::getSelected(){
 	int start = SendEditor(SCI_GETSELECTIONSTART, 0, 0);
 	int end = SendEditor(SCI_GETSELECTIONEND, 0, 0);
@@ -349,7 +359,9 @@ string fl_scintilla::getSelected(){
         if (e == FL_PASTE){
 			// cotm("p")
             const char *filename = Fl::event_text();
-            if(!filesystem::exists(filename)){
+            if(!isFilenameValid(filename)){
+				// cotm("nofile")
+				// getchar();
                 Fl_Scintilla::handle(FL_PASTE);
 				navigatorSetUpdated();
 				return 1;

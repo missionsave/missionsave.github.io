@@ -2,7 +2,11 @@
 //  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss -lXi $(pkg-config --cflags --libs  dbus-1) 
 // sudo setcap cap_net_admin,cap_net_raw+ep ./wifi_connect
 
-// sudo apt install libasound2-dev acpid wmctrl
+
+//  g++ taskbar2.cpp ../common/general.cpp -I../common -o taskbar2 -l:libfltk.a -lX11 -lXtst -Os -s -flto=auto -std=c++20 -lXext -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++ -Os -w -Wfatal-errors -DNDEBUG -lasound  -lXss -lXi -ludev
+
+
+// sudo apt install libasound2-dev acpid wmctrl libudev-dev  pmount
 
 #pragma region  Includes
 #include <FL/Fl.H>
@@ -1968,10 +1972,135 @@ void initlauncher(){
 }
 #pragma endregion Launcher
 
+#pragma region usb
 
-#pragma region  calculator
+#include <libudev.h>
+#include <iostream>
+#include <string>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <cstdlib>
+#include <pwd.h>
 
-#pragma endregion calculator
+static std::string basenameDev(const std::string& devnode) {
+    // devnode like /dev/sdb1 -> sdb1
+    if (devnode.rfind("/dev/", 0) == 0) return devnode.substr(5);
+    return devnode;
+}
+
+static bool pmountDevice(const std::string& devnode, const std::string& name = "") {
+    // If name is provided, pmount will use /media/<name>
+    std::string cmd = "pmount \"" + devnode + "\"";
+    if (!name.empty()) cmd += " \"" + name + "\"";
+    return system(cmd.c_str()) == 0;
+}
+
+static bool pumountDevice(const std::string& what) {
+    // what can be /dev/sdXN or a /media/* mountpoint
+    std::string cmd = "pumount \"" + what + "\"";
+    return system(cmd.c_str()) == 0;
+}
+
+int listenusb() {
+    struct udev* udev = udev_new();
+    if (!udev) {
+        std::cerr << "Can't create udev\n";
+        return 1;
+    }
+
+    struct udev_monitor* mon = udev_monitor_new_from_netlink(udev, "udev");
+    if (!mon) {
+        std::cerr << "Can't create udev monitor\n";
+        udev_unref(udev);
+        return 1;
+    }
+    udev_monitor_filter_add_match_subsystem_devtype(mon, "block", nullptr);
+    udev_monitor_enable_receiving(mon);
+
+    int fd = udev_monitor_get_fd(mon);
+    std::cout << "Waiting for USB storage events...\n";
+
+    while (true) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(fd, &fds);
+
+        if (select(fd + 1, &fds, nullptr, nullptr, nullptr) > 0 && FD_ISSET(fd, &fds)) {
+            struct udev_device* dev = udev_monitor_receive_device(mon);
+            if (!dev) continue;
+
+            const char* action_c = udev_device_get_action(dev);
+            std::string action = action_c ? action_c : "";
+
+            // Only handle add/remove
+            if (action != "add" && action != "remove") {
+                udev_device_unref(dev);
+                continue;
+            }
+
+            // Ensure it's a USB block device
+            struct udev_device* parent_usb =
+                udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
+            if (!parent_usb) {
+                udev_device_unref(dev);
+                continue;
+            }
+
+            // Only partitions, never whole disks
+            const char* devtype = udev_device_get_devtype(dev);
+            if (!devtype || std::string(devtype) != "partition") {
+                udev_device_unref(dev);
+                continue;
+            }
+
+            const char* devnode_c = udev_device_get_devnode(dev);
+            if (!devnode_c) {
+                udev_device_unref(dev);
+                continue;
+            }
+            std::string devnode = devnode_c; // e.g., /dev/sdb1
+
+            // Optional: only filesystem partitions
+            const char* fs_usage = udev_device_get_property_value(dev, "ID_FS_USAGE");
+            if (!fs_usage || std::string(fs_usage) != "filesystem") {
+                udev_device_unref(dev);
+                continue;
+            }
+
+            // Prefer label for clearer mountpoint under /media
+            const char* label_enc = udev_device_get_property_value(dev, "ID_FS_LABEL_ENC");
+            std::string mountName = label_enc && *label_enc ? label_enc : basenameDev(devnode);
+            std::string mediaMountPoint = "/media/" + mountName;
+
+            if (action == "add") {
+                // Mount the partition device (not the disk)
+                if (pmountDevice(devnode /*, mountName*/)) {
+                    std::cout << "Mounted " << devnode << " at " << mediaMountPoint << "\n";
+                } else {
+                    std::cerr << "Failed to mount " << devnode << "\n";
+                }
+            } else if (action == "remove") {
+                // Try to unmount by device; if that fails, try the media mountpoint
+                if (pumountDevice(devnode)) {
+                    std::cout << "Unmounted " << devnode << "\n";
+                } else if (pumountDevice(mediaMountPoint)) {
+                    std::cout << "Unmounted " << mediaMountPoint << "\n";
+                } else {
+                    std::cerr << "Failed to unmount " << devnode << " (or " << mediaMountPoint << ")\n";
+                }
+            }
+
+            udev_device_unref(dev);
+        }
+    }
+
+    // Unreachable in this loop, but keep for completeness
+    udev_unref(udev);
+    return 0;
+}
+
+#pragma endregion usb
+
 
 #pragma region net
 
@@ -2678,6 +2807,8 @@ btn->box(FL_NO_BOX);  // Sem borda/fundo
  	}).detach();
 
 	std::thread(listen_mouse_outside_window).detach(); 
+
+	std::thread(listenusb).detach(); 
 
 	std::thread(listen_fnvolumes).detach();
 	std::thread(initscrensaver).detach();

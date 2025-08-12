@@ -1,4 +1,13 @@
+# 1) Ignore all files and directories in the root
+/*
+
+
+
 *
+
+
+
+
 !.gitignore
 !.gitattributes
 !gcommit.bat
@@ -70,9 +79,21 @@
 !/**/scintilla_370/src/*
 !/**/scintilla_370/fltest.cpp
 
+
+# !sol2
+# !include
+
+
+
 !cfglinux
 !/cfglinux/*
 !/cfglinux/**/*
+
+!sol2
+!/**/sol2/*/sol
+!/**/sol2/*/sol/*
+!/**/sol2/include
+!/**/sol2/include/**
 
 *_v1*
 *_v2*

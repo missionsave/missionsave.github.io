@@ -2,6 +2,9 @@
 CXX       := g++
 # CXXFLAGS  :=  -Wall -Wextra -Werror
 CXXFLAGS  := -std=c++20 -Iinclude -I../common -MMD -MP -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS -D_WINDOWS -D_USRDLL
+CXXFLAGS  += -I/usr/include/lua5.4 -I../common/sol2/include
+
+
 
 ifneq ($(dbg),)
 	dbgd:=g
