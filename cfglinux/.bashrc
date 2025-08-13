@@ -352,6 +352,9 @@ set_prompt() {
     #else
        # PS1="$default_ps1"
     fi
+
+	# Bold green username, bold blue working directory, reset colors at end
+PS1='\[\e[1m\]\u@\h\w\$\[\e[0m\]'
 }
 
 set_prompt

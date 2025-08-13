@@ -2176,11 +2176,13 @@ OCC_Viewer* occv=0;
 #pragma region browser
 
 void fillbrowser(void*){
+	perf();
 	fbm->clear();
 	lop(i,0,occv->vaShape.size()){
 		OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
 		fbm->add(ld->name.c_str());
 	}
+	perf("fillbrowser");
 }
 
 
@@ -2759,8 +2761,8 @@ int main(int argc, char** argv) {
 
 		// win->show(argc, argv); return Fl::run();
 
-	int firstblock=w*0.54;
-	int secondblock=w*0.10;
+	int firstblock=w*0.52;
+	int secondblock=w*0.12;
 	int lastblock=w-firstblock-secondblock;
 
     occv = new OCC_Viewer(0, 22, firstblock, h-22-hc1); 
@@ -2783,9 +2785,10 @@ int main(int argc, char** argv) {
 	Fl_Group::current(content);
 	// content->begin();
 	scint_init(firstblock+secondblock,22,lastblock,h-22-hc1); 
+	cotm("scint_init");
 
 		Fl_Group::current(content);
-		ldg=new Fl_Window(w-500,h-22*4,100,22,"loading.");
+		ldg=new Fl_Window(firstblock,22*4,100,22,"loading.");
 		Fl_Box* ldgb=new Fl_Box(0,0,100,22,"Loading");
 		// ldgb->copy_label("Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading ");
 		ldgb->color(FL_GREEN);

@@ -269,6 +269,7 @@ std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int 
 #pragma endregion find
 
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {	
+	SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
     
 	// floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 
@@ -281,11 +282,14 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	// Fl::set_font(FL_HELVETICA, fstd.c_str());
 	// Fl::set_font(FL_HELVETICA, "Noto Color Emoji");
 
-	SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
     set_lua();
-    SetNotify(cb_editor, this); 
+	cotm("set_lua")
+    SetNotify(cb_editor, this); 	
+	cotm("cb_editor")
     helperinit();
+	cotm("helperinit")
 	SendEditor(SCI_AUTOCSETAUTOHIDE,0);
+	cotm("SCI_AUTOCSETAUTOHIDE")
 
 }
 bool isFilenameValid(const char *filename) {
