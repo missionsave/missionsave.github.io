@@ -268,8 +268,8 @@ std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int 
 
 #pragma endregion find
 
-fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {
-	
+fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {	
+    
 	// floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 
 	floaded = Fl::get_font(FL_HELVETICA_BOLD);
@@ -281,7 +281,7 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	// Fl::set_font(FL_HELVETICA, fstd.c_str());
 	// Fl::set_font(FL_HELVETICA, "Noto Color Emoji");
 
-
+	SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
     set_lua();
     SetNotify(cb_editor, this); 
     helperinit();
@@ -461,7 +461,7 @@ void fl_scintilla::set_lua(){
 	// const char* fntname="";
 
 	// const char* fntname="Cascadia Code";
-    SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
+    SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0); //allways when opening new file
     SendEditor(SCI_SETLEXER, SCLEX_LUA);
 	// printf("STYLE_LASTPREDEFINED %d\n",STYLE_LASTPREDEFINED);
 	for (int i = 0; i < STYLE_LASTPREDEFINED; ++i) {

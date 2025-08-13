@@ -1,8 +1,11 @@
 # --- Configurações do compilador e flags ---
-CXX       := g++
+CXX       := ccache g++
 # CXXFLAGS  :=  -Wall -Wextra -Werror
 CXXFLAGS  := -std=c++20 -Iinclude -I../common -MMD -MP -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS -D_WINDOWS -D_USRDLL
 CXXFLAGS  += -I/usr/include/lua5.4 -I../common/sol2/include
+# CXXFLAGS  += -include sol/sol.hpp
+# g++ -std=c++20 -I. -x c++-header sol/sol.hpp -o sol.hpp.gch -O0 -w -Wfatal-errors -DNDEBUG -march=native -mtune=native -I/usr/include/lua5.4
+
 
 
 
@@ -13,9 +16,10 @@ ifneq ($(dbg),)
 	CXXFLAGS+= -g -O0 -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer
 	LDFLAGS+= -fsanitize=address,undefined
 else
-	CXXFLAGS+= -Os -w -Wfatal-errors -DNDEBUG 
+	CXXFLAGS+= -O0 -w -Wfatal-errors -DNDEBUG -march=native -mtune=native
+# 	CXXFLAGS+= -Os -w -Wfatal-errors -DNDEBUG 
 # 	-flto=auto  -O3 -march=native -mtune=native
-	LDFLAGS+= -s -flto=auto
+# 	LDFLAGS+= -s -flto=auto
 endif
 
 # --- Diretórios e binário final ---
@@ -150,6 +154,8 @@ ifeq ($(OS_NAME), Linux)
 	LDFLAGS+= -llua5.4
 	# LDFLAGS+=  -lsqlite3 
 	LDFLAGS+= -lfltk_gl -lfltk 
+	LDFLAGS+=  -lX11
+	LDFLAGS+= -lGL -lGLU
 	# LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a 
 	# LDFLAGS+= -l:libfltk_gl.so -l:libfltk.so 
 	# LDFLAGS += -lwayland-client -lwayland-cursor -lwayland-egl
@@ -161,7 +167,7 @@ ifeq ($(OS_NAME), Linux)
 # 	LDFLAGS+= -ltbb
 
 	#static fltk:
-	LDFLAGS+= -lX11 -lXext -lGL -lGLU -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++
+# 	LDFLAGS+= -lX11 -lXext -lGL -lGLU -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++
 	# LDFLAGS+=  -lX11
 	# LDFLAGS+= -lGL -lGLU
 	# LDFLAGS+= -lfontconfig
@@ -202,7 +208,9 @@ SRC_LIB :=  \
     scintlua.cpp \
     ../common/general.cpp \
     ../common/font_loader.cpp \
-    ../common/fl_scintilla.cpp
+    ../common/fl_scintilla.cpp \
+    ../common/fl_browser_msv.cpp
+
 
 # exec
 SRC_APP := \
@@ -241,8 +249,15 @@ all: $(TARGET)
 $(LIBNAME): $(OBJS_LIB)
 	ar rcs $@ $^
 
+# CXXFLAGS+= -ftime-report
+PCH_HEADERS = includes.hpp 
+# Precompile rule
+%.hpp.gch: %.hpp
+	$(CXX) $(CXXFLAGS) -x c++-header $< -o $@
+
 # --- Executável linkando objetos app + lib ---
-$(TARGET): $(OBJS_APP) $(LIBNAME)
+# $(TARGET): $(OBJS_APP) $(LIBNAME) ../common/sol2/include/sol/sol.hpp.gch
+$(TARGET): $(PCH_HEADERS:.hpp=.hpp.gch) $(OBJS_APP) $(LIBNAME) 
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS) 
 	@if [ "$(nr)" != "1" ]; then \
 		sleep 0.2; \

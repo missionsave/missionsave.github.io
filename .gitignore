@@ -58,6 +58,7 @@
 !stream_interactive.*
 !lua_preprocessor.cpp
 !font_loader.cpp
+!fl_browser_msv.*
 # !Cascadia Mono PL SemiBold 600.otf
 # !DejaVuSans-Bold.ttf
 
@@ -94,6 +95,8 @@
 !/**/sol2/*/sol/*
 !/**/sol2/include
 !/**/sol2/include/**
+*.hpp.gch
+
 
 *_v1*
 *_v2*

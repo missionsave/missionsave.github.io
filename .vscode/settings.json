@@ -142,7 +142,9 @@
 		"vec4ui": "cpp",
 		"vec4us": "cpp",
 		"viewport": "cpp",
-		"callback": "cpp"
+		"callback": "cpp",
+		"forward_list": "cpp",
+		"variant": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {

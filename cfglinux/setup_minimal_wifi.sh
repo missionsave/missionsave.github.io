@@ -93,6 +93,10 @@ EOF
   echo "👥 Adding \$SUDO_USER to netdev group..."
   sudo usermod -aG netdev "$SUDO_USER"
 
+
+	sudo systemctl unmask dhcpcd.service
+	#sudo apt install --reinstall dhcpcd
+
   if [[ -n "$SSID" && -n "$PSK" ]]; then
     echo "📶 Configuring network: $SSID"
 
@@ -103,8 +107,6 @@ EOF
     sudo wpa_cli -i "$IFACE" save_config >/dev/null
     sudo wpa_cli -i "$IFACE" reconfigure >/dev/null
 
-	sudo systemctl unmask dhcpcd.service
-	#sudo apt install --reinstall dhcpcd
 
     echo "🟢 Bringing up interface $IFACE..."
     sudo ifup "$IFACE"
