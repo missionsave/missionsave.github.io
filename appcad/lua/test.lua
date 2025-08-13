@@ -7,16 +7,12 @@ end
 vt={"test1","test2"}
 
 --Part("titletest",{"test1","test2","test2","test2","test2","test2","test2","test2"})
-
-
-
-
-function hi1(incr)
+	local incr=10
 	a = luadraw_new("a" .. incr)
 	
 	a.visible_hardcoded = false
 	--print("a.name =", a.name)
-	a:dofromstart(900)
+	a:dofromstart(600)
 	a:extrude(200+incr)
 	a:redisplay()
 
@@ -28,66 +24,31 @@ function hi1(incr)
 	b:extrude(-200)
 	b.visible_hardcoded = false
 	b:redisplay()
-	
-	c = luadraw_new("t2" .. incr)
-	c:fuse(a,b)
-	c:rotatez(45 + incr)
-	c:rotatey(90)
+
+
+	c= luadraw_new( "c") 
+	c:fuse(a,b) 
+	--c.visible_hardcoded=false
 	c:redisplay()
+function hi1(incr)
+
+	d= luadraw_new( "d") 
+	d:clone(c)
+	d:rotatez(45 + incr*5)
+	d:rotatey(90+incr*5)
+	d:redisplay()
 	
 	
-	b = luadraw_new("b")
+	--b = luadraw_new("b")
 
 end
-for i = 0, 20 do  
-    hi1(i)
-end
+
 function hi2()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	for i = 0, 400 do  
+		hi1(i)
+	end
 end
+hi2()
  
 function hi3()
 

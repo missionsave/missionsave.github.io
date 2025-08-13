@@ -274,7 +274,7 @@ struct  OCC_Viewer : public flwindow {
     }
    
     void initialize_opencascade() { 
-		perf();
+		// perf();
         // Get native window handle
 #ifdef _WIN32
 		Fl::wait(); 
@@ -349,7 +349,7 @@ content->redraw();
 
         redraw();  
         // m_view->Redraw();  
-		perf("occvldoi"); 
+		// perf("occvldoi"); 
 
         {
         const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -546,7 +546,15 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
         // RTTI declaration
         // DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
 		luadraw(string _name="test",OCC_Viewer* p=0): occv(p),name(_name) {
-
+			auto it = occv->ulua.find(name);
+			int counter = 0;
+			std::string new_name = name;
+			while (it != occv->ulua.end()) {
+				new_name = name + std::to_string(counter);
+				it = occv->ulua.find(new_name);
+				counter++;
+			}
+			name = new_name;
 
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
@@ -599,6 +607,9 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			trsftmp.SetTranslation(gp_Vec(x, y, z));
 			trsf  *= trsftmp; 
 		}
+		void clone(luadraw &toclone){
+			shape=toclone.shape;
+		}
 		void extrude(float qtd=0){
 			// gp_Vec extrusionVec(dir);
 			gp_Vec extrusionVec(normal);
@@ -617,7 +628,11 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			fuse.Build();
 			if (!fuse.IsDone()) {
 				// handle error
+				return;
 			}
+			tofuse1.visible_hardcoded=0;
+			tofuse2.visible_hardcoded=0;
+
 			TopoDS_Shape fusedShape = fuse.Shape();
 
 			// Refine the result
@@ -2281,6 +2296,7 @@ occv->redraw(); //for win
 		"rotatez", [](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 0.f, 1.f); },
         "translate", &OCC_Viewer::luadraw::translate,
         "extrude", &OCC_Viewer::luadraw::extrude,
+        "clone", &OCC_Viewer::luadraw::clone,
         // fuse expects two luadraw references; sol2 will convert Lua objects to C++ refs
         "fuse", &OCC_Viewer::luadraw::fuse,
         "dofromstart", &OCC_Viewer::luadraw::dofromstart
@@ -2503,6 +2519,7 @@ perf1("bench fillvectopo");
 occv->toggle_shaded_transp(occv->currentMode);
 occv->redraw();
 Fl::awake(fillbrowser);
+ 
 
         } else {
             std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
@@ -2738,6 +2755,10 @@ int main(int argc, char** argv) {
     Fl::lock();    
     int w=1024;
 	int h=576; 
+	int firstblock=w*0.52;
+	int secondblock=w*0.12;
+	int lastblock=w-firstblock-secondblock;
+
     Fl_Double_Window* win = new Fl_Double_Window(0,0,w, h, "simplecad");
     win->color(FL_RED);
     win->callback([](Fl_Widget *widget, void* ){		
@@ -2745,7 +2766,7 @@ int main(int argc, char** argv) {
 			return;
 		menu->find_item("&File/Quit")->do_callback(menu);
 	});
-    menu = new Fl_Menu_Bar(0, 0,w,22);  
+    menu = new Fl_Menu_Bar(0, 0,firstblock,22);  
 	menu->menu(items); 
   
     int hc1=24;
@@ -2761,9 +2782,6 @@ int main(int argc, char** argv) {
 
 		// win->show(argc, argv); return Fl::run();
 
-	int firstblock=w*0.52;
-	int secondblock=w*0.12;
-	int lastblock=w-firstblock-secondblock;
 
     occv = new OCC_Viewer(0, 22, firstblock, h-22-hc1); 
     content->add(occv); 
@@ -2796,17 +2814,24 @@ int main(int argc, char** argv) {
 		// win->add(ldg); 
 		// win->flush();
 
+	cotm("ldg");
+
 	// win->clear_visible_focus(); 	 
 	woccbtn->color(0x7AB0CfFF);
 	win->resizable(content);	
 	// win->position(Fl::w()/2-win->w()/2,10); 
-	win->position(0,0);  
-    win->show(argc, argv); 
-	while (!win->shown()) Fl::wait();
-	win->wait_for_expose();     // wait, until displayed
-	occv->wait_for_expose();     // wait, until displayed
+	win->position(0,0);  	
+	cotm("preshow");
+    win->show(argc, argv); 	
+	cotm("winshow");
+	// while (!win->shown()) Fl::wait();
+	// win->wait_for_expose();     // wait, until displayed
+	cotm("winshow1");
+	occv->wait_for_expose();     // wait, until displayed	
+	cotm("winshow2");
 	Fl::flush();                // make sure everything gets drawn
 	win->flush(); 
+	cotm("winshow3");
 
    
     // win->maximize();
@@ -2815,7 +2840,8 @@ int main(int argc, char** argv) {
 	// win->resize(x, y+22, _w, _h-22);
 	// sleepms(200);
 
-	perf("preoccvload.....");
+	cotm("preoccvload.....");
+	perf();
 	// Fl::flush();
     occv->initialize_opencascade();
 	perf("occv-load.");

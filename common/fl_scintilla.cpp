@@ -268,6 +268,23 @@ std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int 
 
 #pragma endregion find
 
+#include <FL/Fl_Menu_Bar.H>
+void menu_callback(Fl_Widget* w, void* data) {
+    Fl_Menu_Item* item = (Fl_Menu_Item*)data;
+    printf("You selected: %s\n", item->label());
+}
+
+class FixedHeight_Menu_Bar : public Fl_Menu_Bar {
+public:
+    FixedHeight_Menu_Bar(int X, int Y, int W, int H, const char* L = 0)
+        : Fl_Menu_Bar(X, Y, W, H, L) {}
+    
+    void resize(int X, int Y, int W, int H) override {
+        // Keep original Y position and fixed height (22)
+        Fl_Menu_Bar::resize(X, Y, W, 22);
+    }
+};
+
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {	
 	SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
     
@@ -281,6 +298,9 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	// string fstd=load_app_font("DejaVuSans.ttf");
 	// Fl::set_font(FL_HELVETICA, fstd.c_str());
 	// Fl::set_font(FL_HELVETICA, "Noto Color Emoji");
+
+
+
 
     set_lua();
 	cotm("set_lua")
@@ -993,6 +1013,23 @@ extern Fl_Menu_Bar* menu;
 
 
 void fl_scintilla::helperinit(){   
+
+
+    window()->begin(); 
+		Fl_Menu_Bar* fmb=new Fl_Menu_Bar(x(),0,w(),22);
+	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
+	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
+	    // Initial menu items
+    fmb->add("Files/Openfile",0, menu_callback);
+    fmb->add("Files/Quit", 0, menu_callback);
+    
+    // Dynamically add more items later
+    // fmb->add("Edits/Copy", FL_COMMAND + 'c', menu_callback);
+    // fmb->add("Edits/Paste", FL_COMMAND + 'v', menu_callback);
+
+
+
+
 	// Fl_Browser
     window()->begin(); 
 	int sz=22*3;
