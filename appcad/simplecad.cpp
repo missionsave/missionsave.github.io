@@ -216,6 +216,7 @@ using namespace std;
 #include "includes.hpp"
 #include "fl_browser_msv.hpp"
 
+#include <OSD_Parallel.hxx>
 #pragma endregion includes
 
  
@@ -223,6 +224,18 @@ Fl_Menu_Bar* menu;
 Fl_Group* content;
 Fl_Window* ldg;
 fl_browser_msv* fbm;
+lua_State* L;
+static std::unique_ptr<sol::state> G;
+std::string lua_error_with_line(lua_State* L, const std::string& msg) {
+    lua_Debug ar;
+    if (lua_getstack(L, 1, &ar)) { // level 1 = caller of this function
+        lua_getinfo(L, "Sl", &ar); // S = source, l = current line
+        std::ostringstream oss;
+        oss << msg << " (Lua: " << ar.short_src << ":" << ar.currentline << ")";
+        return oss.str();
+    }
+    return msg;
+}
 class AIS_NonSelectableShape : public AIS_Shape {
 public:
     AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {}
@@ -515,6 +528,7 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 	struct luadraw;
 	// vector<luadraw*> vlua;
 	unordered_map<string,OCC_Viewer::luadraw*> ulua; 
+	vector<luadraw*> vlua;
 	// unordered_map<string,luadraw*> ulua; 
 	template <typename T>
 	struct ManagedPtrWrapper : public Standard_Transient {
@@ -546,6 +560,13 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
         // RTTI declaration
         // DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
 		luadraw(string _name="test",OCC_Viewer* p=0): occv(p),name(_name) {
+			if(occv->vaShape.size()>0){
+				OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape.back());
+				// occv
+				ld->redisplay();
+			}
+
+
 			auto it = occv->ulua.find(name);
 			int counter = 0;
 			std::string new_name = name;
@@ -570,7 +591,8 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			// ashape->SetUserData(new ManagedPtrWrapper<luadraw>(this));
         	occv->vaShape.push_back(ashape);
 			occv->m_context->Display(ashape, 0); 
-			occv->ulua[name]=this; 
+			occv->ulua[name]=this;
+			occv->vlua.push_back(this); 
 		}
 		void redisplay(){
 			BRepBuilderAPI_Transform transformer(shape, trsf);
@@ -607,8 +629,14 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			trsftmp.SetTranslation(gp_Vec(x, y, z));
 			trsf  *= trsftmp; 
 		}
-		void clone(luadraw &toclone){
-			shape=toclone.shape;
+		void testerror(){
+			throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+		}
+		void clone(luadraw*toclone){
+			if (!toclone) {
+				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+			}
+			this->shape = toclone->shape;
 		}
 		void extrude(float qtd=0){
 			// gp_Vec extrusionVec(dir);
@@ -616,30 +644,37 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			extrusionVec *= qtd;
     		TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(shape, extrusionVec).Shape();
 			shape=extrudedShape;
+			// throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+			// throw std::runtime_error("Something went wrong");
 		}
 		
-		void fuse(luadraw &tofuse1,luadraw &tofuse2 ){
-			Handle(AIS_Shape) af1=tofuse1.ashape;
-			Handle(AIS_Shape) af2=tofuse2.ashape;
-			TopoDS_Shape ts1=tofuse1.shape;
-			TopoDS_Shape ts2=tofuse2.shape; 
+void fuse(luadraw* tofuse1, luadraw* tofuse2) {
+    if (!tofuse1 || !tofuse2) {
+        throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
+    }
 
-			BRepAlgoAPI_Fuse fuse(ts1, ts2);
-			fuse.Build();
-			if (!fuse.IsDone()) {
-				// handle error
-				return;
-			}
-			tofuse1.visible_hardcoded=0;
-			tofuse2.visible_hardcoded=0;
+    Handle(AIS_Shape) af1 = tofuse1->ashape;
+    Handle(AIS_Shape) af2 = tofuse2->ashape;
+    TopoDS_Shape ts1 = tofuse1->shape;
+    TopoDS_Shape ts2 = tofuse2->shape; 
 
-			TopoDS_Shape fusedShape = fuse.Shape();
+    BRepAlgoAPI_Fuse fuse(ts1, ts2);
+    fuse.Build();
+    if (!fuse.IsDone()) {
+        throw std::runtime_error(lua_error_with_line(L, "Fuse operation failed"));
+    }
 
-			// Refine the result
-			ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true); // merge faces, edges, vertices
-			unify.Build();
-			this->shape = unify.Shape();
-		}
+    tofuse1->visible_hardcoded = 0;
+    tofuse2->visible_hardcoded = 0;
+
+    TopoDS_Shape fusedShape = fuse.Shape();
+
+    // Refine the result
+    ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true); // merge faces, edges, vertices
+    unify.Build();
+    this->shape = unify.Shape();
+}
+
 
  
 
@@ -1408,14 +1443,9 @@ void fillvectopo(){
 }
 
 
-
-
-
-
-
-#define ENABLE_PARALLEL
-//less precision
 void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
+	// OSD_Parallel::SetUseOcctThreads(1);
+	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 	perf1();
 
@@ -1461,6 +1491,7 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
     // 3. Meshing (somente se ainda não estiver meshed)
     Standard_Real deflection = 0.001;
 
+// perf();
 #ifdef ENABLE_PARALLEL
     std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
 #else
@@ -1469,14 +1500,14 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
         if (s.IsNull()) return;
 
         bool needsMesh = false;
-        for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
-            TopLoc_Location loc;
-            const TopoDS_Face& face = TopoDS::Face(exp.Current());
-            if (BRep_Tool::Triangulation(face, loc).IsNull()) {
-                needsMesh = true;
-                break;
-            }
-        }
+        // for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+        //     TopLoc_Location loc;
+        //     const TopoDS_Face& face = TopoDS::Face(exp.Current());
+        //     if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+        //         needsMesh = true;
+        //         break;
+        //     }
+        // }
 		needsMesh = true;
         if (needsMesh) {
             BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
@@ -1486,7 +1517,6 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
 #else
     }
 #endif
-
     // 4. Projeção HLR
     Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
 #ifdef ENABLE_PARALLEL
@@ -1500,9 +1530,137 @@ void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDr
 #else
     }
 #endif
+// perf("hlrload");
 
     algo->Projector(projector);
     algo->Update();
+// perf("hlrupdate");
+
+    // 5. Converter para shape visível
+    HLRBRep_PolyHLRToShape hlrToShape;
+perf();
+    hlrToShape.Update(algo);
+perf("hlrupdate"); 
+    TopoDS_Shape vEdges = hlrToShape.VCompound();
+    BRepBuilderAPI_Transform visT(vEdges, invTrsf);
+    TopoDS_Shape result = visT.Shape();
+
+    // 6. Mostrar ou atualizar AIS_Shape
+    if (!visible_.IsNull()) {
+        if (!visible_->Shape().IsEqual(result)) {
+            visible_->SetShape(result);
+            visible_->SetColor(Quantity_NOC_BLACK);
+            visible_->SetWidth(3);
+            visible_->SetInfiniteState(true); // opcional
+            m_context->Redisplay(visible_, false);
+        }
+    } else {
+        visible_ = new AIS_NonSelectableShape(result);
+        visible_->SetColor(Quantity_NOC_BLACK);
+        visible_->SetWidth(3);
+        visible_->SetInfiniteState(true); // opcional
+        m_context->Display(visible_, false);
+    }
+	perf1("elapsed hlr1");
+}
+
+
+
+
+
+// #define ENABLE_PARALLEL
+//less precision
+void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+	perf1();
+
+    // 1. Preparar transformação da câmara
+    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    gp_Dir viewDir = -camera->Direction();
+    gp_Dir viewUp = camera->Up();
+    gp_Dir viewRight = viewUp.Crossed(viewDir);
+    gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+    // gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+
+    gp_Trsf viewTrsf;
+    viewTrsf.SetTransformation(viewAxes);
+    gp_Trsf invTrsf = viewTrsf.Inverted();
+
+
+	
+    // const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    // gp_Dir viewDir = -camera->Direction();
+    // gp_Dir viewUp = camera->Up();
+    // gp_Dir viewRight = viewUp.Crossed(viewDir);
+    // gp_Ax3 viewAxes(camera->Center(), viewDir, viewRight);
+
+    // gp_Trsf viewTrsf;
+    // viewTrsf.SetTransformation(viewAxes);
+    // gp_Trsf invTrsf = viewTrsf.Inverted();
+
+	
+
+
+    // const Handle(Graphic3d_Camera)& theProjector = m_view->Camera();
+	// gp_Dir aBackDir = -theProjector->Direction();
+    // gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
+    // gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
+    // gp_Trsf viewTrsf;
+    // viewTrsf.SetTransformation (anAx3);
+    // gp_Trsf invTrsf = viewTrsf.Inverted(); 
+
+    // 2. Criar projetor HLR
+    // projector = HLRAlgo_Projector(viewTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
+    projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
+
+    // 3. Meshing (somente se ainda não estiver meshed)
+    Standard_Real deflection = 0.001;
+
+// perf();
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+#else
+    for (const auto& s : shapes) {
+#endif
+        if (s.IsNull()) return;
+
+        bool needsMesh = false;
+        // for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
+        //     TopLoc_Location loc;
+        //     const TopoDS_Face& face = TopoDS::Face(exp.Current());
+        //     if (BRep_Tool::Triangulation(face, loc).IsNull()) {
+        //         needsMesh = true;
+        //         break;
+        //     }
+        // }
+		needsMesh = true;
+        if (needsMesh) {
+            BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+        }
+#ifdef ENABLE_PARALLEL
+    });
+#else
+    }
+#endif
+    // 4. Projeção HLR
+    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+#ifdef ENABLE_PARALLEL
+    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+#else
+    for (const auto& s : shapes) {
+#endif
+        if (!s.IsNull()) algo->Load(s);
+#ifdef ENABLE_PARALLEL
+    });
+#else
+    }
+#endif
+// perf("hlrload");
+
+    algo->Projector(projector);
+perf();
+    algo->Update();
+perf("hlrupdate");
 
     // 5. Converter para shape visível
     HLRBRep_PolyHLRToShape hlrToShape;
@@ -1625,6 +1783,7 @@ void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool is
 #pragma endregion projection
 #pragma region tests
 	void test2(){
+		#if 0
 		perf();
 		//test
 		luadraw* test=new luadraw("consegui",this);
@@ -1704,7 +1863,7 @@ toggle_shaded_transp(currentMode);
 		// delete tt;
 
 
-
+#endif
 
 
 
@@ -2193,10 +2352,19 @@ OCC_Viewer* occv=0;
 void fillbrowser(void*){
 	perf();
 	fbm->clear();
+	if(occv->vlua.size()>0)occv->vlua.back()->redisplay();
 	lop(i,0,occv->vaShape.size()){
-		OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
+		// OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
+		// cotm(ld->visible_hardcoded)
+		OCC_Viewer::luadraw* ld=occv->vlua[i];
+		// ld->redisplay();
 		fbm->add(ld->name.c_str());
 	}
+	occv->fillvectopo();
+		cotm("vshapes",occv->vshapes.size());
+perf1("bench fillvectopo");
+occv->toggle_shaded_transp(occv->currentMode);
+occv->redraw();
 	perf("fillbrowser");
 }
 
@@ -2269,8 +2437,8 @@ occv->redraw(); //for win
 	} 
 
 
-	lua_State* L;
-	static std::unique_ptr<sol::state> G;
+	// lua_State* L;
+	// static std::unique_ptr<sol::state> G;
  
  void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
     // store global pointer for the factory
@@ -2297,6 +2465,7 @@ occv->redraw(); //for win
         "translate", &OCC_Viewer::luadraw::translate,
         "extrude", &OCC_Viewer::luadraw::extrude,
         "clone", &OCC_Viewer::luadraw::clone,
+        "testerror", &OCC_Viewer::luadraw::testerror,
         // fuse expects two luadraw references; sol2 will convert Lua objects to C++ refs
         "fuse", &OCC_Viewer::luadraw::fuse,
         "dofromstart", &OCC_Viewer::luadraw::dofromstart
@@ -2307,7 +2476,7 @@ occv->redraw(); //for win
     lua.set_function("luadraw_new", [occv](const std::string& name) {
 		auto* luaDrawPtr = new OCC_Viewer::luadraw(name, occv);
         // Create with the OCC_Viewer* automatically injected
-        return *luaDrawPtr;
+        return luaDrawPtr;
         // return std::make_shared<OCC_Viewer::luadraw>(name, occv);
     });
 
@@ -2496,6 +2665,7 @@ void lua_str(string str,bool isfile){
     }
     occv->vaShape.clear();
 	occv->ulua.clear();
+	occv->vlua.clear(); 
 
 
         int status;
@@ -2514,11 +2684,17 @@ void lua_str(string str,bool isfile){
 
 	
 perf1("lua script");
-occv->fillvectopo();
-perf1("bench fillvectopo");
-occv->toggle_shaded_transp(occv->currentMode);
-occv->redraw();
+	// lop(i,0,occv->vaShape.size()){
+	// 	OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
+	// 	// ld->redisplay();
+	// 	cotm("vashape",occv->vaShape.size());
+	// }
 Fl::awake(fillbrowser);
+// occv->fillvectopo();
+// 		cotm("vshapes",occv->vshapes.size());
+// perf1("bench fillvectopo");
+// occv->toggle_shaded_transp(occv->currentMode);
+// occv->redraw();
  
 
         } else {
@@ -2785,6 +2961,7 @@ int main(int argc, char** argv) {
 
     occv = new OCC_Viewer(0, 22, firstblock, h-22-hc1); 
     content->add(occv); 
+	OSD_Parallel::SetUseOcctThreads(1);
 	// occv->label("Loading");
 
     Fl_Window* woccbtn = new Fl_Window(0,h-hc1,occv->w(),hc1, "");
@@ -2827,7 +3004,7 @@ int main(int argc, char** argv) {
 	// while (!win->shown()) Fl::wait();
 	// win->wait_for_expose();     // wait, until displayed
 	cotm("winshow1");
-	occv->wait_for_expose();     // wait, until displayed	
+	// occv->wait_for_expose();     // wait, until displayed	
 	cotm("winshow2");
 	Fl::flush();                // make sure everything gets drawn
 	win->flush(); 

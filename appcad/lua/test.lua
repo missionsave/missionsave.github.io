@@ -4,39 +4,46 @@ function hi()
 
 end
 
+
 vt={"test1","test2"}
 
 --Part("titletest",{"test1","test2","test2","test2","test2","test2","test2","test2"})
 	local incr=10
-	a = luadraw_new("a" .. incr)
+	a = luadraw_new("a" )
+	a.name="test"
 	
-	a.visible_hardcoded = false
+	--a.visible_hardcoded = false
 	--print("a.name =", a.name)
 	a:dofromstart(600)
+	--a:redisplay()
 	a:extrude(200+incr)
-	a:redisplay()
+	--a:redisplay()
 
+function bb()
 	b = luadraw_new("b" .. incr)
 	--print("b.name =", b.name)
-	b:translate(10,0,20)
+	b:translate(100,0,20)
 	--b:rotate(45)
 	b:dofromstart(-10)
 	b:extrude(-200)
 	b.visible_hardcoded = false
-	b:redisplay()
-
-
+	--b:redisplay()
+	
+	
+	
 	c= luadraw_new( "c") 
 	c:fuse(a,b) 
 	--c.visible_hardcoded=false
-	c:redisplay()
+	--c:redisplay()
+end
+bb()
 function hi1(incr)
 
 	d= luadraw_new( "d") 
 	d:clone(c)
 	d:rotatez(45 + incr*5)
 	d:rotatey(90+incr*5)
-	d:redisplay()
+	--d:redisplay()
 	
 	
 	--b = luadraw_new("b")
@@ -44,9 +51,10 @@ function hi1(incr)
 end
 
 function hi2()
-	for i = 0, 400 do  
+	for i = 0, 40 do  
 		hi1(i)
 	end
+	print("benfica.name ") 
 end
 hi2()
  
