@@ -144,7 +144,9 @@
 		"viewport": "cpp",
 		"callback": "cpp",
 		"forward_list": "cpp",
-		"variant": "cpp"
+		"variant": "cpp",
+		"plane": "cpp",
+		"polytopeintersector": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {

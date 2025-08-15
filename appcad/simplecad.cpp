@@ -214,9 +214,117 @@ void scint_init(int x,int y,int w,int h);
 using namespace std;
 #endif
 #include "includes.hpp"
+
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRep_Tool.hxx>
+#include <BRepTools.hxx>
+#include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+
 #include "fl_browser_msv.hpp"
 
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRep_Builder.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS_Compound.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRep_Tool.hxx>
+#include <TopoDS.hxx>
+#include <gp_Pnt.hxx>
+#include <TopExp.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRep_Tool.hxx>
+#include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
+#include <Geom2d_OffsetCurve.hxx>
+#include <Geom2dAdaptor_Curve.hxx>
+#include <Geom2dAPI_InterCurveCurve.hxx>
+#include <Precision.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <gp.hxx>
+#include <vector>
+#include <stdexcept>
 #include <OSD_Parallel.hxx>
+#include <BRepOffsetAPI_MakeOffsetShape.hxx>
+
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepAlgoAPI_Cut.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepExtrema_DistShapeShape.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepLib.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeVertex.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <Geom2d_Line.hxx>
+#include <Geom2dAPI_InterCurveCurve.hxx>
+#include <gp_Vec2d.hxx>
+#include <Precision.hxx>
+
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <Geom_Curve.hxx>
+#include <GeomAPI_ExtremaCurveCurve.hxx>
+#include <gp_Vec2d.hxx>
+#include <Precision.hxx>
+#include <TopExp.hxx>
+#include <TopoDS.hxx>
+#include <BRep_Tool.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+
+
+#include <TopoDS_Compound.hxx>
+#include <BRep_Builder.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS.hxx>
+
+#include <BRep_Builder.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <BRepBuilderAPI_Copy.hxx> 
+#include <AIS_Shape.hxx>
+#include <TopoDS_Iterator.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
+#include <unordered_set>
+
 #pragma endregion includes
 
  
@@ -535,7 +643,7 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 		T* ptr;
 		ManagedPtrWrapper(T* p) : ptr(p) {}
 		    ~ManagedPtrWrapper() override {
-			if(ptr)delete ptr; // delete when wrapper is destroyed
+			// if(ptr)delete ptr; // delete when wrapper is destroyed
 		} 
 	};
 	 
@@ -543,10 +651,14 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 		bool protectedshape=0;
 
 		string command="";
+ 
 
+// build it using BRep_Builder
+BRep_Builder builder;
  
 		string name="";
 		bool visible_hardcoded=1;
+		TopoDS_Compound cshape; 
 		TopoDS_Shape shape; 
 		// std::shared_ptr<TopoDS_Shape> shape; 
 		Handle(AIS_Shape) ashape; 
@@ -556,16 +668,20 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 		gp_Dir xdir =  gp_Dir(1, 0, 0);
 		gp_Trsf trsf;
 		gp_Trsf trsftmp; 
+		bool needsplacementupdate=1;
 		OCC_Viewer* occv;
         // RTTI declaration
         // DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
 		luadraw(string _name="test",OCC_Viewer* p=0): occv(p),name(_name) {
-			if(occv->vaShape.size()>0){
-				OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape.back());
-				// occv
-				ld->redisplay();
-			}
+			//regen
+			// if(occv->vaShape.size()>0){
+			// 	OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape.back());
+			// 	// occv
+			// 	ld->redisplay();
+			// }
 
+			
+builder.MakeCompound(cshape);
 
 			auto it = occv->ulua.find(name);
 			int counter = 0;
@@ -580,7 +696,7 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
 			trsf.Invert(); 
-			ashape = new AIS_Shape(shape);
+			ashape = new AIS_Shape(cshape);
 
 			// allocate something for the application and hand ownership to the wrapper 
 			Handle(ManagedPtrWrapper<luadraw>) wrapper = new ManagedPtrWrapper<luadraw>(this);
@@ -594,19 +710,33 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			occv->ulua[name]=this;
 			occv->vlua.push_back(this); 
 		}
-		void redisplay(){
-			BRepBuilderAPI_Transform transformer(shape, trsf);
-			shape=transformer.Shape();
-			ashape->Set(shape); 
-			if(visible_hardcoded){
-				occv->m_context->Redisplay(ashape, 0);
-			}else{
-				occv->m_context->Erase(ashape, Standard_False); 
-			}
-			if(!visible_hardcoded && occv->m_context->IsDisplayed(ashape)){
-				occv->m_context->Erase(ashape, Standard_False);
-			}
-		}
+
+void redisplay()
+{
+    update_placement();
+
+    // If visible, redisplay (only if it's displayed already, otherwise Display)
+    if (visible_hardcoded)
+    {
+        if (occv->m_context->IsDisplayed(ashape))
+        {
+            occv->m_context->Redisplay(ashape, false);
+        }
+        else
+        {
+            occv->m_context->Display(ashape, false);
+        }
+    }
+    else
+    {
+        // Only erase if it is displayed
+        if (occv->m_context->IsDisplayed(ashape))
+        {
+            occv->m_context->Erase(ashape, Standard_False);
+        }
+    }
+}
+
 		void display(){
 			occv->m_context->Display(ashape, 0);
 		}
@@ -617,20 +747,73 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 		// 	trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
 		// 	trsf  *= trsftmp;
 		// }
+		
 		void rotate(int angle,float x=0,float y=0, float z=0){
 		// void rotate(int angle,gp_Dir normal={0,0,1}){
+			needsplacementupdate=1;
 			trsftmp = gp_Trsf();
 			gp_Dir normal=gp_Dir(x, y, z);
 			trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
-			trsf  *= trsftmp;
+			trsf = trsftmp * trsf;
+			// trsf  *= trsftmp;
+			// update_placement();
 		}
-		void translate(float x=0,float y=0, float z=0){
+		bool hasAnyTriangulation(const TopoDS_Shape& shape) {
+    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+        const TopoDS_Face& F = TopoDS::Face(ex.Current());
+        TopLoc_Location L;
+        Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(F, L);
+        if (!tri.IsNull() && tri->NbTriangles() > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+		void translate(float x=0,float y=0, float z=0,bool world=1,float fromwx=0,float fromwy=0, float fromwz=0){
+			needsplacementupdate=1;
+			if(world){
+				gp_Trsf moveToOrigin;
+				moveToOrigin.SetTranslation(gp_Vec(-fromwx, -fromwy, -fromwz));
+
+				gp_Trsf moveToTarget;
+				moveToTarget.SetTranslation(gp_Vec(x, y, z));
+
+				// Apply: first to origin, then to target
+				trsf = moveToTarget * moveToOrigin * trsf;
+			}
+			if(!world){
 			trsftmp = gp_Trsf();
 			trsftmp.SetTranslation(gp_Vec(x, y, z));
+			// trsf = trsftmp * trsf; //world
 			trsf  *= trsftmp; 
+			}
+		}		
+		void update_placement(){
+			if(needsplacementupdate==0)return;
+			BRepBuilderAPI_Transform transformer(shape, trsf);
+			shape=transformer.Shape();
+			if(!cshape.IsNull()){
+BRepCheck_Analyzer ana(cshape, Standard_True);
+if (!ana.IsValid()) {
+    std::cout << "Compound has invalid geometry or topology\n";
+}
+BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
+mesher.Perform();
+
+
+cotm(hasAnyTriangulation(cshape))
+
+
+
+				ashape->Set(cshape);
+			}else	ashape->Set(shape); 
+			needsplacementupdate=0;
 		}
-		void testerror(){
-			throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+		void copy_placement(luadraw* tocopy){
+			trsf= tocopy->trsf; 
+		}
+		void exit(){
+			throw std::runtime_error(lua_error_with_line(L, "exit"));
 		}
 		void clone(luadraw*toclone){
 			if (!toclone) {
@@ -638,12 +821,30 @@ void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
 			}
 			this->shape = toclone->shape;
 		}
+bool solidify_wire_to_face() {
+    if (shape.IsNull() || shape.ShapeType() != TopAbs_WIRE) {
+        return false; // not a wire — nothing to do
+    }
+
+    TopoDS_Wire wire = TopoDS::Wire(shape);
+
+    // Attempt to make a face directly from the wire
+    BRepBuilderAPI_MakeFace mkFace(wire);
+    if (!mkFace.IsDone()) {
+        return false; // face creation failed (open or non‑planar wire, etc.)
+    }
+
+    shape = mkFace.Face();
+    return true;
+}
 		void extrude(float qtd=0){
+			solidify_wire_to_face();
 			// gp_Vec extrusionVec(dir);
 			gp_Vec extrusionVec(normal);
 			extrusionVec *= qtd;
-    		TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(shape, extrusionVec).Shape();
-			shape=extrudedShape;
+    		TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(cshape, extrusionVec).Shape();
+			mergeShape(cshape,extrudedShape);
+			// cshape=extrudedShape;
 			// throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
 			// throw std::runtime_error("Something went wrong");
 		}
@@ -652,7 +853,8 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
     if (!tofuse1 || !tofuse2) {
         throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
     }
-
+	tofuse1->update_placement();
+	tofuse2->update_placement();
     Handle(AIS_Shape) af1 = tofuse1->ashape;
     Handle(AIS_Shape) af2 = tofuse2->ashape;
     TopoDS_Shape ts1 = tofuse1->shape;
@@ -675,22 +877,930 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
     this->shape = unify.Shape();
 }
 
+#include <BRep_Builder.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Shape.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
+#include <Standard_Failure.hxx>
+#include <iostream>
 
- 
+void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd)
+{
+	
+builder.Add(target, toAdd);
+
+	return;
+    // try
+    // {
+    //     if (toAdd.IsNull())
+    //     {
+    //         std::cerr << "Warning: toAdd is null." << std::endl;
+    //         return;
+    //     }
+
+    //     BRepCheck_Analyzer checker(toAdd);
+    //     if (!checker.IsValid())
+    //     {
+    //         std::cerr << "Warning: toAdd is invalid." << std::endl;
+    //         return;
+    //     }
+
+    //     BRep_Builder builder;
+    //     TopoDS_Compound comp;
+
+    //     if (target.IsNull())
+    //     {
+    //         target = BRepBuilderAPI_Copy(toAdd).Shape();
+    //         return;
+    //     }
+
+    //     BRepCheck_Analyzer targetChecker(target);
+    //     if (!targetChecker.IsValid())
+    //     {
+    //         std::cerr << "Warning: target is invalid." << std::endl;
+    //         return;
+    //     }
+
+    //     if (target.ShapeType() != TopAbs_COMPOUND)
+    //     {
+    //         builder.MakeCompound(comp);
+    //         builder.Add(comp, target);
+    //         target = comp;
+    //     }
+    //     else
+    //     {
+    //         comp = TopoDS::Compound(target);
+    //     }
+
+    //     // Copy toAdd to ensure it's standalone
+    //     TopoDS_Shape toAddCopy = BRepBuilderAPI_Copy(toAdd).Shape();
+    //     builder.Add(comp, toAddCopy);
+    //     target = comp;
+    // }
+    // catch (Standard_Failure& e)
+    // {
+    //     std::cerr << "Open CASCADE error: " << e.GetMessageString() << std::endl;
+    //     throw;
+    // }
+}
 
 
-		
-    // Convert Vec2d to Wire
-    TopoDS_Wire CreateWire(const std::vector<gp_Vec2d>& points, bool closed) {
-        BRepBuilderAPI_MakePolygon poly;
-        for (const auto& vec : points) {
-            poly.Add(gp_Pnt(vec.X(), vec.Y(), 0.0));
-        }
-        if (closed && points.size() > 2) poly.Close();
-        return poly.Wire();
+void addPolylineToShape(TopoDS_Shape& target, const TopoDS_Wire& poly) {
+    BRep_Builder builder;
+
+    if (target.IsNull()) {
+        // start fresh
+        target = poly;
+        return;
     }
-	  
-		void dofromstart(int x=0){
+
+    if (target.ShapeType() != TopAbs_COMPOUND) {
+        // wrap existing shape into a compound
+        TopoDS_Compound comp;
+        builder.MakeCompound(comp);
+        builder.Add(comp, target);
+        target = comp;
+    }
+
+    // now add the new wire
+    builder.Add(target, poly);
+}
+
+// #include <vector>
+// #include <gp_Vec2d.hxx>
+// #include <gp_Pnt2d.hxx>
+
+
+
+void ConvertVec2dToPnt2d(
+    const std::vector<gp_Vec2d>& vpoints,
+    std::vector<gp_Pnt2d>& ppoints)
+{
+    ppoints.clear();
+    ppoints.reserve(vpoints.size());
+    for (const auto& vec : vpoints)
+    {
+        ppoints.emplace_back(vec.X(), vec.Y());
+    }
+}
+
+void ConvertPnt2dToPnt(
+    const std::vector<gp_Pnt2d>& pnts2d,
+    std::vector<gp_Pnt>& pnts3d)
+{
+    pnts3d.clear();
+    pnts3d.reserve(pnts2d.size());
+    for (const auto& p : pnts2d)
+    {
+        pnts3d.emplace_back(p.X(), p.Y(), 0.0);
+    }
+}
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Dir.hxx>
+
+void CreatePerfectOffset_v1(
+    const std::vector<gp_Vec2d>& points,
+    double offsetDistance,
+    bool isClosed = false
+) {
+	cotm(points.size())
+    if (points.size() < 2) return;// TopoDS_Shape();
+
+    // Calculate offset directions for each segment
+    std::vector<gp_Vec2d> segmentDirections;
+    for (size_t i = 0; i < points.size() - 1; i++) {
+        segmentDirections.push_back((points[i+1] - points[i]).Normalized());
+    }
+    if (isClosed) {
+        segmentDirections.push_back((points[0] - points.back()).Normalized());
+    }
+
+    // Calculate offset points at each vertex
+    std::vector<gp_Pnt> offsetPoints;
+    for (size_t i = 0; i < points.size(); i++) {
+        gp_Vec2d prevDir, nextDir;
+        
+        if (isClosed || i > 0) {
+            prevDir = segmentDirections[(i == 0) ? segmentDirections.size()-1 : i-1];
+        }
+        if (isClosed || i < points.size()-1) {
+            nextDir = segmentDirections[i];
+        }
+
+        // For endpoints of open polylines
+        if (!isClosed) {
+            if (i == 0) prevDir = nextDir;
+            if (i == points.size()-1) nextDir = prevDir;
+        }
+
+        // Calculate bisector direction
+        gp_Vec2d bisector = (prevDir + nextDir).Normalized();
+        
+        // Calculate offset direction (perpendicular to bisector)
+        gp_Vec2d offsetDir(-bisector.Y(), bisector.X());
+        
+        // Special case for straight angles
+        if (prevDir.IsParallel(nextDir, 1e-6)) {
+            offsetDir = gp_Vec2d(-prevDir.Y(), prevDir.X());
+        }
+
+        // Calculate offset amount (compensating for angle)
+        double angle = prevDir.Angle(nextDir);
+        double compensation = (angle > 1e-6) ? (1.0 / sin(angle/2.0)) : 1.0;
+        
+        // Create offset point
+        offsetPoints.push_back(gp_Pnt(
+            points[i].X() + offsetDir.X() * offsetDistance * compensation,
+            points[i].Y() + offsetDir.Y() * offsetDistance * compensation,
+            0.0
+        ));
+    }
+
+    // For closed polylines, add first point at end
+    if (isClosed && !offsetPoints.empty()) {
+        offsetPoints.push_back(offsetPoints[0]);
+    }
+
+    // Build the offset wire
+    BRepBuilderAPI_MakePolygon polyBuilder;
+    for (const auto& pnt : offsetPoints) {
+        polyBuilder.Add(pnt);
+    }
+    if (isClosed) polyBuilder.Close();
+
+    // Make a planar face from that wire
+    TopoDS_Face face = BRepBuilderAPI_MakeFace(polyBuilder);
+
+    // Mesh the face so it gets Poly_Triangulation
+    BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
+
+    mergeShape(cshape, face);
+	cotm("merged")
+
+    // return polyBuilder.Shape();
+}
+
+
+#include <vector>
+#include <gp_Vec2d.hxx>
+#include <gp_Pnt2d.hxx>
+#include <gp_Pnt.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
+
+TopoDS_Face MakeParallelOffsetFace(const std::vector<gp_Vec2d>& vpoints, double dist)
+{
+    if (vpoints.size() < 2) return TopoDS_Face();
+
+    // Copy so we can auto-extend ends for caps
+    auto pts = vpoints;
+
+    // Auto‑extend at start and end so caps are square
+    {
+        gp_Vec2d dirStart = pts[1] - pts[0]; dirStart.Normalize();
+        pts[0] = pts[0] - dirStart * dist;
+
+        gp_Vec2d dirEnd = pts.back() - pts[pts.size()-2]; dirEnd.Normalize();
+        pts.back() = pts.back() + dirEnd * dist;
+    }
+
+    // Offset both sides
+    std::vector<gp_Pnt2d> leftPts, rightPts;
+    for (size_t i = 0; i < pts.size(); ++i) {
+        gp_Vec2d tangent;
+        if (i == 0)
+            tangent = pts[1] - pts[0];
+        else if (i == pts.size()-1)
+            tangent = pts[i] - pts[i-1];
+        else {
+            gp_Vec2d prev = pts[i]   - pts[i-1];
+            gp_Vec2d next = pts[i+1] - pts[i];
+            tangent = (prev.Normalized() + next.Normalized()).Normalized();
+        }
+        gp_Vec2d normal(-tangent.Y(), tangent.X());
+        normal.Normalize();
+
+        leftPts.emplace_back( pts[i].X() + normal.X()*dist,
+                              pts[i].Y() + normal.Y()*dist );
+        rightPts.emplace_back(pts[i].X() - normal.X()*dist,
+                              pts[i].Y() - normal.Y()*dist );
+    }
+
+    // Build closed polygon (left path forward, right path backward)
+    BRepBuilderAPI_MakePolygon poly;
+    for (auto& p : leftPts) poly.Add(gp_Pnt(p.X(), p.Y(), 0));
+    for (auto it = rightPts.rbegin(); it != rightPts.rend(); ++it)
+        poly.Add(gp_Pnt(it->X(), it->Y(), 0));
+    poly.Close();
+
+    // Make face & mesh for shading
+    TopoDS_Face face = BRepBuilderAPI_MakeFace(poly.Wire());
+    BRepMesh_IncrementalMesh(face, 0.5, true);
+
+    return face;
+}
+#include <vector>
+#include <gp_Vec2d.hxx>
+#include <gp_Pnt.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <TopoDS_Wire.hxx>
+
+#include <vector>
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec2d.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+
+// Normalize vector
+static gp_Vec2d Normalized(const gp_Vec2d& v) {
+    gp_Vec2d res = v;
+    if (res.Magnitude() > gp::Resolution())
+        res.Normalize();
+    return res;
+}
+#include <vector>
+#include <cmath>
+
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec2d.hxx>
+
+// 2D cross‐product (scalar)
+static double VCross(const gp_Vec2d& a, const gp_Vec2d& b) {
+    return a.X()*b.Y() - a.Y()*b.X();
+}
+
+// Intersect two infinite 2d lines: P1 + t1*d1  and  P2 + t2*d2
+// Returns false if they’re (nearly) parallel.
+static bool IntersectLines(
+    const gp_Pnt2d& P1, const gp_Vec2d& d1,
+    const gp_Pnt2d& P2, const gp_Vec2d& d2,
+    gp_Pnt2d&       Pint)
+{
+    double denom = VCross(d1, d2);
+    if (std::abs(denom) < 1e-9) 
+        return false;
+
+    gp_Vec2d diff(P2.X() - P1.X(), P2.Y() - P1.Y());
+    double t1 = VCross(diff, d2) / denom;
+    Pint = P1.Translated(d1 * t1);
+    return true;
+}
+
+// Builds a closed, one‐sided offset wire around the input polyline.
+// vpoints: the “spine” as 2D points.
+// dist:    offset distance.
+// outward: true→offset on the left side of each segment.
+TopoDS_Wire MakeOneSidedOffsetWire(
+    const std::vector<gp_Pnt2d>& vpoints,
+    double                       dist,
+    bool                         outward)
+{
+    const size_t N = vpoints.size();
+    if (N < 2) 
+        return TopoDS_Wire();
+
+    // 1) Compute segment tangents and outward normals
+    std::vector<gp_Vec2d> dirs(N-1), norms(N-1);
+    for (size_t i = 0; i < N-1; ++i) {
+        gp_Vec2d d(vpoints[i+1].X() - vpoints[i].X(),
+                   vpoints[i+1].Y() - vpoints[i].Y());
+        d.Normalize();
+        dirs[i] = d;
+        // left‐normal = ( -dy, dx ); right‐normal = ( dy, -dx )
+        gp_Vec2d n(outward ? -d.Y() : d.Y(),
+                   outward ?  d.X() : -d.X());
+        norms[i] = n;
+    }
+
+    // 2) Compute offset points at each vertex, trimmed with perpendicular caps
+    std::vector<gp_Pnt2d> offp(N);
+
+    // 2a) start cap: intersect offset‐line with a perpendicular at the start
+    {
+        gp_Pnt2d Poff = vpoints[0].Translated(norms[0] * dist);
+        IntersectLines(
+            Poff, dirs[0],
+            vpoints[0], norms[0],
+            offp[0]
+        );
+    }
+
+    // 2b) internal joints: intersect successive offset‐lines
+    for (size_t i = 1; i < N-1; ++i) {
+        gp_Pnt2d P1 = vpoints[i].Translated(norms[i-1] * dist);
+        gp_Pnt2d P2 = vpoints[i].Translated(norms[i]   * dist);
+
+        if (!IntersectLines(P1, dirs[i-1], P2, dirs[i], offp[i])) {
+            // fallback if parallel: just take the later
+            offp[i] = P2;
+        }
+    }
+
+    // 2c) end cap: intersect offset‐line with perpendicular at the end
+    {
+        gp_Pnt2d PendOff = vpoints[N-1].Translated(norms[N-2] * dist);
+        IntersectLines(
+            PendOff, dirs[N-2],
+            vpoints[N-1], norms[N-2],
+            offp[N-1]
+        );
+    }
+
+    // 3) Build the planar wire: original spine + end‐cap + offset side + start‐cap
+    BRepBuilderAPI_MakeWire wireMaker;
+
+    // 3a) original spine
+    for (size_t i = 0; i < N-1; ++i) {
+        gp_Pnt A(vpoints[i].X(),   vpoints[i].Y(),   0.0);
+        gp_Pnt B(vpoints[i+1].X(), vpoints[i+1].Y(), 0.0);
+        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+    }
+
+    // 3b) cap at far end
+    {
+        gp_Pnt A(vpoints[N-1].X(),  vpoints[N-1].Y(),  0.0);
+        gp_Pnt B(offp[N-1].X(),     offp[N-1].Y(),     0.0);
+        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+    }
+
+    // 3c) offset side (reverse direction)
+    for (size_t i = N-1; i > 0; --i) {
+        gp_Pnt A(offp[i].X(),    offp[i].Y(),    0.0);
+        gp_Pnt B(offp[i-1].X(),  offp[i-1].Y(),  0.0);
+        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+    }
+
+    // 3d) cap at start
+    {
+        gp_Pnt A(offp[0].X(),    offp[0].Y(),    0.0);
+        gp_Pnt B(vpoints[0].X(), vpoints[0].Y(), 0.0);
+        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+    }
+
+    return wireMaker.Wire();
+}
+
+// Helper: compute perpendicular vector
+gp_Vec2d Perpendicular(const gp_Vec2d& v) {
+    return gp_Vec2d(-v.Y(), v.X());
+}
+
+// Build one-sided offset wire from 2D points
+TopoDS_Wire MakeParallelOffsetWire(const std::vector<gp_Pnt2d>& points,
+                                   double offset,
+                                   bool outward = true)
+{
+    if (points.size() < 2) return TopoDS_Wire();
+
+    std::vector<gp_Pnt> offsetPts;
+    offsetPts.reserve(points.size());
+
+    double side = outward ? 1.0 : -1.0;
+
+    for (size_t i = 0; i < points.size() - 1; ++i) {
+        gp_Vec2d dir(points[i], points[i+1]);
+        gp_Vec2d normal = Perpendicular(dir).Normalized();
+        normal *= offset * side;
+
+        gp_Pnt2d p1 = points[i].Translated(normal);
+        gp_Pnt2d p2 = points[i+1].Translated(normal);
+
+        offsetPts.emplace_back(p1.X(), p1.Y(), 0);
+        if (i == points.size() - 2)
+            offsetPts.emplace_back(p2.X(), p2.Y(), 0);
+    }
+
+    BRepBuilderAPI_MakePolygon poly;
+    for (auto& p : offsetPts) poly.Add(p);
+
+    // Check if original path is closed
+    gp_Vec2d diff(points.front(), points.back());
+    if (diff.SquareMagnitude() < 1e-9)
+        poly.Close();
+
+    return poly.Wire();
+}
+
+void createOffset(double distance,bool closed)
+{
+	vector<gp_Pnt2d> ppoints;
+	ConvertVec2dToPnt2d(vpoints,ppoints);
+// TopoDS_Wire wOff =makeOffsetOutline(vpoints, distance);
+
+TopoDS_Wire wOff = TopoDS::Wire(MakeOneSidedOffsetWire(ppoints, distance, closed));
+// TopoDS_Wire wOff = MakeParallelOffsetWire(ppoints,distance);
+TopoDS_Face f = BRepBuilderAPI_MakeFace(wOff);
+BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true); // adjust deflection/angle
+mergeShape(cshape, f);
+// CreatePerfectOffset(vpoints, distance, closed);
+
+
+return;
+// TopoDS_Wire wOff = TopoDS::Wire(CreatePerfectOffset(vpoints, distance, closed));
+// cotm("t1")
+// TopoDS_Face f = BRepBuilderAPI_MakeFace(wOff);
+// cotm("t2")
+// BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true);
+// cotm("t3")
+// mergeShape(cshape, f);
+// cotm("t4")
+
+
+	// TopoDS_Shape toadd= CreatePerfectOffset(vpoints,distance,closed);
+return;
+// if (toadd.ShapeType() == TopAbs_WIRE) {
+// 	cotm("TopAbs_WIRE")
+//     TopoDS_Face face = BRepBuilderAPI_MakeFace(TopoDS::Wire(toadd));
+//     BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
+//     mergeShape(cshape, face);
+// }
+
+	// shape=toadd;
+// mergeShape(cshape,toadd);
+
+
+	return;
+    std::vector<gp_Pnt2d> hi;
+    ConvertVec2dToPnt2d(vpoints, hi);
+    std::vector<gp_Pnt2d> res = OffsetPolyline2D(hi, distance, closed);
+
+    std::vector<gp_Pnt> res3d;
+    ConvertPnt2dToPnt(res, res3d);
+
+    TopoDS_Wire wres = CreateWireFromPoints(res3d, closed);
+    addPolylineToShape(shape, wres);
+
+{
+	std::vector<gp_Pnt> res3d;
+    ConvertPnt2dToPnt(hi, res3d);
+
+    TopoDS_Wire wres = CreateWireFromPoints(res3d, closed);
+    addPolylineToShape(shape, wres);
+}
+}
+
+
+
+#include <vector>
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec2d.hxx>
+#include <cmath>
+
+std::vector<gp_Pnt2d> OffsetPolyline2D(
+    const std::vector<gp_Pnt2d>& polyline,
+    double offsetDistance,
+    bool isClosed)
+{
+    std::vector<gp_Pnt2d> offsetPoints;
+    int n = static_cast<int>(polyline.size());
+    if (n < 2) return offsetPoints;
+
+    for (int i = 0; i < n; ++i)
+    {
+        const gp_Pnt2d& pt = polyline[i];
+        gp_Pnt2d prev, next;
+
+        // Handle previous and next points for open/closed polylines
+        if (isClosed)
+        {
+            prev = polyline[(i - 1 + n) % n];
+            next = polyline[(i + 1) % n];
+        }
+        else
+        {
+            prev = (i > 0) ? polyline[i - 1] : polyline[i];
+            next = (i < n - 1) ? polyline[i + 1] : polyline[i];
+        }
+
+        // For endpoints of open polylines, use only the adjacent segment
+        if (!isClosed && (i == 0 || i == n - 1))
+        {
+            gp_Vec2d edge = (i == 0) ? gp_Vec2d(pt, next) : gp_Vec2d(prev, pt);
+            gp_Vec2d normal(-edge.Y(), edge.X());
+            normal.Normalize();
+            offsetPoints.emplace_back(
+                pt.X() + offsetDistance * normal.X(),
+                pt.Y() + offsetDistance * normal.Y());
+            continue;
+        }
+
+        // For non-endpoints, compute bisector
+        gp_Vec2d inDir(prev, pt);
+        gp_Vec2d outDir(pt, next);
+        inDir.Normalize();
+        outDir.Normalize();
+
+        // Compute bisector and cross product
+        gp_Vec2d bisector = inDir + outDir;
+        double cross = inDir.X() * outDir.Y() - inDir.Y() * outDir.X();
+        int side = (cross > 0) ? 1 : -1;
+
+        // Rotate bisector 90° to get outward direction
+        gp_Vec2d offsetDir(-bisector.Y(), bisector.X());
+        offsetDir *= side;
+
+        // Normalize bisector
+        if (bisector.Magnitude() > 1e-6)
+            offsetDir.Normalize();
+
+        // Compute angle between segments
+        double dot = inDir.Dot(outDir);
+        dot = std::clamp(dot, -1.0, 1.0);
+        double angle = std::acos(dot);
+
+        // Handle miter limit (avoid very long miters)
+        double miterLimit = 10.0; // Adjust as needed
+        double scale = offsetDistance;
+        if (std::abs(std::sin(angle / 2.0)) > 1e-6)
+        {
+            scale = offsetDistance / std::sin(angle / 2.0);
+            if (scale > miterLimit * offsetDistance)
+                scale = miterLimit * offsetDistance; // Bevel instead of miter
+        }
+
+        // Apply offset
+        offsetPoints.emplace_back(
+            pt.X() + offsetDir.X() * scale,
+            pt.Y() + offsetDir.Y() * scale);
+    }
+
+    return offsetPoints;
+}
+
+
+
+		std::vector<gp_Vec2d> vpoints;
+    // Convert Vec2d to Wire
+    // void CreateWire(const std::vector<gp_Vec2d>& points, bool closed=0) {
+    //     BRepBuilderAPI_MakePolygon poly;
+    //     for (const auto& vec : points) {
+    //         poly.Add(gp_Pnt(vec.X(), vec.Y(), 0.0));
+    //     }
+    //     if (closed && points.size() > 2) poly.Close();
+	// 	vpoints=points;
+	// 	// shape=poly.Wire(); 
+	// 	mergeShape(cshape,poly.Wire());
+    // }
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS.hxx>
+
+static inline gp_Vec2d normSafe(const gp_Vec2d& v, double eps=1e-12) {
+    double m = v.Magnitude();
+    return (m < eps) ? gp_Vec2d(0,0) : v / m;
+}
+static inline gp_Vec2d rotLeft(const gp_Vec2d& v) { return gp_Vec2d(-v.Y(), v.X()); }
+static inline double cross2(const gp_Vec2d& a, const gp_Vec2d& b) { return a.X()*b.Y() - a.Y()*b.X(); }
+
+static double signedArea(const std::vector<gp_Vec2d>& pts) {
+    double A = 0.0;
+    for (size_t i=0, n=pts.size(); i<n; ++i) {
+        const gp_Vec2d& p = pts[i];
+        const gp_Vec2d& q = pts[(i+1)%n];
+        A += p.X()*q.Y() - q.X()*p.Y();
+    }
+    return 0.5*A;
+}
+
+TopoDS_Shape CreatePerfectOffset(const std::vector<gp_Vec2d>& points,
+                                 double offsetDistance,
+                                 bool isClosed = false)
+{
+    if (points.size() < 2) return TopoDS_Shape();
+
+    // Filter zero-length segments to avoid NaNs
+    std::vector<gp_Vec2d> P;
+    P.reserve(points.size());
+    for (size_t i=0; i<points.size(); ++i) {
+        if (i==0 || (points[i]-points[i-1]).SquareMagnitude() > 1e-20) {
+            P.push_back(points[i]);
+        }
+    }
+    if (P.size() < 2) return TopoDS_Shape();
+
+    // Determine orientation for outward normal convention on closed polylines
+    int orientSign = 1; // +1 means "left" is outward
+    if (isClosed && P.size() >= 3) {
+        orientSign = (signedArea(P) >= 0.0) ? 1 : -1; // CCW => left is outward
+    }
+
+    auto tangentAt = [&](int i, int dir)->gp_Vec2d {
+        // dir = -1 uses segment (i-1 -> i), dir = +1 uses (i -> i+1)
+        int n = int(P.size());
+        if (!isClosed) {
+            if (dir < 0) { if (i == 0)   return normSafe(P[1]   - P[0]);   return normSafe(P[i]   - P[i-1]); }
+            else         { if (i == n-1) return normSafe(P[n-1] - P[n-2]); return normSafe(P[i+1] - P[i]);   }
+        } else {
+            int i0 = (dir < 0) ? ((i-1+n)%n) : i;
+            int i1 = (dir < 0) ? i            : ((i+1)%n);
+            return normSafe(P[i1] - P[i0]);
+        }
+    };
+
+    auto outwardNormal = [&](const gp_Vec2d& t)->gp_Vec2d {
+        // "Left" normal is rotLeft(t); flip by orientSign and offset sign for consistent outward/inward
+        int sign = orientSign;
+        if (!isClosed) sign = 1; // define positive distance as "left" for open polylines
+        int dsign = (offsetDistance >= 0) ? 1 : -1;
+        return rotLeft(t) * double(sign * dsign);
+    };
+
+    std::vector<gp_Pnt> outPts;
+    outPts.reserve(P.size() + (isClosed ? 0 : 2));
+
+    for (int i = 0; i < int(P.size()); ++i) {
+        gp_Vec2d tPrev = tangentAt(i, -1);
+        gp_Vec2d tNext = tangentAt(i, +1);
+        gp_Vec2d nPrev = outwardNormal(tPrev);
+        gp_Vec2d nNext = outwardNormal(tNext);
+
+        gp_Vec2d p(P[i].X(), P[i].Y());
+        gp_Vec2d p1 = p + nPrev * std::abs(offsetDistance);
+        gp_Vec2d p2 = p + nNext * std::abs(offsetDistance);
+
+        // Intersect lines L1: p1 + tPrev*s, L2: p2 + tNext*t
+        double denom = cross2(tPrev, tNext);
+        gp_Vec2d q;
+        if (std::abs(denom) < 1e-12) {
+            // Parallel (or nearly): fallback to simple offset by previous normal
+            q = p1;
+        } else {
+            gp_Vec2d diff = p2 - p1;
+            double s = cross2(diff, tNext) / denom;
+            q = p1 + tPrev * s;
+        }
+
+        outPts.emplace_back(q.X(), q.Y(), 0.0);
+    }
+
+    // For open polylines, add simple end caps (square-caps). Round/bevel would need extra logic.
+    if (!isClosed) {
+        // Prepend and append are already handled by the intersection formula falling back at ends,
+        // so no extra points are strictly necessary. Keep as-is for a clean polyline.
+    }
+
+    // Build the offset wire
+    BRepBuilderAPI_MakePolygon poly;
+    for (const auto& p : outPts) poly.Add(p);
+    if (isClosed && outPts.size() > 2) poly.Close();
+
+    if (!poly.IsDone()) return TopoDS_Shape();
+    return poly.Wire(); // return the wire explicitly
+}
+
+void CreateWire(const std::vector<gp_Vec2d>& points, bool closed = false)
+{
+    BRepBuilderAPI_MakePolygon poly;
+    for (auto& v : points) {
+        poly.Add(gp_Pnt(v.X(), v.Y(), 0));
+    }
+    if (closed && points.size() > 2)
+        poly.Close();
+
+    TopoDS_Wire wire = poly.Wire();
+
+    // Make a planar face from that wire
+    // TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+
+    // // Mesh the face so it gets Poly_Triangulation
+    // BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
+
+    // mergeShape(cshape, face);
+
+	vpoints=points;
+}
+
+// GeomAbs_Intersection
+
+
+// Creates a simple wire from points
+TopoDS_Wire CreateWireFromPoints(const std::vector<gp_Pnt>& points, bool closed)
+{
+    BRepBuilderAPI_MakePolygon polyBuilder;
+    for (const auto& pnt : points) {
+        polyBuilder.Add(pnt);
+    }
+    if (closed) polyBuilder.Close();
+    return polyBuilder.Wire();
+}
+
+// Main offset function with visualization
+void CreateAndDisplayOffset(
+    Handle(AIS_InteractiveContext) context,
+    const std::vector<gp_Vec2d>& points,
+    double offsetDistance,
+    bool isClosed = false)
+{
+    if (points.size() < 2) return;
+
+    // Convert Vec2d to Pnt
+    std::vector<gp_Pnt> originalPoints;
+    for (const auto& pt : points) {
+        originalPoints.emplace_back(pt.X(), pt.Y(), 0.0);
+    }
+
+    // Create original wire
+    TopoDS_Wire originalWire = CreateWireFromPoints(originalPoints, isClosed);
+    
+    // Create offset points
+    std::vector<gp_Pnt> offsetPoints;
+    for (size_t i = 0; i < points.size(); i++) {
+        gp_Vec2d pt = points[i];
+        
+        // For endpoints of open polylines
+        if (!isClosed && (i == 0 || i == points.size()-1)) {
+            gp_Vec2d dir = (i == 0) ? (points[1] - pt) : (pt - points[i-1]);
+            gp_Vec2d perp(-dir.Y(), dir.X());
+            perp.Normalize();
+            offsetPoints.emplace_back(
+                pt.X() + perp.X() * offsetDistance,
+                pt.Y() + perp.Y() * offsetDistance,
+                0.0
+            );
+            continue;
+        }
+
+        // For internal points and closed polylines
+        gp_Vec2d prev = points[(i == 0) ? points.size()-1 : i-1];
+        gp_Vec2d next = points[(i == points.size()-1) ? 0 : i+1];
+        
+        gp_Vec2d inDir = (pt - prev).Normalized();
+        gp_Vec2d outDir = (next - pt).Normalized();
+        
+        gp_Vec2d inPerp(-inDir.Y(), inDir.X());
+        gp_Vec2d outPerp(-outDir.Y(), outDir.X());
+        
+        gp_Vec2d offsetDir = (inPerp + outPerp).Normalized();
+        
+        offsetPoints.emplace_back(
+            pt.X() + offsetDir.X() * offsetDistance,
+            pt.Y() + offsetDir.Y() * offsetDistance,
+            0.0
+        );
+    }
+
+    // Create offset wire
+    TopoDS_Wire offsetWire = CreateWireFromPoints(offsetPoints, isClosed);
+
+    // Display original (red)
+    Handle(AIS_Shape) origShape = new AIS_Shape(originalWire);
+    origShape->SetColor(Quantity_NOC_RED);
+    context->Display(origShape, Standard_True);
+
+    // Display offset (blue)
+    Handle(AIS_Shape) offsetShape = new AIS_Shape(offsetWire);
+    offsetShape->SetColor(Quantity_NOC_BLUE);
+    
+    // Make offset wire thicker for better visibility
+    Handle(Prs3d_LineAspect) lineAspect = new Prs3d_LineAspect(
+        Quantity_NOC_BLUE, Aspect_TOL_SOLID, 2.0);
+    offsetShape->Attributes()->SetLineAspect(lineAspect);
+    
+    context->Display(offsetShape, Standard_True);
+}
+
+    // Creates parallel edges for each segment
+    TopoDS_Shape CreateParallelEdges(const std::vector<gp_Vec2d>& points, double offsetDistance) {
+        BRepBuilderAPI_MakeWire wireBuilder;
+        
+        for (size_t i = 0; i < points.size() - 1; i++) {
+            gp_Vec2d dir = (points[i+1] - points[i]).Normalized();
+            gp_Vec2d perp(-dir.Y(), dir.X());
+            
+            gp_Pnt p1(
+                points[i].X() + perp.X() * offsetDistance,
+                points[i].Y() + perp.Y() * offsetDistance,
+                0.0
+            );
+            gp_Pnt p2(
+                points[i+1].X() + perp.X() * offsetDistance,
+                points[i+1].Y() + perp.Y() * offsetDistance,
+                0.0
+            );
+            
+            wireBuilder.Add(BRepBuilderAPI_MakeEdge(p1, p2));
+        }
+        return wireBuilder.Wire();
+    }
+
+    // Trims and connects edges at intersections
+    TopoDS_Shape TrimAndConnectEdges(const TopoDS_Shape& parallelEdges, bool isClosed) {
+        TopTools_IndexedMapOfShape edges;
+        TopExp::MapShapes(parallelEdges, TopAbs_EDGE, edges);
+        
+        if (edges.Extent() < 2) return parallelEdges;
+        
+        BRepBuilderAPI_MakeWire resultWire;
+        Standard_Real first, last;
+        
+        // For closed polylines, connect last edge to first
+        if (isClosed && edges.Extent() > 1) {
+            TopoDS_Edge edge1 = TopoDS::Edge(edges(1));
+            TopoDS_Edge edge2 = TopoDS::Edge(edges(edges.Extent()));
+            
+            Handle(Geom_Curve) c1 = BRep_Tool::Curve(edge1, first, last);
+            Handle(Geom_Curve) c2 = BRep_Tool::Curve(edge2, first, last);
+            
+            GeomAPI_ExtremaCurveCurve extrema(c1, c2);
+            if (extrema.NbExtrema() > 0) {
+                gp_Pnt p1, p2;
+                extrema.Points(1, p1, p2);
+                gp_Pnt midPoint((p1.XYZ() + p2.XYZ()) * 0.5);
+                
+                resultWire.Add(BRepBuilderAPI_MakeEdge(
+                    BRep_Tool::Pnt(TopExp::FirstVertex(edge1)),
+                    midPoint
+                ));
+                resultWire.Add(BRepBuilderAPI_MakeEdge(
+                    midPoint,
+                    BRep_Tool::Pnt(TopExp::LastVertex(edge2))
+                ));
+            }
+        }
+        
+        // Connect intermediate edges
+        for (int i = 1; i < edges.Extent(); i++) {
+            TopoDS_Edge edge1 = TopoDS::Edge(edges(i));
+            TopoDS_Edge edge2 = TopoDS::Edge(edges(i+1));
+            
+            Handle(Geom_Curve) c1 = BRep_Tool::Curve(edge1, first, last);
+            Handle(Geom_Curve) c2 = BRep_Tool::Curve(edge2, first, last);
+            
+            GeomAPI_ExtremaCurveCurve extrema(c1, c2);
+            if (extrema.NbExtrema() > 0) {
+                gp_Pnt p1, p2;
+                extrema.Points(1, p1, p2);
+                gp_Pnt midPoint((p1.XYZ() + p2.XYZ()) * 0.5);
+                
+                resultWire.Add(BRepBuilderAPI_MakeEdge(
+                    BRep_Tool::Pnt(TopExp::FirstVertex(edge1)),
+                    midPoint
+                ));
+                resultWire.Add(BRepBuilderAPI_MakeEdge(
+                    midPoint,
+                    BRep_Tool::Pnt(TopExp::LastVertex(edge2))
+                ));
+            }
+        }
+        
+        return resultWire.Wire();
+    }
+// }
+
+
+
+
+	void dofromstart(int x=0){
 			gp_Pnt p1(0, 0,0);
 			gp_Pnt p2(100+x, 0,0);
 			gp_Pnt p3(100+x, 50,0);
@@ -749,6 +1859,128 @@ luadraw* getluadraw_from_ashape(const Handle(AIS_Shape)& ashape) {
 
 #pragma endregion scint
 #pragma region events
+
+#include <AIS_InteractiveObject.hxx>
+#include <AIS_Shape.hxx>
+#include <unordered_set>
+
+
+
+// Safe clear of AIS objects with compound-first order and selection-safe guards
+// - Clears selection & closes local contexts first
+// - Deactivates each object from selection manager before Remove()
+// - Removes compounds first, then the rest
+// - Dedupes handles (no double Remove())
+// - If Remove() still throws, falls back to Erase() to avoid tolerance-map crashes
+
+#include <AIS_InteractiveObject.hxx>
+#include <AIS_Shape.hxx>
+#include <Standard_Type.hxx>
+#include <Standard_Failure.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <unordered_set>
+#include <iostream>
+
+// Hash + equality for OCC Handle types (hash by underlying pointer)
+struct HandleAISHasher {
+    std::size_t operator()(const Handle(AIS_InteractiveObject)& h) const noexcept {
+        return std::hash<const void*>()(h.get());
+    }
+};
+struct HandleAISEqual {
+    bool operator()(const Handle(AIS_InteractiveObject)& a,
+                    const Handle(AIS_InteractiveObject)& b) const noexcept {
+        return a.get() == b.get();
+    }
+};
+
+void SafeClearShapes()
+{
+    // ---- 0) Selection hygiene: clear selection & close local contexts
+    // Avoids SelectMgr_ToleranceMap underflows when removing many objects
+m_context->ClearSelected(false);
+m_context->ClearCurrents(false);
+// if (m_context->HasOpenedLocalContext())
+//     m_context->CloseLocalContext();
+
+    // ---- 1) Collect unique handles (skip nulls)
+    std::unordered_set<Handle(AIS_InteractiveObject), HandleAISHasher, HandleAISEqual> unique;
+    unique.reserve(vaShape.size());
+    for (const auto& h : vaShape)
+        if (!h.IsNull()) unique.insert(h);
+
+    auto safeRemove = [&](const Handle(AIS_InteractiveObject)& obj, const char* tag)
+    {
+        if (obj.IsNull()) return;
+
+        // Deactivate all selection modes for this object (mode=0 means all)
+        // This detaches it from the selection manager before Remove().
+        try {
+            m_context->Deactivate(obj, 0);
+        } catch (const Standard_Failure& e) {
+            std::cerr << "Deactivate failed (" << tag << "): " << e.GetMessageString() << "\n";
+        }
+
+        // If it’s displayed, try Remove(); on failure, fall back to Erase()
+        if (m_context->IsDisplayed(obj)) {
+            try {
+                m_context->Remove(obj, false); // don’t update per object; update once at end
+            } catch (const Standard_Failure& e) {
+                std::cerr << "Remove failed (" << tag << "): " << e.GetMessageString()
+                          << " -> falling back to Erase()\n";
+                try {
+                    m_context->Erase(obj, Standard_False);
+                } catch (const Standard_Failure& e2) {
+                    std::cerr << "Erase also failed (" << tag << "): " << e2.GetMessageString() << "\n";
+                }
+            }
+        } else {
+            // Not displayed: still deactivate & try Erase to be thorough
+            try {
+                m_context->Erase(obj, Standard_False);
+            } catch (const Standard_Failure& e) {
+                std::cerr << "Erase (not displayed) failed (" << tag << "): " << e.GetMessageString() << "\n";
+            }
+        }
+    };
+
+    // ---- 2) Remove compounds first
+    for (auto it = unique.begin(); it != unique.end(); )
+    {
+        Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(*it);
+        if (!ais.IsNull()) {
+            const TopoDS_Shape& s = ais->Shape();
+            if (!s.IsNull() && s.ShapeType() == TopAbs_COMPOUND) {
+                safeRemove(*it, "compound");
+                it = unique.erase(it); // ensure we don’t process twice
+                continue;
+            }
+        }
+        ++it;
+    }
+
+    // ---- 3) Remove everything else
+    for (const auto& h : unique) {
+        safeRemove(h, "regular");
+    }
+
+    // ---- 4) Drop Lua-side TopoDS handles (no Free(); just Nullify)
+    for (auto& luaObj : vlua){
+        if (luaObj) luaObj->shape.Nullify();
+		delete luaObj;
+	}
+
+    // ---- 5) Clear containers & update once
+    vaShape.clear();
+    vlua.clear();
+    m_context->UpdateCurrentViewer();
+}
+
+
+
+
+
 
 
 Handle(AIS_Shape) myHighlightedPointAIS; // To store the highlighting sphere
@@ -2352,12 +3584,12 @@ OCC_Viewer* occv=0;
 void fillbrowser(void*){
 	perf();
 	fbm->clear();
-	if(occv->vlua.size()>0)occv->vlua.back()->redisplay();
+	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
 	lop(i,0,occv->vaShape.size()){
-		// OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
+		OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
 		// cotm(ld->visible_hardcoded)
-		OCC_Viewer::luadraw* ld=occv->vlua[i];
-		// ld->redisplay();
+		// OCC_Viewer::luadraw* ld=occv->vlua[i];
+		ld->redisplay();
 		fbm->add(ld->name.c_str());
 	}
 	occv->fillvectopo();
@@ -2439,10 +3671,33 @@ occv->redraw(); //for win
 
 	// lua_State* L;
 	// static std::unique_ptr<sol::state> G;
- 
+ static std::vector<gp_Vec2d> to_vec2d_vector(const sol::table& t) {
+    std::vector<gp_Vec2d> out;
+    out.reserve(t.size());
+    for (std::size_t i = 1; i <= t.size(); ++i) {
+        out.push_back(t.get<gp_Vec2d>(i));
+    }
+    return out;
+}
  void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
     // store global pointer for the factory
     // g_occv = occv;
+
+	// 1) Bind gp_Vec2d so Lua can construct and pass Vec2 objects
+	lua.new_usertype<gp_Vec2d>(
+		"Vec2",
+		sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(),
+		"x", sol::property(
+			[](const gp_Vec2d& v) { return v.X(); },
+			[](gp_Vec2d& v, double x) { v.SetX(x); }
+		),
+		"y", sol::property(
+			[](const gp_Vec2d& v) { return v.Y(); },
+			[](gp_Vec2d& v, double y) { v.SetY(y); }
+		)
+	);
+
+
 
     // create the usertype for the real C++ class
     lua.new_usertype<OCC_Viewer::luadraw>(
@@ -2465,10 +3720,21 @@ occv->redraw(); //for win
         "translate", &OCC_Viewer::luadraw::translate,
         "extrude", &OCC_Viewer::luadraw::extrude,
         "clone", &OCC_Viewer::luadraw::clone,
-        "testerror", &OCC_Viewer::luadraw::testerror,
+        "offset", &OCC_Viewer::luadraw::createOffset,
+        "copy_placement", &OCC_Viewer::luadraw::copy_placement,
+        "exit", &OCC_Viewer::luadraw::exit,
         // fuse expects two luadraw references; sol2 will convert Lua objects to C++ refs
         "fuse", &OCC_Viewer::luadraw::fuse,
-        "dofromstart", &OCC_Viewer::luadraw::dofromstart
+        "dofromstart", &OCC_Viewer::luadraw::dofromstart,
+
+		"create_wire", sol::overload(
+			[](OCC_Viewer::luadraw& self, sol::table pts, bool closed) {
+				self.CreateWire(to_vec2d_vector(pts), closed);
+			},
+			[](OCC_Viewer::luadraw& self, sol::table pts) {
+				self.CreateWire(to_vec2d_vector(pts), false);
+			}
+		)
     );
 
     // factory function available in Lua as `luadraw_new(name)`
@@ -2590,11 +3856,13 @@ occv->redraw(); //for win
 	}
 
 nmutex lua_mtx("lua_mtx",1);
+
+
 void lua_str(string str,bool isfile){	
     thread([](string str,bool isfile,OCC_Viewer* occv){ 
 		lua_mtx.lock();
 		luainit();
-		perf1();
+		// perf1();
         // init_luas.init();
         // cotm(lua_mtx.waiting_threads.load())
         // if(all_cancel && lua_mtx.waiting_threads.load()<=1){
@@ -2657,16 +3925,106 @@ void lua_str(string str,bool isfile){
 // occv->ulua.clear();
 
 
+cotm("luarun",occv->vaShape.size())
 	//temporary
-    for (auto& ashape : occv->vaShape) {
-        if (!ashape.IsNull()) {
-            occv->m_context->Remove(ashape, 0);
-        }
-    }
+// for (auto& ashape : occv->vaShape) {
+//     if (!ashape.IsNull()) {
+//         // occv->m_context->Erase(ashape, 0);
+//         // occv->m_context->Remove(ashape, 0);
+//     }
+// }
+// lop(i,0,occv->vaShape.size()){
+// 	// occv->vlua[i]->shape.Free(1);
+// 	auto& ashape=occv->vaShape[i];
+// 	occv->m_context->Remove(ashape, 0); 
+// }
+// occv->m_context->RemoveAll(0);
+
+
+ // Remove in reverse order (in case of dependencies)
+
+
+	
+//     for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i)
+//     {
+// 		// occv->vlua[i]->shape.Nullify();
+//         try
+//         {
+//             if (!occv->vaShape[i].IsNull())
+//             {
+//                 // Remove AIS object from the context
+//                 occv->m_context->Remove(occv->vaShape[i], /*erase from viewer*/ false);
+//             }
+
+//             // Also remove from Lua-side if exists
+//             // if (i < static_cast<int>(occv->vlua.size()) && occv->vlua[i])
+//             // {
+//             //     // Avoid touching shared TopoDS_Shape here
+//             //     occv->vlua[i]->shape.Nullify();
+//             // }
+//         }
+//         catch (const Standard_Failure& e)
+//         {
+//             std::cerr << "OCC error removing shape index " << i << ": "
+//                       << e.GetMessageString() << "\n";
+//         }
+
+		
+// 		TopoDS_Compound comp = TopoDS::Compound(occv->vlua[i]->shape);
+// comp.Nullify();
+// 		delete occv->vlua[i];
+//     }
+
+	// occv->SafeClearShapes();
+
+		
+
+
+    for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i){
+// occv->vlua[i]->shape.Nullify();
+
+
+		// delete occv->vlua[i];
+	}
+	// occv->m_context->RemoveAll(0);
+// occv->m_context->EraseAll(Standard_True);
+// occv->m_context->Clear(Standard_True);
+
+
+
+// 1) Stop any hover/selection first
+occv->m_context->ClearCurrents(Standard_False);
+occv->m_context->ClearSelected(Standard_False);
+for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i){
+	auto &aisShapeHandle=occv->vaShape[i];
+// 2) Deactivate selection modes for this specific AIS object
+occv->m_context->Deactivate(aisShapeHandle);
+
+// 3) Remove it from the context
+if (occv->m_context->IsDisplayed(aisShapeHandle))
+    occv->m_context->Remove(aisShapeHandle, Standard_False);
+else
+    occv->m_context->Erase(aisShapeHandle, Standard_False);
+
+// 4) Update the viewer once you’re done
+occv->m_context->UpdateCurrentViewer();
+
+// 5) Release your last handle to allow cleanup
+aisShapeHandle.Nullify();
+
+// 6) Only after the AIS is gone, release/nullify the TopoDS_Compound
+// compoundShape.Nullify();
+ occv->vlua[i]->cshape.Nullify();
+}
+
+
+
+
+
+	occv->vshapes.clear();
     occv->vaShape.clear();
 	occv->ulua.clear();
 	occv->vlua.clear(); 
-
 
         int status;
         if (isfile) {
@@ -2683,7 +4041,7 @@ void lua_str(string str,bool isfile){
 
 
 	
-perf1("lua script");
+// perf1("lua script");
 	// lop(i,0,occv->vaShape.size()){
 	// 	OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
 	// 	// ld->redisplay();
