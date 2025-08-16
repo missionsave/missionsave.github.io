@@ -1,9 +1,5 @@
-#include <sol/sol.hpp> 
-
 #define M_PI 3.14159265358979323846
 #define M_PI_2 1.57079632679489661923
-
-   
 
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H> 
@@ -161,11 +157,29 @@
 #include <Aspect_TypeOfLine.hxx>
 #include <Graphic3d_NameOfMaterial.hxx>
 #include <Standard_ProgramError.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <AIS_InteractiveObject.hxx>
+#include <AIS_Shape.hxx>
+#include <AIS_InteractiveObject.hxx>
+#include <AIS_Shape.hxx>
+#include <Standard_Failure.hxx>
+#include <Standard_Type.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopoDS_Shape.hxx>
+#include <iostream>
+#include <unordered_set>
+
+#include <unordered_set>
 
 #include <chrono>
 #include <thread>
 #include <functional>
-#include <cmath>
+#include <cmath> 
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec2d.hxx>
+#include <vector>
 
 
 #include <BRepMesh_IncrementalMesh.hxx>
@@ -189,6 +203,55 @@
 #include <TopoDS.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
 
+
+#include <AIS_Shape.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepAlgoAPI_Cut.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeVertex.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepExtrema_DistShapeShape.hxx>
+#include <BRepLib.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepOffsetAPI_MakeOffsetShape.hxx>
+#include <BRepTools.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BRep_Builder.hxx>
+#include <BRep_Tool.hxx>
+#include <Geom2dAPI_InterCurveCurve.hxx>
+#include <Geom2dAdaptor_Curve.hxx>
+#include <Geom2d_Line.hxx>
+#include <Geom2d_OffsetCurve.hxx>
+#include <GeomAPI_ExtremaCurveCurve.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <Geom_Curve.hxx>
+#include <OSD_Parallel.hxx>
+#include <Precision.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Iterator.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <TopoDS_Wire.hxx>
+#include <gp.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec2d.hxx>
+#include <stdexcept>
+#include <unordered_set>
+#include <vector>
+
 #include <chrono>
 #include <execution> // Para C++17 paralelismo
 
@@ -197,7 +260,7 @@
 	#else
 #include <lua5.4/lua.hpp> 
 #endif
-
+#include <sol/sol.hpp> 
 
 #include "general.hpp"
 

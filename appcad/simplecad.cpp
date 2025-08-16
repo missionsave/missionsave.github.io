@@ -1,687 +1,382 @@
 
 #pragma region includes
-#if 0
-#include <sol/sol.hpp> 
-
-#define M_PI 3.14159265358979323846
-#define M_PI_2 1.57079632679489661923
-
-   
-
-#include <FL/Fl.H>
-#include <FL/Fl_Window.H> 
-#include <FL/Fl_Gl_Window.H>
-#include <FL/Fl_File_Chooser.H> 
-#include <FL/x.H>
-#include <GL/gl.h>
-#include <FL/Fl_Menu_Bar.H>
-#include <FL/fl_ask.H>
-
-#include <Aspect_DisplayConnection.hxx>
-#include <OpenGl_GraphicDriver.hxx>
-#include <V3d_Viewer.hxx>
-#include <V3d_View.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <AIS_Shape.hxx>
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <Quantity_Color.hxx>
-#include <WNT_Window.hxx>  // Windows-specific
-#include <Xw_Window.hxx>   // Linux-specific
-
-#include <Prs3d_Drawer.hxx>
-#include <Prs3d_LineAspect.hxx>
-#include <Quantity_Color.hxx>
-#include <Aspect_TypeOfLine.hxx>
-
-#include <AIS_Shape.hxx>
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <V3d_Viewer.hxx>
-#include <V3d_View.hxx>
-#include <OpenGl_GraphicDriver.hxx>
-#include <AIS_ColoredShape.hxx>
-#include <V3d_Viewer.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <AIS_Shape.hxx>
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <V3d_View.hxx>
-#include <OpenGl_GraphicDriver.hxx>
-#include <WNT_Window.hxx>  // ou Xw_Window se for Linux
-#include <Aspect_DisplayConnection.hxx>
-#include <HLRBRep_Algo.hxx>
-#include <HLRBRep_HLRToShape.hxx>
-#include <Prs3d_Drawer.hxx>
-#include <VrmlConverter_Drawer.hxx>
-#include <HLRBRep_PolyAlgo.hxx>
-#include <HLRAlgo_Projector.hxx>
-#include <BRepBndLib.hxx> 
-#include <StepVisual_CameraModelD3.hxx> 
-#include <HLRAlgo_EdgeIterator.hxx> 
-#include <AIS_Shape.hxx> 
-#include <Prs3d_LineAspect.hxx>
-#include <Aspect_TypeOfLine.hxx>
-#include <Quantity_Color.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <BRepBuilderAPI_MakeWire.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepPrimAPI_MakePrism.hxx>
-#include <BRepBuilderAPI_Transform.hxx>
-#include <HLRBRep_Algo.hxx>
-#include <HLRBRep_HLRToShape.hxx>
-#include <AIS_Shape.hxx>
-#include <Prs3d_LineAspect.hxx>
-#include <V3d_View.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <BRep_Builder.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopExp.hxx>
-#include <Geom_Line.hxx>
-#include <HLRBRep_Algo.hxx>
-#include <HLRBRep_HLRToShape.hxx>
-#include <AIS_Shape.hxx>
-#include <Prs3d_LineAspect.hxx>
-#include <V3d_View.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <BRep_Builder.hxx>
-#include <TopoDS_Compound.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <AIS_Shape.hxx>
-#include <V3d_View.hxx>
-#include <TopoDS_Shape.hxx>
-#include <Prs3d_Drawer.hxx>
-#include <Prs3d_LineAspect.hxx>
-#include <HLRBRep_Algo.hxx>
-#include <HLRBRep_HLRToShape.hxx>
-#include <HLRAlgo_Projector.hxx>
-#include <gp_Pnt.hxx>
-#include <gp_Dir.hxx>
-#include <gp_Ax2.hxx>
-#include <Quantity_Color.hxx>
-#include <HLRBRep_Data.hxx>
-#include <BRepAlgoAPI_Fuse.hxx>
-#include <ShapeFix_Shape.hxx>
-#include <BRepTools.hxx>
-#include <ShapeUpgrade_ShapeDivideContinuity.hxx>
-#include <BRepBuilderAPI_Sewing.hxx>
-#include <ShapeFix_Face.hxx>
-#include <ShapeFix_Solid.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopoDS.hxx> 
-#include <Precision.hxx>
-#include <ShapeUpgrade_UnifySameDomain.hxx>
-#include <BRepAlgoAPI_Cut.hxx>
-#include <BRepAlgoAPI_Common.hxx>
-#include <TopAbs_ShapeEnum.hxx>
-#include <StdSelect_BRepOwner.hxx>
-#include <Geom_Axis2Placement.hxx>
-#include <AIS_Trihedron.hxx>
-#include <OpenGl_Context.hxx>
-#include <gp_Dir.hxx>
-#include <Aspect_TypeOfTriedronPosition.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <AIS_Trihedron.hxx>
-#include <V3d_View.hxx>
-#include <Geom_Axis2Placement.hxx>
-#include <gp_Ax2.hxx> 
-#include <AIS_Shape.hxx>
-#include <Graphic3d_TransformPers.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <AIS_Trihedron.hxx>
-#include <Geom_Axis2Placement.hxx>
-#include <Prs3d_DatumAspect.hxx>
-#include <Prs3d_Drawer.hxx>
-#include <gp_Ax2.hxx>
-#include <AIS_Trihedron.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <Geom_Axis2Placement.hxx>
-#include <Prs3d_DatumAspect.hxx>
-#include <gp_Ax2.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <gp_Quaternion.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx> 
-#include <Graphic3d_ZLayerId.hxx>
-#include <Aspect_GradientBackground.hxx>
-#include <Graphic3d_ArrayOfPolylines.hxx>
-#include <gp_Quaternion.hxx> // For quaternion-based rotation
-#include <gp_Vec.hxx>
-#include <Precision.hxx>
-#include <gp_QuaternionSLerp.hxx> // For proper SLERP interpolation
-#include <AIS_AnimationCamera.hxx>
-#include <Graphic3d_Camera.hxx>
-#include <Message.hxx>
-#include <Standard_Version.hxx> 
-#include <gp_Dir.hxx>
-#include <BRepPrimAPI_MakeSphere.hxx> 
-#include <SelectMgr_EntityOwner.hxx>
-#include <StdSelect_BRepOwner.hxx>
-#include <TopAbs_ShapeEnum.hxx>
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <HLRBRep_PolyHLRToShape.hxx>
-#include <BRepCheck_Analyzer.hxx>
-#include <AIS_Shape.hxx>
-#include <Prs3d_Drawer.hxx>
-#include <Prs3d_LineAspect.hxx>
-#include <Quantity_Color.hxx>
-#include <Aspect_TypeOfLine.hxx>
-#include <Graphic3d_NameOfMaterial.hxx>
-#include <Standard_ProgramError.hxx>
-
-#include <chrono>
-#include <thread>
-#include <functional>
-#include <cmath>
-
-
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <BRepTools.hxx>
-#include <BRepBuilderAPI_Transform.hxx>
-#include <Graphic3d_Camera.hxx>
-#include <HLRBRep_PolyHLRToShape.hxx>
-#include <AIS_Shape.hxx>
-#include <Standard_Transient.hxx>
-#include <SelectMgr_EntityOwner.hxx>
-#include <SelectMgr_SelectableObject.hxx>
-#include <AIS_InteractiveObject.hxx>
-#include <gp_Vec2d.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepOffsetAPI_MakeOffset.hxx>
-#include <BRepFilletAPI_MakeChamfer.hxx>
-#include <BRepBuilderAPI_Transform.hxx>
-#include <BRepAlgoAPI_Cut.hxx>
-#include <Geom_Plane.hxx> 
-#include <TopExp_Explorer.hxx>
-#include <TopoDS.hxx>
-#include <TopTools_IndexedMapOfShape.hxx>
-
-#include <chrono>
-#include <execution> // Para C++17 paralelismo
-
-#ifdef _WIN32 
-#include <lua.hpp>
-	#else
-#include <lua5.4/lua.hpp> 
-#endif
-
-
-#include "general.hpp"
-
-void scint_init(int x,int y,int w,int h);
-
-#define flwindow Fl_Window  
-#ifdef __linux__
-#define flwindow Fl_Double_Window
-#endif
-
-using namespace std;
-#endif
 #include "includes.hpp"
-
-#include <BRepOffsetAPI_MakeOffset.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepBuilderAPI_MakeWire.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <BRep_Tool.hxx>
-#include <BRepTools.hxx>
-#include <TopExp.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Wire.hxx>
-#include <TopoDS_Face.hxx>
-#include <TopoDS_Vertex.hxx>
-#include <GeomAbs_JoinType.hxx>
-#include <gp_Pln.hxx>
-#include <gp_Dir.hxx>
-#include <gp_Pnt.hxx>
-
 #include "fl_browser_msv.hpp"
 
-#include <BRepOffsetAPI_MakeOffset.hxx>
-#include <BRep_Builder.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopoDS_Compound.hxx>
-#include <BRepBuilderAPI_MakeWire.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <BRep_Tool.hxx>
-#include <TopoDS.hxx>
-#include <gp_Pnt.hxx>
-#include <TopExp.hxx>
-#include <TopTools_IndexedMapOfShape.hxx>
-#include <BRepTools_WireExplorer.hxx>
-#include <GeomAbs_JoinType.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <BRepBuilderAPI_MakeWire.hxx>
-#include <BRep_Tool.hxx>
-#include <TopExp.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopTools_IndexedDataMapOfShapeListOfShape.hxx>
-#include <Geom2d_OffsetCurve.hxx>
-#include <Geom2dAdaptor_Curve.hxx>
-#include <Geom2dAPI_InterCurveCurve.hxx>
-#include <Precision.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Wire.hxx>
-#include <TopoDS_Edge.hxx>
-#include <TopoDS_Face.hxx>
-#include <gp.hxx>
-#include <vector>
-#include <stdexcept>
-#include <OSD_Parallel.hxx>
-#include <BRepOffsetAPI_MakeOffsetShape.hxx>
-
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepOffsetAPI_MakeOffset.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRepAdaptor_Curve.hxx>
-#include <TopTools_IndexedMapOfShape.hxx>
-#include <BRep_Builder.hxx>
-#include <BRepAlgoAPI_Cut.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepExtrema_DistShapeShape.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepOffsetAPI_MakeOffset.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRepAdaptor_Curve.hxx>
-#include <BRepLib.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <BRepBuilderAPI_MakeVertex.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRepAdaptor_Curve.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <Geom2d_Line.hxx>
-#include <Geom2dAPI_InterCurveCurve.hxx>
-#include <gp_Vec2d.hxx>
-#include <Precision.hxx>
-
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <Geom_Curve.hxx>
-#include <GeomAPI_ExtremaCurveCurve.hxx>
-#include <gp_Vec2d.hxx>
-#include <Precision.hxx>
-#include <TopExp.hxx>
-#include <TopoDS.hxx>
-#include <BRep_Tool.hxx>
-#include <TopTools_IndexedMapOfShape.hxx>
-
-
-#include <TopoDS_Compound.hxx>
-#include <BRep_Builder.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopoDS.hxx>
-
-#include <BRep_Builder.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopAbs_ShapeEnum.hxx>
-#include <BRepBuilderAPI_Copy.hxx> 
-#include <AIS_Shape.hxx>
-#include <TopoDS_Iterator.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopAbs_ShapeEnum.hxx>
-#include <BRepBuilderAPI_Copy.hxx>
-#include <unordered_set>
-
-#pragma endregion includes
-
- 
 Fl_Menu_Bar* menu;
 Fl_Group* content;
 Fl_Window* ldg;
 fl_browser_msv* fbm;
 lua_State* L;
 static std::unique_ptr<sol::state> G;
+
+#pragma endregion includes
+
 std::string lua_error_with_line(lua_State* L, const std::string& msg) {
-    lua_Debug ar;
-    if (lua_getstack(L, 1, &ar)) { // level 1 = caller of this function
-        lua_getinfo(L, "Sl", &ar); // S = source, l = current line
-        std::ostringstream oss;
-        oss << msg << " (Lua: " << ar.short_src << ":" << ar.currentline << ")";
-        return oss.str();
-    }
-    return msg;
+	lua_Debug ar;
+	if (lua_getstack(L, 1, &ar)) {	// level 1 = caller of this function
+		lua_getinfo(L, "Sl", &ar);	// S = source, l = current line
+		std::ostringstream oss;
+		oss << msg << " (Lua: " << ar.short_src << ":" << ar.currentline << ")";
+		return oss.str();
+	}
+	return msg;
 }
 class AIS_NonSelectableShape : public AIS_Shape {
-public:
-    AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {}
+   public:
+	AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {}
 
-    void ComputeSelection(const Handle(SelectMgr_Selection)&,
-                          const Standard_Integer) override
-    {
-        // Do nothing -> no selectable entities created
-    }
+	void ComputeSelection(const Handle(SelectMgr_Selection) &,
+						  const Standard_Integer) override {
+		// Do nothing -> no selectable entities created
+	}
 };
 
 void open_cb() {
-    Fl_File_Chooser chooser(".", "*", Fl_File_Chooser::SINGLE, "Escolha um arquivo");
-    chooser.show();
-    while (chooser.shown()) Fl::wait();
-    if (chooser.value()) {
-        printf("Arquivo selecionado:  %s\n", chooser.value());
-    }
+	Fl_File_Chooser chooser(".", "*", Fl_File_Chooser::SINGLE,
+							"Escolha um arquivo");
+	chooser.show();
+	while (chooser.shown()) Fl::wait();
+	if (chooser.value()) {
+		printf("Arquivo selecionado:  %s\n", chooser.value());
+	}
 }
 
-
-
-
-struct  OCC_Viewer : public flwindow {
+struct OCC_Viewer : public flwindow {
 #pragma region initialization
-    Handle(Aspect_DisplayConnection) m_display_connection;
-    Handle(OpenGl_GraphicDriver) m_graphic_driver;
-    Handle(V3d_Viewer) m_viewer;
+	Handle(Aspect_DisplayConnection) m_display_connection;
+	Handle(OpenGl_GraphicDriver) m_graphic_driver;
+	Handle(V3d_Viewer) m_viewer;
 	Handle(OpenGl_Context) aCtx;
-    Handle(AIS_InteractiveContext) m_context;
-    Handle(V3d_View) m_view;
+	Handle(AIS_InteractiveContext) m_context;
+	Handle(V3d_View) m_view;
 	Handle(AIS_Trihedron) trihedron0_0_0;
-    bool m_initialized = false;
-    bool hlr_on = false;
-    std::vector<TopoDS_Shape> vshapes; 
-    std::vector<Handle(AIS_Shape)> vaShape; 
-	Handle(AIS_NonSelectableShape) visible_; 
-    Handle(AIS_ColoredShape) hidden_;
+	bool m_initialized = false;
+	bool hlr_on = false;
+	std::vector<TopoDS_Shape> vshapes;
+	std::vector<Handle(AIS_Shape)> vaShape;
+	Handle(AIS_NonSelectableShape) visible_;
+	Handle(AIS_ColoredShape) hidden_;
 
-	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect( Quantity_NOC_BLUE,  Aspect_TOL_DASH, 0.5 );	  
-	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
-	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
+	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_BLUE,
+															Aspect_TOL_DASH,
+															0.5);
+	Handle(Prs3d_LineAspect) edgeAspect =
+		new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+	Handle(Prs3d_LineAspect) highlightaspect =
+		new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
 	Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
- 
 
-    OCC_Viewer(int X, int Y, int W, int H, const char* L = 0): flwindow(X, Y, W, H, L) { 
-		Fl::add_timeout(10, idle_refresh_cb,0);
+	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
+		: flwindow(X, Y, W, H, L) {
+		Fl::add_timeout(10, idle_refresh_cb, 0);
+	}
 
-    }
-   
-    void initialize_opencascade() { 
+	void initialize_opencascade() {
 		// perf();
-        // Get native window handle
+		// Get native window handle
 #ifdef _WIN32
-		Fl::wait(); 
+		Fl::wait();
 		make_current();
-        HWND hwnd = (HWND)fl_xid(this);
-        Handle(WNT_Window) wind = new WNT_Window(hwnd);
-        m_display_connection = new Aspect_DisplayConnection("");
+		HWND hwnd = (HWND)fl_xid(this);
+		Handle(WNT_Window) wind = new WNT_Window(hwnd);
+		m_display_connection = new Aspect_DisplayConnection("");
 #else
-        Window win = (Window)fl_xid((this)); 
-        Display* display = fl_display;
-        
-        m_display_connection = new Aspect_DisplayConnection(display);
-        Handle(Xw_Window) wind = new Xw_Window(m_display_connection, win);
+		Window win = (Window)fl_xid((this));
+		Display* display = fl_display;
+
+		m_display_connection = new Aspect_DisplayConnection(display);
+		Handle(Xw_Window) wind = new Xw_Window(m_display_connection, win);
 #endif
-        m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
+		m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
 
-        m_viewer = new V3d_Viewer(m_graphic_driver);
-        m_viewer->SetDefaultLights();
-        m_viewer->SetLightOn();
-        m_context = new AIS_InteractiveContext(m_viewer);
-        m_view = m_viewer->CreateView();
-        m_view->SetWindow(wind); 
+		m_viewer = new V3d_Viewer(m_graphic_driver);
+		m_viewer->SetDefaultLights();
+		m_viewer->SetLightOn();
+		m_context = new AIS_InteractiveContext(m_viewer);
+		m_view = m_viewer->CreateView();
+		m_view->SetWindow(wind);
 
+		content->remove(ldg);  // Remove from current position
+		content->add(ldg);	   // Add again to move it to the top
+		content->redraw();
+		// return;
 
-			content->remove(ldg);  // Remove from current position
-content->add(ldg);     // Add again to move it to the top
-content->redraw();
-// return;
+		m_view->SetImmediateUpdate(Standard_False);
 
-        m_view->SetImmediateUpdate(Standard_False);  
+		// m_context->SetAutomaticHilight(true);
 
+		// m_context->Activate(AIS_Shape::SelectionMode(TopAbs_WIRE  )); // 4 =
+		// Face selection mode
+		// m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE )); // 4 =
+		// Face selection mode
+		// m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX )); // 4 =
+		// vertex selection mode
 
-        // m_context->SetAutomaticHilight(true);  
+		// m_context->SetMode(TopAbs_VERTEX, Standard_True); // Enable vertex
+		// selection as the active mode Standard_True for the second arg makes
+		// it persistent for this mode
 
-		
-        // m_context->Activate(AIS_Shape::SelectionMode(TopAbs_WIRE  )); // 4 = Face selection mode
-        // m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE )); // 4 = Face selection mode
-        // m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX )); // 4 = vertex selection mode
-
-    // m_context->SetMode(TopAbs_VERTEX, Standard_True); // Enable vertex selection as the active mode
-                                                          // Standard_True for the second arg makes it persistent for this mode
-
-    // You can also adjust the sensitivity here if points are hard to pick
-    // m_context->SetSelectionSensitivity(0.05);
-
+		// You can also adjust the sensitivity here if points are hard to pick
+		// m_context->SetSelectionSensitivity(0.05);
 
 		SetupHighlightLineType(m_context);
 		// SetupDashedHighlight(m_context);
 
+		aCtx = m_graphic_driver->GetSharedContext();
 
-        aCtx = m_graphic_driver->GetSharedContext();
-        
-        m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.08);
+		m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK,
+								0.08);
 
-
-        // Create and display a trihedron 0,0,0
-        gp_Ax2 axes(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), gp_Dir(1, 0, 0));
-        Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(axes);
-        trihedron0_0_0 = new AIS_Trihedron(placement);
-        trihedron0_0_0->SetSize(25.0);
-        m_context->Display(trihedron0_0_0, Standard_False);
+		// Create and display a trihedron 0,0,0
+		gp_Ax2 axes(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), gp_Dir(1, 0, 0));
+		Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(axes);
+		trihedron0_0_0 = new AIS_Trihedron(placement);
+		trihedron0_0_0->SetSize(25.0);
+		m_context->Display(trihedron0_0_0, Standard_False);
 
 		// BRepMesh_IncrementalMesh::SetParallel(Standard_True);
 
-        m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
-        setbar5per();
+		// float lwidth=5;
+		// m_context->DefaultDrawer()->LineAspect()->SetWidth(lwidth);
+		// m_context->DefaultDrawer()->SeenLineAspect()->SetWidth(lwidth);
+		// m_context->DefaultDrawer()->FaceBoundaryAspect()->SetWidth(lwidth);
+		// m_context->DefaultDrawer()->WireAspect()->SetWidth(lwidth);
+ 
+		m_context->DefaultDrawer()->SetLineAspect(edgeAspect);
+		m_context->DefaultDrawer()->SetSeenLineAspect(edgeAspect);
+		m_context->DefaultDrawer()->SetFaceBoundaryAspect(edgeAspect);
+		m_context->DefaultDrawer()->SetWireAspect(edgeAspect);
+		m_context->DefaultDrawer()->SetUnFreeBoundaryAspect(edgeAspect);
+		m_context->DefaultDrawer()->SetFreeBoundaryAspect(edgeAspect);
+		m_context->DefaultDrawer()->SetFaceBoundaryAspect(edgeAspect);
 
-        m_view->MustBeResized();
-        m_view->FitAll();
-		
-        m_initialized = true; 	
+		m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
+		setbar5per();
 
-        redraw();  
-        // m_view->Redraw();  
-		// perf("occvldoi"); 
+		m_view->MustBeResized();
+		m_view->FitAll();
 
-        {
-        const GLubyte* renderer = glGetString(GL_RENDERER);
-        const GLubyte* vendor = glGetString(GL_VENDOR);
-        const GLubyte* version = glGetString(GL_VERSION);
+		m_initialized = true;
 
-        if (renderer && vendor && version) {
-            std::cout << "OpenGL Vendor:   " << vendor << std::endl;
-            std::cout << "OpenGL Renderer: " << renderer << std::endl;
-            std::cout << "OpenGL Version:  " << version << std::endl;
-        } else {
-            std::cout << "glGetString() failed — no OpenGL context active!" << std::endl;
-        }
-        }
-		
+		redraw();
+		// m_view->Redraw();
+		// perf("occvldoi");
+
+		{
+			const GLubyte* renderer = glGetString(GL_RENDERER);
+			const GLubyte* vendor = glGetString(GL_VENDOR);
+			const GLubyte* version = glGetString(GL_VERSION);
+
+			if (renderer && vendor && version) {
+				std::cout << "OpenGL Vendor:   " << vendor << std::endl;
+				std::cout << "OpenGL Renderer: " << renderer << std::endl;
+				std::cout << "OpenGL Version:  " << version << std::endl;
+			} else {
+				std::cout << "glGetString() failed — no OpenGL context active!"
+						  << std::endl;
+			}
+		}
+
 		toggle_shaded_transp(currentMode);
-		// content->remove(ldg); 
+		// content->remove(ldg);
 		// ldg->hide();
-		Fl::add_timeout(0.4, [](void* d){ auto l=(Fl_Box*)d; l->parent()->remove(l); l->hide(); }, ldg);
-
-    }
+		Fl::add_timeout(
+			0.4,
+			[](void* d) {
+				auto l = (Fl_Box*)d;
+				l->parent()->remove(l);
+				l->hide();
+			},
+			ldg);
+	}
 	static void idle_refresh_cb(void*) {
-	//clear gpu usage each 10 secs
-	glFlush();
-	glFinish();
-	Fl::repeat_timeout(10, idle_refresh_cb,0);  
-}
-    void draw() override { 
-        if (!m_initialized) return;	 
-		m_context->UpdateCurrentViewer();
-        // m_view->Update();
-		// m_view->Redraw(); //new 
+		// clear gpu usage each 10 secs
+		glFlush();
+		glFinish();
+		Fl::repeat_timeout(10, idle_refresh_cb, 0);
+	}
+	void draw() override {
+		if (!m_initialized) return;
+		// m_context->UpdateCurrentViewer();
+		m_view->Update();
+		// m_view->Redraw(); //new
 		// flush();
-    }
+	}
 
-    void resize(int X, int Y, int W, int H) override {
-        Fl_Window::resize(X, Y, W, H);
-        if (m_initialized) {
-            m_view->MustBeResized();
-            setbar5per();  
-        }
-    }
- 
-void setbar5per() {
-    Standard_Integer width, height;
-    m_view->Window()->Size(width, height);
-    Standard_Real barWidth = width * 0.05;
+	void resize(int X, int Y, int W, int H) override {
+		Fl_Window::resize(X, Y, W, H);
+		if (m_initialized) {
+			m_view->MustBeResized();
+			setbar5per();
+		}
+	}
 
-    static Handle(Graphic3d_Structure) barStruct;
-    if (!barStruct.IsNull()) {
-        barStruct->Erase();
-        barStruct->Clear();
-    } else {
-        barStruct = new Graphic3d_Structure(m_view->Viewer()->StructureManager());
-        barStruct->SetTransformPersistence(new Graphic3d_TransformPers(Graphic3d_TMF_2d));
-        barStruct->SetZLayer(Graphic3d_ZLayerId_BotOSD);
-    }
+	void setbar5per() {
+		Standard_Integer width, height;
+		m_view->Window()->Size(width, height);
+		Standard_Real barWidth = width * 0.05;
 
-    Handle(Graphic3d_ArrayOfTriangles) tri = new Graphic3d_ArrayOfTriangles(6);
+		static Handle(Graphic3d_Structure) barStruct;
+		if (!barStruct.IsNull()) {
+			barStruct->Erase();
+			barStruct->Clear();
+		} else {
+			barStruct =
+				new Graphic3d_Structure(m_view->Viewer()->StructureManager());
+			barStruct->SetTransformPersistence(
+				new Graphic3d_TransformPers(Graphic3d_TMF_2d));
+			barStruct->SetZLayer(Graphic3d_ZLayerId_BotOSD);
+		}
 
-    Standard_Real x0 = width - barWidth;
-    Standard_Real x1 = width;
-    Standard_Real y0 = 0.0;
-    Standard_Real y1 = height;
+		Handle(Graphic3d_ArrayOfTriangles) tri =
+			new Graphic3d_ArrayOfTriangles(6);
 
-    tri->AddVertex(gp_Pnt(x0, y0, 0.0));
-    tri->AddVertex(gp_Pnt(x1, y0, 0.0));
-    tri->AddVertex(gp_Pnt(x1, y1, 0.0));
-    tri->AddVertex(gp_Pnt(x0, y0, 0.0));
-    tri->AddVertex(gp_Pnt(x1, y1, 0.0));
-    tri->AddVertex(gp_Pnt(x0, y1, 0.0));
+		Standard_Real x0 = width - barWidth;
+		Standard_Real x1 = width;
+		Standard_Real y0 = 0.0;
+		Standard_Real y1 = height;
 
-    Handle(Graphic3d_Group) group = barStruct->NewGroup();
+		tri->AddVertex(gp_Pnt(x0, y0, 0.0));
+		tri->AddVertex(gp_Pnt(x1, y0, 0.0));
+		tri->AddVertex(gp_Pnt(x1, y1, 0.0));
+		tri->AddVertex(gp_Pnt(x0, y0, 0.0));
+		tri->AddVertex(gp_Pnt(x1, y1, 0.0));
+		tri->AddVertex(gp_Pnt(x0, y1, 0.0));
 
-    // Create fill area aspect
-    Handle(Graphic3d_AspectFillArea3d) aspect = new Graphic3d_AspectFillArea3d();
-    aspect->SetInteriorStyle(Aspect_IS_SOLID);
-    aspect->SetInteriorColor(Quantity_NOC_RED);
-    
-    // Configure material for transparency
-    Graphic3d_MaterialAspect material;
-    material.SetMaterialType(Graphic3d_MATERIAL_ASPECT);
-    material.SetAmbientColor(Quantity_NOC_RED);
-    material.SetDiffuseColor(Quantity_NOC_RED);
-    // material.SetSpecularColor(Quantity_NOC_WHITE);
-    material.SetTransparency(0.5); // 50% transparency
-    
-    aspect->SetFrontMaterial(material);
-    aspect->SetBackMaterial(material);
-    
-    // For proper transparency rendering
-    aspect->SetSuppressBackFaces(false);
+		Handle(Graphic3d_Group) group = barStruct->NewGroup();
 
-    group->SetGroupPrimitivesAspect(aspect);
-    group->AddPrimitiveArray(tri);
+		// Create fill area aspect
+		Handle(Graphic3d_AspectFillArea3d) aspect =
+			new Graphic3d_AspectFillArea3d();
+		aspect->SetInteriorStyle(Aspect_IS_SOLID);
+		aspect->SetInteriorColor(Quantity_NOC_RED);
 
-    barStruct->Display();
-    // m_view->Redraw();
-    //  redraw(); //  redraw(); // m_view->Update ();
+		// Configure material for transparency
+		Graphic3d_MaterialAspect material;
+		material.SetMaterialType(Graphic3d_MATERIAL_ASPECT);
+		material.SetAmbientColor(Quantity_NOC_RED);
+		material.SetDiffuseColor(Quantity_NOC_RED);
+		// material.SetSpecularColor(Quantity_NOC_WHITE);
+		material.SetTransparency(0.5);	// 50% transparency
 
+		aspect->SetFrontMaterial(material);
+		aspect->SetBackMaterial(material);
 
-}
+		// For proper transparency rendering
+		aspect->SetSuppressBackFaces(false);
 
+		group->SetGroupPrimitivesAspect(aspect);
+		group->AddPrimitiveArray(tri);
 
+		barStruct->Display();
+		// m_view->Redraw();
+		//  redraw(); //  redraw(); // m_view->Update ();
+	}
 
-/// Configure dashed highlight lines without conversion errors
-void SetupHighlightLineType(const Handle(AIS_InteractiveContext)& ctx)
-{ 
-    // 1. Create a drawer for highlights
-    // Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
-    // customDrawer->SetDisplayMode(1);  // wireframe only
+	/// Configure dashed highlight lines without conversion errors
+	void SetupHighlightLineType(const Handle(AIS_InteractiveContext) & ctx) {
+		// 1. Create a drawer for highlights
+		// Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
+		// customDrawer->SetDisplayMode(1);  // wireframe only
 
-    // // 2. Build the raw Graphic3d aspect
-    // Handle(Graphic3d_AspectLine3d) rawAspect =
-    //     new Graphic3d_AspectLine3d(Quantity_NOC_RED,
-    //                                Aspect_TOL_DASH,
-    //                                5.0);
+		// // 2. Build the raw Graphic3d aspect
+		// Handle(Graphic3d_AspectLine3d) rawAspect =
+		//     new Graphic3d_AspectLine3d(Quantity_NOC_RED,
+		//                                Aspect_TOL_DASH,
+		//                                5.0);
 
-    // // 3. Wrap it in a Prs3d_LineAspect
-    // Handle(Prs3d_LineAspect) lineAspect =
-    //     new Prs3d_LineAspect(rawAspect);
+		// // 3. Wrap it in a Prs3d_LineAspect
+		// Handle(Prs3d_LineAspect) lineAspect =
+		//     new Prs3d_LineAspect(rawAspect);
 
-    // // 4. Apply color, transparency, and the wrapped aspect
-    // customDrawer->SetColor(Quantity_NOC_RED);
-    // customDrawer->SetTransparency(0.3f);
-    // customDrawer->SetLineAspect(lineAspect);
-	// // customDrawer->Setwi
+		// // 4. Apply color, transparency, and the wrapped aspect
+		// customDrawer->SetColor(Quantity_NOC_RED);
+		// customDrawer->SetTransparency(0.3f);
+		// customDrawer->SetLineAspect(lineAspect);
+		// // customDrawer->Setwi
 
+		// customDrawer->SetLineAspect(lineAspect);
+		// customDrawer->SetSeenLineAspect(lineAspect);
+		// customDrawer->SetWireAspect(lineAspect);
+		// customDrawer->SetUnFreeBoundaryAspect(lineAspect);
+		// customDrawer->SetFreeBoundaryAspect(lineAspect);
+		// customDrawer->SetFaceBoundaryAspect(lineAspect);
 
+		customDrawer->SetLineAspect(highlightaspect);
+		customDrawer->SetSeenLineAspect(highlightaspect);
+		customDrawer->SetWireAspect(highlightaspect);
+		customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
+		customDrawer->SetFreeBoundaryAspect(highlightaspect);
+		customDrawer->SetFaceBoundaryAspect(highlightaspect);
 
-            // customDrawer->SetLineAspect(lineAspect);
-            // customDrawer->SetSeenLineAspect(lineAspect);
-            // customDrawer->SetWireAspect(lineAspect);
-            // customDrawer->SetUnFreeBoundaryAspect(lineAspect);
-            // customDrawer->SetFreeBoundaryAspect(lineAspect);
-            // customDrawer->SetFaceBoundaryAspect(lineAspect);
- 
-	customDrawer->SetLineAspect(highlightaspect);
-	customDrawer->SetSeenLineAspect(highlightaspect); 
-	customDrawer->SetWireAspect(highlightaspect);
-	customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
-	customDrawer->SetFreeBoundaryAspect(highlightaspect);
-	customDrawer->SetFaceBoundaryAspect(highlightaspect);
- 
-    customDrawer->SetColor(Quantity_NOC_RED);
-    customDrawer->SetTransparency(0.3f);
- 
+		customDrawer->SetColor(Quantity_NOC_RED);
+		customDrawer->SetTransparency(0.3f);
 
-
-    // 5. Assign to all highlight modes
-    // ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic,  customDrawer);
-    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, customDrawer);
-   cotm(5)
-	// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,       customDrawer);
-    ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected,      customDrawer);
-}
-
+		// 5. Assign to all highlight modes
+		// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic,
+		// customDrawer);
+		ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected,
+							   customDrawer);
+		cotm(5)
+			// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,
+			// customDrawer);
+			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected,
+								   customDrawer);
+	}
 
 #pragma endregion initialization
-	
 
 #pragma region luastruct
 	struct luadraw;
 	// vector<luadraw*> vlua;
-	unordered_map<string,OCC_Viewer::luadraw*> ulua; 
+	unordered_map<string, OCC_Viewer::luadraw*> ulua;
 	vector<luadraw*> vlua;
-	// unordered_map<string,luadraw*> ulua; 
+	// unordered_map<string,luadraw*> ulua;
 	template <typename T>
 	struct ManagedPtrWrapper : public Standard_Transient {
 		T* ptr;
 		ManagedPtrWrapper(T* p) : ptr(p) {}
-		    ~ManagedPtrWrapper() override {
+		~ManagedPtrWrapper() override {
 			// if(ptr)delete ptr; // delete when wrapper is destroyed
-		} 
+		}
 	};
-	 
-	struct luadraw{
-		bool protectedshape=0;
 
-		string command="";
- 
+	struct luadraw {
+		bool protectedshape = 0;
 
-// build it using BRep_Builder
-BRep_Builder builder;
- 
-		string name="";
-		bool visible_hardcoded=1;
-		TopoDS_Compound cshape; 
-		TopoDS_Shape shape; 
-		// std::shared_ptr<TopoDS_Shape> shape; 
-		Handle(AIS_Shape) ashape; 
+		string command = "";
+
+		// build it using BRep_Builder
+		BRep_Builder builder;
+
+		string name = "";
+		bool visible_hardcoded = 1;
+		TopoDS_Compound cshape;
+		TopoDS_Shape shape;
+		// std::shared_ptr<TopoDS_Shape> shape;
+		Handle(AIS_Shape) ashape;
 		TopoDS_Face face;
-		gp_Pnt origin=gp_Pnt(0, 0, 0);
-		gp_Dir normal=gp_Dir(0,0,1);
-		gp_Dir xdir =  gp_Dir(1, 0, 0);
+		gp_Pnt origin = gp_Pnt(0, 0, 0);
+		gp_Dir normal = gp_Dir(0, 0, 1);
+		gp_Dir xdir = gp_Dir(1, 0, 0);
 		gp_Trsf trsf;
-		gp_Trsf trsftmp; 
-		bool needsplacementupdate=1;
+		gp_Trsf trsftmp;
+		bool needsplacementupdate = 1;
 		OCC_Viewer* occv;
-        // RTTI declaration
-        // DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
-		luadraw(string _name="test",OCC_Viewer* p=0): occv(p),name(_name) {
-			//regen
-			// if(occv->vaShape.size()>0){
-			// 	OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape.back());
-			// 	// occv
-			// 	ld->redisplay();
-			// }
+		// RTTI declaration
+		// DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
+		luadraw(string _name = "test", OCC_Viewer* p = 0)
+			: occv(p), name(_name) {
+			// regen
+			//  if(occv->vaShape.size()>0){
+			//  	OCC_Viewer::luadraw*
+			//  ld=occv->getluadraw_from_ashape(occv->vaShape.back());
+			//  	// occv
+			//  	ld->redisplay();
+			//  }
 
-			
-builder.MakeCompound(cshape);
+			builder.MakeCompound(cshape);
 
 			auto it = occv->ulua.find(name);
 			int counter = 0;
@@ -695,51 +390,45 @@ builder.MakeCompound(cshape);
 
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
-			trsf.Invert(); 
+			trsf.Invert();
 			ashape = new AIS_Shape(cshape);
+			shape = cshape;
 
-			// allocate something for the application and hand ownership to the wrapper 
-			Handle(ManagedPtrWrapper<luadraw>) wrapper = new ManagedPtrWrapper<luadraw>(this);
+			// allocate something for the application and hand ownership to the
+			// wrapper
+			Handle(ManagedPtrWrapper<luadraw>) wrapper =
+				new ManagedPtrWrapper<luadraw>(this);
 
 			// store the wrapper in the AIS object via SetOwner()
 			ashape->SetOwner(wrapper);
 
 			// ashape->SetUserData(new ManagedPtrWrapper<luadraw>(this));
-        	occv->vaShape.push_back(ashape);
-			occv->m_context->Display(ashape, 0); 
-			occv->ulua[name]=this;
-			occv->vlua.push_back(this); 
-		}
-
-void redisplay()
-{
-    update_placement();
-
-    // If visible, redisplay (only if it's displayed already, otherwise Display)
-    if (visible_hardcoded)
-    {
-        if (occv->m_context->IsDisplayed(ashape))
-        {
-            occv->m_context->Redisplay(ashape, false);
-        }
-        else
-        {
-            occv->m_context->Display(ashape, false);
-        }
-    }
-    else
-    {
-        // Only erase if it is displayed
-        if (occv->m_context->IsDisplayed(ashape))
-        {
-            occv->m_context->Erase(ashape, Standard_False);
-        }
-    }
-}
-
-		void display(){
+			occv->vaShape.push_back(ashape);
 			occv->m_context->Display(ashape, 0);
+			occv->ulua[name] = this;
+			occv->vlua.push_back(this);
 		}
+
+		void redisplay() {
+			update_placement();
+
+			// If visible, redisplay (only if it's displayed already, otherwise
+			// Display)
+			if (visible_hardcoded) {
+				if (occv->m_context->IsDisplayed(ashape)) {
+					occv->m_context->Redisplay(ashape, false);
+				} else {
+					occv->m_context->Display(ashape, false);
+				}
+			} else {
+				// Only erase if it is displayed
+				if (occv->m_context->IsDisplayed(ashape)) {
+					occv->m_context->Erase(ashape, Standard_False);
+				}
+			}
+		}
+
+		void display() { occv->m_context->Display(ashape, 0); }
 		// void rotate(int angle){
 		// void rotate(int angle,gp_Dir normal={0,0,1}){
 		// 	trsftmp = gp_Trsf();
@@ -747,31 +436,32 @@ void redisplay()
 		// 	trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
 		// 	trsf  *= trsftmp;
 		// }
-		
-		void rotate(int angle,float x=0,float y=0, float z=0){
-		// void rotate(int angle,gp_Dir normal={0,0,1}){
-			needsplacementupdate=1;
+
+		void rotate(int angle, float x = 0, float y = 0, float z = 0) {
+			// void rotate(int angle,gp_Dir normal={0,0,1}){
+			needsplacementupdate = 1;
 			trsftmp = gp_Trsf();
-			gp_Dir normal=gp_Dir(x, y, z);
-			trsftmp.SetRotation(gp_Ax1(origin, normal), angle*(M_PI/180) );
+			gp_Dir normal = gp_Dir(x, y, z);
+			trsftmp.SetRotation(gp_Ax1(origin, normal), angle * (M_PI / 180));
 			trsf = trsftmp * trsf;
 			// trsf  *= trsftmp;
 			// update_placement();
 		}
 		bool hasAnyTriangulation(const TopoDS_Shape& shape) {
-    for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
-        const TopoDS_Face& F = TopoDS::Face(ex.Current());
-        TopLoc_Location L;
-        Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(F, L);
-        if (!tri.IsNull() && tri->NbTriangles() > 0) {
-            return true;
-        }
-    }
-    return false;
-}
-		void translate(float x=0,float y=0, float z=0,bool world=1,float fromwx=0,float fromwy=0, float fromwz=0){
-			needsplacementupdate=1;
-			if(world){
+			for (TopExp_Explorer ex(shape, TopAbs_FACE); ex.More(); ex.Next()) {
+				const TopoDS_Face& F = TopoDS::Face(ex.Current());
+				TopLoc_Location L;
+				Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(F, L);
+				if (!tri.IsNull() && tri->NbTriangles() > 0) {
+					return true;
+				}
+			}
+			return false;
+		}
+		void translate(float x = 0, float y = 0, float z = 0, bool world = 1,
+					   float fromwx = 0, float fromwy = 0, float fromwz = 0) {
+			needsplacementupdate = 1;
+			if (world) {
 				gp_Trsf moveToOrigin;
 				moveToOrigin.SetTranslation(gp_Vec(-fromwx, -fromwy, -fromwz));
 
@@ -781,1030 +471,485 @@ void redisplay()
 				// Apply: first to origin, then to target
 				trsf = moveToTarget * moveToOrigin * trsf;
 			}
-			if(!world){
-			trsftmp = gp_Trsf();
-			trsftmp.SetTranslation(gp_Vec(x, y, z));
-			// trsf = trsftmp * trsf; //world
-			trsf  *= trsftmp; 
+			if (!world) {
+				trsftmp = gp_Trsf();
+				trsftmp.SetTranslation(gp_Vec(x, y, z));
+				// trsf = trsftmp * trsf; //world
+				trsf *= trsftmp;
 			}
-		}		
-		void update_placement(){
-			if(needsplacementupdate==0)return;
-			BRepBuilderAPI_Transform transformer(shape, trsf);
-			shape=transformer.Shape();
-			if(!cshape.IsNull()){
-BRepCheck_Analyzer ana(cshape, Standard_True);
-if (!ana.IsValid()) {
-    std::cout << "Compound has invalid geometry or topology\n";
-}
-BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
-mesher.Perform();
-
-
-cotm(hasAnyTriangulation(cshape))
-
-
-
-				ashape->Set(cshape);
-			}else	ashape->Set(shape); 
-			needsplacementupdate=0;
 		}
-		void copy_placement(luadraw* tocopy){
-			trsf= tocopy->trsf; 
+		void update_placement() {
+			if (needsplacementupdate == 0) return;
+			BRepBuilderAPI_Transform transformer(shape,
+												 trsf);	 // if part only last
+			// cshape = TopoDS::Compound(transformer.Shape());
+			shape = transformer.Shape();
+			if (!cshape.IsNull()) {
+				BRepCheck_Analyzer ana(cshape, Standard_True);
+				if (!ana.IsValid()) {
+					std::cout << "Compound has invalid geometry or topology\n";
+				}
+				BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
+				mesher.Perform();
+
+				cotm(hasAnyTriangulation(cshape))
+					// shape=cshape;
+					ashape->Set(cshape);
+			} else {
+				ashape->Set(shape);
+			}
+			if (!shape.IsNull())
+				ashape->Set(shape);	 // if is part, show only the last
+			needsplacementupdate = 0;
 		}
-		void exit(){
+		void copy_placement(luadraw* tocopy) { trsf = tocopy->trsf; }
+		void exit() {
 			throw std::runtime_error(lua_error_with_line(L, "exit"));
 		}
-		void clone(luadraw*toclone){
+		void clone(luadraw* toclone) {
 			if (!toclone) {
-				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+				throw std::runtime_error(
+					lua_error_with_line(L, "Something went wrong"));
 			}
-			this->shape = toclone->shape;
+			if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
+			if (!toclone->shape.IsNull()) this->shape = toclone->shape;
+			this->vpoints = toclone->vpoints;
 		}
-bool solidify_wire_to_face() {
-    if (shape.IsNull() || shape.ShapeType() != TopAbs_WIRE) {
-        return false; // not a wire — nothing to do
-    }
+		bool solidify_wire_to_face() {
+			if (shape.IsNull() || shape.ShapeType() != TopAbs_WIRE) {
+				return false;  // not a wire — nothing to do
+			}
 
-    TopoDS_Wire wire = TopoDS::Wire(shape);
+			TopoDS_Wire wire = TopoDS::Wire(shape);
 
-    // Attempt to make a face directly from the wire
-    BRepBuilderAPI_MakeFace mkFace(wire);
-    if (!mkFace.IsDone()) {
-        return false; // face creation failed (open or non‑planar wire, etc.)
-    }
+			// Attempt to make a face directly from the wire
+			BRepBuilderAPI_MakeFace mkFace(wire);
+			if (!mkFace.IsDone()) {
+				return false;  // face creation failed (open or non‑planar wire,
+							   // etc.)
+			}
 
-    shape = mkFace.Face();
-    return true;
-}
-		void extrude(float qtd=0){
+			shape = mkFace.Face();
+			return true;
+		}
+		void extrude(float qtd = 0) {
 			solidify_wire_to_face();
 			// gp_Vec extrusionVec(dir);
 			gp_Vec extrusionVec(normal);
 			extrusionVec *= qtd;
-    		TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(cshape, extrusionVec).Shape();
-			mergeShape(cshape,extrudedShape);
+			TopoDS_Shape extrudedShape =
+				BRepPrimAPI_MakePrism(shape, extrusionVec)
+					.Shape();  // shape from last
+			mergeShape(cshape, extrudedShape);
 			// cshape=extrudedShape;
-			// throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
-			// throw std::runtime_error("Something went wrong");
+			// throw std::runtime_error(lua_error_with_line(L, "Something went
+			// wrong")); throw std::runtime_error("Something went wrong");
 		}
-		
-void fuse(luadraw* tofuse1, luadraw* tofuse2) {
-    if (!tofuse1 || !tofuse2) {
-        throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
-    }
-	tofuse1->update_placement();
-	tofuse2->update_placement();
-    Handle(AIS_Shape) af1 = tofuse1->ashape;
-    Handle(AIS_Shape) af2 = tofuse2->ashape;
-    TopoDS_Shape ts1 = tofuse1->shape;
-    TopoDS_Shape ts2 = tofuse2->shape; 
-
-    BRepAlgoAPI_Fuse fuse(ts1, ts2);
-    fuse.Build();
-    if (!fuse.IsDone()) {
-        throw std::runtime_error(lua_error_with_line(L, "Fuse operation failed"));
-    }
-
-    tofuse1->visible_hardcoded = 0;
-    tofuse2->visible_hardcoded = 0;
-
-    TopoDS_Shape fusedShape = fuse.Shape();
-
-    // Refine the result
-    ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true); // merge faces, edges, vertices
-    unify.Build();
-    this->shape = unify.Shape();
-}
-
-#include <BRep_Builder.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Shape.hxx>
-#include <BRepCheck_Analyzer.hxx>
-#include <BRepBuilderAPI_Copy.hxx>
-#include <Standard_Failure.hxx>
-#include <iostream>
-
-void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd)
-{
-	
-builder.Add(target, toAdd);
-
-	return;
-    // try
-    // {
-    //     if (toAdd.IsNull())
-    //     {
-    //         std::cerr << "Warning: toAdd is null." << std::endl;
-    //         return;
-    //     }
-
-    //     BRepCheck_Analyzer checker(toAdd);
-    //     if (!checker.IsValid())
-    //     {
-    //         std::cerr << "Warning: toAdd is invalid." << std::endl;
-    //         return;
-    //     }
-
-    //     BRep_Builder builder;
-    //     TopoDS_Compound comp;
-
-    //     if (target.IsNull())
-    //     {
-    //         target = BRepBuilderAPI_Copy(toAdd).Shape();
-    //         return;
-    //     }
-
-    //     BRepCheck_Analyzer targetChecker(target);
-    //     if (!targetChecker.IsValid())
-    //     {
-    //         std::cerr << "Warning: target is invalid." << std::endl;
-    //         return;
-    //     }
-
-    //     if (target.ShapeType() != TopAbs_COMPOUND)
-    //     {
-    //         builder.MakeCompound(comp);
-    //         builder.Add(comp, target);
-    //         target = comp;
-    //     }
-    //     else
-    //     {
-    //         comp = TopoDS::Compound(target);
-    //     }
-
-    //     // Copy toAdd to ensure it's standalone
-    //     TopoDS_Shape toAddCopy = BRepBuilderAPI_Copy(toAdd).Shape();
-    //     builder.Add(comp, toAddCopy);
-    //     target = comp;
-    // }
-    // catch (Standard_Failure& e)
-    // {
-    //     std::cerr << "Open CASCADE error: " << e.GetMessageString() << std::endl;
-    //     throw;
-    // }
-}
-
-
-void addPolylineToShape(TopoDS_Shape& target, const TopoDS_Wire& poly) {
-    BRep_Builder builder;
-
-    if (target.IsNull()) {
-        // start fresh
-        target = poly;
-        return;
-    }
-
-    if (target.ShapeType() != TopAbs_COMPOUND) {
-        // wrap existing shape into a compound
-        TopoDS_Compound comp;
-        builder.MakeCompound(comp);
-        builder.Add(comp, target);
-        target = comp;
-    }
-
-    // now add the new wire
-    builder.Add(target, poly);
-}
-
-// #include <vector>
-// #include <gp_Vec2d.hxx>
-// #include <gp_Pnt2d.hxx>
-
-
-
-void ConvertVec2dToPnt2d(
-    const std::vector<gp_Vec2d>& vpoints,
-    std::vector<gp_Pnt2d>& ppoints)
-{
-    ppoints.clear();
-    ppoints.reserve(vpoints.size());
-    for (const auto& vec : vpoints)
-    {
-        ppoints.emplace_back(vec.X(), vec.Y());
-    }
-}
-
-void ConvertPnt2dToPnt(
-    const std::vector<gp_Pnt2d>& pnts2d,
-    std::vector<gp_Pnt>& pnts3d)
-{
-    pnts3d.clear();
-    pnts3d.reserve(pnts2d.size());
-    for (const auto& p : pnts2d)
-    {
-        pnts3d.emplace_back(p.X(), p.Y(), 0.0);
-    }
-}
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <gp_Vec.hxx>
-#include <gp_Dir.hxx>
-
-void CreatePerfectOffset_v1(
-    const std::vector<gp_Vec2d>& points,
-    double offsetDistance,
-    bool isClosed = false
-) {
-	cotm(points.size())
-    if (points.size() < 2) return;// TopoDS_Shape();
-
-    // Calculate offset directions for each segment
-    std::vector<gp_Vec2d> segmentDirections;
-    for (size_t i = 0; i < points.size() - 1; i++) {
-        segmentDirections.push_back((points[i+1] - points[i]).Normalized());
-    }
-    if (isClosed) {
-        segmentDirections.push_back((points[0] - points.back()).Normalized());
-    }
-
-    // Calculate offset points at each vertex
-    std::vector<gp_Pnt> offsetPoints;
-    for (size_t i = 0; i < points.size(); i++) {
-        gp_Vec2d prevDir, nextDir;
-        
-        if (isClosed || i > 0) {
-            prevDir = segmentDirections[(i == 0) ? segmentDirections.size()-1 : i-1];
-        }
-        if (isClosed || i < points.size()-1) {
-            nextDir = segmentDirections[i];
-        }
-
-        // For endpoints of open polylines
-        if (!isClosed) {
-            if (i == 0) prevDir = nextDir;
-            if (i == points.size()-1) nextDir = prevDir;
-        }
-
-        // Calculate bisector direction
-        gp_Vec2d bisector = (prevDir + nextDir).Normalized();
-        
-        // Calculate offset direction (perpendicular to bisector)
-        gp_Vec2d offsetDir(-bisector.Y(), bisector.X());
-        
-        // Special case for straight angles
-        if (prevDir.IsParallel(nextDir, 1e-6)) {
-            offsetDir = gp_Vec2d(-prevDir.Y(), prevDir.X());
-        }
-
-        // Calculate offset amount (compensating for angle)
-        double angle = prevDir.Angle(nextDir);
-        double compensation = (angle > 1e-6) ? (1.0 / sin(angle/2.0)) : 1.0;
-        
-        // Create offset point
-        offsetPoints.push_back(gp_Pnt(
-            points[i].X() + offsetDir.X() * offsetDistance * compensation,
-            points[i].Y() + offsetDir.Y() * offsetDistance * compensation,
-            0.0
-        ));
-    }
-
-    // For closed polylines, add first point at end
-    if (isClosed && !offsetPoints.empty()) {
-        offsetPoints.push_back(offsetPoints[0]);
-    }
-
-    // Build the offset wire
-    BRepBuilderAPI_MakePolygon polyBuilder;
-    for (const auto& pnt : offsetPoints) {
-        polyBuilder.Add(pnt);
-    }
-    if (isClosed) polyBuilder.Close();
-
-    // Make a planar face from that wire
-    TopoDS_Face face = BRepBuilderAPI_MakeFace(polyBuilder);
-
-    // Mesh the face so it gets Poly_Triangulation
-    BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-
-    mergeShape(cshape, face);
-	cotm("merged")
-
-    // return polyBuilder.Shape();
-}
-
-
-#include <vector>
-#include <gp_Vec2d.hxx>
-#include <gp_Pnt2d.hxx>
-#include <gp_Pnt.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <BRepBuilderAPI_MakeFace.hxx>
-#include <BRepMesh_IncrementalMesh.hxx>
-
-TopoDS_Face MakeParallelOffsetFace(const std::vector<gp_Vec2d>& vpoints, double dist)
-{
-    if (vpoints.size() < 2) return TopoDS_Face();
-
-    // Copy so we can auto-extend ends for caps
-    auto pts = vpoints;
-
-    // Auto‑extend at start and end so caps are square
-    {
-        gp_Vec2d dirStart = pts[1] - pts[0]; dirStart.Normalize();
-        pts[0] = pts[0] - dirStart * dist;
-
-        gp_Vec2d dirEnd = pts.back() - pts[pts.size()-2]; dirEnd.Normalize();
-        pts.back() = pts.back() + dirEnd * dist;
-    }
-
-    // Offset both sides
-    std::vector<gp_Pnt2d> leftPts, rightPts;
-    for (size_t i = 0; i < pts.size(); ++i) {
-        gp_Vec2d tangent;
-        if (i == 0)
-            tangent = pts[1] - pts[0];
-        else if (i == pts.size()-1)
-            tangent = pts[i] - pts[i-1];
-        else {
-            gp_Vec2d prev = pts[i]   - pts[i-1];
-            gp_Vec2d next = pts[i+1] - pts[i];
-            tangent = (prev.Normalized() + next.Normalized()).Normalized();
-        }
-        gp_Vec2d normal(-tangent.Y(), tangent.X());
-        normal.Normalize();
-
-        leftPts.emplace_back( pts[i].X() + normal.X()*dist,
-                              pts[i].Y() + normal.Y()*dist );
-        rightPts.emplace_back(pts[i].X() - normal.X()*dist,
-                              pts[i].Y() - normal.Y()*dist );
-    }
-
-    // Build closed polygon (left path forward, right path backward)
-    BRepBuilderAPI_MakePolygon poly;
-    for (auto& p : leftPts) poly.Add(gp_Pnt(p.X(), p.Y(), 0));
-    for (auto it = rightPts.rbegin(); it != rightPts.rend(); ++it)
-        poly.Add(gp_Pnt(it->X(), it->Y(), 0));
-    poly.Close();
-
-    // Make face & mesh for shading
-    TopoDS_Face face = BRepBuilderAPI_MakeFace(poly.Wire());
-    BRepMesh_IncrementalMesh(face, 0.5, true);
-
-    return face;
-}
-#include <vector>
-#include <gp_Vec2d.hxx>
-#include <gp_Pnt.hxx>
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <TopoDS_Wire.hxx>
-
-#include <vector>
-#include <gp_Pnt2d.hxx>
-#include <gp_Vec2d.hxx>
-#include <TopoDS_Wire.hxx>
-#include <TopoDS_Edge.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <BRepBuilderAPI_MakeWire.hxx>
-
-// Normalize vector
-static gp_Vec2d Normalized(const gp_Vec2d& v) {
-    gp_Vec2d res = v;
-    if (res.Magnitude() > gp::Resolution())
-        res.Normalize();
-    return res;
-}
-#include <vector>
-#include <cmath>
-
-#include <TopoDS_Wire.hxx>
-#include <TopoDS_Edge.hxx>
-#include <BRepBuilderAPI_MakeWire.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <gp_Pnt.hxx>
-#include <gp_Pnt2d.hxx>
-#include <gp_Vec2d.hxx>
-
-// 2D cross‐product (scalar)
-static double VCross(const gp_Vec2d& a, const gp_Vec2d& b) {
-    return a.X()*b.Y() - a.Y()*b.X();
-}
-
-// Intersect two infinite 2d lines: P1 + t1*d1  and  P2 + t2*d2
-// Returns false if they’re (nearly) parallel.
-static bool IntersectLines(
-    const gp_Pnt2d& P1, const gp_Vec2d& d1,
-    const gp_Pnt2d& P2, const gp_Vec2d& d2,
-    gp_Pnt2d&       Pint)
-{
-    double denom = VCross(d1, d2);
-    if (std::abs(denom) < 1e-9) 
-        return false;
-
-    gp_Vec2d diff(P2.X() - P1.X(), P2.Y() - P1.Y());
-    double t1 = VCross(diff, d2) / denom;
-    Pint = P1.Translated(d1 * t1);
-    return true;
-}
-
-// Builds a closed, one‐sided offset wire around the input polyline.
-// vpoints: the “spine” as 2D points.
-// dist:    offset distance.
-// outward: true→offset on the left side of each segment.
-TopoDS_Wire MakeOneSidedOffsetWire(
-    const std::vector<gp_Pnt2d>& vpoints,
-    double                       dist,
-    bool                         outward)
-{
-    const size_t N = vpoints.size();
-    if (N < 2) 
-        return TopoDS_Wire();
-
-    // 1) Compute segment tangents and outward normals
-    std::vector<gp_Vec2d> dirs(N-1), norms(N-1);
-    for (size_t i = 0; i < N-1; ++i) {
-        gp_Vec2d d(vpoints[i+1].X() - vpoints[i].X(),
-                   vpoints[i+1].Y() - vpoints[i].Y());
-        d.Normalize();
-        dirs[i] = d;
-        // left‐normal = ( -dy, dx ); right‐normal = ( dy, -dx )
-        gp_Vec2d n(outward ? -d.Y() : d.Y(),
-                   outward ?  d.X() : -d.X());
-        norms[i] = n;
-    }
-
-    // 2) Compute offset points at each vertex, trimmed with perpendicular caps
-    std::vector<gp_Pnt2d> offp(N);
-
-    // 2a) start cap: intersect offset‐line with a perpendicular at the start
-    {
-        gp_Pnt2d Poff = vpoints[0].Translated(norms[0] * dist);
-        IntersectLines(
-            Poff, dirs[0],
-            vpoints[0], norms[0],
-            offp[0]
-        );
-    }
-
-    // 2b) internal joints: intersect successive offset‐lines
-    for (size_t i = 1; i < N-1; ++i) {
-        gp_Pnt2d P1 = vpoints[i].Translated(norms[i-1] * dist);
-        gp_Pnt2d P2 = vpoints[i].Translated(norms[i]   * dist);
-
-        if (!IntersectLines(P1, dirs[i-1], P2, dirs[i], offp[i])) {
-            // fallback if parallel: just take the later
-            offp[i] = P2;
-        }
-    }
-
-    // 2c) end cap: intersect offset‐line with perpendicular at the end
-    {
-        gp_Pnt2d PendOff = vpoints[N-1].Translated(norms[N-2] * dist);
-        IntersectLines(
-            PendOff, dirs[N-2],
-            vpoints[N-1], norms[N-2],
-            offp[N-1]
-        );
-    }
-
-    // 3) Build the planar wire: original spine + end‐cap + offset side + start‐cap
-    BRepBuilderAPI_MakeWire wireMaker;
-
-    // 3a) original spine
-    for (size_t i = 0; i < N-1; ++i) {
-        gp_Pnt A(vpoints[i].X(),   vpoints[i].Y(),   0.0);
-        gp_Pnt B(vpoints[i+1].X(), vpoints[i+1].Y(), 0.0);
-        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-    }
-
-    // 3b) cap at far end
-    {
-        gp_Pnt A(vpoints[N-1].X(),  vpoints[N-1].Y(),  0.0);
-        gp_Pnt B(offp[N-1].X(),     offp[N-1].Y(),     0.0);
-        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-    }
-
-    // 3c) offset side (reverse direction)
-    for (size_t i = N-1; i > 0; --i) {
-        gp_Pnt A(offp[i].X(),    offp[i].Y(),    0.0);
-        gp_Pnt B(offp[i-1].X(),  offp[i-1].Y(),  0.0);
-        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-    }
-
-    // 3d) cap at start
-    {
-        gp_Pnt A(offp[0].X(),    offp[0].Y(),    0.0);
-        gp_Pnt B(vpoints[0].X(), vpoints[0].Y(), 0.0);
-        wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-    }
-
-    return wireMaker.Wire();
-}
-
-// Helper: compute perpendicular vector
-gp_Vec2d Perpendicular(const gp_Vec2d& v) {
-    return gp_Vec2d(-v.Y(), v.X());
-}
-
-// Build one-sided offset wire from 2D points
-TopoDS_Wire MakeParallelOffsetWire(const std::vector<gp_Pnt2d>& points,
-                                   double offset,
-                                   bool outward = true)
-{
-    if (points.size() < 2) return TopoDS_Wire();
-
-    std::vector<gp_Pnt> offsetPts;
-    offsetPts.reserve(points.size());
-
-    double side = outward ? 1.0 : -1.0;
-
-    for (size_t i = 0; i < points.size() - 1; ++i) {
-        gp_Vec2d dir(points[i], points[i+1]);
-        gp_Vec2d normal = Perpendicular(dir).Normalized();
-        normal *= offset * side;
-
-        gp_Pnt2d p1 = points[i].Translated(normal);
-        gp_Pnt2d p2 = points[i+1].Translated(normal);
-
-        offsetPts.emplace_back(p1.X(), p1.Y(), 0);
-        if (i == points.size() - 2)
-            offsetPts.emplace_back(p2.X(), p2.Y(), 0);
-    }
-
-    BRepBuilderAPI_MakePolygon poly;
-    for (auto& p : offsetPts) poly.Add(p);
-
-    // Check if original path is closed
-    gp_Vec2d diff(points.front(), points.back());
-    if (diff.SquareMagnitude() < 1e-9)
-        poly.Close();
-
-    return poly.Wire();
-}
-
-void createOffset(double distance,bool closed)
-{
-	vector<gp_Pnt2d> ppoints;
-	ConvertVec2dToPnt2d(vpoints,ppoints);
-// TopoDS_Wire wOff =makeOffsetOutline(vpoints, distance);
-
-TopoDS_Wire wOff = TopoDS::Wire(MakeOneSidedOffsetWire(ppoints, distance, closed));
-// TopoDS_Wire wOff = MakeParallelOffsetWire(ppoints,distance);
-TopoDS_Face f = BRepBuilderAPI_MakeFace(wOff);
-BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true); // adjust deflection/angle
-mergeShape(cshape, f);
-// CreatePerfectOffset(vpoints, distance, closed);
-
-
-return;
-// TopoDS_Wire wOff = TopoDS::Wire(CreatePerfectOffset(vpoints, distance, closed));
-// cotm("t1")
-// TopoDS_Face f = BRepBuilderAPI_MakeFace(wOff);
-// cotm("t2")
-// BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true);
-// cotm("t3")
-// mergeShape(cshape, f);
-// cotm("t4")
-
-
-	// TopoDS_Shape toadd= CreatePerfectOffset(vpoints,distance,closed);
-return;
-// if (toadd.ShapeType() == TopAbs_WIRE) {
-// 	cotm("TopAbs_WIRE")
-//     TopoDS_Face face = BRepBuilderAPI_MakeFace(TopoDS::Wire(toadd));
-//     BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-//     mergeShape(cshape, face);
-// }
-
-	// shape=toadd;
-// mergeShape(cshape,toadd);
-
-
-	return;
-    std::vector<gp_Pnt2d> hi;
-    ConvertVec2dToPnt2d(vpoints, hi);
-    std::vector<gp_Pnt2d> res = OffsetPolyline2D(hi, distance, closed);
-
-    std::vector<gp_Pnt> res3d;
-    ConvertPnt2dToPnt(res, res3d);
-
-    TopoDS_Wire wres = CreateWireFromPoints(res3d, closed);
-    addPolylineToShape(shape, wres);
-
-{
-	std::vector<gp_Pnt> res3d;
-    ConvertPnt2dToPnt(hi, res3d);
-
-    TopoDS_Wire wres = CreateWireFromPoints(res3d, closed);
-    addPolylineToShape(shape, wres);
-}
-}
-
-
-
-#include <vector>
-#include <gp_Pnt2d.hxx>
-#include <gp_Vec2d.hxx>
-#include <cmath>
-
-std::vector<gp_Pnt2d> OffsetPolyline2D(
-    const std::vector<gp_Pnt2d>& polyline,
-    double offsetDistance,
-    bool isClosed)
-{
-    std::vector<gp_Pnt2d> offsetPoints;
-    int n = static_cast<int>(polyline.size());
-    if (n < 2) return offsetPoints;
-
-    for (int i = 0; i < n; ++i)
-    {
-        const gp_Pnt2d& pt = polyline[i];
-        gp_Pnt2d prev, next;
-
-        // Handle previous and next points for open/closed polylines
-        if (isClosed)
-        {
-            prev = polyline[(i - 1 + n) % n];
-            next = polyline[(i + 1) % n];
-        }
-        else
-        {
-            prev = (i > 0) ? polyline[i - 1] : polyline[i];
-            next = (i < n - 1) ? polyline[i + 1] : polyline[i];
-        }
-
-        // For endpoints of open polylines, use only the adjacent segment
-        if (!isClosed && (i == 0 || i == n - 1))
-        {
-            gp_Vec2d edge = (i == 0) ? gp_Vec2d(pt, next) : gp_Vec2d(prev, pt);
-            gp_Vec2d normal(-edge.Y(), edge.X());
-            normal.Normalize();
-            offsetPoints.emplace_back(
-                pt.X() + offsetDistance * normal.X(),
-                pt.Y() + offsetDistance * normal.Y());
-            continue;
-        }
-
-        // For non-endpoints, compute bisector
-        gp_Vec2d inDir(prev, pt);
-        gp_Vec2d outDir(pt, next);
-        inDir.Normalize();
-        outDir.Normalize();
-
-        // Compute bisector and cross product
-        gp_Vec2d bisector = inDir + outDir;
-        double cross = inDir.X() * outDir.Y() - inDir.Y() * outDir.X();
-        int side = (cross > 0) ? 1 : -1;
-
-        // Rotate bisector 90° to get outward direction
-        gp_Vec2d offsetDir(-bisector.Y(), bisector.X());
-        offsetDir *= side;
-
-        // Normalize bisector
-        if (bisector.Magnitude() > 1e-6)
-            offsetDir.Normalize();
-
-        // Compute angle between segments
-        double dot = inDir.Dot(outDir);
-        dot = std::clamp(dot, -1.0, 1.0);
-        double angle = std::acos(dot);
-
-        // Handle miter limit (avoid very long miters)
-        double miterLimit = 10.0; // Adjust as needed
-        double scale = offsetDistance;
-        if (std::abs(std::sin(angle / 2.0)) > 1e-6)
-        {
-            scale = offsetDistance / std::sin(angle / 2.0);
-            if (scale > miterLimit * offsetDistance)
-                scale = miterLimit * offsetDistance; // Bevel instead of miter
-        }
-
-        // Apply offset
-        offsetPoints.emplace_back(
-            pt.X() + offsetDir.X() * scale,
-            pt.Y() + offsetDir.Y() * scale);
-    }
-
-    return offsetPoints;
-}
 
-
+		void fuse(luadraw* tofuse1, luadraw* tofuse2) {
+			if (!tofuse1 || !tofuse2) {
+				throw std::runtime_error(
+					lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
+			}
+			tofuse1->update_placement();
+			tofuse2->update_placement();
+			Handle(AIS_Shape) af1 = tofuse1->ashape;
+			Handle(AIS_Shape) af2 = tofuse2->ashape;
+			TopoDS_Shape ts1 = tofuse1->shape;
+			TopoDS_Shape ts2 = tofuse2->shape;
+
+			BRepAlgoAPI_Fuse fuse(ts1, ts2);
+			fuse.Build();
+			if (!fuse.IsDone()) {
+				throw std::runtime_error(
+					lua_error_with_line(L, "Fuse operation failed"));
+			}
+
+			tofuse1->visible_hardcoded = 0;
+			tofuse2->visible_hardcoded = 0;
+
+			TopoDS_Shape fusedShape = fuse.Shape();
+
+			// Refine the result
+			ShapeUpgrade_UnifySameDomain unify(
+				fusedShape, true, true, true);	// merge faces, edges, vertices
+			unify.Build();
+			this->shape = unify.Shape();
+		}
+
+		void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
+			if (toAdd.IsNull()){
+				std::cerr << "Warning: toAdd is null." << std::endl;
+				return;
+			}
+			builder.Add(target, toAdd);
+			shape = toAdd;
+			return;
+			// try
+			// {
+			//     if (toAdd.IsNull())
+			//     {
+			//         std::cerr << "Warning: toAdd is null." << std::endl;
+			//         return;
+			//     }
+
+			//     BRepCheck_Analyzer checker(toAdd);
+			//     if (!checker.IsValid())
+			//     {
+			//         std::cerr << "Warning: toAdd is invalid." << std::endl;
+			//         return;
+			//     }
+
+			//     BRep_Builder builder;
+			//     TopoDS_Compound comp;
+
+			//     if (target.IsNull())
+			//     {
+			//         target = BRepBuilderAPI_Copy(toAdd).Shape();
+			//         return;
+			//     }
+
+			//     BRepCheck_Analyzer targetChecker(target);
+			//     if (!targetChecker.IsValid())
+			//     {
+			//         std::cerr << "Warning: target is invalid." << std::endl;
+			//         return;
+			//     }
+
+			//     if (target.ShapeType() != TopAbs_COMPOUND)
+			//     {
+			//         builder.MakeCompound(comp);
+			//         builder.Add(comp, target);
+			//         target = comp;
+			//     }
+			//     else
+			//     {
+			//         comp = TopoDS::Compound(target);
+			//     }
+
+			//     // Copy toAdd to ensure it's standalone
+			//     TopoDS_Shape toAddCopy = BRepBuilderAPI_Copy(toAdd).Shape();
+			//     builder.Add(comp, toAddCopy);
+			//     target = comp;
+			// }
+			// catch (Standard_Failure& e)
+			// {
+			//     std::cerr << "Open CASCADE error: " << e.GetMessageString()
+			//     << std::endl; throw;
+			// }
+		}
+
+
+		void ConvertVec2dToPnt2d(const std::vector<gp_Vec2d>& vpoints,
+								 std::vector<gp_Pnt2d>& ppoints) {
+			ppoints.clear();
+			ppoints.reserve(vpoints.size());
+			for (const auto& vec : vpoints) {
+				ppoints.emplace_back(vec.X(), vec.Y());
+			}
+		}
+
+		void ConvertPnt2dToPnt(const std::vector<gp_Pnt2d>& pnts2d,
+							   std::vector<gp_Pnt>& pnts3d) {
+			pnts3d.clear();
+			pnts3d.reserve(pnts2d.size());
+			for (const auto& p : pnts2d) {
+				pnts3d.emplace_back(p.X(), p.Y(), 0.0);
+			}
+		}
+
+		// Normalize vector
+		static gp_Vec2d Normalized(const gp_Vec2d& v) {
+			gp_Vec2d res = v;
+			if (res.Magnitude() > gp::Resolution()) res.Normalize();
+			return res;
+		}
+
+		// 2D cross‐product (scalar)
+		static double VCross(const gp_Vec2d& a, const gp_Vec2d& b) {
+			return a.X() * b.Y() - a.Y() * b.X();
+		}
+
+		// Intersect two infinite 2d lines: P1 + t1*d1  and  P2 + t2*d2
+		// Returns false if they’re (nearly) parallel.
+		static bool IntersectLines(const gp_Pnt2d& P1, const gp_Vec2d& d1,
+								   const gp_Pnt2d& P2, const gp_Vec2d& d2,
+								   gp_Pnt2d& Pint) {
+			double denom = VCross(d1, d2);
+			if (std::abs(denom) < 1e-9) return false;
+
+			gp_Vec2d diff(P2.X() - P1.X(), P2.Y() - P1.Y());
+			double t1 = VCross(diff, d2) / denom;
+			Pint = P1.Translated(d1 * t1);
+			return true;
+		}
+
+
+
+		static constexpr double EPS = 1e-12;
+
+		// 2D cross-product helper
+		static double cross2d(const gp_Vec2d& u, const gp_Vec2d& v) {
+			return u.X() * v.Y() - u.Y() * v.X();
+		}
+
+		// Intersect two infinite lines P1+t*d1 and P2+s*d2
+		static bool intersectLines(const gp_Pnt2d& P1, const gp_Vec2d& d1, const gp_Pnt2d& P2, const gp_Vec2d& d2,gp_Pnt2d& out) {
+			double denom = cross2d(d1, d2);
+			if (std::abs(denom) < EPS) return false;
+			gp_Vec2d w(P2.X() - P1.X(), P2.Y() - P1.Y());
+			double t = cross2d(w, d2) / denom;
+			out = P1.Translated(d1 * t);
+			return true;
+		}
+
+		// Compare two 2D points
+		static bool equal2d(const gp_Pnt2d& A, const gp_Pnt2d& B) {
+			return (std::abs(A.X() - B.X()) < EPS) &&
+				   (std::abs(A.Y() - B.Y()) < EPS);
+		}
+
+		// Convert 2D->3D
+		static gp_Pnt to3d(const gp_Pnt2d& P) {
+			return gp_Pnt(P.X(), P.Y(), 0.0);
+		}
+
+		// Main: one function to build a ring‐shaped face offset by dist
+		// pts: must form a closed loop (first==last) or will close
+		// automatically dist: positive→expand outward; negative→shrink inward
+		TopoDS_Face MakeOffsetRingFace(const std::vector<gp_Pnt2d>& pts, double dist) {
+			// need at least 3 distinct points
+			if (pts.size() < 3) return TopoDS_Face();
+
+			// 1) build original closed wire
+			BRepBuilderAPI_MakePolygon poly;
+			for (auto& p : pts) poly.Add(to3d(p));
+			if (!equal2d(pts.front(), pts.back())) poly.Close();
+			TopoDS_Wire origWire = poly.Wire();
+
+			// 2) extract 2D points (drop duplicate last if present)
+			std::vector<gp_Pnt2d> v = pts;
+			if (equal2d(v.front(), v.back())) v.pop_back();
+			const size_t N = v.size();
+			if (N < 3) return TopoDS_Face();
+
+			// 3) compute unit‐edge directions and left‐hand normals
+			std::vector<gp_Vec2d> dirs(N), norms(N);
+			for (size_t i = 0; i < N; ++i) {
+				auto& A = v[i];
+				auto& B = v[(i + 1) % N];
+				gp_Vec2d d(B.X() - A.X(), B.Y() - A.Y());
+				double len = d.Magnitude();
+				if (len < EPS) return TopoDS_Face();  // degenerate
+				d /= len;
+				dirs[i] = d;
+				norms[i] = gp_Vec2d(-d.Y(), d.X());	 // left‐hand normal
+			}
+
+			// 4) offset each vertex by signed dist along its two adjacent
+			// normals
+			//    (positive dist → inward for CCW; negative → outward)
+			std::vector<gp_Pnt2d> off(N);
+			for (size_t i = 0; i < N; ++i) {
+				size_t ip = (i + N - 1) % N;  // prev edge
+				size_t in = i;				  // next edge
+
+				gp_Pnt2d Pp = v[i].Translated(norms[ip] * dist);
+				gp_Pnt2d Pn = v[i].Translated(norms[in] * dist);
+				gp_Pnt2d X;
+				if (intersectLines(Pp, dirs[ip], Pn, dirs[in], X))
+					off[i] = X;
+				else
+					off[i] = Pn;  // fallback on parallel
+			}
+
+			// 5) build the offset wire
+			BRepBuilderAPI_MakeWire mkOff;
+			for (size_t i = 0; i < N; ++i) {
+				mkOff.Add(BRepBuilderAPI_MakeEdge(to3d(off[i]),to3d(off[(i + 1) % N])));
+			} 
+			TopoDS_Wire offsetWire = mkOff.Wire();
+
+			// 6) assign outer vs. hole based on sign of dist
+			TopoDS_Wire outerLoop, holeLoop;
+			if (dist < 0) {
+				// negative dist → outward offset is the outer boundary
+				outerLoop = offsetWire;
+				holeLoop = TopoDS::Wire(origWire.Reversed());
+			} else {
+				// positive dist → inward offset is the hole
+				outerLoop = origWire;
+				holeLoop = TopoDS::Wire(offsetWire.Reversed());
+			}
+
+			// 7) build and return the ring‐shaped face
+			BRepBuilderAPI_MakeFace faceMaker(outerLoop);
+			faceMaker.Add(holeLoop);
+			return faceMaker.Face();
+		}
+
+		// Builds a closed, one‐sided offset wire around the input polyline.
+		// vpoints: the “spine” as 2D points.
+		// dist:    offset distance.
+		// outward: true→offset on the left side of each segment..(negative
+		// number does the same, so no need)
+		TopoDS_Wire MakeOneSidedOffsetWire(const std::vector<gp_Pnt2d>& vpoints, double dist) {
+			// bool closed = ((vpoints[0].X() == vpoints.back().X()) &&
+			// 			   (vpoints[0].Y() == vpoints.back().Y()));
+			// cotm(closed);
+			bool outward = 1;
+			const size_t N = vpoints.size();
+			if (N < 2) return TopoDS_Wire();
+
+			// 1) Compute segment tangents and outward normals
+			std::vector<gp_Vec2d> dirs(N - 1), norms(N - 1);
+			for (size_t i = 0; i < N - 1; ++i) {
+				gp_Vec2d d(vpoints[i + 1].X() - vpoints[i].X(),
+						   vpoints[i + 1].Y() - vpoints[i].Y());
+				d.Normalize();
+				dirs[i] = d;
+				// left‐normal = ( -dy, dx ); right‐normal = ( dy, -dx )
+				gp_Vec2d n(outward ? -d.Y() : d.Y(), outward ? d.X() : -d.X());
+				norms[i] = n;
+			}
+
+			// 2) Compute offset points at each vertex, trimmed with
+			// perpendicular caps
+			std::vector<gp_Pnt2d> offp(N);
+
+			// 2a) start cap: intersect offset‐line with a perpendicular at the
+			// start
+			{
+				gp_Pnt2d Poff = vpoints[0].Translated(norms[0] * dist);
+				IntersectLines(Poff, dirs[0], vpoints[0], norms[0], offp[0]);
+			}
+
+			// 2b) internal joints: intersect successive offset‐lines
+			for (size_t i = 1; i < N - 1; ++i) {
+				gp_Pnt2d P1 = vpoints[i].Translated(norms[i - 1] * dist);
+				gp_Pnt2d P2 = vpoints[i].Translated(norms[i] * dist);
+
+				if (!IntersectLines(P1, dirs[i - 1], P2, dirs[i], offp[i])) {
+					// fallback if parallel: just take the later
+					offp[i] = P2;
+				}
+			}
+
+			// 2c) end cap: intersect offset‐line with perpendicular at the end
+			{
+				gp_Pnt2d PendOff =
+					vpoints[N - 1].Translated(norms[N - 2] * dist);
+				IntersectLines(PendOff, dirs[N - 2], vpoints[N - 1],
+							   norms[N - 2], offp[N - 1]);
+			}
+
+			// 3) Build the planar wire: original spine + end‐cap + offset side
+			// + start‐cap
+			BRepBuilderAPI_MakeWire wireMaker;
+
+			// 3a) original spine
+			for (size_t i = 0; i < N - 1; ++i) {
+				gp_Pnt A(vpoints[i].X(), vpoints[i].Y(), 0.0);
+				gp_Pnt B(vpoints[i + 1].X(), vpoints[i + 1].Y(), 0.0);
+				wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+			}
+
+			// 3b) cap at far end
+			{
+				gp_Pnt A(vpoints[N - 1].X(), vpoints[N - 1].Y(), 0.0);
+				gp_Pnt B(offp[N - 1].X(), offp[N - 1].Y(), 0.0);
+				wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+			}
+
+			// 3c) offset side (reverse direction)
+			for (size_t i = N - 1; i > 0; --i) {
+				gp_Pnt A(offp[i].X(), offp[i].Y(), 0.0);
+				gp_Pnt B(offp[i - 1].X(), offp[i - 1].Y(), 0.0);
+				wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+			}
+
+			// 3d) cap at start
+			{
+				gp_Pnt A(offp[0].X(), offp[0].Y(), 0.0);
+				gp_Pnt B(vpoints[0].X(), vpoints[0].Y(), 0.0);
+				wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
+			}
+
+			return wireMaker.Wire();
+		}
+
+		// Helper: compute perpendicular vector
+		gp_Vec2d Perpendicular(const gp_Vec2d& v) {
+			return gp_Vec2d(-v.Y(), v.X());
+		}
+
+		void createOffset(double distance) {
+			vector<gp_Pnt2d> ppoints;
+			ConvertVec2dToPnt2d(vpoints, ppoints); 
+
+			bool closed = ((vpoints[0].X() == vpoints.back().X()) &&
+						   (vpoints[0].Y() == vpoints.back().Y()));
+			TopoDS_Face f;
+			if(closed){
+				f =	TopoDS::Face(MakeOffsetRingFace(ppoints, distance));  // well righ
+			}else{
+				TopoDS_Wire wOff =TopoDS::Wire(MakeOneSidedOffsetWire(ppoints, distance)); //well profile
+				f = BRepBuilderAPI_MakeFace(wOff);
+			}
+			BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5,true);	// adjust deflection/angle
+			mergeShape(cshape, f);
+		}
 
 		std::vector<gp_Vec2d> vpoints;
-    // Convert Vec2d to Wire
-    // void CreateWire(const std::vector<gp_Vec2d>& points, bool closed=0) {
-    //     BRepBuilderAPI_MakePolygon poly;
-    //     for (const auto& vec : points) {
-    //         poly.Add(gp_Pnt(vec.X(), vec.Y(), 0.0));
-    //     }
-    //     if (closed && points.size() > 2) poly.Close();
-	// 	vpoints=points;
-	// 	// shape=poly.Wire(); 
-	// 	mergeShape(cshape,poly.Wire());
-    // }
-#include <BRepBuilderAPI_MakePolygon.hxx>
-#include <TopoDS_Wire.hxx>
-#include <TopoDS.hxx>
 
-static inline gp_Vec2d normSafe(const gp_Vec2d& v, double eps=1e-12) {
-    double m = v.Magnitude();
-    return (m < eps) ? gp_Vec2d(0,0) : v / m;
-}
-static inline gp_Vec2d rotLeft(const gp_Vec2d& v) { return gp_Vec2d(-v.Y(), v.X()); }
-static inline double cross2(const gp_Vec2d& a, const gp_Vec2d& b) { return a.X()*b.Y() - a.Y()*b.X(); }
+		void CreateWire(const std::vector<gp_Vec2d>& points,
+						bool closed = false) {
+			vpoints = points;
+			BRepBuilderAPI_MakePolygon poly;
+			for (auto& v : points) {
+				poly.Add(gp_Pnt(v.X(), v.Y(), 0));
+			}
+			if (closed && points.size() > 2) poly.Close();
+			cotm("s1")
 
-static double signedArea(const std::vector<gp_Vec2d>& pts) {
-    double A = 0.0;
-    for (size_t i=0, n=pts.size(); i<n; ++i) {
-        const gp_Vec2d& p = pts[i];
-        const gp_Vec2d& q = pts[(i+1)%n];
-        A += p.X()*q.Y() - q.X()*p.Y();
-    }
-    return 0.5*A;
+			
+			TopoDS_Wire wire = poly.Wire();
+if(points.size()>2){
+cotm("s2")
+			// Make a planar face from that wire
+			TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+cotm("s3")
+			// Mesh the face so it gets Poly_Triangulation
+			// if(points.size()>2)
+			BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
+cotm("s4")
+			mergeShape(cshape, face);
+			cotm("s5")
+}else{
+	mergeShape(cshape, wire);
 }
 
-TopoDS_Shape CreatePerfectOffset(const std::vector<gp_Vec2d>& points,
-                                 double offsetDistance,
-                                 bool isClosed = false)
-{
-    if (points.size() < 2) return TopoDS_Shape();
+		}
 
-    // Filter zero-length segments to avoid NaNs
-    std::vector<gp_Vec2d> P;
-    P.reserve(points.size());
-    for (size_t i=0; i<points.size(); ++i) {
-        if (i==0 || (points[i]-points[i-1]).SquareMagnitude() > 1e-20) {
-            P.push_back(points[i]);
-        }
-    }
-    if (P.size() < 2) return TopoDS_Shape();
+		// GeomAbs_Intersection
 
-    // Determine orientation for outward normal convention on closed polylines
-    int orientSign = 1; // +1 means "left" is outward
-    if (isClosed && P.size() >= 3) {
-        orientSign = (signedArea(P) >= 0.0) ? 1 : -1; // CCW => left is outward
-    }
-
-    auto tangentAt = [&](int i, int dir)->gp_Vec2d {
-        // dir = -1 uses segment (i-1 -> i), dir = +1 uses (i -> i+1)
-        int n = int(P.size());
-        if (!isClosed) {
-            if (dir < 0) { if (i == 0)   return normSafe(P[1]   - P[0]);   return normSafe(P[i]   - P[i-1]); }
-            else         { if (i == n-1) return normSafe(P[n-1] - P[n-2]); return normSafe(P[i+1] - P[i]);   }
-        } else {
-            int i0 = (dir < 0) ? ((i-1+n)%n) : i;
-            int i1 = (dir < 0) ? i            : ((i+1)%n);
-            return normSafe(P[i1] - P[i0]);
-        }
-    };
-
-    auto outwardNormal = [&](const gp_Vec2d& t)->gp_Vec2d {
-        // "Left" normal is rotLeft(t); flip by orientSign and offset sign for consistent outward/inward
-        int sign = orientSign;
-        if (!isClosed) sign = 1; // define positive distance as "left" for open polylines
-        int dsign = (offsetDistance >= 0) ? 1 : -1;
-        return rotLeft(t) * double(sign * dsign);
-    };
-
-    std::vector<gp_Pnt> outPts;
-    outPts.reserve(P.size() + (isClosed ? 0 : 2));
-
-    for (int i = 0; i < int(P.size()); ++i) {
-        gp_Vec2d tPrev = tangentAt(i, -1);
-        gp_Vec2d tNext = tangentAt(i, +1);
-        gp_Vec2d nPrev = outwardNormal(tPrev);
-        gp_Vec2d nNext = outwardNormal(tNext);
-
-        gp_Vec2d p(P[i].X(), P[i].Y());
-        gp_Vec2d p1 = p + nPrev * std::abs(offsetDistance);
-        gp_Vec2d p2 = p + nNext * std::abs(offsetDistance);
-
-        // Intersect lines L1: p1 + tPrev*s, L2: p2 + tNext*t
-        double denom = cross2(tPrev, tNext);
-        gp_Vec2d q;
-        if (std::abs(denom) < 1e-12) {
-            // Parallel (or nearly): fallback to simple offset by previous normal
-            q = p1;
-        } else {
-            gp_Vec2d diff = p2 - p1;
-            double s = cross2(diff, tNext) / denom;
-            q = p1 + tPrev * s;
-        }
-
-        outPts.emplace_back(q.X(), q.Y(), 0.0);
-    }
-
-    // For open polylines, add simple end caps (square-caps). Round/bevel would need extra logic.
-    if (!isClosed) {
-        // Prepend and append are already handled by the intersection formula falling back at ends,
-        // so no extra points are strictly necessary. Keep as-is for a clean polyline.
-    }
-
-    // Build the offset wire
-    BRepBuilderAPI_MakePolygon poly;
-    for (const auto& p : outPts) poly.Add(p);
-    if (isClosed && outPts.size() > 2) poly.Close();
-
-    if (!poly.IsDone()) return TopoDS_Shape();
-    return poly.Wire(); // return the wire explicitly
-}
-
-void CreateWire(const std::vector<gp_Vec2d>& points, bool closed = false)
-{
-    BRepBuilderAPI_MakePolygon poly;
-    for (auto& v : points) {
-        poly.Add(gp_Pnt(v.X(), v.Y(), 0));
-    }
-    if (closed && points.size() > 2)
-        poly.Close();
-
-    TopoDS_Wire wire = poly.Wire();
-
-    // Make a planar face from that wire
-    // TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
-
-    // // Mesh the face so it gets Poly_Triangulation
-    // BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-
-    // mergeShape(cshape, face);
-
-	vpoints=points;
-}
-
-// GeomAbs_Intersection
+		// Creates a simple wire from points
+		TopoDS_Wire CreateWireFromPoints(const std::vector<gp_Pnt>& points,
+										 bool closed) {
+			BRepBuilderAPI_MakePolygon polyBuilder;
+			for (const auto& pnt : points) {
+				polyBuilder.Add(pnt);
+			}
+			if (closed) polyBuilder.Close();
+			return polyBuilder.Wire();
+		}
 
 
-// Creates a simple wire from points
-TopoDS_Wire CreateWireFromPoints(const std::vector<gp_Pnt>& points, bool closed)
-{
-    BRepBuilderAPI_MakePolygon polyBuilder;
-    for (const auto& pnt : points) {
-        polyBuilder.Add(pnt);
-    }
-    if (closed) polyBuilder.Close();
-    return polyBuilder.Wire();
-}
-
-// Main offset function with visualization
-void CreateAndDisplayOffset(
-    Handle(AIS_InteractiveContext) context,
-    const std::vector<gp_Vec2d>& points,
-    double offsetDistance,
-    bool isClosed = false)
-{
-    if (points.size() < 2) return;
-
-    // Convert Vec2d to Pnt
-    std::vector<gp_Pnt> originalPoints;
-    for (const auto& pt : points) {
-        originalPoints.emplace_back(pt.X(), pt.Y(), 0.0);
-    }
-
-    // Create original wire
-    TopoDS_Wire originalWire = CreateWireFromPoints(originalPoints, isClosed);
-    
-    // Create offset points
-    std::vector<gp_Pnt> offsetPoints;
-    for (size_t i = 0; i < points.size(); i++) {
-        gp_Vec2d pt = points[i];
-        
-        // For endpoints of open polylines
-        if (!isClosed && (i == 0 || i == points.size()-1)) {
-            gp_Vec2d dir = (i == 0) ? (points[1] - pt) : (pt - points[i-1]);
-            gp_Vec2d perp(-dir.Y(), dir.X());
-            perp.Normalize();
-            offsetPoints.emplace_back(
-                pt.X() + perp.X() * offsetDistance,
-                pt.Y() + perp.Y() * offsetDistance,
-                0.0
-            );
-            continue;
-        }
-
-        // For internal points and closed polylines
-        gp_Vec2d prev = points[(i == 0) ? points.size()-1 : i-1];
-        gp_Vec2d next = points[(i == points.size()-1) ? 0 : i+1];
-        
-        gp_Vec2d inDir = (pt - prev).Normalized();
-        gp_Vec2d outDir = (next - pt).Normalized();
-        
-        gp_Vec2d inPerp(-inDir.Y(), inDir.X());
-        gp_Vec2d outPerp(-outDir.Y(), outDir.X());
-        
-        gp_Vec2d offsetDir = (inPerp + outPerp).Normalized();
-        
-        offsetPoints.emplace_back(
-            pt.X() + offsetDir.X() * offsetDistance,
-            pt.Y() + offsetDir.Y() * offsetDistance,
-            0.0
-        );
-    }
-
-    // Create offset wire
-    TopoDS_Wire offsetWire = CreateWireFromPoints(offsetPoints, isClosed);
-
-    // Display original (red)
-    Handle(AIS_Shape) origShape = new AIS_Shape(originalWire);
-    origShape->SetColor(Quantity_NOC_RED);
-    context->Display(origShape, Standard_True);
-
-    // Display offset (blue)
-    Handle(AIS_Shape) offsetShape = new AIS_Shape(offsetWire);
-    offsetShape->SetColor(Quantity_NOC_BLUE);
-    
-    // Make offset wire thicker for better visibility
-    Handle(Prs3d_LineAspect) lineAspect = new Prs3d_LineAspect(
-        Quantity_NOC_BLUE, Aspect_TOL_SOLID, 2.0);
-    offsetShape->Attributes()->SetLineAspect(lineAspect);
-    
-    context->Display(offsetShape, Standard_True);
-}
-
-    // Creates parallel edges for each segment
-    TopoDS_Shape CreateParallelEdges(const std::vector<gp_Vec2d>& points, double offsetDistance) {
-        BRepBuilderAPI_MakeWire wireBuilder;
-        
-        for (size_t i = 0; i < points.size() - 1; i++) {
-            gp_Vec2d dir = (points[i+1] - points[i]).Normalized();
-            gp_Vec2d perp(-dir.Y(), dir.X());
-            
-            gp_Pnt p1(
-                points[i].X() + perp.X() * offsetDistance,
-                points[i].Y() + perp.Y() * offsetDistance,
-                0.0
-            );
-            gp_Pnt p2(
-                points[i+1].X() + perp.X() * offsetDistance,
-                points[i+1].Y() + perp.Y() * offsetDistance,
-                0.0
-            );
-            
-            wireBuilder.Add(BRepBuilderAPI_MakeEdge(p1, p2));
-        }
-        return wireBuilder.Wire();
-    }
-
-    // Trims and connects edges at intersections
-    TopoDS_Shape TrimAndConnectEdges(const TopoDS_Shape& parallelEdges, bool isClosed) {
-        TopTools_IndexedMapOfShape edges;
-        TopExp::MapShapes(parallelEdges, TopAbs_EDGE, edges);
-        
-        if (edges.Extent() < 2) return parallelEdges;
-        
-        BRepBuilderAPI_MakeWire resultWire;
-        Standard_Real first, last;
-        
-        // For closed polylines, connect last edge to first
-        if (isClosed && edges.Extent() > 1) {
-            TopoDS_Edge edge1 = TopoDS::Edge(edges(1));
-            TopoDS_Edge edge2 = TopoDS::Edge(edges(edges.Extent()));
-            
-            Handle(Geom_Curve) c1 = BRep_Tool::Curve(edge1, first, last);
-            Handle(Geom_Curve) c2 = BRep_Tool::Curve(edge2, first, last);
-            
-            GeomAPI_ExtremaCurveCurve extrema(c1, c2);
-            if (extrema.NbExtrema() > 0) {
-                gp_Pnt p1, p2;
-                extrema.Points(1, p1, p2);
-                gp_Pnt midPoint((p1.XYZ() + p2.XYZ()) * 0.5);
-                
-                resultWire.Add(BRepBuilderAPI_MakeEdge(
-                    BRep_Tool::Pnt(TopExp::FirstVertex(edge1)),
-                    midPoint
-                ));
-                resultWire.Add(BRepBuilderAPI_MakeEdge(
-                    midPoint,
-                    BRep_Tool::Pnt(TopExp::LastVertex(edge2))
-                ));
-            }
-        }
-        
-        // Connect intermediate edges
-        for (int i = 1; i < edges.Extent(); i++) {
-            TopoDS_Edge edge1 = TopoDS::Edge(edges(i));
-            TopoDS_Edge edge2 = TopoDS::Edge(edges(i+1));
-            
-            Handle(Geom_Curve) c1 = BRep_Tool::Curve(edge1, first, last);
-            Handle(Geom_Curve) c2 = BRep_Tool::Curve(edge2, first, last);
-            
-            GeomAPI_ExtremaCurveCurve extrema(c1, c2);
-            if (extrema.NbExtrema() > 0) {
-                gp_Pnt p1, p2;
-                extrema.Points(1, p1, p2);
-                gp_Pnt midPoint((p1.XYZ() + p2.XYZ()) * 0.5);
-                
-                resultWire.Add(BRepBuilderAPI_MakeEdge(
-                    BRep_Tool::Pnt(TopExp::FirstVertex(edge1)),
-                    midPoint
-                ));
-                resultWire.Add(BRepBuilderAPI_MakeEdge(
-                    midPoint,
-                    BRep_Tool::Pnt(TopExp::LastVertex(edge2))
-                ));
-            }
-        }
-        
-        return resultWire.Wire();
-    }
-// }
-
-
-
-
-	void dofromstart(int x=0){
-			gp_Pnt p1(0, 0,0);
-			gp_Pnt p2(100+x, 0,0);
-			gp_Pnt p3(100+x, 50,0);
-			gp_Pnt p4(0, 50,0);
+		void dofromstart(int x = 0) {
+			gp_Pnt p1(0, 0, 0);
+			gp_Pnt p2(100 + x, 0, 0);
+			gp_Pnt p3(100 + x, 50, 0);
+			gp_Pnt p4(0, 50, 0);
 
 			// Criar arestas
 			TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
@@ -1812,7 +957,6 @@ void CreateAndDisplayOffset(
 			TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
 			TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
 
-			
 			// Fazer o wire
 			BRepBuilderAPI_MakeWire wireBuilder;
 			wireBuilder.Add(e1);
@@ -1824,1198 +968,1195 @@ void CreateAndDisplayOffset(
 			face = BRepBuilderAPI_MakeFace(wire);
 
 			shape = face;
-			//final
-			// BRepBuilderAPI_Transform transformer(face, trsf);
-			// shape= transformer.Shape();
-
+			// final
+			//  BRepBuilderAPI_Transform transformer(face, trsf);
+			//  shape= transformer.Shape();
 		}
-
+		
+		TopoDS_Shape GetLastFromCompound(const TopoDS_Compound& comp) {
+			TopoDS_Shape last;
+			for (TopoDS_Iterator it(comp); it.More(); it.Next()) {
+				last = it.Value();	// will end up holding the final element
+			}
+			return last;
+		}
 	};
 
- 
-luadraw* getluadraw_from_ashape(const Handle(AIS_Shape)& ashape) {
-    Handle(Standard_Transient) owner = ashape->GetOwner();
-    if (!owner.IsNull()) {
-        Handle(ManagedPtrWrapper<luadraw>) wrapper =
-            Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+	luadraw* getluadraw_from_ashape(const Handle(AIS_Shape) & ashape) {
+		Handle(Standard_Transient) owner = ashape->GetOwner();
+		if (!owner.IsNull()) {
+			Handle(ManagedPtrWrapper<luadraw>) wrapper =
+				Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
 
-        if (!wrapper.IsNull() && wrapper->ptr) {
-            return wrapper->ptr;
-        }
-    }
-    return nullptr;
-}
+			if (!wrapper.IsNull() && wrapper->ptr) {
+				return wrapper->ptr;
+			}
+		}
+		return nullptr;
+	}
 
- 
 #pragma endregion luastruct
 
-
 #pragma region scint
-
-
-
-
-
 
 #pragma endregion scint
 #pragma region events
 
-#include <AIS_InteractiveObject.hxx>
-#include <AIS_Shape.hxx>
-#include <unordered_set>
+	// Safe clear of AIS objects with compound-first order and selection-safe
+	// guards
+	// - Clears selection & closes local contexts first
+	// - Deactivates each object from selection manager before Remove()
+	// - Removes compounds first, then the rest
+	// - Dedupes handles (no double Remove())
+	// - If Remove() still throws, falls back to Erase() to avoid tolerance-map
+	// crashes
 
+	// Hash + equality for OCC Handle types (hash by underlying pointer)
+	struct HandleAISHasher {
+		std::size_t operator()(const Handle(AIS_InteractiveObject) &
+							   h) const noexcept {
+			return std::hash<const void*>()(h.get());
+		}
+	};
+	struct HandleAISEqual {
+		bool operator()(const Handle(AIS_InteractiveObject) & a,
+						const Handle(AIS_InteractiveObject) &
+							b) const noexcept {
+			return a.get() == b.get();
+		}
+	};
 
+	void SafeClearShapes() {
+		// ---- 0) Selection hygiene: clear selection & close local contexts
+		// Avoids SelectMgr_ToleranceMap underflows when removing many objects
+		m_context->ClearSelected(false);
+		m_context->ClearCurrents(false);
+		// if (m_context->HasOpenedLocalContext())
+		//     m_context->CloseLocalContext();
 
-// Safe clear of AIS objects with compound-first order and selection-safe guards
-// - Clears selection & closes local contexts first
-// - Deactivates each object from selection manager before Remove()
-// - Removes compounds first, then the rest
-// - Dedupes handles (no double Remove())
-// - If Remove() still throws, falls back to Erase() to avoid tolerance-map crashes
+		// ---- 1) Collect unique handles (skip nulls)
+		std::unordered_set<Handle(AIS_InteractiveObject), HandleAISHasher,
+						   HandleAISEqual>
+			unique;
+		unique.reserve(vaShape.size());
+		for (const auto& h : vaShape)
+			if (!h.IsNull()) unique.insert(h);
 
-#include <AIS_InteractiveObject.hxx>
-#include <AIS_Shape.hxx>
-#include <Standard_Type.hxx>
-#include <Standard_Failure.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopAbs_ShapeEnum.hxx>
-#include <unordered_set>
-#include <iostream>
+		auto safeRemove = [&](const Handle(AIS_InteractiveObject) & obj,
+							  const char* tag) {
+			if (obj.IsNull()) return;
 
-// Hash + equality for OCC Handle types (hash by underlying pointer)
-struct HandleAISHasher {
-    std::size_t operator()(const Handle(AIS_InteractiveObject)& h) const noexcept {
-        return std::hash<const void*>()(h.get());
-    }
-};
-struct HandleAISEqual {
-    bool operator()(const Handle(AIS_InteractiveObject)& a,
-                    const Handle(AIS_InteractiveObject)& b) const noexcept {
-        return a.get() == b.get();
-    }
-};
+			// Deactivate all selection modes for this object (mode=0 means all)
+			// This detaches it from the selection manager before Remove().
+			try {
+				m_context->Deactivate(obj, 0);
+			} catch (const Standard_Failure& e) {
+				std::cerr << "Deactivate failed (" << tag
+						  << "): " << e.GetMessageString() << "\n";
+			}
 
-void SafeClearShapes()
-{
-    // ---- 0) Selection hygiene: clear selection & close local contexts
-    // Avoids SelectMgr_ToleranceMap underflows when removing many objects
-m_context->ClearSelected(false);
-m_context->ClearCurrents(false);
-// if (m_context->HasOpenedLocalContext())
-//     m_context->CloseLocalContext();
+			// If it’s displayed, try Remove(); on failure, fall back to Erase()
+			if (m_context->IsDisplayed(obj)) {
+				try {
+					m_context->Remove(
+						obj,
+						false);	 // don’t update per object; update once at end
+				} catch (const Standard_Failure& e) {
+					std::cerr << "Remove failed (" << tag
+							  << "): " << e.GetMessageString()
+							  << " -> falling back to Erase()\n";
+					try {
+						m_context->Erase(obj, Standard_False);
+					} catch (const Standard_Failure& e2) {
+						std::cerr << "Erase also failed (" << tag
+								  << "): " << e2.GetMessageString() << "\n";
+					}
+				}
+			} else {
+				// Not displayed: still deactivate & try Erase to be thorough
+				try {
+					m_context->Erase(obj, Standard_False);
+				} catch (const Standard_Failure& e) {
+					std::cerr << "Erase (not displayed) failed (" << tag
+							  << "): " << e.GetMessageString() << "\n";
+				}
+			}
+		};
 
-    // ---- 1) Collect unique handles (skip nulls)
-    std::unordered_set<Handle(AIS_InteractiveObject), HandleAISHasher, HandleAISEqual> unique;
-    unique.reserve(vaShape.size());
-    for (const auto& h : vaShape)
-        if (!h.IsNull()) unique.insert(h);
+		// ---- 2) Remove compounds first
+		for (auto it = unique.begin(); it != unique.end();) {
+			Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(*it);
+			if (!ais.IsNull()) {
+				const TopoDS_Shape& s = ais->Shape();
+				if (!s.IsNull() && s.ShapeType() == TopAbs_COMPOUND) {
+					safeRemove(*it, "compound");
+					it = unique.erase(it);	// ensure we don’t process twice
+					continue;
+				}
+			}
+			++it;
+		}
 
-    auto safeRemove = [&](const Handle(AIS_InteractiveObject)& obj, const char* tag)
-    {
-        if (obj.IsNull()) return;
+		// ---- 3) Remove everything else
+		for (const auto& h : unique) {
+			safeRemove(h, "regular");
+		}
 
-        // Deactivate all selection modes for this object (mode=0 means all)
-        // This detaches it from the selection manager before Remove().
-        try {
-            m_context->Deactivate(obj, 0);
-        } catch (const Standard_Failure& e) {
-            std::cerr << "Deactivate failed (" << tag << "): " << e.GetMessageString() << "\n";
-        }
+		// ---- 4) Drop Lua-side TopoDS handles (no Free(); just Nullify)
+		for (auto& luaObj : vlua) {
+			if (luaObj) luaObj->shape.Nullify();
+			delete luaObj;
+		}
 
-        // If it’s displayed, try Remove(); on failure, fall back to Erase()
-        if (m_context->IsDisplayed(obj)) {
-            try {
-                m_context->Remove(obj, false); // don’t update per object; update once at end
-            } catch (const Standard_Failure& e) {
-                std::cerr << "Remove failed (" << tag << "): " << e.GetMessageString()
-                          << " -> falling back to Erase()\n";
-                try {
-                    m_context->Erase(obj, Standard_False);
-                } catch (const Standard_Failure& e2) {
-                    std::cerr << "Erase also failed (" << tag << "): " << e2.GetMessageString() << "\n";
-                }
-            }
-        } else {
-            // Not displayed: still deactivate & try Erase to be thorough
-            try {
-                m_context->Erase(obj, Standard_False);
-            } catch (const Standard_Failure& e) {
-                std::cerr << "Erase (not displayed) failed (" << tag << "): " << e.GetMessageString() << "\n";
-            }
-        }
-    };
-
-    // ---- 2) Remove compounds first
-    for (auto it = unique.begin(); it != unique.end(); )
-    {
-        Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(*it);
-        if (!ais.IsNull()) {
-            const TopoDS_Shape& s = ais->Shape();
-            if (!s.IsNull() && s.ShapeType() == TopAbs_COMPOUND) {
-                safeRemove(*it, "compound");
-                it = unique.erase(it); // ensure we don’t process twice
-                continue;
-            }
-        }
-        ++it;
-    }
-
-    // ---- 3) Remove everything else
-    for (const auto& h : unique) {
-        safeRemove(h, "regular");
-    }
-
-    // ---- 4) Drop Lua-side TopoDS handles (no Free(); just Nullify)
-    for (auto& luaObj : vlua){
-        if (luaObj) luaObj->shape.Nullify();
-		delete luaObj;
+		// ---- 5) Clear containers & update once
+		vaShape.clear();
+		vlua.clear();
+		m_context->UpdateCurrentViewer();
 	}
 
-    // ---- 5) Clear containers & update once
-    vaShape.clear();
-    vlua.clear();
-    m_context->UpdateCurrentViewer();
-}
-
-
-
-
-
-
-
-Handle(AIS_Shape) myHighlightedPointAIS; // To store the highlighting sphere
-TopoDS_Vertex myLastHighlightedVertex;   // To store the last highlighted vertex
-void clearHighlight() {
-    if (!myHighlightedPointAIS.IsNull()) {
-        m_context->Remove(myHighlightedPointAIS, Standard_True);
-        myHighlightedPointAIS.Nullify();
-    }
-    myLastHighlightedVertex.Nullify();
-}
-///@return vector 0=windowToWorldX 1=windowToWorldY 2=worldToWindowX 3=worldToWindowY 4=viewportHeight 5=viewportWidth
-vfloat GetViewportAspectRatio(){
-	const Handle(Graphic3d_Camera)& camera=m_view->Camera();
-
-    // Obtém a altura e largura do mundo visível na viewport
-    float viewportHeight = camera->ViewDimensions().Y(); // world
-    float viewportWidth = camera->Aspect() * viewportHeight; // Largura = ratio * altura
-
-
-    Standard_Integer winWidth, winHeight;
-    m_view->Window()->Size(winWidth, winHeight);
-
-	//     // Mundo -> Window (quantos pixels por unidade de mundo)
-    float worldToWindowX = winWidth / viewportWidth;
-    float worldToWindowY = winHeight / viewportHeight;
-
-	// cotm(worldToWindowX,worldToWindowY)
-    
-    // Window -> Mundo (quantas unidades de mundo por pixel)
-    float windowToWorldX = viewportWidth / winWidth;
-    float windowToWorldY = viewportHeight / winHeight;
-	// cotm(camera->Aspect(),viewportWidth ,viewportHeight);
-	return {windowToWorldX,windowToWorldY,worldToWindowX,worldToWindowY,viewportHeight,viewportWidth};
-}
-
-
-void highlightVertex(const TopoDS_Vertex& aVertex) {
-    clearHighlight(); // Clear any existing highlight first
- 
-	perf();
-	// sleepms(1000);
-	float ratio=GetViewportAspectRatio()[0];
-	perf("GetViewportAspectRatio");
-	// double ratio=theProjector->Aspect(); 
-	cotm(ratio);
-
-    gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
-
-    // Create a small red sphere at the vertex location
-    Standard_Real sphereRadius = 7*ratio; // Small radius for the highlight ball
-    TopoDS_Shape sphereShape = BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
-    myHighlightedPointAIS = new AIS_Shape(sphereShape);
-    myHighlightedPointAIS->SetColor(Quantity_NOC_RED);
-    myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
-    myHighlightedPointAIS->SetTransparency(0.2f); // Slightly transparent
-    myHighlightedPointAIS->SetZLayer(Graphic3d_ZLayerId_Top); // Ensure it's drawn on top
-
-    m_context->Display(myHighlightedPointAIS, Standard_True);
-    myLastHighlightedVertex = aVertex;
-
-    cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
-// 	if(!projector.Perspective()){
-// 		gp_Pnt clickedPoint(mousex, mousey, 0);
-// 		// Passo 1: converter mouse para coordenadas projetadas reais (no plano do HLR)
-// Standard_Real x, y, z;
-// m_view->Convert(mousex, mousey, x, y, z);
-
-// // Como HLR só trabalha em XY, podes descartar z:
-// gp_Pnt screenPoint(x, y, 0);
-// // BRep_Tool::Pnt(vertex);
-// 		gp_Pnt vertexhlrPnt =getAccurateVertexPosition(vertexPnt,projector);
-// 		// gp_Pnt vertexhlrPnt =getAccurateVertexPosition(m_context,mousex,mousey);
-// 		// gp_Pnt vertexhlrPnt =getAccurateVertexPosition(clickedPoint);
-// 		// gp_Pnt vertexhlrPnt =convertHLRVertexToWorld(vertexPnt);
-// 		// gp_Pnt vertexhlrPnt =convertHLRToWorld(vertexPnt);
-// 		cotm("Highlighted hlr Vertex:", vertexhlrPnt.X(), vertexhlrPnt.Y(), vertexhlrPnt.Z());
-// 	}
-//     // printf("Highlighted Vertex: X=%.3f, Y=%.3f, Z=%.3f\n", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
-
-// if (!projector.Perspective()) {
-//     // 1. Converte coordenadas de ecrã para mundo 2D projetado
-//     Standard_Real projX, projY, projZ;
-//     m_view->Convert(mousex, mousey, projX, projY, projZ);
-//     gp_Pnt projectedHLRPoint(projX, projY, 0); // plano HLR é Z=0
-
-//     // 2. Converte o ponto projetado para o espaço 3D real
-//     gp_Pnt worldPoint = convertHLRToWorld(projectedHLRPoint);
-
-//     cotm("Convertido de HLR para 3D:", worldPoint.X(), worldPoint.Y(), worldPoint.Z());
-// }
-
-}
-
-
-int mousex=0;
-int mousey=0;
-
-void getvertex() {
-	m_view->SetComputedMode(Standard_False);
-	clearHighlight();
-   
-    // 2. Activate ONLY vertex selection mode for this specific picking operation.
-    // This uses the AIS_Shape::SelectionMode utility, which correctly returns 0 for TopAbs_VERTEX.
-    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
-
-	 
-
-    // 3. Perform the picking operations
-    m_context->MoveTo(mousex, mousey, m_view, Standard_False);
-
-
-    m_context->SelectDetected(AIS_SelectionScheme_Replace);
-
-
-
-    Handle(SelectMgr_EntityOwner) foundOwner;
-
-    for (m_context->InitDetected(); m_context->MoreDetected(); m_context->NextDetected()) {
-        Handle(SelectMgr_EntityOwner) owner = m_context->DetectedOwner();
-
-        if (owner.IsNull())
-            continue;
-
-        Handle(AIS_InteractiveObject) obj = Handle(AIS_InteractiveObject)::DownCast(owner->Selectable());
-
-        // Skip the HLR shape
-        if (obj == hidden_)
-            continue;
-
-        foundOwner = owner; // First valid non-HLR owner
-        break;
-    }
-
-    if (!foundOwner.IsNull()) {
-        Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(foundOwner);
-        if (!brepOwner.IsNull()) {
-            TopoDS_Shape detectedTopoShape = brepOwner->Shape();
-
-            printf("Detected TopoDS_ShapeType: %d (0=Vertex, 1=Edge, 2=Wire, 3=Face, etc.)\n", detectedTopoShape.ShapeType());
-            printf("Value of TopAbs_VERTEX: %d\n", TopAbs_VERTEX);
-
-            if (detectedTopoShape.ShapeType() == TopAbs_VERTEX) {
-                TopoDS_Vertex currentVertex = TopoDS::Vertex(detectedTopoShape);
-                if (!myLastHighlightedVertex.IsEqual(currentVertex)) {
-                    highlightVertex(currentVertex);
-                } else {
-                    gp_Pnt pt = BRep_Tool::Pnt(currentVertex);
-                    printf("Hovering over same vertex: X=%.3f, Y=%.3f, Z=%.3f\n", pt.X(), pt.Y(), pt.Z());
-                }
-            } else {
-                printf("Detected shape is not a vertex (type: %d)\n", detectedTopoShape.ShapeType());
-                clearHighlight();
-            }
-        } else {
-            printf("Owner is not a StdSelect_BRepOwner.\n");
-            clearHighlight();
-        }
-    } else {
-        // cotmupset
-        // cotm("Nothing detected under the mouse.");
-        // cotmup
-        clearHighlight();
-    }
-
-    m_context->UpdateCurrentViewer();
-}
-
- 
-// retorna ponteiro luadraw* (ou nullptr)
-luadraw* lua_detected(Handle(SelectMgr_EntityOwner) entOwner)
-{
-    if (!entOwner.IsNull()) {
-        // 1) tenta obter o Selectable associado ao entOwner
-        if (entOwner->HasSelectable()) {
-            Handle(SelectMgr_SelectableObject) selObj = entOwner->Selectable();
-            // SelectableObject é a base de AIS_InteractiveObject, faz downcast
-            Handle(AIS_InteractiveObject) ao = Handle(AIS_InteractiveObject)::DownCast(selObj);
-            if (!ao.IsNull() && ao->HasOwner()) {
-                Handle(Standard_Transient) owner = ao->GetOwner();
-                Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
-                if (!w.IsNull()) return w->ptr; // devolve o ponteiro armazenado
-            }
-        }
-    }
-
-    // Alternativa: tenta obter directamente o interactive object detectado pelo contexto
-    // if (!m_context.IsNull()) {
-    //     Handle(AIS_InteractiveObject) detected = m_context->DetectedInteractive();
-    //     if (!detected.IsNull() && detected->HasOwner()) {
-    //         Handle(Standard_Transient) owner = detected->GetOwner();
-    //         Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
-    //         if (!w.IsNull()) return w->ptr;
-    //     }
-    // }
-    return nullptr;
-}
-
-
-
-void ev_highlight(){
-	
-    // Start with a clean slate for the custom highlight
-    clearHighlight();
-
-    // --- Strict Selection Mode Control for Hover ---
-    // 1. Deactivate ALL active modes first to ensure a clean slate for picking.
-    // This loops through common topological modes.
-    // for (Standard_Integer mode = TopAbs_VERTEX; mode <= TopAbs_COMPSOLID; ++mode) {
-    //     m_context->Deactivate(mode);
-    // }
-    // You might also need: m_context->Deactivate(0); // If 0 means "all" or a special mode.
-	
-    // 2. Activate ONLY vertex selection mode for this specific picking operation.
-    // This uses the AIS_Shape::SelectionMode utility, which correctly returns 0 for TopAbs_VERTEX.
-    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
-    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
-    if(!hlr_on){
-		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
-	}else{
-		m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+	Handle(AIS_Shape)
+		myHighlightedPointAIS;	// To store the highlighting sphere
+	TopoDS_Vertex
+		myLastHighlightedVertex;  // To store the last highlighted vertex
+	void clearHighlight() {
+		if (!myHighlightedPointAIS.IsNull()) {
+			m_context->Remove(myHighlightedPointAIS, Standard_True);
+			myHighlightedPointAIS.Nullify();
+		}
+		myLastHighlightedVertex.Nullify();
 	}
-    // 3. Perform the picking operations
-    m_context->MoveTo(mousex, mousey, m_view, Standard_False);
+	///@return vector 0=windowToWorldX 1=windowToWorldY 2=worldToWindowX
+	/// 3=worldToWindowY 4=viewportHeight 5=viewportWidth
+	vfloat GetViewportAspectRatio() {
+		const Handle(Graphic3d_Camera) & camera = m_view->Camera();
 
-	m_context->SelectDetected(AIS_SelectionScheme_Replace);
+		// Obtém a altura e largura do mundo visível na viewport
+		float viewportHeight = camera->ViewDimensions().Y();  // world
+		float viewportWidth =
+			camera->Aspect() * viewportHeight;	// Largura = ratio * altura
 
-    // 4. Get the detected owner
-    Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
+		Standard_Integer winWidth, winHeight;
+		m_view->Window()->Size(winWidth, winHeight);
 
-	if (!anOwner.IsNull()  ){
-	luadraw* ldd=lua_detected(anOwner);
-	if(ldd){
-	cotm(ldd->name);
-	}
+		//     // Mundo -> Window (quantos pixels por unidade de mundo)
+		float worldToWindowX = winWidth / viewportWidth;
+		float worldToWindowY = winHeight / viewportHeight;
+
+		// cotm(worldToWindowX,worldToWindowY)
+
+		// Window -> Mundo (quantas unidades de mundo por pixel)
+		float windowToWorldX = viewportWidth / winWidth;
+		float windowToWorldY = viewportHeight / winHeight;
+		// cotm(camera->Aspect(),viewportWidth ,viewportHeight);
+		return {windowToWorldX, windowToWorldY, worldToWindowX,
+				worldToWindowY, viewportHeight, viewportWidth};
 	}
 
-    // 5. Deactivate vertex mode immediately after picking
-    // This is crucial if you only want vertex picking *during* hover,
-    // and want other selection behaviors (e.g., selecting faces on click) at other times.
-    // m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
-    // --- End Strict Selection Mode Control ---
+	void highlightVertex(const TopoDS_Vertex& aVertex) {
+		clearHighlight();  // Clear any existing highlight first
 
+		perf();
+		// sleepms(1000);
+		float ratio = GetViewportAspectRatio()[0];
+		perf("GetViewportAspectRatio");
+		// double ratio=theProjector->Aspect();
+		cotm(ratio);
 
-    // --- Debugging and Highlighting Logic ---
-    if (!anOwner.IsNull()  ) {
-        Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(anOwner);
-        if (!brepOwner.IsNull()) {
-            TopoDS_Shape detectedTopoShape = brepOwner->Shape();
+		gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
 
-            // printf("Detected TopoDS_ShapeType: %d (0=Vertex, 1=Edge, 2=Wire, 3=Face, etc.)\n", detectedTopoShape.ShapeType());
-            // printf("Value of TopAbs_VERTEX: %d\n", TopAbs_VERTEX); // Confirms the actual value of TopAbs_VERTEX
+		// Create a small red sphere at the vertex location
+		Standard_Real sphereRadius =
+			7 * ratio;	// Small radius for the highlight ball
+		TopoDS_Shape sphereShape =
+			BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
+		myHighlightedPointAIS = new AIS_Shape(sphereShape);
+		myHighlightedPointAIS->SetColor(Quantity_NOC_RED);
+		myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
+		myHighlightedPointAIS->SetTransparency(0.2f);  // Slightly transparent
+		myHighlightedPointAIS->SetZLayer(
+			Graphic3d_ZLayerId_Top);  // Ensure it's drawn on top
 
-            if (detectedTopoShape.ShapeType() == TopAbs_VERTEX) {
-                // printf("--- CONDITION: detectedTopoShape.ShapeType() == TopAbs_VERTEX is TRUE ---\n");
-                TopoDS_Vertex currentVertex = TopoDS::Vertex(detectedTopoShape);
-                if (!myLastHighlightedVertex.IsEqual(currentVertex)) {
-                    highlightVertex(currentVertex);
-                } else {
-                    // Highlighted same vertex, no need to re-print or re-draw
-                    printf("Hovering over same vertex: X=%.3f, Y=%.3f, Z=%.3f\n",
-                           BRep_Tool::Pnt(currentVertex).X(),
-                           BRep_Tool::Pnt(currentVertex).Y(),
-                           BRep_Tool::Pnt(currentVertex).Z());
-                }
-            } else {
-                // printf("--- CONDITION: detectedTopoShape.ShapeType() == TopAbs_VERTEX is FALSE (Type %d) ---\n", detectedTopoShape.ShapeType());
-                clearHighlight(); // Detected a BRepOwner, but not a vertex
-            }
-        } else {
-            // printf("Owner is not a StdSelect_BRepOwner.\n");
-            clearHighlight(); // Owner is not a BRepOwner (e.g., detected an AIS_Text)
-        }
-    } else {
-		// go_up(1);
-		// cotm("test")
-		// printf("%s",cotmlastoutput.c_str());
-		// go_up;
-        // cotmupset
-		// cotm("Nothing detected under the mouse.");
-		// cotmup
+		m_context->Display(myHighlightedPointAIS, Standard_True);
+		myLastHighlightedVertex = aVertex;
 
-        clearHighlight(); // Nothing detected
-    }
+		cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(),
+			 vertexPnt.Z());
+		// 	if(!projector.Perspective()){
+		// 		gp_Pnt clickedPoint(mousex, mousey, 0);
+		// 		// Passo 1: converter mouse para coordenadas projetadas reais
+		// (no plano do HLR) Standard_Real x, y, z; m_view->Convert(mousex,
+		// mousey, x, y, z);
 
-    m_context->UpdateCurrentViewer(); // Update the viewer to show/hide highlight
-}
-int handle(int event) override { 
-    static int start_y;
-    const int edge_zone = this->w() * 0.05; // 5% right edge zone
+		// // Como HLR só trabalha em XY, podes descartar z:
+		// gp_Pnt screenPoint(x, y, 0);
+		// // BRep_Tool::Pnt(vertex);
+		// 		gp_Pnt vertexhlrPnt
+		// =getAccurateVertexPosition(vertexPnt,projector);
+		// 		// gp_Pnt vertexhlrPnt
+		// =getAccurateVertexPosition(m_context,mousex,mousey);
+		// 		// gp_Pnt vertexhlrPnt =getAccurateVertexPosition(clickedPoint);
+		// 		// gp_Pnt vertexhlrPnt =convertHLRVertexToWorld(vertexPnt);
+		// 		// gp_Pnt vertexhlrPnt =convertHLRToWorld(vertexPnt);
+		// 		cotm("Highlighted hlr Vertex:", vertexhlrPnt.X(),
+		// vertexhlrPnt.Y(), vertexhlrPnt.Z());
+		// 	}
+		//     // printf("Highlighted Vertex: X=%.3f, Y=%.3f, Z=%.3f\n",
+		//     vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
 
-// #include <SelectMgr_EntityOwner.hxx>
-// #include <StdSelect_BRepOwner.hxx>
-// #include <TopAbs_ShapeEnum.hxx> // Ensure this is included for TopAbs_VERTEX etc.
+		// if (!projector.Perspective()) {
+		//     // 1. Converte coordenadas de ecrã para mundo 2D projetado
+		//     Standard_Real projX, projY, projZ;
+		//     m_view->Convert(mousex, mousey, projX, projY, projZ);
+		//     gp_Pnt projectedHLRPoint(projX, projY, 0); // plano HLR é Z=0
 
-// ... (your existing OCCViewerWindow class methods) ...
+		//     // 2. Converte o ponto projetado para o espaço 3D real
+		//     gp_Pnt worldPoint = convertHLRToWorld(projectedHLRPoint);
 
-// In your initializeOCC() method:
-// Ensure SetSelectionSensitivity is set appropriately for small vertices.
-// For a sphere of radius 10, 0.02 or 0.05 is a good starting point.
-// m_context->SetSelectionSensitivity(0.02);
+		//     cotm("Convertido de HLR para 3D:", worldPoint.X(),
+		//     worldPoint.Y(), worldPoint.Z());
+		// }
+	}
 
+	int mousex = 0;
+	int mousey = 0;
 
-// In your createSampleShape() method:
-// Remove any AIS_InteractiveContext::SetMode() calls here, as we will control it directly in FL_MOVE
-// The default selection behavior on the AIS_Shape itself is sufficient for this approach.
+	void getvertex() {
+		m_view->SetComputedMode(Standard_False);
+		clearHighlight();
 
+		// 2. Activate ONLY vertex selection mode for this specific picking
+		// operation. This uses the AIS_Shape::SelectionMode utility, which
+		// correctly returns 0 for TopAbs_VERTEX.
+		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
 
-// In your handle(int event) method:
-if (event == FL_MOVE) {
-    int x = Fl::event_x();
-    int y = Fl::event_y();
-	mousex=x;
-	mousey=y;
-	// getvertex();
-	// return 1;
-	
-// {// 1) guarda mousex/mousey (já fazes isso)
-// gp_Pnt screenHLR = screenPointFromMouse(mousex, mousey);
+		// 3. Perform the picking operations
+		m_context->MoveTo(mousex, mousey, m_view, Standard_False);
 
-// // 2) converte para 3D
-// gp_Pnt worldApprox = convertHLRToWorld(screenHLR);
+		m_context->SelectDetected(AIS_SelectionScheme_Replace);
 
-// // 3) (opcional) vertex exato mais próximo
-// gp_Pnt trueVertex = getAccurateVertexPosition(screenHLR);
+		Handle(SelectMgr_EntityOwner) foundOwner;
 
-// // Imprime para debug
-// printf("Mouse → HLR2D: (%.3f,%.3f)\n", screenHLR.X(), screenHLR.Y());
-// printf("Approx world 3D: (%.3f,%.3f,%.3f)\n",
-//        worldApprox.X(), worldApprox.Y(), worldApprox.Z());
-// printf("Best match vertex: (%.3f,%.3f,%.3f)\n",
-//        trueVertex.X(), trueVertex.Y(), trueVertex.Z());}
+		for (m_context->InitDetected(); m_context->MoreDetected();
+			 m_context->NextDetected()) {
+			Handle(SelectMgr_EntityOwner) owner = m_context->DetectedOwner();
 
+			if (owner.IsNull()) continue;
 
-	ev_highlight();
+			Handle(AIS_InteractiveObject) obj =
+				Handle(AIS_InteractiveObject)::DownCast(owner->Selectable());
 
+			// Skip the HLR shape
+			if (obj == hidden_) continue;
 
+			foundOwner = owner;	 // First valid non-HLR owner
+			break;
+		}
 
-    return 1;
-}
+		if (!foundOwner.IsNull()) {
+			Handle(StdSelect_BRepOwner) brepOwner =
+				Handle(StdSelect_BRepOwner)::DownCast(foundOwner);
+			if (!brepOwner.IsNull()) {
+				TopoDS_Shape detectedTopoShape = brepOwner->Shape();
 
+				printf(
+					"Detected TopoDS_ShapeType: %d (0=Vertex, 1=Edge, 2=Wire, "
+					"3=Face, etc.)\n",
+					detectedTopoShape.ShapeType());
+				printf("Value of TopAbs_VERTEX: %d\n", TopAbs_VERTEX);
 
-    switch (event) {
-        case FL_PUSH:
-            if (Fl::event_button() == FL_LEFT_MOUSE) {
-                // Check if click is in right 5% zone
-                if (Fl::event_x() > (this->w() - edge_zone)) {
-                    start_y = Fl::event_y();
-                    return 1; // Capture mouse
-                }
-            }
-            break;
+				if (detectedTopoShape.ShapeType() == TopAbs_VERTEX) {
+					TopoDS_Vertex currentVertex =
+						TopoDS::Vertex(detectedTopoShape);
+					if (!myLastHighlightedVertex.IsEqual(currentVertex)) {
+						highlightVertex(currentVertex);
+					} else {
+						gp_Pnt pt = BRep_Tool::Pnt(currentVertex);
+						printf(
+							"Hovering over same vertex: X=%.3f, Y=%.3f, "
+							"Z=%.3f\n",
+							pt.X(), pt.Y(), pt.Z());
+					}
+				} else {
+					printf("Detected shape is not a vertex (type: %d)\n",
+						   detectedTopoShape.ShapeType());
+					clearHighlight();
+				}
+			} else {
+				printf("Owner is not a StdSelect_BRepOwner.\n");
+				clearHighlight();
+			}
+		} else {
+			// cotmupset
+			// cotm("Nothing detected under the mouse.");
+			// cotmup
+			clearHighlight();
+		}
 
-		//bar5per
-        case FL_DRAG:
-            if (Fl::event_state(FL_BUTTON1)) {
-                // Only rotate if drag started in right edge zone
-                if (Fl::event_x() > (this->w() - edge_zone)) {
-                    int dy = Fl::event_y() - start_y;
-                    start_y = Fl::event_y();
-                    
-                    // Rotate view (OpenCascade)
-                    if (dy != 0) {
-                        double angle = dy * 0.005; // Rotation sensitivity factor
-						perf();
-    	                // Fl::wait(0.01);	
-                        m_view->Rotate(0, 0, angle); // Rotate around Z-axis
-						perf("vnormal");
-                        // projectAndDisplayWithHLR(vshapes);
-						// recomputeComputed () ;
-                         redraw(); //  redraw(); // m_view->Update ();
+		m_context->UpdateCurrentViewer();
+	}
 
+	// retorna ponteiro luadraw* (ou nullptr)
+	luadraw* lua_detected(Handle(SelectMgr_EntityOwner) entOwner) {
+		if (!entOwner.IsNull()) {
+			// 1) tenta obter o Selectable associado ao entOwner
+			if (entOwner->HasSelectable()) {
+				Handle(SelectMgr_SelectableObject) selObj =
+					entOwner->Selectable();
+				// SelectableObject é a base de AIS_InteractiveObject, faz
+				// downcast
+				Handle(AIS_InteractiveObject) ao =
+					Handle(AIS_InteractiveObject)::DownCast(selObj);
+				if (!ao.IsNull() && ao->HasOwner()) {
+					Handle(Standard_Transient) owner = ao->GetOwner();
+					Handle(ManagedPtrWrapper<luadraw>) w =
+						Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+					if (!w.IsNull())
+						return w->ptr;	// devolve o ponteiro armazenado
+				}
+			}
+		}
 
-                        // redraw();//
-                        // myView->Redraw();
-                    }
-                    return 1;
-                }
-            }
-            break;
-    }
+		// Alternativa: tenta obter directamente o interactive object detectado
+		// pelo contexto if (!m_context.IsNull()) {
+		//     Handle(AIS_InteractiveObject) detected =
+		//     m_context->DetectedInteractive(); if (!detected.IsNull() &&
+		//     detected->HasOwner()) {
+		//         Handle(Standard_Transient) owner = detected->GetOwner();
+		//         Handle(ManagedPtrWrapper<luadraw>) w =
+		//         Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner); if
+		//         (!w.IsNull()) return w->ptr;
+		//     }
+		// }
+		return nullptr;
+	}
 
-    switch (event) {
-        case FL_PUSH:
-            if (Fl::event_button() == FL_LEFT_MOUSE) {
-                // Fl::add_timeout(0.05, timeout_cb, this);
-                isRotating = true;
-                lastX = Fl::event_x();
-                lastY = Fl::event_y();
-                if (m_initialized) {
-                    m_view->StartRotation(lastX, lastY);
-                }
-                return 1;
-            }
-            else if (Fl::event_button() == FL_RIGHT_MOUSE) {
-                isPanning = true;
-                lastX = Fl::event_x();
-                lastY = Fl::event_y();
-                return 1;
-            }
-            break;
+	void ev_highlight() {
+		// Start with a clean slate for the custom highlight
+		clearHighlight();
 
-        case FL_DRAG: 
-            if (isRotating && m_initialized) { 
-                funcfps(12,
-					perf();
-					m_view->Rotation(Fl::event_x(),Fl::event_y());
-                	// projectAndDisplayWithHLR(vaShape,1);
-                	projectAndDisplayWithHLR(vshapes,1);
-                 	redraw(); //  redraw(); // m_view->Update ();
-					perf("vnormalr");
+		// --- Strict Selection Mode Control for Hover ---
+		// 1. Deactivate ALL active modes first to ensure a clean slate for
+		// picking. This loops through common topological modes. for
+		// (Standard_Integer mode = TopAbs_VERTEX; mode <= TopAbs_COMPSOLID;
+		// ++mode) {
+		//     m_context->Deactivate(mode);
+		// }
+		// You might also need: m_context->Deactivate(0); // If 0 means "all" or
+		// a special mode.
 
+		// 2. Activate ONLY vertex selection mode for this specific picking
+		// operation. This uses the AIS_Shape::SelectionMode utility, which
+		// correctly returns 0 for TopAbs_VERTEX.
+		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
+		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+		if (!hlr_on) {
+			m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
+		} else {
+			m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+		}
+		// 3. Perform the picking operations
+		m_context->MoveTo(mousex, mousey, m_view, Standard_False);
 
-                colorisebtn();    
-                // redraw();        
-            ); 
-                return 1;
-            }
-            else if (isPanning && m_initialized && Fl::event_button() == FL_RIGHT_MOUSE) {
-                int dx = Fl::event_x() - lastX;
-                int dy = Fl::event_y() - lastY;
-                // m_view->Pan(dx, -dy); // Note: -dy to match typical screen coordinates
-                funcfps(25,
-                    m_view->Pan(dx, -dy);
-                     redraw(); //  redraw(); // m_view->Update ();
+		m_context->SelectDetected(AIS_SelectionScheme_Replace);
 
+		// 4. Get the detected owner
+		Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
 
-                    lastX = Fl::event_x(); 
-                    lastY = Fl::event_y();  
-                ); 
-                return 1;
-            }
-            break;
+		if (!anOwner.IsNull()) {
+			luadraw* ldd = lua_detected(anOwner);
+			if (ldd) {
+				cotm(ldd->name);
+			}
+		}
 
-        case FL_RELEASE:
-            if (Fl::event_button() == FL_LEFT_MOUSE) {
-                isRotating = false; 
-                return 1;
-            }
-            else if (Fl::event_button() == FL_RIGHT_MOUSE) {
-                isPanning = false;
-                return 1;
-            }
-            break;
-case FL_MOUSEWHEEL:
-    if (m_initialized) {
-        funcfps(25,
-            int mouseX = Fl::event_x();
-            int mouseY = Fl::event_y();
-            m_view->StartZoomAtPoint(mouseX, mouseY);
-            // Get wheel delta (normalized)
-            int wheelDelta = Fl::event_dy();
-            
-            // According to OpenCASCADE docs, ZoomAtPoint needs:
-            // 1. The start point (where mouse is)
-            // 2. The end point (calculated based on wheel movement)
-            
-            // Calculate end point - this determines zoom direction and magnitude
-            int endX = mouseX;
-            int endY = mouseY - (wheelDelta*5*5);  // Vertical movement controls zoom
-            
-            // Call ZoomAtPoint with both points
-            m_view->ZoomAtPoint(mouseX, mouseY, endX, endY);
-             redraw(); //  redraw(); // m_view->Update ();
+		// 5. Deactivate vertex mode immediately after picking
+		// This is crucial if you only want vertex picking *during* hover,
+		// and want other selection behaviors (e.g., selecting faces on click)
+		// at other times.
+		// m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+		// --- End Strict Selection Mode Control ---
 
+		// --- Debugging and Highlighting Logic ---
+		if (!anOwner.IsNull()) {
+			Handle(StdSelect_BRepOwner) brepOwner =
+				Handle(StdSelect_BRepOwner)::DownCast(anOwner);
+			if (!brepOwner.IsNull()) {
+				TopoDS_Shape detectedTopoShape = brepOwner->Shape();
 
-        );
-        return 1;
-    }
-    break;
-    }
-    return Fl_Window::handle(event);
-}
+				// printf("Detected TopoDS_ShapeType: %d (0=Vertex, 1=Edge,
+				// 2=Wire, 3=Face, etc.)\n", detectedTopoShape.ShapeType());
+				// printf("Value of TopAbs_VERTEX: %d\n", TopAbs_VERTEX); //
+				// Confirms the actual value of TopAbs_VERTEX
 
-int lastX, lastY;
-bool isRotating = false;
-bool isPanning = false;
+				if (detectedTopoShape.ShapeType() == TopAbs_VERTEX) {
+					// printf("--- CONDITION: detectedTopoShape.ShapeType() ==
+					// TopAbs_VERTEX is TRUE ---\n");
+					TopoDS_Vertex currentVertex =
+						TopoDS::Vertex(detectedTopoShape);
+					if (!myLastHighlightedVertex.IsEqual(currentVertex)) {
+						highlightVertex(currentVertex);
+					} else {
+						// Highlighted same vertex, no need to re-print or
+						// re-draw
+						printf(
+							"Hovering over same vertex: X=%.3f, Y=%.3f, "
+							"Z=%.3f\n",
+							BRep_Tool::Pnt(currentVertex).X(),
+							BRep_Tool::Pnt(currentVertex).Y(),
+							BRep_Tool::Pnt(currentVertex).Z());
+					}
+				} else {
+					// printf("--- CONDITION: detectedTopoShape.ShapeType() ==
+					// TopAbs_VERTEX is FALSE (Type %d) ---\n",
+					// detectedTopoShape.ShapeType());
+					clearHighlight();  // Detected a BRepOwner, but not a vertex
+				}
+			} else {
+				// printf("Owner is not a StdSelect_BRepOwner.\n");
+				clearHighlight();  // Owner is not a BRepOwner (e.g., detected
+								   // an AIS_Text)
+			}
+		} else {
+			// go_up(1);
+			// cotm("test")
+			// printf("%s",cotmlastoutput.c_str());
+			// go_up;
+			// cotmupset
+			// cotm("Nothing detected under the mouse.");
+			// cotmup
+
+			clearHighlight();  // Nothing detected
+		}
+
+		m_context->UpdateCurrentViewer();  // Update the viewer to show/hide
+										   // highlight
+	}
+	int handle(int event) override {
+		static int start_y;
+		const int edge_zone = this->w() * 0.05;	 // 5% right edge zone
+
+		// #include <SelectMgr_EntityOwner.hxx>
+		// #include <StdSelect_BRepOwner.hxx>
+		// #include <TopAbs_ShapeEnum.hxx> // Ensure this is included for
+		// TopAbs_VERTEX etc.
+
+		// ... (your existing OCCViewerWindow class methods) ...
+
+		// In your initializeOCC() method:
+		// Ensure SetSelectionSensitivity is set appropriately for small
+		// vertices. For a sphere of radius 10, 0.02 or 0.05 is a good starting
+		// point. m_context->SetSelectionSensitivity(0.02);
+
+		// In your createSampleShape() method:
+		// Remove any AIS_InteractiveContext::SetMode() calls here, as we will
+		// control it directly in FL_MOVE The default selection behavior on the
+		// AIS_Shape itself is sufficient for this approach.
+
+		// In your handle(int event) method:
+		if (event == FL_MOVE) {
+			int x = Fl::event_x();
+			int y = Fl::event_y();
+			mousex = x;
+			mousey = y;
+			// getvertex();
+			// return 1;
+
+			// {// 1) guarda mousex/mousey (já fazes isso)
+			// gp_Pnt screenHLR = screenPointFromMouse(mousex, mousey);
+
+			// // 2) converte para 3D
+			// gp_Pnt worldApprox = convertHLRToWorld(screenHLR);
+
+			// // 3) (opcional) vertex exato mais próximo
+			// gp_Pnt trueVertex = getAccurateVertexPosition(screenHLR);
+
+			// // Imprime para debug
+			// printf("Mouse → HLR2D: (%.3f,%.3f)\n", screenHLR.X(),
+			// screenHLR.Y()); printf("Approx world 3D: (%.3f,%.3f,%.3f)\n",
+			//        worldApprox.X(), worldApprox.Y(), worldApprox.Z());
+			// printf("Best match vertex: (%.3f,%.3f,%.3f)\n",
+			//        trueVertex.X(), trueVertex.Y(), trueVertex.Z());}
+
+			ev_highlight();
+
+			return 1;
+		}
+
+		switch (event) {
+			case FL_PUSH:
+				if (Fl::event_button() == FL_LEFT_MOUSE) {
+					// Check if click is in right 5% zone
+					if (Fl::event_x() > (this->w() - edge_zone)) {
+						start_y = Fl::event_y();
+						return 1;  // Capture mouse
+					}
+				}
+				break;
+
+			// bar5per
+			case FL_DRAG:
+				if (Fl::event_state(FL_BUTTON1)) {
+					// Only rotate if drag started in right edge zone
+					if (Fl::event_x() > (this->w() - edge_zone)) {
+						int dy = Fl::event_y() - start_y;
+						start_y = Fl::event_y();
+
+						// Rotate view (OpenCascade)
+						if (dy != 0) {
+							double angle =
+								dy * 0.005;	 // Rotation sensitivity factor
+							perf();
+							// Fl::wait(0.01);
+							m_view->Rotate(0, 0,
+										   angle);	// Rotate around Z-axis
+							perf("vnormal");
+							// projectAndDisplayWithHLR(vshapes);
+							// recomputeComputed () ;
+							redraw();  //  redraw(); // m_view->Update ();
+
+							// redraw();//
+							// myView->Redraw();
+						}
+						return 1;
+					}
+				}
+				break;
+		}
+
+		switch (event) {
+			case FL_PUSH:
+				if (Fl::event_button() == FL_LEFT_MOUSE) {
+					// Fl::add_timeout(0.05, timeout_cb, this);
+					isRotating = true;
+					lastX = Fl::event_x();
+					lastY = Fl::event_y();
+					if (m_initialized) {
+						m_view->StartRotation(lastX, lastY);
+					}
+					return 1;
+				} else if (Fl::event_button() == FL_RIGHT_MOUSE) {
+					isPanning = true;
+					lastX = Fl::event_x();
+					lastY = Fl::event_y();
+					return 1;
+				}
+				break;
+
+			case FL_DRAG:
+				if (isRotating && m_initialized) {
+					funcfps(12, perf();
+							m_view->Rotation(Fl::event_x(), Fl::event_y());
+							// projectAndDisplayWithHLR(vaShape,1);
+							projectAndDisplayWithHLR(vshapes, 1);
+							redraw();  //  redraw(); // m_view->Update ();
+							perf("vnormalr");
+
+							colorisebtn();
+							// redraw();
+					);
+					return 1;
+				} else if (isPanning && m_initialized &&
+						   Fl::event_button() == FL_RIGHT_MOUSE) {
+					int dx = Fl::event_x() - lastX;
+					int dy = Fl::event_y() - lastY;
+					// m_view->Pan(dx, -dy); // Note: -dy to match typical
+					// screen coordinates
+					funcfps(25, m_view->Pan(dx, -dy);
+							redraw();  //  redraw(); // m_view->Update ();
+
+							lastX = Fl::event_x(); lastY = Fl::event_y(););
+					return 1;
+				}
+				break;
+
+			case FL_RELEASE:
+				if (Fl::event_button() == FL_LEFT_MOUSE) {
+					isRotating = false;
+					return 1;
+				} else if (Fl::event_button() == FL_RIGHT_MOUSE) {
+					isPanning = false;
+					return 1;
+				}
+				break;
+			case FL_MOUSEWHEEL:
+				if (m_initialized) {
+					funcfps(
+						25, int mouseX = Fl::event_x();
+						int mouseY = Fl::event_y();
+						m_view->StartZoomAtPoint(mouseX, mouseY);
+						// Get wheel delta (normalized)
+						int wheelDelta = Fl::event_dy();
+
+						// According to OpenCASCADE docs, ZoomAtPoint needs:
+						// 1. The start point (where mouse is)
+						// 2. The end point (calculated based on wheel movement)
+
+						// Calculate end point - this determines zoom direction
+						// and magnitude
+						int endX = mouseX;
+						int endY =
+							mouseY - (wheelDelta * 5 *
+									  5);  // Vertical movement controls zoom
+
+						// Call ZoomAtPoint with both points
+						m_view->ZoomAtPoint(mouseX, mouseY, endX, endY);
+						redraw();  //  redraw(); // m_view->Update ();
+
+					);
+					return 1;
+				}
+				break;
+		}
+		return Fl_Window::handle(event);
+	}
+
+	int lastX, lastY;
+	bool isRotating = false;
+	bool isPanning = false;
 #pragma endregion events
 
+	struct pashape : public AIS_Shape {
+		// expõe o drawer protegido da AIS_Shape
+		using AIS_Shape::myDrawer;
 
+		pashape(const TopoDS_Shape& shape) : AIS_Shape(shape) {
+			// 1) Cria um novo drawer
+			Handle(Prs3d_Drawer) dr = new Prs3d_Drawer();
 
-struct pashape : public AIS_Shape {
-  // expõe o drawer protegido da AIS_Shape
-  using AIS_Shape::myDrawer;
+			// 2) Linha tracejada vermelha, espessura 2
+			Handle(Prs3d_LineAspect) wireAsp =
+				new Prs3d_LineAspect(Quantity_NOC_BLUE,	 // cor vermelha
+									 Aspect_TOL_DASH,	 // tipo: dash
+									 0.5				 // espessura da linha
+				);
 
-  pashape(const TopoDS_Shape& shape)
-    : AIS_Shape(shape)
-  {
-    // 1) Cria um novo drawer
-    Handle(Prs3d_Drawer) dr = new Prs3d_Drawer();
+			// dr->SetWireAspect(wireAsp);
+			// dr->SetWireDraw(true);
 
-    // 2) Linha tracejada vermelha, espessura 2
-    Handle(Prs3d_LineAspect) wireAsp =
-      new Prs3d_LineAspect(
-        Quantity_NOC_BLUE,    // cor vermelha
-        Aspect_TOL_DASH,     // tipo: dash
-        0.5                  // espessura da linha
-      );
+			// 3) (Opcional) Desliga faces, só wireframe
 
-    // dr->SetWireAspect(wireAsp);
-    // dr->SetWireDraw(true);
+			// 4) Substitui o drawer interno
+			// SetAttributes(dr);
+			// setColor(dr,Quantity_NOC_RED);
+			// replaceWithNewOwnAspects();
+			Attributes()->SetLineAspect(wireAsp);
+			Attributes()->SetSeenLineAspect(wireAsp);
+			Attributes()->SetFaceBoundaryAspect(wireAsp);
+			Attributes()->SetWireAspect(wireAsp);
+			Attributes()->SetUnFreeBoundaryAspect(wireAsp);
+			Attributes()->SetFreeBoundaryAspect(wireAsp);
+			Attributes()->SetFaceBoundaryAspect(wireAsp);
+		}
+	};
 
-    // 3) (Opcional) Desliga faces, só wireframe 
-
-    // 4) Substitui o drawer interno
-    // SetAttributes(dr);
-	// setColor(dr,Quantity_NOC_RED);  
-	// replaceWithNewOwnAspects();
-	Attributes()->SetLineAspect(wireAsp);
-	Attributes()->SetSeenLineAspect(wireAsp);
-	Attributes()->SetFaceBoundaryAspect(wireAsp);
-	Attributes()->SetWireAspect(wireAsp);
-	Attributes()->SetUnFreeBoundaryAspect(wireAsp);
-	Attributes()->SetFreeBoundaryAspect(wireAsp);
-	Attributes()->SetFaceBoundaryAspect(wireAsp);
-
-  }
-};
-
-
-
-void draw_objs(){
-	perf1("");
-	for(int i=0;i<vshapes.size();i++){
-        Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
-        vaShape.push_back(aShape);
-		m_context->Display(aShape, 0);
+	void draw_objs() {
+		perf1("");
+		for (int i = 0; i < vshapes.size(); i++) {
+			Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
+			vaShape.push_back(aShape);
+			m_context->Display(aShape, 0);
+		}
+		perf1("draw_objs");
+		toggle_shaded_transp(currentMode);
 	}
-	perf1("draw_objs");
-	toggle_shaded_transp(currentMode);
+	TopoDS_Shape pl() {
+		int x = -150;
+		int y = -150;
+		int z = -150;
+		// Define points for the polyline
+		gp_Pnt p1(x + 0.0, y + 0.0, z + 0.0);
+		gp_Pnt p2(x + 100.0, y + 0.0, z + 0.0);
+		gp_Pnt p3(x + 100.0, y + 10.0, z + 0.0);
+		gp_Pnt p4(x + 0.0, y + 100.0, z + 0.0);
 
-} 
-TopoDS_Shape pl() {
-    int x=-150;
-    int y=-150;
-    int z=-150;
-    // Define points for the polyline
-    gp_Pnt p1(x+0.0, y+0.0, z+0.0);
-    gp_Pnt p2(x+100.0, y+0.0, z+0.0);
-    gp_Pnt p3(x+100.0, y+10.0, z+0.0);
-    gp_Pnt p4(x+0.0, y+100.0, z+0.0);
+		// Create edges between points
+		TopoDS_Edge edge1 = BRepBuilderAPI_MakeEdge(p1, p2);
+		TopoDS_Edge edge2 = BRepBuilderAPI_MakeEdge(p2, p3);
+		TopoDS_Edge edge3 = BRepBuilderAPI_MakeEdge(p3, p4);
+		TopoDS_Edge edge4 = BRepBuilderAPI_MakeEdge(p4, p1);
 
-    // Create edges between points
-    TopoDS_Edge edge1 = BRepBuilderAPI_MakeEdge(p1, p2);
-    TopoDS_Edge edge2 = BRepBuilderAPI_MakeEdge(p2, p3);
-    TopoDS_Edge edge3 = BRepBuilderAPI_MakeEdge(p3, p4);
-    TopoDS_Edge edge4 = BRepBuilderAPI_MakeEdge(p4, p1);
+		// Combine edges into a wire
+		BRepBuilderAPI_MakeWire wireBuilder;
+		wireBuilder.Add(edge1);
+		wireBuilder.Add(edge2);
+		wireBuilder.Add(edge3);
+		wireBuilder.Add(edge4);
 
-    // Combine edges into a wire
-    BRepBuilderAPI_MakeWire wireBuilder;
-    wireBuilder.Add(edge1);
-    wireBuilder.Add(edge2);
-    wireBuilder.Add(edge3);
-    wireBuilder.Add(edge4);
+		TopoDS_Wire polyline = wireBuilder.Wire();
 
-    TopoDS_Wire polyline = wireBuilder.Wire();
+		// Create a face from the wire
+		TopoDS_Face face = BRepBuilderAPI_MakeFace(polyline);
 
-    // Create a face from the wire
-    TopoDS_Face face = BRepBuilderAPI_MakeFace(polyline);
+		// Extrude the face into a 3D solid
+		gp_Vec extrusionVector(0.0, 0.0, -10.0);  // Extrude along the Z-axis
+		TopoDS_Shape extrudedShape =
+			BRepPrimAPI_MakePrism(face, extrusionVector).Shape();
 
-    // Extrude the face into a 3D solid
-    gp_Vec extrusionVector(0.0, 0.0, -10.0); // Extrude along the Z-axis
-    TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(face, extrusionVector).Shape();
+		return extrudedShape;
+	}
+	// Display trihedron at origin with no axis labels
+	void ShowTriedronWithoutLabels(gp_Trsf trsf,
+								   const Handle(AIS_InteractiveContext) & ctx) {
+		// 1) create a trihedron at world origin
+		gp_Ax2 ax2(gp_Pnt(0, 0, 0).Transformed(trsf),
+				   gp_Dir(0, 0, 1).Transformed(trsf),
+				   gp_Dir(1, 0, 0).Transformed(trsf));
+		Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(ax2);
+		Handle(AIS_Trihedron) tri = new AIS_Trihedron(placement);
 
-    return extrudedShape;
-}
-// Display trihedron at origin with no axis labels
-void ShowTriedronWithoutLabels(gp_Trsf trsf,const Handle(AIS_InteractiveContext)& ctx)
-{
-    // 1) create a trihedron at world origin
-    gp_Ax2 ax2(gp_Pnt(0, 0, 0).Transformed(trsf), gp_Dir(0, 0, 1).Transformed(trsf), gp_Dir(1, 0, 0).Transformed(trsf));
-    Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(ax2);
-    Handle(AIS_Trihedron) tri = new AIS_Trihedron(placement);
+		// 2) build a fresh DatumAspect and attach to the AIS_Trihedron
+		Handle(Prs3d_DatumAspect) da = new Prs3d_DatumAspect();
+		tri->Attributes()->SetDatumAspect(da);
 
-    // 2) build a fresh DatumAspect and attach to the AIS_Trihedron
-    Handle(Prs3d_DatumAspect) da = new Prs3d_DatumAspect();
-    tri->Attributes()->SetDatumAspect(da);
+		// 3) hide the “X Y Z” labels
+		da->SetDrawLabels(false);  // :contentReference[oaicite:0]{index=0}
 
-    // 3) hide the “X Y Z” labels
-    da->SetDrawLabels(false);                                     // :contentReference[oaicite:0]{index=0}
+		// 4) style each axis line (width = 2.0 px)
+		da->LineAspect(Prs3d_DatumParts_XAxis)
+			->SetWidth(4.0);  // :contentReference[oaicite:1]{index=1}
+		da->LineAspect(Prs3d_DatumParts_YAxis)->SetWidth(4.0);
+		da->LineAspect(Prs3d_DatumParts_ZAxis)->SetWidth(4.0);
 
-    // 4) style each axis line (width = 2.0 px)
-    da->LineAspect(Prs3d_DatumParts_XAxis)->SetWidth(4.0);         // :contentReference[oaicite:1]{index=1}
-    da->LineAspect(Prs3d_DatumParts_YAxis)->SetWidth(4.0);
-    da->LineAspect(Prs3d_DatumParts_ZAxis)->SetWidth(4.0);
+		// 5) color each axis
+		da->LineAspect(Prs3d_DatumParts_XAxis)
+			->SetColor(
+				Quantity_NOC_RED);	// :contentReference[oaicite:2]{index=2}
+		da->LineAspect(Prs3d_DatumParts_YAxis)->SetColor(Quantity_NOC_GREEN);
+		da->LineAspect(Prs3d_DatumParts_ZAxis)->SetColor(Quantity_NOC_BLUE);
 
-    // 5) color each axis
-    da->LineAspect(Prs3d_DatumParts_XAxis)->SetColor(Quantity_NOC_RED);    // :contentReference[oaicite:2]{index=2}
-    da->LineAspect(Prs3d_DatumParts_YAxis)->SetColor(Quantity_NOC_GREEN);
-    da->LineAspect(Prs3d_DatumParts_ZAxis)->SetColor(Quantity_NOC_BLUE);
+		// 5) color each arrow
+		// set line‐width of the arrow stems (you already did this for the axes)
+		da->LineAspect(Prs3d_DatumParts_XArrow)->SetWidth(2.0);
+		da->LineAspect(Prs3d_DatumParts_YArrow)->SetWidth(2.0);
+		da->LineAspect(Prs3d_DatumParts_ZArrow)->SetWidth(2.0);
 
-    // 5) color each arrow
-    // set line‐width of the arrow stems (you already did this for the axes)
-da->LineAspect( Prs3d_DatumParts_XArrow )->SetWidth( 2.0 );
-da->LineAspect( Prs3d_DatumParts_YArrow )->SetWidth( 2.0 );
-da->LineAspect( Prs3d_DatumParts_ZArrow )->SetWidth( 2.0 );
+		// now set each arrow’s colour
+		da->LineAspect(Prs3d_DatumParts_XArrow)
+			->SetColor(
+				Quantity_NOC_RED);	// :contentReference[oaicite:0]{index=0}
+		da->LineAspect(Prs3d_DatumParts_YArrow)->SetColor(Quantity_NOC_GREEN);
+		da->LineAspect(Prs3d_DatumParts_ZArrow)->SetColor(Quantity_NOC_BLUE);
 
-// now set each arrow’s colour
-da->LineAspect( Prs3d_DatumParts_XArrow )->SetColor( Quantity_NOC_RED   );  // :contentReference[oaicite:0]{index=0}
-da->LineAspect( Prs3d_DatumParts_YArrow )->SetColor( Quantity_NOC_GREEN );
-da->LineAspect( Prs3d_DatumParts_ZArrow )->SetColor( Quantity_NOC_BLUE  );
+		// 6) (optional) hide arrowheads if you don’t want them:
+		//    da->SetDrawArrows(false);
 
-    // 6) (optional) hide arrowheads if you don’t want them:
-    //    da->SetDrawArrows(false);
-
-    // 7) display it
-    ctx->Display(tri, Standard_False);
-}
-
-
+		// 7) display it
+		ctx->Display(tri, Standard_False);
+	}
 
 #pragma region projection
- 
- 
-HLRAlgo_Projector projector; 
 
- 
-Standard_Integer currentMode = AIS_WireFrame;
-void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
-	perf1();
-	cotm(vaShape.size())
-    for (std::size_t i = 0; i < vaShape.size(); ++i) {
-        Handle(AIS_Shape) aShape = vaShape[i];
-        if (aShape.IsNull()) continue;
+	HLRAlgo_Projector projector;
 
-        if (fromcurrentMode == AIS_Shaded) {			
-			hlr_on=1;
-            // Mudar para modo wireframe
-            // aShape->UnsetColor();
-            aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
-            m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
+	Standard_Integer currentMode = AIS_WireFrame;
+	void toggle_shaded_transp(
+		Standard_Integer fromcurrentMode = AIS_WireFrame) {
+		perf1();
+		cotm(vaShape.size()) for (std::size_t i = 0; i < vaShape.size(); ++i) {
+			Handle(AIS_Shape) aShape = vaShape[i];
+			if (aShape.IsNull()) continue;
 
+			if (fromcurrentMode == AIS_Shaded) {
+				hlr_on = 1;
+				// Mudar para modo wireframe
+				// aShape->UnsetColor();
+				aShape->UnsetAttributes();  // limpa materiais, cor, largura, etc.
+				m_context->SetDisplayMode(aShape, AIS_WireFrame,
+										  Standard_False);
 
-            aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
-            aShape->Attributes()->SetLineAspect(wireAsp);
-            aShape->Attributes()->SetSeenLineAspect(wireAsp);
-            aShape->Attributes()->SetWireAspect(wireAsp);
-            aShape->Attributes()->SetUnFreeBoundaryAspect(wireAsp);
-            aShape->Attributes()->SetFreeBoundaryAspect(wireAsp);
-            aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
-        } else {
-			hlr_on=0;
-            // Mudar para modo sombreado
-			 aShape->UnsetAttributes(); // limpa materiais, cor, largura, etc.
+				aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
+				aShape->Attributes()->SetLineAspect(wireAsp);
+				aShape->Attributes()->SetSeenLineAspect(wireAsp);
+				aShape->Attributes()->SetWireAspect(wireAsp);
+				aShape->Attributes()->SetUnFreeBoundaryAspect(wireAsp);
+				aShape->Attributes()->SetFreeBoundaryAspect(wireAsp);
+				aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
+			} else {
+				hlr_on = 0;
+				// Mudar para modo sombreado
+				aShape
+					->UnsetAttributes();  // limpa materiais, cor, largura, etc.
 
-            m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
-            aShape->SetColor(Quantity_NOC_GRAY70);
-            aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);
-            aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
-            // aShape->Attributes()->SetSeenLineAspect(edgeAspect); // opcional
-        }
+				aShape->SetColor(Quantity_NOC_GRAY70);
+				aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);
+				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+				// aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
+				// opcional
+			}
 
-        m_context->Redisplay(aShape, 0);
-    }
-	
-	perf1("toggle_shaded_transp");
-	if(hlr_on==1){
-		cotm("hlr1")
-		// projectAndDisplayWithHLR(vaShape);
-		projectAndDisplayWithHLR(vshapes);
-	}else{
-		cotm("hlr0")
-		if(!visible_.IsNull()){
-			m_context->Remove(visible_,0);
-			visible_.Nullify();
+			m_context->Redisplay(aShape, 0);
 		}
+
+		perf1("toggle_shaded_transp");
+		if (hlr_on == 1) {
+			cotm("hlr1")
+				// projectAndDisplayWithHLR(vaShape);
+				projectAndDisplayWithHLR(vshapes);
+		} else {
+			cotm("hlr0") if (!visible_.IsNull()) {
+				m_context->Remove(visible_, 0);
+				visible_.Nullify();
+			}
+		}
+		currentMode = fromcurrentMode;
+		// redraw();
 	}
-	currentMode=fromcurrentMode;
-	// redraw();
-}
 
+	TopoDS_Shape vEdges;
+	TopoDS_Shape hEdges;
+	Handle(HLRBRep_PolyAlgo) hlrAlgo;
+	// gp_Trsf glb_invTrsf;
 
-
-TopoDS_Shape vEdges;
-TopoDS_Shape hEdges;
-Handle(HLRBRep_PolyAlgo) hlrAlgo;
-// gp_Trsf glb_invTrsf;
-
-
-
- 
-
-void fillvectopo(){
-	vshapes.clear();
-	cotm(vaShape.size(),vshapes.size());
-	for(int i=0;i<vaShape.size();i++){
-		if(!m_context->IsDisplayed(vaShape[i])) continue;
-        vshapes.push_back(vaShape[i]->Shape());
+	void fillvectopo() {
+		vshapes.clear();
+		cotm(vaShape.size(), vshapes.size());
+		for (int i = 0; i < vaShape.size(); i++) {
+			if (!m_context->IsDisplayed(vaShape[i])) continue;
+			vshapes.push_back(vaShape[i]->Shape());
+		}
+		cotm(vaShape.size(), vshapes.size());
 	}
-	cotm(vaShape.size(),vshapes.size());
-}
 
+	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes,
+								  bool isDragonly = false) {
+		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+		perf1();
 
-void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
-	// OSD_Parallel::SetUseOcctThreads(1);
-	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
-    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
-	perf1();
+		// 1. Preparar transformação da câmara
+		const Handle(Graphic3d_Camera) & camera = m_view->Camera();
+		gp_Dir viewDir = -camera->Direction();
+		gp_Dir viewUp = camera->Up();
+		gp_Dir viewRight = viewUp.Crossed(viewDir);
+		gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+		// gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
 
-    // 1. Preparar transformação da câmara
-    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    gp_Dir viewDir = -camera->Direction();
-    gp_Dir viewUp = camera->Up();
-    gp_Dir viewRight = viewUp.Crossed(viewDir);
-    gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
-    // gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+		gp_Trsf viewTrsf;
+		viewTrsf.SetTransformation(viewAxes);
+		gp_Trsf invTrsf = viewTrsf.Inverted();
 
-    gp_Trsf viewTrsf;
-    viewTrsf.SetTransformation(viewAxes);
-    gp_Trsf invTrsf = viewTrsf.Inverted();
+		// const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+		// gp_Dir viewDir = -camera->Direction();
+		// gp_Dir viewUp = camera->Up();
+		// gp_Dir viewRight = viewUp.Crossed(viewDir);
+		// gp_Ax3 viewAxes(camera->Center(), viewDir, viewRight);
 
+		// gp_Trsf viewTrsf;
+		// viewTrsf.SetTransformation(viewAxes);
+		// gp_Trsf invTrsf = viewTrsf.Inverted();
 
-	
-    // const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    // gp_Dir viewDir = -camera->Direction();
-    // gp_Dir viewUp = camera->Up();
-    // gp_Dir viewRight = viewUp.Crossed(viewDir);
-    // gp_Ax3 viewAxes(camera->Center(), viewDir, viewRight);
+		// const Handle(Graphic3d_Camera)& theProjector = m_view->Camera();
+		// gp_Dir aBackDir = -theProjector->Direction();
+		// gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
+		// gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
+		// gp_Trsf viewTrsf;
+		// viewTrsf.SetTransformation (anAx3);
+		// gp_Trsf invTrsf = viewTrsf.Inverted();
 
-    // gp_Trsf viewTrsf;
-    // viewTrsf.SetTransformation(viewAxes);
-    // gp_Trsf invTrsf = viewTrsf.Inverted();
+		// 2. Criar projetor HLR
+		// projector = HLRAlgo_Projector(viewTrsf,
+		// !theProjector->IsOrthographic(), theProjector->Scale());
+		projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(),
+									  camera->Scale());
 
-	
-
-
-    // const Handle(Graphic3d_Camera)& theProjector = m_view->Camera();
-	// gp_Dir aBackDir = -theProjector->Direction();
-    // gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
-    // gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
-    // gp_Trsf viewTrsf;
-    // viewTrsf.SetTransformation (anAx3);
-    // gp_Trsf invTrsf = viewTrsf.Inverted(); 
-
-    // 2. Criar projetor HLR
-    // projector = HLRAlgo_Projector(viewTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
-    projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
-
-    // 3. Meshing (somente se ainda não estiver meshed)
-    Standard_Real deflection = 0.001;
+		// 3. Meshing (somente se ainda não estiver meshed)
+		Standard_Real deflection = 0.001;
 
 // perf();
 #ifdef ENABLE_PARALLEL
-    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
+					  [&](const TopoDS_Shape& s) {
 #else
-    for (const auto& s : shapes) {
+		for (const auto& s : shapes) {
 #endif
-        if (s.IsNull()) return;
+						  if (s.IsNull()) return;
 
-        bool needsMesh = false;
-        // for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
-        //     TopLoc_Location loc;
-        //     const TopoDS_Face& face = TopoDS::Face(exp.Current());
-        //     if (BRep_Tool::Triangulation(face, loc).IsNull()) {
-        //         needsMesh = true;
-        //         break;
-        //     }
-        // }
-		needsMesh = true;
-        if (needsMesh) {
-            BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
-        }
+						  bool needsMesh = false;
+						  // for (TopExp_Explorer exp(s, TopAbs_FACE);
+						  // exp.More(); exp.Next()) {
+						  //     TopLoc_Location loc;
+						  //     const TopoDS_Face& face =
+						  //     TopoDS::Face(exp.Current()); if
+						  //     (BRep_Tool::Triangulation(face, loc).IsNull())
+						  //     {
+						  //         needsMesh = true;
+						  //         break;
+						  //     }
+						  // }
+						  needsMesh = true;
+						  if (needsMesh) {
+							  BRepMesh_IncrementalMesh(s, deflection, true, 0.5,
+													   false);
+						  }
 #ifdef ENABLE_PARALLEL
-    });
+					  });
 #else
-    }
+		}
 #endif
-    // 4. Projeção HLR
-    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+		// 4. Projeção HLR
+		Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
 #ifdef ENABLE_PARALLEL
-    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
+					  [&](const TopoDS_Shape& s) {
 #else
-    for (const auto& s : shapes) {
+		for (const auto& s : shapes) {
 #endif
-        if (!s.IsNull()) algo->Load(s);
+						  if (!s.IsNull()) algo->Load(s);
 #ifdef ENABLE_PARALLEL
-    });
+					  });
 #else
-    }
+		}
 #endif
-// perf("hlrload");
+		// perf("hlrload");
 
-    algo->Projector(projector);
-    algo->Update();
-// perf("hlrupdate");
+		algo->Projector(projector);
+		algo->Update();
+		// perf("hlrupdate");
 
-    // 5. Converter para shape visível
-    HLRBRep_PolyHLRToShape hlrToShape;
-perf();
-    hlrToShape.Update(algo);
-perf("hlrupdate"); 
-    TopoDS_Shape vEdges = hlrToShape.VCompound();
-    BRepBuilderAPI_Transform visT(vEdges, invTrsf);
-    TopoDS_Shape result = visT.Shape();
+		// 5. Converter para shape visível
+		HLRBRep_PolyHLRToShape hlrToShape;
+		perf();
+		hlrToShape.Update(algo);
+		perf("hlrupdate");
+		TopoDS_Shape vEdges = hlrToShape.VCompound();
+		BRepBuilderAPI_Transform visT(vEdges, invTrsf);
+		TopoDS_Shape result = visT.Shape();
 
-    // 6. Mostrar ou atualizar AIS_Shape
-    if (!visible_.IsNull()) {
-        if (!visible_->Shape().IsEqual(result)) {
-            visible_->SetShape(result);
-            visible_->SetColor(Quantity_NOC_BLACK);
-            visible_->SetWidth(3);
-            visible_->SetInfiniteState(true); // opcional
-            m_context->Redisplay(visible_, false);
-        }
-    } else {
-        visible_ = new AIS_NonSelectableShape(result);
-        visible_->SetColor(Quantity_NOC_BLACK);
-        visible_->SetWidth(3);
-        visible_->SetInfiniteState(true); // opcional
-        m_context->Display(visible_, false);
-    }
-	perf1("elapsed hlr1");
-}
+		// 6. Mostrar ou atualizar AIS_Shape
+		if (!visible_.IsNull()) {
+			if (!visible_->Shape().IsEqual(result)) {
+				visible_->SetShape(result);
+				visible_->SetColor(Quantity_NOC_BLACK);
+				visible_->SetWidth(3);
+				visible_->SetInfiniteState(true);  // opcional
+				m_context->Redisplay(visible_, false);
+			}
+		} else {
+			visible_ = new AIS_NonSelectableShape(result);
+			visible_->SetColor(Quantity_NOC_BLACK);
+			visible_->SetWidth(3);
+			visible_->SetInfiniteState(true);  // opcional
+			m_context->Display(visible_, false);
+		}
+		perf1("elapsed hlr1");
+	}
 
+	// #define ENABLE_PARALLEL
+	// less precision
+	void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes,
+									 bool isDragonly = false) {
+		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+		perf1();
 
+		// 1. Preparar transformação da câmara
+		const Handle(Graphic3d_Camera) & camera = m_view->Camera();
+		gp_Dir viewDir = -camera->Direction();
+		gp_Dir viewUp = camera->Up();
+		gp_Dir viewRight = viewUp.Crossed(viewDir);
+		gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+		// gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
 
+		gp_Trsf viewTrsf;
+		viewTrsf.SetTransformation(viewAxes);
+		gp_Trsf invTrsf = viewTrsf.Inverted();
 
+		// const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+		// gp_Dir viewDir = -camera->Direction();
+		// gp_Dir viewUp = camera->Up();
+		// gp_Dir viewRight = viewUp.Crossed(viewDir);
+		// gp_Ax3 viewAxes(camera->Center(), viewDir, viewRight);
 
-// #define ENABLE_PARALLEL
-//less precision
-void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
-    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
-	perf1();
+		// gp_Trsf viewTrsf;
+		// viewTrsf.SetTransformation(viewAxes);
+		// gp_Trsf invTrsf = viewTrsf.Inverted();
 
-    // 1. Preparar transformação da câmara
-    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    gp_Dir viewDir = -camera->Direction();
-    gp_Dir viewUp = camera->Up();
-    gp_Dir viewRight = viewUp.Crossed(viewDir);
-    gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
-    // gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+		// const Handle(Graphic3d_Camera)& theProjector = m_view->Camera();
+		// gp_Dir aBackDir = -theProjector->Direction();
+		// gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
+		// gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
+		// gp_Trsf viewTrsf;
+		// viewTrsf.SetTransformation (anAx3);
+		// gp_Trsf invTrsf = viewTrsf.Inverted();
 
-    gp_Trsf viewTrsf;
-    viewTrsf.SetTransformation(viewAxes);
-    gp_Trsf invTrsf = viewTrsf.Inverted();
+		// 2. Criar projetor HLR
+		// projector = HLRAlgo_Projector(viewTrsf,
+		// !theProjector->IsOrthographic(), theProjector->Scale());
+		projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(),
+									  camera->Scale());
 
-
-	
-    // const Handle(Graphic3d_Camera)& camera = m_view->Camera();
-    // gp_Dir viewDir = -camera->Direction();
-    // gp_Dir viewUp = camera->Up();
-    // gp_Dir viewRight = viewUp.Crossed(viewDir);
-    // gp_Ax3 viewAxes(camera->Center(), viewDir, viewRight);
-
-    // gp_Trsf viewTrsf;
-    // viewTrsf.SetTransformation(viewAxes);
-    // gp_Trsf invTrsf = viewTrsf.Inverted();
-
-	
-
-
-    // const Handle(Graphic3d_Camera)& theProjector = m_view->Camera();
-	// gp_Dir aBackDir = -theProjector->Direction();
-    // gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
-    // gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
-    // gp_Trsf viewTrsf;
-    // viewTrsf.SetTransformation (anAx3);
-    // gp_Trsf invTrsf = viewTrsf.Inverted(); 
-
-    // 2. Criar projetor HLR
-    // projector = HLRAlgo_Projector(viewTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
-    projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
-
-    // 3. Meshing (somente se ainda não estiver meshed)
-    Standard_Real deflection = 0.001;
+		// 3. Meshing (somente se ainda não estiver meshed)
+		Standard_Real deflection = 0.001;
 
 // perf();
 #ifdef ENABLE_PARALLEL
-    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
+					  [&](const TopoDS_Shape& s) {
 #else
-    for (const auto& s : shapes) {
+		for (const auto& s : shapes) {
 #endif
-        if (s.IsNull()) return;
+						  if (s.IsNull()) return;
 
-        bool needsMesh = false;
-        // for (TopExp_Explorer exp(s, TopAbs_FACE); exp.More(); exp.Next()) {
-        //     TopLoc_Location loc;
-        //     const TopoDS_Face& face = TopoDS::Face(exp.Current());
-        //     if (BRep_Tool::Triangulation(face, loc).IsNull()) {
-        //         needsMesh = true;
-        //         break;
-        //     }
-        // }
-		needsMesh = true;
-        if (needsMesh) {
-            BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
-        }
+						  bool needsMesh = false;
+						  // for (TopExp_Explorer exp(s, TopAbs_FACE);
+						  // exp.More(); exp.Next()) {
+						  //     TopLoc_Location loc;
+						  //     const TopoDS_Face& face =
+						  //     TopoDS::Face(exp.Current()); if
+						  //     (BRep_Tool::Triangulation(face, loc).IsNull())
+						  //     {
+						  //         needsMesh = true;
+						  //         break;
+						  //     }
+						  // }
+						  needsMesh = true;
+						  if (needsMesh) {
+							  BRepMesh_IncrementalMesh(s, deflection, true, 0.5,
+													   false);
+						  }
 #ifdef ENABLE_PARALLEL
-    });
+					  });
 #else
-    }
+		}
 #endif
-    // 4. Projeção HLR
-    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+		// 4. Projeção HLR
+		Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
 #ifdef ENABLE_PARALLEL
-    std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
+					  [&](const TopoDS_Shape& s) {
 #else
-    for (const auto& s : shapes) {
+		for (const auto& s : shapes) {
 #endif
-        if (!s.IsNull()) algo->Load(s);
+						  if (!s.IsNull()) algo->Load(s);
 #ifdef ENABLE_PARALLEL
-    });
+					  });
 #else
-    }
+		}
 #endif
-// perf("hlrload");
+		// perf("hlrload");
 
-    algo->Projector(projector);
-perf();
-    algo->Update();
-perf("hlrupdate");
+		algo->Projector(projector);
+		perf();
+		algo->Update();
+		perf("hlrupdate");
 
-    // 5. Converter para shape visível
-    HLRBRep_PolyHLRToShape hlrToShape;
-    hlrToShape.Update(algo);
-    TopoDS_Shape vEdges = hlrToShape.VCompound();
-    BRepBuilderAPI_Transform visT(vEdges, invTrsf);
-    TopoDS_Shape result = visT.Shape();
+		// 5. Converter para shape visível
+		HLRBRep_PolyHLRToShape hlrToShape;
+		hlrToShape.Update(algo);
+		TopoDS_Shape vEdges = hlrToShape.VCompound();
+		BRepBuilderAPI_Transform visT(vEdges, invTrsf);
+		TopoDS_Shape result = visT.Shape();
 
-    // 6. Mostrar ou atualizar AIS_Shape
-    if (!visible_.IsNull()) {
-        if (!visible_->Shape().IsEqual(result)) {
-            visible_->SetShape(result);
-            visible_->SetColor(Quantity_NOC_BLACK);
-            visible_->SetWidth(3);
-            visible_->SetInfiniteState(true); // opcional
-            m_context->Redisplay(visible_, false);
-        }
-    } else {
-        visible_ = new AIS_NonSelectableShape(result);
-        visible_->SetColor(Quantity_NOC_BLACK);
-        visible_->SetWidth(3);
-        visible_->SetInfiniteState(true); // opcional
-        m_context->Display(visible_, false);
-    }
-	perf1("elapsed hlr1");
-}
+		// 6. Mostrar ou atualizar AIS_Shape
+		if (!visible_.IsNull()) {
+			if (!visible_->Shape().IsEqual(result)) {
+				visible_->SetShape(result);
+				visible_->SetColor(Quantity_NOC_BLACK);
+				visible_->SetWidth(3);
+				visible_->SetInfiniteState(true);  // opcional
+				m_context->Redisplay(visible_, false);
+			}
+		} else {
+			visible_ = new AIS_NonSelectableShape(result);
+			visible_->SetColor(Quantity_NOC_BLACK);
+			visible_->SetWidth(3);
+			visible_->SetInfiniteState(true);  // opcional
+			m_context->Display(visible_, false);
+		}
+		perf1("elapsed hlr1");
+	}
 
+	// precision
+	void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes,
+									bool isDragonly = false) {
+		if (!hlr_on) return;
+		perf();
+		// cotm("hlr")
+		// m_view->SetImmediateUpdate(Standard_False);
+		if (m_context.IsNull() || m_view.IsNull()) {
+			std::cerr << "Error: m_context or m_view is null." << std::endl;
+			return;
+		}
+		// m_view->SetComputedMode(Standard_True);
 
- //precision
-void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
-    if(!hlr_on)return;
-	perf();
-    // cotm("hlr")
-    // m_view->SetImmediateUpdate(Standard_False);
-    if (m_context.IsNull() || m_view.IsNull()) {
-        std::cerr << "Error: m_context or m_view is null." << std::endl;
-        return;
-    } 
-    // m_view->SetComputedMode(Standard_True);
+		{
+			// m_context->RemoveAll(false);
+			// lop(i,0,vaShape.size()){
+			//     m_context->Remove(vaShape[i],0);
+			// }
 
+			if (visible_) m_context->Remove(visible_, 0);
+			if (hidden_) m_context->Remove(hidden_, 0);
+		}
 
-    {
-    // m_context->RemoveAll(false); 
-        // lop(i,0,vaShape.size()){
-        //     m_context->Remove(vaShape[i],0);
-        // }
+		const Handle(Graphic3d_Camera) & theProjector = m_view->Camera();
 
-        if(visible_) m_context->Remove(visible_,0);
-        if(hidden_) m_context->Remove(hidden_,0);
-    }
+		gp_Dir aBackDir = -theProjector->Direction();
+		gp_Dir aXpers = theProjector->Up().Crossed(aBackDir);
+		gp_Ax3 anAx3(theProjector->Center(), aBackDir, aXpers);
+		gp_Trsf aTrsf;
+		aTrsf.SetTransformation(anAx3);
 
-    const Handle(Graphic3d_Camera) &theProjector=m_view->Camera();
- 
-    gp_Dir aBackDir = -theProjector->Direction();
-    gp_Dir aXpers   = theProjector->Up().Crossed (aBackDir);
-    gp_Ax3 anAx3 (theProjector->Center(), aBackDir, aXpers);
-    gp_Trsf aTrsf;
-    aTrsf.SetTransformation (anAx3); 
-     
-    HLRAlgo_Projector projector (aTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
+		HLRAlgo_Projector projector(aTrsf, !theProjector->IsOrthographic(),
+									theProjector->Scale());
 
-    Handle(HLRBRep_Algo) hlrAlgo = new HLRBRep_Algo();
-    for (const auto& shp : shapes) {
-        if (!shp.IsNull()) hlrAlgo->Add(shp,0);
-    }
+		Handle(HLRBRep_Algo) hlrAlgo = new HLRBRep_Algo();
+		for (const auto& shp : shapes) {
+			if (!shp.IsNull()) hlrAlgo->Add(shp, 0);
+		}
 
-    hlrAlgo->Projector(projector );
-    // hlrAlgo-> ShowAll();
-    // perf();
-    hlrAlgo->Update();
-    // perf("hlrAlgo->Update()");
-    static bool tes=0;
-    // if(!tes)
-	hlrAlgo->Hide();
-    // perf("hide");
-    tes=1;
+		hlrAlgo->Projector(projector);
+		// hlrAlgo-> ShowAll();
+		// perf();
+		hlrAlgo->Update();
+		// perf("hlrAlgo->Update()");
+		static bool tes = 0;
+		// if(!tes)
+		hlrAlgo->Hide();
+		// perf("hide");
+		tes = 1;
 
-    HLRBRep_HLRToShape hlrToShape_(hlrAlgo);
-    // perf("hlrToShape");
-    TopoDS_Shape vEdges_ = hlrToShape_.VCompound();
-    // TopoDS_Shape hEdges_ = hlrToShape_.HCompound();
-    // perf("hlrAlgo->HCompound()");
+		HLRBRep_HLRToShape hlrToShape_(hlrAlgo);
+		// perf("hlrToShape");
+		TopoDS_Shape vEdges_ = hlrToShape_.VCompound();
+		// TopoDS_Shape hEdges_ = hlrToShape_.HCompound();
+		// perf("hlrAlgo->HCompound()");
 
-    gp_Trsf invTrsf = aTrsf.Inverted();
-    BRepBuilderAPI_Transform transformer(vEdges_, invTrsf);
-    TopoDS_Shape transformedShape = transformer.Shape();
+		gp_Trsf invTrsf = aTrsf.Inverted();
+		BRepBuilderAPI_Transform transformer(vEdges_, invTrsf);
+		TopoDS_Shape transformedShape = transformer.Shape();
 
+		visible_ = new AIS_NonSelectableShape(transformedShape);
+		// visible_ = new AIS_Shape(transformedShape);
+		visible_->SetColor(Quantity_NOC_BLACK);
+		visible_->SetWidth(1.5);
+		m_context->Display(visible_, false);
 
-    visible_ = new AIS_NonSelectableShape(transformedShape);
-    // visible_ = new AIS_Shape(transformedShape);
-    visible_->SetColor(Quantity_NOC_BLACK);
-    visible_->SetWidth(1.5);
-    m_context->Display(visible_, false);
+		// Handle(Prs3d_LineAspect) lineAspect = new
+		// Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
+		// // Handle(Prs3d_Drawer) aDrawer = new Prs3d_Drawer();
+		// // hEdges_.SetAttributes(aDrawer);
 
-    
-    // Handle(Prs3d_LineAspect) lineAspect = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
-    // // Handle(Prs3d_Drawer) aDrawer = new Prs3d_Drawer();
-    // // hEdges_.SetAttributes(aDrawer);
+		// BRepBuilderAPI_Transform transformerh(hEdges_, invTrsf);
+		// TopoDS_Shape transformedShapeh = transformerh.Shape();
 
-    // BRepBuilderAPI_Transform transformerh(hEdges_, invTrsf);
-    // TopoDS_Shape transformedShapeh = transformerh.Shape();
+		// hidden_ = new AIS_ColoredShape(transformedShapeh);
 
+		// Handle(Prs3d_LineAspect) dashedAspect = new
+		// Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0);
 
-    // hidden_ = new AIS_ColoredShape(transformedShapeh);
+		// hidden_->Attributes()->SetSeenLineAspect(dashedAspect);
 
- 
-    // Handle(Prs3d_LineAspect) dashedAspect = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 1.0);
-  
-    // hidden_->Attributes()->SetSeenLineAspect(dashedAspect);
- 
+		// m_context->Display(hidden_, 0);
 
-    // m_context->Display(hidden_, 0); 
- 
-//  setbar5per();
-	perf("hlr slower");
-}
-
-
+		//  setbar5per();
+		perf("hlr slower");
+	}
 
 #pragma endregion projection
 #pragma region tests
-	void test2(){
-		#if 0
+	void test2() {
+#if 0
 		perf();
 		//test
 		luadraw* test=new luadraw("consegui",this);
@@ -3094,522 +2235,520 @@ toggle_shaded_transp(currentMode);
 		// m_context->Remove(tt->ashape,0);
 		// delete tt;
 
-
 #endif
-
-
-
 	}
 
-    void test(int rot=45){
-    TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape(); 
-        TopoDS_Shape pl1=pl(); 
+	void test(int rot = 45) {
+		TopoDS_Shape box = BRepPrimAPI_MakeBox(100.0, 100.0, 100.0).Shape();
+		TopoDS_Shape pl1 = pl();
 
-        gp_Trsf trsf;
-trsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), rot*(M_PI/180)); // rotate 30 degrees around Z-axis
-BRepBuilderAPI_Transform transformer(box, trsf);
-TopoDS_Shape rotatedShape = transformer.Shape();
+		gp_Trsf trsf;
+		trsf.SetRotation(
+			gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)),
+			rot * (M_PI / 180));  // rotate 30 degrees around Z-axis
+		BRepBuilderAPI_Transform transformer(box, trsf);
+		TopoDS_Shape rotatedShape = transformer.Shape();
 
-// TopoDS_Shape fusedShape = BRepAlgoAPI_Fuse(rotatedShape, box);
+		// TopoDS_Shape fusedShape = BRepAlgoAPI_Fuse(rotatedShape, box);
 
-// BRepAlgoAPI_Common   fuse(rotatedShape, box);
-// BRepAlgoAPI_Cut  fuse(rotatedShape, box);
-BRepAlgoAPI_Fuse fuse(rotatedShape, box);
-fuse.Build();
-if (!fuse.IsDone()) {
-    // handle error
-}
-TopoDS_Shape fusedShape = fuse.Shape();
+		// BRepAlgoAPI_Common   fuse(rotatedShape, box);
+		// BRepAlgoAPI_Cut  fuse(rotatedShape, box);
+		BRepAlgoAPI_Fuse fuse(rotatedShape, box);
+		fuse.Build();
+		if (!fuse.IsDone()) {
+			// handle error
+		}
+		TopoDS_Shape fusedShape = fuse.Shape();
 
-// Refine the result
-ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true); // merge faces, edges, vertices
-unify.Build();
-TopoDS_Shape refinedShape = unify.Shape();
+		// Refine the result
+		ShapeUpgrade_UnifySameDomain unify(
+			fusedShape, true, true, true);	// merge faces, edges, vertices
+		unify.Build();
+		TopoDS_Shape refinedShape = unify.Shape();
 
+		{
+			// gp_Pnt origin=gp_Pnt(50, 86.6025, 0);
+			// gp_Dir normal=gp_Dir(0.5, 0.866025, 0);
+			gp_Pnt origin = gp_Pnt(0, 0, 100);
+			gp_Dir normal = gp_Dir(0, 0, 1);
+			gp_Dir xdir = gp_Dir(0, 1, 0);
+			gp_Dir ydir = gp_Dir(0.1, -0.5, 0);
+			// gp_Dir ydir =   gp_Dir(0.866025, -0.5, 0);
+			// gp_Ax2 ax3(origin, normal);
+			gp_Ax2 ax3(origin, normal, xdir);
+			// ax3.SetYDirection(ydir);
+			gp_Trsf trsf;
+			trsf.SetTransformation(ax3);
+			trsf.Invert();
 
+			gp_Trsf trsftmp;
+			trsftmp.SetRotation(gp_Ax1(origin, normal), -45 * (M_PI / 180));
+			trsf *= trsftmp;
 
+			trsftmp = gp_Trsf();
+			trsftmp.SetTranslation(gp_Vec(20, 0, 0));
+			trsf *= trsftmp;
 
+			ShowTriedronWithoutLabels(trsf, m_context);	 // debug
 
-{
+			gp_Pnt p1(0, 0, 0);
+			gp_Pnt p2(100, 0, 0);
+			gp_Pnt p3(100, 50, 0);
+			gp_Pnt p4(0, 50, 0);
 
-    // gp_Pnt origin=gp_Pnt(50, 86.6025, 0);
-    // gp_Dir normal=gp_Dir(0.5, 0.866025, 0);
-    gp_Pnt origin=gp_Pnt(0, 0, 100);
-    gp_Dir normal=gp_Dir(0,0,1);
-gp_Dir xdir =   gp_Dir(0, 1, 0);
-gp_Dir ydir =   gp_Dir(0.1, -0.5, 0);
-// gp_Dir ydir =   gp_Dir(0.866025, -0.5, 0);
-// gp_Ax2 ax3(origin, normal);
-gp_Ax2 ax3(origin, normal, xdir);
-// ax3.SetYDirection(ydir);
-gp_Trsf trsf;
-trsf.SetTransformation(ax3);
-trsf.Invert();
+			// p1 = origin.Translated(gp_Vec(xdir) * (-0) + gp_Vec(ydir) *
+			// (-0)); p2 = origin.Translated(gp_Vec(xdir) * (p2.X()) +
+			// gp_Vec(ydir) * (p2.Y())); p3 = origin.Translated(gp_Vec(xdir) *
+			// (p3.X()) + gp_Vec(ydir) * (p3.Y())); p4 =
+			// origin.Translated(gp_Vec(xdir) * (p4.X()) + gp_Vec(ydir) *
+			// (p4.Y()));
 
+			// p1.Transform(trsf);
+			// p2.Transform(trsf);
+			// p3.Transform(trsf);
+			// p4.Transform(trsf);
 
-gp_Trsf trsftmp; 
-trsftmp.SetRotation(gp_Ax1(origin, normal), -45*(M_PI/180) );
-trsf  *= trsftmp;
+			// p1.Transform(trsf.Inverted());
+			// p2.Transform(trsf.Inverted());
+			// p3.Transform(trsf.Inverted());
+			// p4.Transform(trsf.Inverted());
 
-trsftmp = gp_Trsf();
-trsftmp.SetTranslation(gp_Vec(20, 0, 0));
-trsf  *= trsftmp; 
- 
-ShowTriedronWithoutLabels(trsf,m_context); // debug
+			// p1=point_on_plane(p1,ploc,pdir);
+			// p2=point_on_plane(p2,ploc,pdir);
+			// p3=point_on_plane(p3,ploc,pdir);
+			// p4=point_on_plane(p4,ploc,pdir);
 
-gp_Pnt p1(0, 0,0);
-    gp_Pnt p2(100, 0,0);
-    gp_Pnt p3(100, 50,0);
-    gp_Pnt p4(0, 50,0);
+			// Criar arestas
+			TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
+			TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p2, p3);
+			TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
+			TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
 
-    
-    // p1 = origin.Translated(gp_Vec(xdir) * (-0) + gp_Vec(ydir) * (-0));
-    // p2 = origin.Translated(gp_Vec(xdir) * (p2.X()) + gp_Vec(ydir) * (p2.Y()));
-    // p3 = origin.Translated(gp_Vec(xdir) * (p3.X()) + gp_Vec(ydir) * (p3.Y()));
-    // p4 = origin.Translated(gp_Vec(xdir) * (p4.X()) + gp_Vec(ydir) * (p4.Y()));
+			// Fazer o wire
+			BRepBuilderAPI_MakeWire wireBuilder;
+			wireBuilder.Add(e1);
+			wireBuilder.Add(e2);
+			wireBuilder.Add(e3);
+			wireBuilder.Add(e4);
+			TopoDS_Wire wire = wireBuilder.Wire();
 
-    // p1.Transform(trsf);
-    // p2.Transform(trsf);
-    // p3.Transform(trsf);
-    // p4.Transform(trsf);
+			// Criar a face sobre o plano com o wire
+			// gp_Dir xdir =   gp_Dir(0, 0, 1); // produto vetorial —
+			// perpendicular a pdir gp_Dir xdir = pdir ^ gp_Dir(0, 0, 1); //
+			// produto vetorial — perpendicular a pdir
 
-    // p1.Transform(trsf.Inverted());
-    // p2.Transform(trsf.Inverted());
-    // p3.Transform(trsf.Inverted());
-    // p4.Transform(trsf.Inverted());
-    
-    // p1=point_on_plane(p1,ploc,pdir);
-    // p2=point_on_plane(p2,ploc,pdir);
-    // p3=point_on_plane(p3,ploc,pdir);
-    // p4=point_on_plane(p4,ploc,pdir);
+			// gp_Ax3 ax3(ploc,pdir,xdir);
+			// Handle(Geom_Plane) plane = new Geom_Plane(ploc,pdir);
+			// Handle(Geom_Plane) plane = new Geom_Plane(ax3);
+			// gp_Pnt origin = plane->Location();
+			// printf("origin: x=%.3f y=%.3f
+			// z=%.3f\n",origin.X(),origin.Y(),origin.Z());
+			TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+			// TopoDS_Face face = BRepBuilderAPI_MakeFace(plane, wire);
 
-    // Criar arestas
-    TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
-    TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p2, p3);
-    TopoDS_Edge e3 = BRepBuilderAPI_MakeEdge(p3, p4);
-    TopoDS_Edge e4 = BRepBuilderAPI_MakeEdge(p4, p1);
+			BRepBuilderAPI_Transform transformer(face, trsf);
+			TopoDS_Shape rotatedShape = transformer.Shape();
 
-    // Fazer o wire
-    BRepBuilderAPI_MakeWire wireBuilder;
-    wireBuilder.Add(e1);
-    wireBuilder.Add(e2);
-    wireBuilder.Add(e3);
-    wireBuilder.Add(e4);
-    TopoDS_Wire wire = wireBuilder.Wire();
+			gp_Ax3 ax3_;
+			ax3_.Transform(
+				trsf);	// aplica trsf no sistema de coordenadas padrão
+			// gp_Dir dir = ax3.Direction();
+			gp_Dir dir = [](gp_Trsf trsf) {
+				gp_Ax3 ax3;
+				ax3.Transform(trsf);
+				return ax3.Direction();
+			}(trsf);
 
-    // Criar a face sobre o plano com o wire
-    // gp_Dir xdir =   gp_Dir(0, 0, 1); // produto vetorial — perpendicular a pdir
-    // gp_Dir xdir = pdir ^ gp_Dir(0, 0, 1); // produto vetorial — perpendicular a pdir
-    
-    // gp_Ax3 ax3(ploc,pdir,xdir);
-    // Handle(Geom_Plane) plane = new Geom_Plane(ploc,pdir);
-    // Handle(Geom_Plane) plane = new Geom_Plane(ax3);
-    // gp_Pnt origin = plane->Location();
-    // printf("origin: x=%.3f y=%.3f z=%.3f\n",origin.X(),origin.Y(),origin.Z());
-    TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
-    // TopoDS_Face face = BRepBuilderAPI_MakeFace(plane, wire);
+			gp_Vec extrusionVec(dir);
+			// gp_Vec extrusionVec(normal);
+			extrusionVec *= 10.0;
+			TopoDS_Shape extrudedShape =
+				BRepPrimAPI_MakePrism(rotatedShape, extrusionVec).Shape();
+			// TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(face,
+			// extrusionVec).Shape();
 
-    BRepBuilderAPI_Transform transformer(face, trsf);
-TopoDS_Shape rotatedShape = transformer.Shape();
-    
-gp_Ax3 ax3_;
-ax3_.Transform(trsf);  // aplica trsf no sistema de coordenadas padrão
-// gp_Dir dir = ax3.Direction();
-gp_Dir dir = [](gp_Trsf trsf){ gp_Ax3 ax3; ax3.Transform(trsf); return ax3.Direction(); }(trsf);
+			vshapes.push_back(extrudedShape);
+			// vshapes.push_back(rotatedShape);
+			// vshapes.push_back(face);
+		}
 
+		vshapes.push_back(pl1);
+		vshapes.push_back(refinedShape);
+		// vshapes=std::vector<TopoDS_Shape>{pl1,face};
+		// vshapes=std::vector<TopoDS_Shape>{refinedShape,pl1,face};
 
-gp_Vec extrusionVec(dir);
-// gp_Vec extrusionVec(normal);
-extrusionVec *= 10.0;
-    TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(rotatedShape, extrusionVec).Shape();
-    // TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(face, extrusionVec).Shape();
-
-    vshapes.push_back(extrudedShape);
-    // vshapes.push_back(rotatedShape);
-    // vshapes.push_back(face);
-
-}
-
-vshapes.push_back(pl1);
-vshapes.push_back(refinedShape);
-// vshapes=std::vector<TopoDS_Shape>{pl1,face};
-// vshapes=std::vector<TopoDS_Shape>{refinedShape,pl1,face};
-
-// {
-// draw_objs();
-// m_view->FitAll();
-// redraw();
-// }
-} 
+		// {
+		// draw_objs();
+		// m_view->FitAll();
+		// redraw();
+		// }
+	}
 
 #pragma endregion tests
 
 #pragma region view_rotate
 
-void FitViewToShape(const Handle(V3d_View)& aView, const TopoDS_Shape& aShape, 
-                    double margin = 1.0, double zoomFactor = 1.0)
-{
-    if (aShape.IsNull()) return;
+	void FitViewToShape(const Handle(V3d_View) & aView,
+						const TopoDS_Shape& aShape, double margin = 1.0,
+						double zoomFactor = 1.0) {
+		if (aShape.IsNull()) return;
 
-    // Compute the bounding box of the shape
-    Bnd_Box boundingBox;
-    BRepBndLib::Add(aShape, boundingBox);
-    
-    if (boundingBox.IsVoid()) return;
+		// Compute the bounding box of the shape
+		Bnd_Box boundingBox;
+		BRepBndLib::Add(aShape, boundingBox);
 
-    // Add margin
-    boundingBox.Enlarge(margin);
+		if (boundingBox.IsVoid()) return;
 
-    // Get bounds
-    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
-    boundingBox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+		// Add margin
+		boundingBox.Enlarge(margin);
 
-    // Calculate center
-    gp_Pnt center((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
+		// Get bounds
+		Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+		boundingBox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 
-    // Adjust view
-    aView->SetProj(V3d_XposYnegZpos); // Optional: set standard orientation
-    aView->Place(center.X(), center.Y(), center.Z());
-    aView->FitAll(zoomFactor);
-}
+		// Calculate center
+		gp_Pnt center((xmin + xmax) * 0.5, (ymin + ymax) * 0.5,
+					  (zmin + zmax) * 0.5);
 
+		// Adjust view
+		aView->SetProj(V3d_XposYnegZpos);  // Optional: set standard orientation
+		aView->Place(center.X(), center.Y(), center.Z());
+		aView->FitAll(zoomFactor);
+	}
 
+	void colorisebtn(int idx = -1) {
+		int idx2 = -1;
+		if (idx == -1) {
+			vint vidx = check_nearest_btn_idx();
+			if (vidx.size() == 0) return;
+			idx = vidx[0];
+			if (vidx.size() > 1) idx2 = vidx[1];
+			if (idx < 0) return;
+		}
+		lop(i, 0, sbt.size()) {
+			if (i == idx) {
+				sbt[i].occbtn->color(FL_RED);
+				sbt[i].occbtn->redraw();
+			} else if (idx2 >= 0 && idx2 == i) {
+				sbt[i].occbtn->color(fl_rgb_color(255, 165, 0));
+				sbt[i].occbtn->redraw();
+			} else {
+				sbt[i].occbtn->color(FL_BACKGROUND_COLOR);
+				sbt[i].occbtn->redraw();
+			}
+		}
+	}
 
+	struct sbts {
+		string label;
+		std::function<void()> func;
+		bool is_setview = 0;
+		struct vs {
+			Standard_Real dx = 0, dy = 0, dz = 0, ux = 0, uy = 0, uz = 0;
+		} v;
+		int idx;
+		Fl_Button* occbtn;
+		OCC_Viewer* occv;
 
-void colorisebtn(int idx=-1){
-    int idx2=-1;
-    if(idx==-1){
-        vint vidx=check_nearest_btn_idx();
-        if(vidx.size()==0)return;
-        idx = vidx[0];
-        if(vidx.size()>1)idx2=vidx[1];
-        if(idx<0)return;
-    }
-    lop(i,0,sbt.size()){
-        if(i==idx){
-            sbt[i].occbtn->color(FL_RED);
-            sbt[i].occbtn->redraw();  
-        }else if(idx2>=0 && idx2==i){
-            sbt[i].occbtn->color(fl_rgb_color(255, 165, 0));
-            sbt[i].occbtn->redraw();  
-        }
-        else{            
-            sbt[i].occbtn->color(FL_BACKGROUND_COLOR); 
-            sbt[i].occbtn->redraw(); 
-        }
-    }
-}
- 
-struct sbts { 
-    string label;
-    std::function<void()> func;
-    bool is_setview=0;
-    struct vs{Standard_Real dx=0, dy=0, dz=0, ux=0, uy=0, uz=0;}v;
-    int idx;
-    Fl_Button* occbtn; 
-    OCC_Viewer* occv;
+		static void call(Fl_Widget*, void* data) {
+			auto* wrapper = static_cast<sbts*>(data);
+			auto& occv = wrapper->occv;
+			auto& m_view = wrapper->occv->m_view;
+			if (wrapper->is_setview) {
+				// cotm(1);
+				// m_view->SetProj(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz);
+				// cotm(2)
+				// m_view->SetUp(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
 
-    static void call(Fl_Widget*, void* data) {
-        auto* wrapper = static_cast<sbts*>(data);
-        auto& occv = wrapper->occv;
-        auto& m_view = wrapper->occv->m_view;
-        if(wrapper->is_setview){
-            // cotm(1);
-            // m_view->SetProj(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz); 
-            // cotm(2)
-            // m_view->SetUp(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
+				occv->end_proj_global =
+					gp_Vec(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz);
+				occv->end_up_global =
+					gp_Vec(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
+				occv->colorisebtn(wrapper->idx);
+				occv->start_animation(occv);
+				// occv->animate_flip_view(occv);
+			}
+			if (wrapper && wrapper->func) wrapper->func();
+			// cotm(wrapper->label);
 
-            occv->end_proj_global=gp_Vec(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz);
-            occv->end_up_global=gp_Vec(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
-            occv->colorisebtn(wrapper->idx);
-            occv->start_animation(occv);
-            // occv->animate_flip_view(occv);
-        }
-        if (wrapper && wrapper->func) wrapper->func();
-        // cotm(wrapper->label);
+			// // Later, retrieve them
+			// Standard_Real dx, dy, dz, ux, uy, uz;
+			// m_view->Proj(dx, dy, dz);
+			// m_view->Up(ux, uy, uz);
+			// cotm(dx, dy, dz, ux, uy, uz);
+		}
 
-        // // Later, retrieve them
-        // Standard_Real dx, dy, dz, ux, uy, uz;
-        // m_view->Proj(dx, dy, dz);
-        // m_view->Up(ux, uy, uz);
-        // cotm(dx, dy, dz, ux, uy, uz);
-    }
+		// 🔍 Find a pointer to sbts by label: sbts* found =
+		// sbts::find_by_label(sbt, "T");
+		static sbts* find_by_label(vector<sbts>& vec, const string& target) {
+			for (auto& item : vec) {
+				if (item.label == target) return &item;
+			}
+			return nullptr;
+		}
+	};
 
-    // 🔍 Find a pointer to sbts by label: sbts* found = sbts::find_by_label(sbt, "T");
-    static sbts* find_by_label(vector<sbts>& vec, const string& target) {
-        for (auto& item : vec) {
-            if (item.label == target)
-                return &item;
-        }
-        return nullptr;
-    }
-};
+	vector<sbts> sbt;
+	void drawbuttons(float w, int hc1) {
+		// auto& sbt = occv->sbt;
+		// auto& sbts = occv->sbts;
 
-vector<sbts> sbt;
-void drawbuttons(float w,int hc1 ){
-    // auto& sbt = occv->sbt;
-    // auto& sbts = occv->sbts;
+		std::function<void()> func = [this, &sbt = this->sbt] {
+			cotm(m_initialized, sbt[0].label)
+		};
 
-    std::function<void()> func=[this,&sbt = this->sbt]{ cotm(m_initialized,  sbt[0].label)   };
+		sbt = {
+			sbts{"Front", {}, 1, {0, -1, 0, 0, 0, 1}},
+			sbts{"Top", {}, 1, {0, 0, 1, 0, 1, 0}},
+			sbts{"Left", {}, 1, {-1, 0, 0, 0, 0, 1}},
+			sbts{"Right", {}, 1, {1, 0, 0, 0, 0, 1}},
+			sbts{"Back", {}, 1, {0, 1, 0, 0, 0, 1}},
+			sbts{"Bottom", {}, 1, {0, 0, -1, 0, -1, 0}},
+			sbts{"Iso",
+				 {},
+				 1,
+				 {0.57735, -0.57735, 0.57735, -0.408248, 0.408248, 0.816497}},
 
-    sbt = {
-        sbts{"Front",    {}, 1, { 0, -1,  0,   0,  0,  1 }},
-        sbts{"Top",      {}, 1, { 0,  0,  1,   0,  1,  0 }},
-        sbts{"Left",     {}, 1, {-1,  0,  0,   0,  0,  1 }},
-        sbts{"Right",    {}, 1, { 1,  0,  0,   0,  0,  1 }},
-        sbts{"Back",     {}, 1, { 0,  1,  0,   0,  0,  1 }},
-        sbts{"Bottom",   {}, 1, { 0,  0, -1,   0, -1,  0 }},
-        sbts{"Iso", {}, 1, { 0.57735, -0.57735, 0.57735 ,  -0.408248 , 0.408248 ,0.816497  }},
+			// sbts{"Iso",{}, 1, { 1,  1,  1,   0,  0,  1 }},
 
-        // sbts{"Iso",{}, 1, { 1,  1,  1,   0,  0,  1 }},
+			// old standard
+			//  sbts{"Front",     {}, 1, {  0,  0,  1,   0, 1,  0 }},
+			//  sbts{"Back",      {}, 1, {  0,  0, -1,   0, 1,  0 }},
+			//  sbts{"Top",       {}, 1, {  0, -1,  0,   0, 0, -1 }},
+			//  sbts{"Bottom",    {}, 1, {  0,  1,  0,   0, 0,  1 }},
+			//  sbts{"Left",      {}, 1, {  1,  0,  0,   0, 1,  0 }},
+			//  sbts{"Right",     {}, 1, { -1,  0,  0,   0, 1,  0 }},
+			//  sbts{"Isometric", {}, 1, { -1,  1,  1,   0, 1,  0 }},
+			sbts{"Iso z", {}, 1, {-1, 1, 1, 0, 1, 0}},
 
-        //old standard
-        // sbts{"Front",     {}, 1, {  0,  0,  1,   0, 1,  0 }},
-        // sbts{"Back",      {}, 1, {  0,  0, -1,   0, 1,  0 }},
-        // sbts{"Top",       {}, 1, {  0, -1,  0,   0, 0, -1 }},
-        // sbts{"Bottom",    {}, 1, {  0,  1,  0,   0, 0,  1 }},
-        // sbts{"Left",      {}, 1, {  1,  0,  0,   0, 1,  0 }},
-        // sbts{"Right",     {}, 1, { -1,  0,  0,   0, 1,  0 }},
-        // sbts{"Isometric", {}, 1, { -1,  1,  1,   0, 1,  0 }},
-        sbts{"Iso z", {}, 1, { -1,  1,  1,   0, 1,  0 }},
+			// sbts{"T",[this,&sbt = this->sbt]{ cotm(sbt[0].label)   }},
 
-         
-        // sbts{"T",[this,&sbt = this->sbt]{ cotm(sbt[0].label)   }},
+			sbts{"Invert",
+				 [this] {
+					 Standard_Real dx, dy, dz, ux, uy, uz;
+					 m_view->Proj(dx, dy, dz);
+					 m_view->Up(ux, uy, uz);
+					 // Reverse the projection direction
+					 end_proj_global = gp_Vec(-dx, -dy, -dz);
+					 end_up_global = gp_Vec(-ux, -uy, -uz);
+					 start_animation(this);
+				 }},
 
-        sbts{"Invert",[this]{
-            Standard_Real dx, dy, dz, ux, uy, uz;
-            m_view->Proj(dx, dy, dz);
-            m_view->Up(ux, uy, uz); 
-            // Reverse the projection direction
-            end_proj_global=gp_Vec(-dx, -dy, -dz); 
-            end_up_global=gp_Vec(-ux, -uy, -uz);
-            start_animation(this);   
-        }},
+			sbts{"Invert p",
+				 [this] {
+					 Standard_Real dx, dy, dz, ux, uy, uz;
+					 m_view->Proj(dx, dy, dz);
+					 m_view->Up(ux, uy, uz);
+					 // Reverse the projection direction
+					 end_proj_global = gp_Vec(-dx, -dy, -dz);
+					 end_up_global = gp_Vec(ux, uy, uz);
+					 start_animation(this);
+				 }},
 
-        sbts{"Invert p",[this]{
-            Standard_Real dx, dy, dz, ux, uy, uz;
-            m_view->Proj(dx, dy, dz);
-            m_view->Up(ux, uy, uz); 
-            // Reverse the projection direction
-            end_proj_global=gp_Vec(-dx, -dy, -dz); 
-            end_up_global=gp_Vec(ux, uy, uz);
-            start_animation(this);   
-        }},
+			// sbts{"Invertan",[this]{
+			//     animate_flip_view(this);
+			// }},
+			// sbts{"Ti",func }
+			// add more if needed
+		};
 
-        // sbts{"Invertan",[this]{
-        //     animate_flip_view(this);
-        // }},
-        // sbts{"Ti",func }
-        // add more if needed
-    };
+		float w1 = ceil(w / sbt.size()) + 0.0;
 
-    float w1 = ceil(w/sbt.size())+0.0;
+		lop(i, 0, sbt.size()) {
+			sbt[i].occv = this;
+			sbt[i].idx = i;
+			sbt[i].occbtn =
+				new Fl_Button(w1 * i, 0, w1, hc1, sbt[i].label.c_str());
+			sbt[i].occbtn->callback(sbts::call, &sbt[i]);  // ✅ fixed here
+		}
+	}
 
-    lop(i, 0, sbt.size()) {
-        sbt[i].occv=this;
-        sbt[i].idx=i;
-        sbt[i].occbtn = new Fl_Button(w1 * i, 0, w1, hc1, sbt[i].label.c_str());
-        sbt[i].occbtn->callback(sbts::call, &sbt[i]); // ✅ fixed here
-    }
-}
+	gp_Vec end_proj_global;
+	gp_Vec end_up_global;
+	Handle(AIS_AnimationCamera) CurrentAnimation;
 
-gp_Vec end_proj_global;   
-gp_Vec end_up_global; 
-Handle(AIS_AnimationCamera) CurrentAnimation;
+	void start_animation(void* userdata) {
+		auto* occv = static_cast<OCC_Viewer*>(userdata);
+		auto& m_view = occv->m_view;
 
-void start_animation(void* userdata) 
-{
-    auto* occv = static_cast<OCC_Viewer*>(userdata);
-    auto& m_view = occv->m_view;
+		// Clear any existing animation
+		if (!occv->CurrentAnimation.IsNull()) {
+			occv->CurrentAnimation->Stop();
+			occv->CurrentAnimation.Nullify();
+		}
 
-    // Clear any existing animation
-    if (!occv->CurrentAnimation.IsNull()) {
-        occv->CurrentAnimation->Stop();
-        occv->CurrentAnimation.Nullify();
-    }
+		// Get current camera state
+		Handle(Graphic3d_Camera) currentCamera = m_view->Camera();
+		gp_Pnt center = currentCamera->Center();
+		double distance = currentCamera->Distance();
 
-    // Get current camera state
-    Handle(Graphic3d_Camera) currentCamera = m_view->Camera();
-    gp_Pnt center = currentCamera->Center();
-    double distance = currentCamera->Distance();
-    
-    // Create start camera (current state)
-    Handle(Graphic3d_Camera) cameraStart = new Graphic3d_Camera();
-    cameraStart->Copy(currentCamera);
+		// Create start camera (current state)
+		Handle(Graphic3d_Camera) cameraStart = new Graphic3d_Camera();
+		cameraStart->Copy(currentCamera);
 
-    // Create end camera (target state)
-    Handle(Graphic3d_Camera) cameraEnd = new Graphic3d_Camera();
-    cameraEnd->Copy(currentCamera);
-    
-    // Invert the direction for OpenCASCADE (eye to center)
-    gp_Dir targetDir(
-        -occv->end_proj_global.X(),  // Invert X
-        -occv->end_proj_global.Y(),  // Invert Y
-        -occv->end_proj_global.Z()); // Invert Z
-    
-    gp_Pnt targetEye = center.XYZ() + targetDir.XYZ() * distance;
-    
-    // Set target camera position
-    cameraEnd->SetEye(targetEye);
-    cameraEnd->SetCenter(center);
-    cameraEnd->SetDirection(targetDir);
-    cameraEnd->SetUp(gp_Dir(
-        occv->end_up_global.X(),
-        occv->end_up_global.Y(),
-        occv->end_up_global.Z()));
+		// Create end camera (target state)
+		Handle(Graphic3d_Camera) cameraEnd = new Graphic3d_Camera();
+		cameraEnd->Copy(currentCamera);
 
-    // Create and configure animation
-    occv->CurrentAnimation = new AIS_AnimationCamera("ViewAnimation", m_view);
-    occv->CurrentAnimation->SetCameraStart(cameraStart);
-    occv->CurrentAnimation->SetCameraEnd(cameraEnd);
-    occv->CurrentAnimation->SetOwnDuration(0.6);  // Duration in seconds
+		// Invert the direction for OpenCASCADE (eye to center)
+		gp_Dir targetDir(-occv->end_proj_global.X(),   // Invert X
+						 -occv->end_proj_global.Y(),   // Invert Y
+						 -occv->end_proj_global.Z());  // Invert Z
 
-    // Start animation immediately
-    occv->CurrentAnimation->StartTimer(
-        0.0,           // Start time
-        1.0,           // Playback speed (normal)
-        Standard_True,  // Update to start position
-        Standard_False  // Don't stop timer at start
-    );
+		gp_Pnt targetEye = center.XYZ() + targetDir.XYZ() * distance;
 
-    // Start the update timer
-    // Fl::add_timeout(0.001, animation_update, userdata);
-    Fl::add_timeout(1.0/12, animation_update, userdata);
-}
+		// Set target camera position
+		cameraEnd->SetEye(targetEye);
+		cameraEnd->SetCenter(center);
+		cameraEnd->SetDirection(targetDir);
+		cameraEnd->SetUp(gp_Dir(occv->end_up_global.X(),
+								occv->end_up_global.Y(),
+								occv->end_up_global.Z()));
 
-static void animation_update(void* userdata)
-{
-    auto* occv = static_cast<OCC_Viewer*>(userdata);
-    auto& m_view = occv->m_view;
+		// Create and configure animation
+		occv->CurrentAnimation =
+			new AIS_AnimationCamera("ViewAnimation", m_view);
+		occv->CurrentAnimation->SetCameraStart(cameraStart);
+		occv->CurrentAnimation->SetCameraEnd(cameraEnd);
+		occv->CurrentAnimation->SetOwnDuration(0.6);  // Duration in seconds
 
-    if (occv->CurrentAnimation.IsNull()) {
-        Fl::remove_timeout(animation_update, userdata);
-        return;
-    }
+		// Start animation immediately
+		occv->CurrentAnimation->StartTimer(
+			0.0,			// Start time
+			1.0,			// Playback speed (normal)
+			Standard_True,	// Update to start position
+			Standard_False	// Don't stop timer at start
+		);
 
-    if (occv->CurrentAnimation->IsStopped()) {
-        // Ensure perfect final position with inverted direction
-        gp_Dir targetDir(
-            -occv->end_proj_global.X(), 
-            -occv->end_proj_global.Y(), 
-            -occv->end_proj_global.Z());
-        
-        gp_Pnt center = m_view->Camera()->Center();
-        double distance = m_view->Camera()->Distance();
-        gp_Pnt targetEye = center.XYZ() + targetDir.XYZ() * distance;
-        
-        m_view->Camera()->SetEye(targetEye);
-        m_view->Camera()->SetDirection(targetDir);
-        m_view->Camera()->SetUp(gp_Dir(
-            occv->end_up_global.X(),
-            occv->end_up_global.Y(),
-            occv->end_up_global.Z()));
-        
-        occv->colorisebtn();
-        occv->projectAndDisplayWithHLR(occv->vshapes);
-        occv->redraw(); //  redraw(); // m_view->Update ();
+		// Start the update timer
+		// Fl::add_timeout(0.001, animation_update, userdata);
+		Fl::add_timeout(1.0 / 12, animation_update, userdata);
+	}
 
+	static void animation_update(void* userdata) {
+		auto* occv = static_cast<OCC_Viewer*>(userdata);
+		auto& m_view = occv->m_view;
 
-        Fl::remove_timeout(animation_update, userdata);
-        return;
-    }
+		if (occv->CurrentAnimation.IsNull()) {
+			Fl::remove_timeout(animation_update, userdata);
+			return;
+		}
 
-    // Update animation with current time
-    occv->CurrentAnimation->UpdateTimer();
-    occv->projectAndDisplayWithHLR(occv->vshapes);
-    occv->redraw(); //  redraw(); // m_view->Update ();
+		if (occv->CurrentAnimation->IsStopped()) {
+			// Ensure perfect final position with inverted direction
+			gp_Dir targetDir(-occv->end_proj_global.X(),
+							 -occv->end_proj_global.Y(),
+							 -occv->end_proj_global.Z());
 
+			gp_Pnt center = m_view->Camera()->Center();
+			double distance = m_view->Camera()->Distance();
+			gp_Pnt targetEye = center.XYZ() + targetDir.XYZ() * distance;
 
-    
-    // Continue updating at 30fps
-    Fl::repeat_timeout(1.0/30.0, animation_update, userdata);
-}
+			m_view->Camera()->SetEye(targetEye);
+			m_view->Camera()->SetDirection(targetDir);
+			m_view->Camera()->SetUp(gp_Dir(occv->end_up_global.X(),
+										   occv->end_up_global.Y(),
+										   occv->end_up_global.Z()));
 
+			occv->colorisebtn();
+			occv->projectAndDisplayWithHLR(occv->vshapes);
+			occv->redraw();	 //  redraw(); // m_view->Update ();
 
-vector<int> check_nearest_btn_idx() {
-    // Get current view orientation
-    Standard_Real dx, dy, dz, ux, uy, uz;
-    m_view->Proj(dx, dy, dz);
-    m_view->Up(ux, uy, uz);
-    
-    gp_Dir current_proj(dx, dy, dz);
-    gp_Dir current_up(ux, uy, uz);
-    
-    vector<pair<double, int>> view_scores; // Stores angle sums with their indices
-    
-    for (int i = 0; i < 6; i++) {
-    // for (int i = 0; i < sbt.size(); i++) {
-        if (!sbt[i].is_setview) continue;
-        
-        // Get predefined view orientation
-        gp_Dir predefined_proj(sbt[i].v.dx, sbt[i].v.dy, sbt[i].v.dz);
-        gp_Dir predefined_up(sbt[i].v.ux, sbt[i].v.uy, sbt[i].v.uz);
-        
-        // Calculate angular differences
-        double proj_angle = current_proj.Angle(predefined_proj);
-        double up_angle = current_up.Angle(predefined_up);
-        double angle_sum = proj_angle + up_angle;
-        
-        view_scores.emplace_back(angle_sum, i);
-    }
-    
-    // Sort by angle sum (ascending order)
-    sort(view_scores.begin(), view_scores.end());
-    
-    // Prepare result vector
-    vector<int> result;
-    
-    // Add nearest (if exists)
-    if (!view_scores.empty()) {
-        result.push_back(view_scores[0].second);
-    } else {
-        result.push_back(-1);
-    }
-    
-    // Add second nearest (if exists)
-    if (view_scores.size() > 1) {
-        result.push_back(view_scores[1].second);
-    } else {
-        result.push_back(-1);
-    }
-    
-    return result;
-}
+			Fl::remove_timeout(animation_update, userdata);
+			return;
+		}
+
+		// Update animation with current time
+		occv->CurrentAnimation->UpdateTimer();
+		occv->projectAndDisplayWithHLR(occv->vshapes);
+		occv->redraw();	 //  redraw(); // m_view->Update ();
+
+		// Continue updating at 30fps
+		Fl::repeat_timeout(1.0 / 30.0, animation_update, userdata);
+	}
+
+	vector<int> check_nearest_btn_idx() {
+		// Get current view orientation
+		Standard_Real dx, dy, dz, ux, uy, uz;
+		m_view->Proj(dx, dy, dz);
+		m_view->Up(ux, uy, uz);
+
+		gp_Dir current_proj(dx, dy, dz);
+		gp_Dir current_up(ux, uy, uz);
+
+		vector<pair<double, int>>
+			view_scores;  // Stores angle sums with their indices
+
+		for (int i = 0; i < 6; i++) {
+			// for (int i = 0; i < sbt.size(); i++) {
+			if (!sbt[i].is_setview) continue;
+
+			// Get predefined view orientation
+			gp_Dir predefined_proj(sbt[i].v.dx, sbt[i].v.dy, sbt[i].v.dz);
+			gp_Dir predefined_up(sbt[i].v.ux, sbt[i].v.uy, sbt[i].v.uz);
+
+			// Calculate angular differences
+			double proj_angle = current_proj.Angle(predefined_proj);
+			double up_angle = current_up.Angle(predefined_up);
+			double angle_sum = proj_angle + up_angle;
+
+			view_scores.emplace_back(angle_sum, i);
+		}
+
+		// Sort by angle sum (ascending order)
+		sort(view_scores.begin(), view_scores.end());
+
+		// Prepare result vector
+		vector<int> result;
+
+		// Add nearest (if exists)
+		if (!view_scores.empty()) {
+			result.push_back(view_scores[0].second);
+		} else {
+			result.push_back(-1);
+		}
+
+		// Add second nearest (if exists)
+		if (view_scores.size() > 1) {
+			result.push_back(view_scores[1].second);
+		} else {
+			result.push_back(-1);
+		}
+
+		return result;
+	}
 #pragma endregion view_rotate
 };
-OCC_Viewer* occv=0;
+OCC_Viewer* occv = 0;
 
 #pragma region browser
 
-void fillbrowser(void*){
+void fillbrowser(void*) {
 	perf();
 	fbm->clear();
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
-	lop(i,0,occv->vaShape.size()){
-		OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
+	lop(i, 0, occv->vaShape.size()) {
+		OCC_Viewer::luadraw* ld =
+			occv->getluadraw_from_ashape(occv->vaShape[i]);
 		// cotm(ld->visible_hardcoded)
 		// OCC_Viewer::luadraw* ld=occv->vlua[i];
 		ld->redisplay();
 		fbm->add(ld->name.c_str());
 	}
 	occv->fillvectopo();
-		cotm("vshapes",occv->vshapes.size());
-perf1("bench fillvectopo");
-occv->toggle_shaded_transp(occv->currentMode);
-occv->redraw();
+	cotm("vshapes", occv->vshapes.size());
+	perf1("bench fillvectopo");
+	occv->toggle_shaded_transp(occv->currentMode);
+	occv->redraw();
 	perf("fillbrowser");
 }
 
-
-
-
 #pragma endregion browser
-
 
 #pragma region lua
 // #include <sol/sol.hpp>
 
-void deletelua(string name){
+void deletelua(string name) {
 	auto it = occv->ulua.find(name);
 	if (it != occv->ulua.end()) {
 		// 2. Get the pointer before erasure
@@ -3634,743 +2773,707 @@ void deletelua(string name){
 	}
 }
 
+int close(lua_State* L) {
+	luaL_error(L, "close() called!");
+	return 0;
+}
+int Part(lua_State* L) {
+	cotm("luatest") cotm(lua_gettop(L));
 
+	OCC_Viewer::luadraw* test = new OCC_Viewer::luadraw("consegui", occv);
+	// test->visible_hardcoded=0;
+	// test->translate(10);
+	// test.translate(0,10);
+	// test.rotate(90);
+	test->dofromstart();
+	test->redisplay();
 
+	perf();
+	occv->fillvectopo();
+	perf("bench");
 
-	int close(lua_State* L){
-		luaL_error(L, "close() called!");
-		return 0;
-	}
-	int Part(lua_State* L){
-		cotm("luatest")
-		cotm(lua_gettop(L));
+	occv->toggle_shaded_transp(occv->currentMode);
 
-		OCC_Viewer::luadraw* test=new OCC_Viewer::luadraw("consegui",occv);
-		// test->visible_hardcoded=0;
-		// test->translate(10);
-		// test.translate(0,10);
-		// test.rotate(90);
-		test->dofromstart();
-		test->redisplay();
+	// occv->m_view->FitAll();
+	occv->redraw();	 // for win
 
-		
-perf();
-occv->fillvectopo();
-perf("bench");
+	return 1;
+}
 
-occv->toggle_shaded_transp(occv->currentMode);
-
-		
-// occv->m_view->FitAll();
-occv->redraw(); //for win
-
-
-		return 1;
-	} 
-
-
-	// lua_State* L;
-	// static std::unique_ptr<sol::state> G;
- static std::vector<gp_Vec2d> to_vec2d_vector(const sol::table& t) {
+static std::vector<gp_Vec2d> to_vec2d_vector(const sol::table& t) {
     std::vector<gp_Vec2d> out;
+    cotm("gp_Vec2d0");
     out.reserve(t.size());
+
     for (std::size_t i = 1; i <= t.size(); ++i) {
-        out.push_back(t.get<gp_Vec2d>(i));
+        sol::optional<gp_Vec2d> maybe_vec = t[i];
+        if (maybe_vec) {
+            out.push_back(*maybe_vec);
+            cotm(i);
+        } else {
+            cotm("Invalid gp_Vec2d at index " + std::to_string(i));
+        }
     }
+
+    cotm("gp_Vec2d1");
     return out;
 }
- void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
-    // store global pointer for the factory
-    // g_occv = occv;
+
+void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
+	// store global pointer for the factory
+	// g_occv = occv;
 
 	// 1) Bind gp_Vec2d so Lua can construct and pass Vec2 objects
 	lua.new_usertype<gp_Vec2d>(
-		"Vec2",
-		sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(),
-		"x", sol::property(
-			[](const gp_Vec2d& v) { return v.X(); },
-			[](gp_Vec2d& v, double x) { v.SetX(x); }
-		),
-		"y", sol::property(
-			[](const gp_Vec2d& v) { return v.Y(); },
-			[](gp_Vec2d& v, double y) { v.SetY(y); }
-		)
-	);
+		"Vec2", sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(), "x",
+		sol::property([](const gp_Vec2d& v) { return v.X(); },
+					  [](gp_Vec2d& v, double x) { v.SetX(x); }),
+		"y",
+		sol::property([](const gp_Vec2d& v) { return v.Y(); },
+					  [](gp_Vec2d& v, double y) { v.SetY(y); }));
 
+	// create the usertype for the real C++ class
+	lua.new_usertype<OCC_Viewer::luadraw>(
+		"luadraw",
+		// no constructor exposed to Lua directly (we provide a factory instead)
+		sol::no_constructor,
 
+		// properties
+		"name", &OCC_Viewer::luadraw::name, "visible_hardcoded",
+		&OCC_Viewer::luadraw::visible_hardcoded,
 
-    // create the usertype for the real C++ class
-    lua.new_usertype<OCC_Viewer::luadraw>(
-        "luadraw",
-        // no constructor exposed to Lua directly (we provide a factory instead)
-        sol::no_constructor,
+		// methods (bind member functions)
+		"redisplay", &OCC_Viewer::luadraw::redisplay, "display",
+		&OCC_Viewer::luadraw::display,
+		// bind rotate as a member that takes single int (degrees)
+		"rotate", &OCC_Viewer::luadraw::rotate, "rotatex",
+		[](OCC_Viewer::luadraw& self, int angle) {
+			self.rotate(angle, 1.f, 0.f, 0.f);
+		},
+		"rotatey",
+		[](OCC_Viewer::luadraw& self, int angle) {
+			self.rotate(angle, 0.f, 1.f, 0.f);
+		},
+		"rotatez",
+		[](OCC_Viewer::luadraw& self, int angle) {
+			self.rotate(angle, 0.f, 0.f, 1.f);
+		},
+		"translate", &OCC_Viewer::luadraw::translate, "extrude",
+		&OCC_Viewer::luadraw::extrude, "clone", &OCC_Viewer::luadraw::clone,
+		"offset", &OCC_Viewer::luadraw::createOffset, "copy_placement",
+		&OCC_Viewer::luadraw::copy_placement, "exit",
+		&OCC_Viewer::luadraw::exit,
+		// fuse expects two luadraw references; sol2 will convert Lua objects to
+		// C++ refs
+		"fuse", &OCC_Viewer::luadraw::fuse, "dofromstart",
+		&OCC_Viewer::luadraw::dofromstart,
 
-        // properties
-        "name", &OCC_Viewer::luadraw::name,
-        "visible_hardcoded", &OCC_Viewer::luadraw::visible_hardcoded,
-
-        // methods (bind member functions)
-        "redisplay", &OCC_Viewer::luadraw::redisplay,
-        "display", &OCC_Viewer::luadraw::display,
-        // bind rotate as a member that takes single int (degrees)
-		"rotate",  &OCC_Viewer::luadraw::rotate,
-		"rotatex", [](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 1.f, 0.f, 0.f); },
-		"rotatey", [](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 1.f, 0.f); },
-		"rotatez", [](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 0.f, 1.f); },
-        "translate", &OCC_Viewer::luadraw::translate,
-        "extrude", &OCC_Viewer::luadraw::extrude,
-        "clone", &OCC_Viewer::luadraw::clone,
-        "offset", &OCC_Viewer::luadraw::createOffset,
-        "copy_placement", &OCC_Viewer::luadraw::copy_placement,
-        "exit", &OCC_Viewer::luadraw::exit,
-        // fuse expects two luadraw references; sol2 will convert Lua objects to C++ refs
-        "fuse", &OCC_Viewer::luadraw::fuse,
-        "dofromstart", &OCC_Viewer::luadraw::dofromstart,
-
-		"create_wire", sol::overload(
+		"create_wire",
+		sol::overload(
 			[](OCC_Viewer::luadraw& self, sol::table pts, bool closed) {
 				self.CreateWire(to_vec2d_vector(pts), closed);
 			},
 			[](OCC_Viewer::luadraw& self, sol::table pts) {
 				self.CreateWire(to_vec2d_vector(pts), false);
-			}
-		)
-    );
+			}));
 
-    // factory function available in Lua as `luadraw_new(name)`
-    // returns a shared_ptr so the Lua GC owns the object lifetime safely.
-    lua.set_function("luadraw_new", [occv](const std::string& name) {
+	// factory function available in Lua as `luadraw_new(name)`
+	// returns a shared_ptr so the Lua GC owns the object lifetime safely.
+	lua.set_function("luadraw_new", [occv](const std::string& name) {
 		auto* luaDrawPtr = new OCC_Viewer::luadraw(name, occv);
-        // Create with the OCC_Viewer* automatically injected
-        return luaDrawPtr;
-        // return std::make_shared<OCC_Viewer::luadraw>(name, occv);
-    });
+		// Create with the OCC_Viewer* automatically injected
+		return luaDrawPtr;
+		// return std::make_shared<OCC_Viewer::luadraw>(name, occv);
+	});
 
-    // // optional: convenience alias to create and store in OCC_Viewer map like your example
-    // // if you want a function that mimics `OCC_Viewer::luadraw* test=new OCC_Viewer::luadraw("consegui",occv);`
-    // lua.set_function("luadraw_new_raw", [occv](const std::string& name) -> OCC_Viewer::luadraw* {
-    //     // allocate raw pointer and return it -- caller (C++ side) must manage lifetime
-    //     return new OCC_Viewer::luadraw(name, occv);
-    // });
+	// // optional: convenience alias to create and store in OCC_Viewer map like
+	// your example
+	// // if you want a function that mimics `OCC_Viewer::luadraw* test=new
+	// OCC_Viewer::luadraw("consegui",occv);`
+	// lua.set_function("luadraw_new_raw", [occv](const std::string& name) ->
+	// OCC_Viewer::luadraw* {
+	//     // allocate raw pointer and return it -- caller (C++ side) must
+	//     manage lifetime return new OCC_Viewer::luadraw(name, occv);
+	// });
 }
 
 // void extractMethodNames(const FunctionDecl* bindFunc) {
 //     std::vector<std::string> methodNames;
-    
+
 //     // Find all method binding statements
 //     for (auto stmt : bindFunc->body()) {
 //         if (isMethodBinding(stmt)) {
 //             methodNames.push_back(getMethodName(stmt));
 //         }
 //     }
-    
+
 //     return methodNames;
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-
-	#define setluafunc(val,desc){ lua_pushcfunction(L, val); lua_setglobal(L, #val); \
-		if (luafuncs.count(val) == 0)luafuncs[val]=desc; }
-	
-	unordered_map<lua_CFunction ,string> luafuncs;
-
-	string getfunctionhelp(){ 
-		string val;
-		for (const auto& pair : luafuncs) {
-			// lua_CFunction func = pair.first; 
-			val+=(pair.second)+"\n\n";	 
-		}
-		return val;
+#define setluafunc(val, desc)                               \
+	{                                                       \
+		lua_pushcfunction(L, val);                          \
+		lua_setglobal(L, #val);                             \
+		if (luafuncs.count(val) == 0) luafuncs[val] = desc; \
 	}
-	void lua_hook(lua_State* L, lua_Debug* ar) {
-		int cl=(ar->currentline);
-		// if (lua_getstack(L, 0, ar)) {
-			lua_getinfo(L, "nSl", ar);
-			cotm(cl,ar->source,ar->name) 
-		// }
+
+unordered_map<lua_CFunction, string> luafuncs;
+
+string getfunctionhelp() {
+	string val;
+	for (const auto& pair : luafuncs) {
+		// lua_CFunction func = pair.first;
+		val += (pair.second) + "\n\n";
 	}
-	void luainit(){
-    if (G) return;
-	if(!occv)cotm("occv not init")
+	return val;
+}
+void lua_hook(lua_State* L, lua_Debug* ar) {
+	int cl = (ar->currentline);
+	// if (lua_getstack(L, 0, ar)) {
+	lua_getinfo(L, "nSl", ar);
+	cotm(cl, ar->source, ar->name)
+	// }
+}
+void luainit() {
+	if (G) return;
+	if (!occv)
+		cotm("occv not init")
 
-    G = std::make_unique<sol::state>();
-    auto& lua = *G;
+			G = std::make_unique<sol::state>();
+	auto& lua = *G;
 
-    lua.open_libraries(sol::lib::base, sol::lib::package);
+	lua.open_libraries(sol::lib::base, sol::lib::package);
 
-    // Adjust package.path
-    lua["package"]["path"] = std::string("./lua/?.lua;") + std::string(lua["package"]["path"]);
+	// Adjust package.path
+	lua["package"]["path"] =
+		std::string("./lua/?.lua;") + std::string(lua["package"]["path"]);
 
-    // Example: if you need the raw lua_State* for C APIs
-    L = lua.lua_state();
-    // lua_sethook(L, my_hook, LUA_MASKLINE, 0);
+	// Example: if you need the raw lua_State* for C APIs
+	L = lua.lua_state();
+	// lua_sethook(L, my_hook, LUA_MASKLINE, 0);
 
+	bind_luadraw(lua, occv);
 
-		bind_luadraw(lua, occv);
+	// Bind types
+	// bind_occt_value_types(lua);
+	// bind_occ_viewer_type(lua);
+	// bind_luadraw(lua);
 
+	// Make your OCC_Viewer* available to Lua (as a usertype instance)
+	// lua["occv"] = occv;
 
+	// // Optional: a convenience factory if you prefer function-call style
+	// lua.set_function("new_luadraw", [occv](const std::string& name) ->
+	// OCC_Viewer::luadraw* {
+	//     return new OCC_Viewer::luadraw(name, occv);
+	// });
 
-
-		
-	    // Bind types
-    // bind_occt_value_types(lua);
-    // bind_occ_viewer_type(lua);
-    // bind_luadraw(lua);
-
-    // Make your OCC_Viewer* available to Lua (as a usertype instance)
-    // lua["occv"] = occv;
-
-    // // Optional: a convenience factory if you prefer function-call style
-    // lua.set_function("new_luadraw", [occv](const std::string& name) -> OCC_Viewer::luadraw* {
-    //     return new OCC_Viewer::luadraw(name, occv);
-    // });
-
-
-
-
-
-		setluafunc(Part,"Part(title,axle2,...)\
+	setluafunc(Part,
+			   "Part(title,axle2,...)\
 			Sets the rotation angle of the servos of the arm.");
 
-
-
-		setluafunc(close,"close()\
+	setluafunc(close,
+			   "close()\
 			Exit script.");
-	}
-
-nmutex lua_mtx("lua_mtx",1);
-
-
-void lua_str(string str,bool isfile){	
-    thread([](string str,bool isfile,OCC_Viewer* occv){ 
-		lua_mtx.lock();
-		luainit();
-		// perf1();
-        // init_luas.init();
-        // cotm(lua_mtx.waiting_threads.load())
-        // if(all_cancel && lua_mtx.waiting_threads.load()<=1){
-        //     all_cancel=0;
-        //     lua_mtx.unlock();
-        //     return;
-        // }
-        // if(all_cancel){lua_mtx.unlock(); return;}
-
-
-		//temporario
-		// {
-		// OCC_Viewer::luadraw* tt= ulua["test5"];
-		// m_context->Remove(tt->ashape,0);
-		// delete tt;
-		// occv->ulua.clear();
-		// occv->m_context->RemoveAll(0);
-		// occv->vaShape.clear(); 
-		// Delete all pointers and clear the map
-		// deletelua("test5");
-// auto it = occv->ulua.begin();
-// while (it != occv->ulua.end()) {
-//     deletelua(it->second->name);  // Your deletion function
-//     // OR do it directly:
-//     /*
-//     OCC_Viewer::luadraw* ptr = it->second;
-//     if (!ptr->ashape.IsNull() && !occv->m_context.IsNull()) {
-//         occv->m_context->Remove(ptr->ashape, 0);
-//     }
-//     delete ptr;
-//     */
-//     // it--;  // Returns next valid iterator
-// }
-// // occv->ulua.clear();  // Clear the map entries
-// cotm("All elements removed from ulua");
-		// }
-
-		
-		// lop(i,0,occv->vaShape.size()){
-		// 	// OCC_Viewer::luadraw*ld= occv->getluadraw_from_ashape(occv->vaShape[i]);
-		// 	// if(ld){
-		// 	// 	cotm(1)
-		// 	// 	delete ld;
-		// 	// 	ld=nullptr;
-		// 	// }
-		// 	occv->m_context->Remove(occv->vaShape[i],0);
-		// }
-		// cotm(2)
-		// occv->vaShape.clear();
-		// occv->ulua.clear();
-
-
-
-// 		for (auto& ashape : occv->vaShape) {
-//     occv->m_context->Remove(ashape, 0);
-// }
-// auto& va = occv->vaShape;
-// va.erase(std::unique(va.begin(), va.end()), va.end());
-// occv->vaShape.clear();
-// occv->ulua.clear();
-
-
-cotm("luarun",occv->vaShape.size())
-	//temporary
-// for (auto& ashape : occv->vaShape) {
-//     if (!ashape.IsNull()) {
-//         // occv->m_context->Erase(ashape, 0);
-//         // occv->m_context->Remove(ashape, 0);
-//     }
-// }
-// lop(i,0,occv->vaShape.size()){
-// 	// occv->vlua[i]->shape.Free(1);
-// 	auto& ashape=occv->vaShape[i];
-// 	occv->m_context->Remove(ashape, 0); 
-// }
-// occv->m_context->RemoveAll(0);
-
-
- // Remove in reverse order (in case of dependencies)
-
-
-	
-//     for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i)
-//     {
-// 		// occv->vlua[i]->shape.Nullify();
-//         try
-//         {
-//             if (!occv->vaShape[i].IsNull())
-//             {
-//                 // Remove AIS object from the context
-//                 occv->m_context->Remove(occv->vaShape[i], /*erase from viewer*/ false);
-//             }
-
-//             // Also remove from Lua-side if exists
-//             // if (i < static_cast<int>(occv->vlua.size()) && occv->vlua[i])
-//             // {
-//             //     // Avoid touching shared TopoDS_Shape here
-//             //     occv->vlua[i]->shape.Nullify();
-//             // }
-//         }
-//         catch (const Standard_Failure& e)
-//         {
-//             std::cerr << "OCC error removing shape index " << i << ": "
-//                       << e.GetMessageString() << "\n";
-//         }
-
-		
-// 		TopoDS_Compound comp = TopoDS::Compound(occv->vlua[i]->shape);
-// comp.Nullify();
-// 		delete occv->vlua[i];
-//     }
-
-	// occv->SafeClearShapes();
-
-		
-
-
-    for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i){
-// occv->vlua[i]->shape.Nullify();
-
-
-		// delete occv->vlua[i];
-	}
-	// occv->m_context->RemoveAll(0);
-// occv->m_context->EraseAll(Standard_True);
-// occv->m_context->Clear(Standard_True);
-
-
-
-// 1) Stop any hover/selection first
-occv->m_context->ClearCurrents(Standard_False);
-occv->m_context->ClearSelected(Standard_False);
-for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i){
-	auto &aisShapeHandle=occv->vaShape[i];
-// 2) Deactivate selection modes for this specific AIS object
-occv->m_context->Deactivate(aisShapeHandle);
-
-// 3) Remove it from the context
-if (occv->m_context->IsDisplayed(aisShapeHandle))
-    occv->m_context->Remove(aisShapeHandle, Standard_False);
-else
-    occv->m_context->Erase(aisShapeHandle, Standard_False);
-
-// 4) Update the viewer once you’re done
-occv->m_context->UpdateCurrentViewer();
-
-// 5) Release your last handle to allow cleanup
-aisShapeHandle.Nullify();
-
-// 6) Only after the AIS is gone, release/nullify the TopoDS_Compound
-// compoundShape.Nullify();
- occv->vlua[i]->cshape.Nullify();
 }
 
+nmutex lua_mtx("lua_mtx", 1);
+
+void lua_str(string str, bool isfile) {
+	thread(
+		[](string str, bool isfile, OCC_Viewer* occv) {
+			lua_mtx.lock();
+			luainit();
+			// perf1();
+			// init_luas.init();
+			// cotm(lua_mtx.waiting_threads.load())
+			// if(all_cancel && lua_mtx.waiting_threads.load()<=1){
+			//     all_cancel=0;
+			//     lua_mtx.unlock();
+			//     return;
+			// }
+			// if(all_cancel){lua_mtx.unlock(); return;}
+
+			// temporario
+			//  {
+			//  OCC_Viewer::luadraw* tt= ulua["test5"];
+			//  m_context->Remove(tt->ashape,0);
+			//  delete tt;
+			//  occv->ulua.clear();
+			//  occv->m_context->RemoveAll(0);
+			//  occv->vaShape.clear();
+			//  Delete all pointers and clear the map
+			//  deletelua("test5");
+			// auto it = occv->ulua.begin();
+			// while (it != occv->ulua.end()) {
+			//     deletelua(it->second->name);  // Your deletion function
+			//     // OR do it directly:
+			//     /*
+			//     OCC_Viewer::luadraw* ptr = it->second;
+			//     if (!ptr->ashape.IsNull() && !occv->m_context.IsNull()) {
+			//         occv->m_context->Remove(ptr->ashape, 0);
+			//     }
+			//     delete ptr;
+			//     */
+			//     // it--;  // Returns next valid iterator
+			// }
+			// // occv->ulua.clear();  // Clear the map entries
+			// cotm("All elements removed from ulua");
+			// }
+
+			// lop(i,0,occv->vaShape.size()){
+			// 	// OCC_Viewer::luadraw*ld=
+			// occv->getluadraw_from_ashape(occv->vaShape[i]);
+			// 	// if(ld){
+			// 	// 	cotm(1)
+			// 	// 	delete ld;
+			// 	// 	ld=nullptr;
+			// 	// }
+			// 	occv->m_context->Remove(occv->vaShape[i],0);
+			// }
+			// cotm(2)
+			// occv->vaShape.clear();
+			// occv->ulua.clear();
+
+			// 		for (auto& ashape : occv->vaShape) {
+			//     occv->m_context->Remove(ashape, 0);
+			// }
+			// auto& va = occv->vaShape;
+			// va.erase(std::unique(va.begin(), va.end()), va.end());
+			// occv->vaShape.clear();
+			// occv->ulua.clear();
+
+			cotm("luarun", occv->vaShape.size())
+				// temporary
+				// for (auto& ashape : occv->vaShape) {
+				//     if (!ashape.IsNull()) {
+				//         // occv->m_context->Erase(ashape, 0);
+				//         // occv->m_context->Remove(ashape, 0);
+				//     }
+				// }
+				// lop(i,0,occv->vaShape.size()){
+				// 	// occv->vlua[i]->shape.Free(1);
+				// 	auto& ashape=occv->vaShape[i];
+				// 	occv->m_context->Remove(ashape, 0);
+				// }
+				// occv->m_context->RemoveAll(0);
+
+				// Remove in reverse order (in case of dependencies)
+
+				//     for (int i = static_cast<int>(occv->vaShape.size()) - 1;
+				//     i >= 0; --i)
+				//     {
+				// 		// occv->vlua[i]->shape.Nullify();
+				//         try
+				//         {
+				//             if (!occv->vaShape[i].IsNull())
+				//             {
+				//                 // Remove AIS object from the context
+				//                 occv->m_context->Remove(occv->vaShape[i],
+				//                 /*erase from viewer*/ false);
+				//             }
+
+				//             // Also remove from Lua-side if exists
+				//             // if (i < static_cast<int>(occv->vlua.size()) &&
+				//             occv->vlua[i])
+				//             // {
+				//             //     // Avoid touching shared TopoDS_Shape here
+				//             //     occv->vlua[i]->shape.Nullify();
+				//             // }
+				//         }
+				//         catch (const Standard_Failure& e)
+				//         {
+				//             std::cerr << "OCC error removing shape index " <<
+				//             i << ": "
+				//                       << e.GetMessageString() << "\n";
+				//         }
+
+				// 		TopoDS_Compound comp =
+				// TopoDS::Compound(occv->vlua[i]->shape); comp.Nullify();
+				// 		delete occv->vlua[i];
+				//     }
+
+				// occv->SafeClearShapes();
+
+				for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0;
+					 --i) {
+				// occv->vlua[i]->shape.Nullify();
+
+				// delete occv->vlua[i];
+			}
+			// occv->m_context->RemoveAll(0);
+			// occv->m_context->EraseAll(Standard_True);
+			// occv->m_context->Clear(Standard_True);
+
+			// 1) Stop any hover/selection first
+			occv->m_context->ClearCurrents(Standard_False);
+			occv->m_context->ClearSelected(Standard_False);
+			for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0;
+				 --i) {
+				auto& aisShapeHandle = occv->vaShape[i];
+				// 2) Deactivate selection modes for this specific AIS object
+				occv->m_context->Deactivate(aisShapeHandle);
+
+				// 3) Remove it from the context
+				if (occv->m_context->IsDisplayed(aisShapeHandle))
+					occv->m_context->Remove(aisShapeHandle, Standard_False);
+				else
+					occv->m_context->Erase(aisShapeHandle, Standard_False);
+
+				// 4) Update the viewer once you’re done
+				// occv->m_context->UpdateCurrentViewer();
+
+				// 5) Release your last handle to allow cleanup
+				aisShapeHandle.Nullify();
+
+				// 6) Only after the AIS is gone, release/nullify the
+				// TopoDS_Compound compoundShape.Nullify();
+				occv->vlua[i]->cshape.Nullify();
+			}
+
+			occv->vshapes.clear();
+			occv->vaShape.clear();
+			occv->ulua.clear();
+			occv->vlua.clear();
+
+			int status;
+			if (isfile) {
+				status = luaL_loadfile(L, str.c_str());
+			} else {
+				status = luaL_loadstring(L, str.c_str());
+			}
+
+			if (status == LUA_OK) {
+				if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
+					std::cerr << "runtime error: " << lua_tostring(L, -1)
+							  << std::endl;
+					lua_pop(L, 1);
+				}
 
 
 
 
-	occv->vshapes.clear();
-    occv->vaShape.clear();
-	occv->ulua.clear();
-	occv->vlua.clear(); 
-
-        int status;
-        if (isfile) {
-            status = luaL_loadfile(L, str.c_str());
-        } else {
-            status = luaL_loadstring(L, str.c_str());
-        }
-
-        if (status == LUA_OK) {
-            if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
-                std::cerr << "Runtime error: " << lua_tostring(L, -1) << std::endl;
-                lua_pop(L, 1);
-            }
 
 
-	
-// perf1("lua script");
-	// lop(i,0,occv->vaShape.size()){
-	// 	OCC_Viewer::luadraw* ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
-	// 	// ld->redisplay();
-	// 	cotm("vashape",occv->vaShape.size());
-	// }
-Fl::awake(fillbrowser);
-// occv->fillvectopo();
-// 		cotm("vshapes",occv->vshapes.size());
-// perf1("bench fillvectopo");
-// occv->toggle_shaded_transp(occv->currentMode);
-// occv->redraw();
- 
 
-        } else {
-            std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
-            lua_pop(L, 1);
-        }
+				
 
+				// perf1("lua script");
+				// lop(i,0,occv->vaShape.size()){
+				// 	OCC_Viewer::luadraw*
+				// ld=occv->getluadraw_from_ashape(occv->vaShape[i]);
+				// 	// ld->redisplay();
+				// 	cotm("vashape",occv->vaShape.size());
+				// }
+				Fl::awake(fillbrowser);
+				// occv->fillvectopo();
+				// 		cotm("vshapes",occv->vshapes.size());
+				// perf1("bench fillvectopo");
+				// occv->toggle_shaded_transp(occv->currentMode);
+				// occv->redraw();
 
-        // cotm(2)
-        // lua_close(L);
-        // L=0;
-	// 	    if (G) {
-    //     // G->collect_garbage(); // optional, run GC before closing
-    //     G.reset();
-    // }
-		lua_mtx.unlock();
-	},str,isfile,occv).detach(); 
+			} else {
+				std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
+				lua_pop(L, 1);
+			}
 
+			// cotm(2)
+			// lua_close(L);
+			// L=0;
+			// 	    if (G) {
+			//     // G->collect_garbage(); // optional, run GC before closing
+			//     G.reset();
+			// }
+			lua_mtx.unlock();
+		},
+		str, isfile, occv)
+		.detach();
 }
-
-
 
 #pragma endregion lua
 
-
-
-
-
-
-
-
 static Fl_Menu_Item items[] = {
 	// Main menu items
-	{ "&File", 0, 0, 0, FL_SUBMENU },
-		{ "&Open", FL_ALT + 'o', ([](Fl_Widget *, void* v){ 	  
-			open_cb();	  
-		}), (void*)menu },
-		 
-		
-		{ "Pause", 0, ([](Fl_Widget *fw, void* v){ 	 
-            if(!occv)cotm("notok")
-            occv->m_view->SetProj(V3d_XposYposZpos);
-            // occv->animate_flip_view(occv); 
-			// Fl_Menu_Item* btpause= const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&File/Pause"));
-			// if(btpause->value()>0)
-			// // 	lop(i,0,pool.size())
-			// // 		pool[i]->pause=1;
-			// // else
-			// // 	lop(i,0,pool.size())
-			// // 		pool[i]->pause=0;	
-			
-			// cot1(btpause->value());  
-		}), (void*)menu, FL_MENU_TOGGLE },
+	{"&File", 0, 0, 0, FL_SUBMENU},
+	{"&Open", FL_ALT + 'o', ([](Fl_Widget*, void* v) { open_cb(); }),
+	 (void*)menu},
 
+	{"Pause", 0, ([](Fl_Widget* fw, void* v) {
+		 if (!occv) cotm("notok") occv->m_view->SetProj(V3d_XposYposZpos);
+		 // occv->animate_flip_view(occv);
+		 // Fl_Menu_Item* btpause=
+		 // const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&File/Pause"));
+		 // if(btpause->value()>0)
+		 // // 	lop(i,0,pool.size())
+		 // // 		pool[i]->pause=1;
+		 // // else
+		 // // 	lop(i,0,pool.size())
+		 // // 		pool[i]->pause=0;
 
-		{ "&Get view", FL_COMMAND  + 'g', ([](Fl_Widget *, void* v){  
-            occv->m_view->SetProj(1,1,1);
-			// // ve[0]->rotate(Vec3f(0,0,1),45); 
-			// getview();
-			// // Break=1;
-			
-			// 	// ve[0]->rotate( 10); 
-			// 	// cot(*ve[1]->axisbegin ); 
-			// 	// cot(*ve[1]->axisend );  
-		}), (void*)menu },
+		 // cot1(btpause->value());
+	 }),
+	 (void*)menu, FL_MENU_TOGGLE},
 
-		{ "Inverse kinematics", 0, ([](Fl_Widget *, void* v){ 	
-            
-        
-        Standard_Real dx, dy, dz, ux, uy, uz;
-        occv->m_view->Proj(dx, dy, dz);
-        occv->m_view->Up(ux, uy, uz);
-        cotm("draw",dx, dy, dz, ux, uy, uz);
-			// // ve[ve.size()-1]->rotate_posk(10);	
-			// // dbg_pos(); /////
-			// ve[3]->posik(vec3(150,150,-150));
-		}), (void*)menu },
+	{"&Get view", FL_COMMAND + 'g', ([](Fl_Widget*, void* v) {
+		 occv->m_view->SetProj(1, 1, 1);
+		 // // ve[0]->rotate(Vec3f(0,0,1),45);
+		 // getview();
+		 // // Break=1;
 
-		{ "Quit", 0, ([](Fl_Widget *, void* v){cotm("exit"); exit(0);}) },
-		{ 0 },
-	
-	{ "&View", 0, 0, 0, FL_SUBMENU },
+		 // 	// ve[0]->rotate( 10);
+		 // 	// cot(*ve[1]->axisbegin );
+		 // 	// cot(*ve[1]->axisend );
+	 }),
+	 (void*)menu},
 
-		{ "&Fit all", FL_ALT + 'f', ([](Fl_Widget *, void* v){ 	 
-            occv->m_view->FitAll();
-		}), (void*)menu, FL_MENU_DIVIDER },
+	{"Inverse kinematics", 0, ([](Fl_Widget*, void* v) {
+		 Standard_Real dx, dy, dz, ux, uy, uz;
+		 occv->m_view->Proj(dx, dy, dz);
+		 occv->m_view->Up(ux, uy, uz);
+		 cotm("draw", dx, dy, dz, ux, uy, uz);
+		 // // ve[ve.size()-1]->rotate_posk(10);
+		 // // dbg_pos(); /////
+		 // ve[3]->posik(vec3(150,150,-150));
+	 }),
+	 (void*)menu},
 
-		{ "&Transparent", FL_ALT + 't', ([](Fl_Widget *mnu, void* v){ 	
-			// Fl_Menu_Item* btn= const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&View/Transparent"));
-            Fl_Menu_* menu = static_cast<Fl_Menu_*>(mnu);
-            const Fl_Menu_Item* item = menu->mvalue();  // This gets the actually clicked item
-            
-				if (!item->value()) { 
-				occv->toggle_shaded_transp(AIS_WireFrame);
-				}else{
-				occv->toggle_shaded_transp(AIS_Shaded);
-				}
-				return;
+	{"Quit", 0, ([](Fl_Widget*, void* v) {
+		 cotm("exit");
+		 exit(0);
+	 })},
+	{0},
 
-            if (item->value()) {  // Check if the item is checked
-                cotm(1);
-                occv->hlr_on = 1;
-                occv->projectAndDisplayWithHLR(occv->vshapes);
-                // occv->setbar5per();
-            } else {
-                cotm(0);
-                occv->hlr_on = 0;
-                occv->draw_objs();
-            }  
-// occv-> m_view->Update ();	    
-occv-> m_view->Redraw ();	    
-            occv-> redraw(); //  redraw(); // 
+	{"&View", 0, 0, 0, FL_SUBMENU},
 
+	{"&Fit all", FL_ALT + 'f',
+	 ([](Fl_Widget*, void* v) { occv->m_view->FitAll(); }), (void*)menu,
+	 FL_MENU_DIVIDER},
 
-		}), (void*)menu,FL_MENU_TOGGLE },
+	{"&Transparent", FL_ALT + 't', ([](Fl_Widget* mnu, void* v) {
+		 // Fl_Menu_Item* btn=
+		 // const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&View/Transparent"));
+		 Fl_Menu_* menu = static_cast<Fl_Menu_*>(mnu);
+		 const Fl_Menu_Item* item =
+			 menu->mvalue();  // This gets the actually clicked item
 
-		
-		{ "&test", 0, ([](Fl_Widget *, void* v){ 	
-            perf();
-			lop(i,0,40)occv->test(i*5);
-            perf("test");
-                {
-occv->draw_objs();
-            perf("draw");
-// occv->m_view->FitAll();
-occv->redraw();
-occv->colorisebtn();
+		 if (!item->value()) {
+			 occv->toggle_shaded_transp(AIS_WireFrame);
+		 } else {
+			 occv->toggle_shaded_transp(AIS_Shaded);
+		 }
+		 return;
 
+		 if (item->value()) {  // Check if the item is checked
+			 cotm(1);
+			 occv->hlr_on = 1;
+			 occv->projectAndDisplayWithHLR(occv->vshapes);
+			 // occv->setbar5per();
+		 } else {
+			 cotm(0);
+			 occv->hlr_on = 0;
+			 occv->draw_objs();
+		 }
+		 // occv-> m_view->Update ();
+		 occv->m_view->Redraw();
+		 occv->redraw();  //  redraw(); //
+	 }),
+	 (void*)menu, FL_MENU_TOGGLE},
 
+	{"&test", 0, ([](Fl_Widget*, void* v) {
+		 perf();
+		 lop(i, 0, 40) occv->test(i * 5);
+		 perf("test");
+		 {
+			 occv->draw_objs();
+			 perf("draw");
+			 // occv->m_view->FitAll();
+			 occv->redraw();
+			 occv->colorisebtn();
 
-// occv->m_view->Redraw();
-            perf("draw");
+			 // occv->m_view->Redraw();
+			 perf("draw");
 
-// occv->m_view->Update();
-}
-		}), (void*)menu },
+			 // occv->m_view->Update();
+		 }
+	 }),
+	 (void*)menu},
 
-		
-		{ "Robot visible", 0, ([](Fl_Widget *, void* v){ 	
-			glFlush();
-glFinish();
+	{"Robot visible", 0, ([](Fl_Widget*, void* v) {
+		 glFlush();
+		 glFinish();
+	 }),
+	 (void*)menu, FL_MENU_DIVIDER},
 
-		}), (void*)menu ,FL_MENU_DIVIDER},
-		
-		{ "Time debug", 0, ([](Fl_Widget *, void* v){ 	
-			// // Config cfg =  serialize(pool);
-			// // cot(cfg);
-			// time_f();	
-			// pressuref=4;
-			// try{
-			// 	elevator_go(3);
-			// }catch(...){}
-		}), (void*)menu },
+	{"Time debug", 0, ([](Fl_Widget*, void* v) {
+		 // // Config cfg =  serialize(pool);
+		 // // cot(cfg);
+		 // time_f();
+		 // pressuref=4;
+		 // try{
+		 // 	elevator_go(3);
+		 // }catch(...){}
+	 }),
+	 (void*)menu},
 
-		{ "Fit", 0, ([](Fl_Widget *, void* v){ 
-			// ViewerFLTK* view=osggl;
-			// if ( view->getCamera() ){
-			// 	// http://ahux.narod.ru/olderfiles/1/OSG3_Cookbook.pdf
-			// 	double _distance=-1; float _offsetX=0, _offsetY=0;
-			// 	osg::Vec3d eye, center, up;
-			// 	view->getCamera()->getViewMatrixAsLookAt( eye, center,
-			// 	up );
-	
-			// 	osg::Vec3d lookDir = center - eye; lookDir.normalize();
-			// 	osg::Vec3d side = lookDir ^ up; side.normalize();
-	
-			// 	const osg::BoundingSphere& bs = view->getSceneData()->getBound();
-			// 	if ( _distance<0.0 ) _distance = bs.radius() * 3.0;
-			// 	center = bs.center();
-			// 	center -= (side * _offsetX + up * _offsetY) * 0.1;
-			// 	fix_center_bug=center;
-			// 	// up={0,1,0};
-			// 	osggl->tmr->setHomePosition( center-lookDir*_distance, center, up );
-			// 	osggl->setCameraManipulator(osggl->tmr);
-			// 	getview();
-			// }	
-		}), (void*)menu },
-		{ 0 },
-	
-	{ "&Help", 0, 0, 0, FL_SUBMENU },
-		{ "&About v2", 0, ([](Fl_Widget *, void* v){ 
-			// // lua_init();
-			// // getallsqlitefuncs();
-			// string val=getfunctionhelp();
-			// cot1(val);
-			// fl_message(val.c_str());
-		}), (void*)menu },
-		{ 0 },
+	{"Fit", 0, ([](Fl_Widget*, void* v) {
+		 // ViewerFLTK* view=osggl;
+		 // if ( view->getCamera() ){
+		 // 	// http://ahux.narod.ru/olderfiles/1/OSG3_Cookbook.pdf
+		 // 	double _distance=-1; float _offsetX=0, _offsetY=0;
+		 // 	osg::Vec3d eye, center, up;
+		 // 	view->getCamera()->getViewMatrixAsLookAt( eye, center,
+		 // 	up );
 
+		 // 	osg::Vec3d lookDir = center - eye; lookDir.normalize();
+		 // 	osg::Vec3d side = lookDir ^ up; side.normalize();
 
-		
-	{ "&test", 0, ([](Fl_Widget *, void* v){ 
-		cotm("test")
-			// // lua_init();
-			// // getallsqlitefuncs();
-			// string val=getfunctionhelp();
-			// cot1(val);
-			// fl_message(val.c_str());
-		}), (void*)menu },
-		{ 0 },
+		 // 	const osg::BoundingSphere& bs =
+		 // view->getSceneData()->getBound(); 	if ( _distance<0.0 ) _distance =
+		 // bs.radius() * 3.0; 	center = bs.center(); 	center -= (side *
+		 // _offsetX
+		 // + up * _offsetY) * 0.1; 	fix_center_bug=center;
+		 // 	// up={0,1,0};
+		 // 	osggl->tmr->setHomePosition( center-lookDir*_distance, center,
+		 // up ); 	osggl->setCameraManipulator(osggl->tmr); 	getview();
+		 // }
+	 }),
+	 (void*)menu},
+	{0},
 
-	{ 0 } // End marker
+	{"&Help", 0, 0, 0, FL_SUBMENU},
+	{"&About v2", 0, ([](Fl_Widget*, void* v) {
+		 // // lua_init();
+		 // // getallsqlitefuncs();
+		 // string val=getfunctionhelp();
+		 // cot1(val);
+		 // fl_message(val.c_str());
+	 }),
+	 (void*)menu},
+	{0},
+
+	{"&test", 0, ([](Fl_Widget*, void* v) {
+		 cotm("test")
+		 // // lua_init();
+		 // // getallsqlitefuncs();
+		 // string val=getfunctionhelp();
+		 // cot1(val);
+		 // fl_message(val.c_str());
+	 }),
+	 (void*)menu},
+	{0},
+
+	{0}	 // End marker
 };
 
- 
 // Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
 // // ... use aisShape ...
 // aisShape.Nullify();
 // BRepTools::Clean();
 
- 
-
 std::string load_app_font(const std::string& filename);
-int main(int argc, char** argv) { 
-    Fl::use_high_res_GL(1);
-    // setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
-	std::cout << "FLTK version: "
-              << FL_MAJOR_VERSION << "."
-              << FL_MINOR_VERSION << "."
-              << FL_PATCH_VERSION << std::endl;
-    std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
+int main(int argc, char** argv) {
+	Fl::use_high_res_GL(1);
+	// setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION
+			  << "." << FL_PATCH_VERSION << std::endl;
+	std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
+	OSD_Parallel::SetUseOcctThreads(1);
+	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads()
+			  << std::endl;
 
-	Fl::visual(FL_DOUBLE|FL_INDEX);
-	Fl::gl_visual( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+	Fl::visual(FL_DOUBLE | FL_INDEX);
+	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
-    Fl::scheme("gleam");
+	Fl::scheme("gleam");
 
 	// string floaded = load_app_font("Courier Prime Bold.otf");
 	// string floaded = load_app_font("DejaVuSansMono.ttf");
 	// string floaded = load_app_font("FiraGO-SemiBold.otf");
-	// string floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf"); 
-	// Fl::set_font(FL_HELVETICA, floaded.c_str()); 
-    
-    Fl::lock();    
-    int w=1024;
-	int h=576; 
-	int firstblock=w*0.52;
-	int secondblock=w*0.12;
-	int lastblock=w-firstblock-secondblock;
+	// string floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
+	// Fl::set_font(FL_HELVETICA, floaded.c_str());
 
-    Fl_Double_Window* win = new Fl_Double_Window(0,0,w, h, "simplecad");
-    win->color(FL_RED);
-    win->callback([](Fl_Widget *widget, void* ){		
-		if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape) 
-			return;
+	Fl::lock();
+	int w = 1024;
+	int h = 576;
+	int firstblock = w * 0.52;
+	int secondblock = w * 0.12;
+	int lastblock = w - firstblock - secondblock;
+
+	Fl_Double_Window* win = new Fl_Double_Window(0, 0, w, h, "simplecad");
+	win->color(FL_RED);
+	win->callback([](Fl_Widget* widget, void*) {
+		if (Fl::event() == FL_SHORTCUT && Fl::event_key() == FL_Escape) return;
 		menu->find_item("&File/Quit")->do_callback(menu);
 	});
-    menu = new Fl_Menu_Bar(0, 0,firstblock,22);  
-	menu->menu(items); 
-  
-    int hc1=24;
+	menu = new Fl_Menu_Bar(0, 0, firstblock, 22);
+	menu->menu(items);
 
-    content = new Fl_Group(0, 22, w, h-22); 
-    // Fl_Group* content = new Fl_Group(0, 22, w, h-22); 
+	int hc1 = 24;
 
-	// scint_init(w*0.62,22,w*0.38,h-22-hc1); 
+	content = new Fl_Group(0, 22, w, h - 22);
+	// Fl_Group* content = new Fl_Group(0, 22, w, h-22);
 
-		// win->begin();
+	// scint_init(w*0.62,22,w*0.38,h-22-hc1);
 
-		// ldg->show();
+	// win->begin();
 
-		// win->show(argc, argv); return Fl::run();
+	// ldg->show();
 
+	// win->show(argc, argv); return Fl::run();
 
-    occv = new OCC_Viewer(0, 22, firstblock, h-22-hc1); 
-    content->add(occv); 
+	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1);
+	content->add(occv);
 	OSD_Parallel::SetUseOcctThreads(1);
 	// occv->label("Loading");
 
-    Fl_Window* woccbtn = new Fl_Window(0,h-hc1,occv->w(),hc1, "");
-    content->add(woccbtn); 
-    
-    Fl_Group* content1 = new Fl_Group(0, 0, woccbtn->w()+0, woccbtn->h());
+	Fl_Window* woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
+	content->add(woccbtn);
 
-    
-    occv->drawbuttons(woccbtn->w(),hc1);
+	Fl_Group* content1 = new Fl_Group(0, 0, woccbtn->w() + 0, woccbtn->h());
+
+	occv->drawbuttons(woccbtn->w(), hc1);
 	// content1->end();
-    woccbtn->resizable(content1);
+	woccbtn->resizable(content1);
 
 	Fl_Group::current(content);
-    fbm=new fl_browser_msv(firstblock,22,secondblock,h-22);
+	fbm = new fl_browser_msv(firstblock, 22, secondblock, h - 22);
 
 	Fl_Group::current(content);
 	// content->begin();
-	scint_init(firstblock+secondblock,22,lastblock,h-22-hc1); 
+	scint_init(firstblock + secondblock, 22, lastblock, h - 22 - hc1);
 	cotm("scint_init");
 
-		Fl_Group::current(content);
-		ldg=new Fl_Window(firstblock,22*4,100,22,"loading.");
-		Fl_Box* ldgb=new Fl_Box(0,0,100,22,"Loading");
-		// ldgb->copy_label("Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading Loading ");
-		ldgb->color(FL_GREEN);
-		ldgb->labelcolor(FL_RED);
-		// win->add(ldg); 
-		// win->flush();
+	Fl_Group::current(content);
+	ldg = new Fl_Window(firstblock, 22 * 4, 100, 22, "loading.");
+	Fl_Box* ldgb = new Fl_Box(0, 0, 100, 22, "Loading");
+	// ldgb->copy_label("Loading Loading Loading Loading Loading Loading Loading
+	// Loading Loading Loading Loading Loading Loading ");
+	ldgb->color(FL_GREEN);
+	ldgb->labelcolor(FL_RED);
+	// win->add(ldg);
+	// win->flush();
 
 	cotm("ldg");
 
-	// win->clear_visible_focus(); 	 
+	// win->clear_visible_focus();
 	woccbtn->color(0x7AB0CfFF);
-	win->resizable(content);	
-	// win->position(Fl::w()/2-win->w()/2,10); 
-	win->position(0,0);  	
+	win->resizable(content);
+	// win->position(Fl::w()/2-win->w()/2,10);
+	win->position(0, 0);
 	cotm("preshow");
-    win->show(argc, argv); 	
+	win->show(argc, argv);
 	cotm("winshow");
 	// while (!win->shown()) Fl::wait();
 	// win->wait_for_expose();     // wait, until displayed
 	cotm("winshow1");
-	// occv->wait_for_expose();     // wait, until displayed	
+	// occv->wait_for_expose();     // wait, until displayed
 	cotm("winshow2");
-	Fl::flush();                // make sure everything gets drawn
-	win->flush(); 
+	Fl::flush();  // make sure everything gets drawn
+	win->flush();
 	cotm("winshow3");
 
-   
-    // win->maximize();
-	// int x, y, _w, _h; 
+	// win->maximize();
+	// int x, y, _w, _h;
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);
 	// sleepms(200);
@@ -4378,18 +3481,16 @@ int main(int argc, char** argv) {
 	cotm("preoccvload.....");
 	perf();
 	// Fl::flush();
-    occv->initialize_opencascade();
+	occv->initialize_opencascade();
 	perf("occv-load.");
- 
 
-
-    // occv->test2();
-    // occv->test();
-    {
-// occv->draw_objs();
-// occv->m_view->FitAll(0.01,0);
-// occv->redraw(); //for win
-// occv->m_view->Update();
-}
-    return Fl::run();
+	// occv->test2();
+	// occv->test();
+	{
+		// occv->draw_objs();
+		// occv->m_view->FitAll(0.01,0);
+		// occv->redraw(); //for win
+		// occv->m_view->Update();
+	}
+	return Fl::run();
 }

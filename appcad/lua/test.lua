@@ -1,29 +1,53 @@
 function hiinocent()
-aa = luadraw_new("aa" )
+aa2 = luadraw_new("aa2" )
  
-aa:create_wire( {  {0,0} , {10,0}, {0,20 }, {-20,0 } },true)
+--aa2:create_wire( {  {0,0} , {10,0}, {0,20 }, {-20,0 } },false)
+
+aa2:create_wire({ Vec2.new(0,0), Vec2.new(11,6),Vec2.new(7,6) }, false)
+
+
 
 end
---hiinocent()
+hiinocent()
 function hi()
 aa = luadraw_new("aa" )
 --aa:dofromstart(0)
---aa:create_wire({ Vec2.new(0,0), Vec2.new(10,0), Vec2.new(10,10) , Vec2.new(7,10) }, false)
+aa:create_wire({ Vec2.new(0,0), Vec2.new(11,0), Vec2.new(10,10) , Vec2.new(3,10),Vec2.new(0,0) }, true)
 
-aa:create_wire({ Vec2.new(0,0), Vec2.new(10,0), Vec2.new(10,10) , Vec2.new(5,12) }, true)
 
---aa:translate(10,1,0)
-aa:offset(2,true)
+--aa:create_wire({ Vec2.new(0,0), Vec2.new(15,0), Vec2.new(10,10) , Vec2.new(5,12) }, true)
+
+aa:translate(100,1,0)
+aa:offset(2)
 --aa:translate(10,10,10,1, 110,10,30)
 
 --aa:translate(10)
-aa:extrude(20)
+--aa:extrude(10)
 
 bb = luadraw_new("bb" )
 bb:clone(aa)
-bb:translate(40)
-
+bb:translate(10)
+bb:extrude(10)
 --aa:redisplay()
+
+cc = luadraw_new("cc" )
+cc:clone(aa)
+cc:copy_placement(aa)
+cc:translate(0,20)
+cc:offset(-2)
+cc:extrude(10)
+
+
+aa1 = luadraw_new("aa1" )
+aa1:create_wire({ Vec2.new(0,0), Vec2.new(11,0), Vec2.new(10,10) , Vec2.new(3,10)  }, false)
+
+aa1:copy_placement(cc)
+aa1:translate(-20,0,0)
+aa1:offset(-2)
+aa1:extrude(30)
+
+
+
 end
 hi()
 function oioi()

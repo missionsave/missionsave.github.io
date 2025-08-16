@@ -16,7 +16,7 @@ ifneq ($(dbg),)
 	CXXFLAGS+= -g -O0 -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer
 	LDFLAGS+= -fsanitize=address,undefined
 else
-	CXXFLAGS+= -O0 -w -Wfatal-errors -DNDEBUG -march=native -mtune=native
+	CXXFLAGS+= -O0 -w -Wfatal-errors -DNDEBUG -march=native -mtune=native 
 # 	CXXFLAGS+= -Os -w -Wfatal-errors -DNDEBUG 
 # 	-flto=auto  -O3 -march=native -mtune=native
 # 	LDFLAGS+= -s -flto=auto
@@ -262,7 +262,7 @@ endif
 # --- Executável linkando objetos app + lib ---
 # $(TARGET): $(OBJS_APP) $(LIBNAME) ../common/sol2/include/sol/sol.hpp.gch
 $(TARGET): $(PCH_HEADERS:.hpp=.hpp.gch) $(OBJS_APP) $(LIBNAME) 
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS) 
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS)
 	@if [ "$(nr)" != "1" ]; then \
 		sleep 0.2; \
 		./$(TARGET); \
