@@ -1,14 +1,48 @@
-function hiinocent()
-aa2 = luadraw_new("aa2" )
- 
---aa2:create_wire( {  {0,0} , {10,0}, {0,20 }, {-20,0 } },false)
+function inocente()
+Part ("aa2")
+pl("0,0 100,100 @0,100 @-190,90  @0,-30" )
+offset(3)
+--extrude(-200)
 
-aa2:create_wire({ Vec2.new(0,0), Vec2.new(11,6),Vec2.new(7,6) }, false)
+Part ("a2")
+pl("0,0 100,100 @0,100 @-140,0 " )
+offset(3)
+extrude(-200)
+
+--aa2:extrude(-270)
+
+Part("a3")
+clone(aa2)
+extrude(600)
+a3:translate(100)
+
+
+--Part benfica
+
+
+end
+inocente()
+
+
+
+
+function hiinocent()
+--aa2 = luadraw_new("aa2" )
+Part ("aa2")
+ aa2:pl "0,6 10,10 @0,10 @-10,0 "
+ aa2:offset(1)
+ aa2:extrude(-20)
+ 
+ --aa2:rotatex(90)
+--aa2:create_wire( {  {0,0} , {10,0}, {0,20 }, {-20,0 } },false)
+--aa2:create_wire( { (0,0) , (10,10) }),false)
+
+--aa2:create_wire({ Vec2.new(0,0), Vec2.new(11,6),Vec2.new(7,6) }, false)
 
 
 
 end
-hiinocent()
+--hiinocent()
 function hi()
 aa = luadraw_new("aa" )
 --aa:dofromstart(0)
@@ -49,7 +83,7 @@ aa1:extrude(30)
 
 
 end
-hi()
+--hi()
 function oioi()
 exit()
 bb = luadraw_new("bb" )

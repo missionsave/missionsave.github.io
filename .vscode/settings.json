@@ -17,7 +17,8 @@
     "makefile.makePath": "c:/msys64/mingw64/bin/mingw32-make.exe",
     "C_Cpp.default.includePath": [
       "C:\\desk\\missionsave\\cfd"
-    ],"C_Cpp.clang_format_style": "{ BasedOnStyle: Google, UseTab: Always, TabWidth: 4, IndentWidth: 4 }",
+    ],
+	"C_Cpp.clang_format_style": "{ BasedOnStyle: Google, UseTab: Always, TabWidth: 4, IndentWidth: 4, ColumnLimit: 120, BinPackParameters: true, AllowAllParametersOfDeclarationOnNextLine: false }",
     // "editor.scrollbar.ignoreHorizontalScrollbarInContentHeight":false,
     "workbench.statusBar.visible": true,
     "editor.wordWrap": "on",

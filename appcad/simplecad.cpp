@@ -1,6 +1,6 @@
+#include "includes.hpp"
 
 #pragma region includes
-#include "includes.hpp"
 #include "fl_browser_msv.hpp"
 
 Fl_Menu_Bar* menu;
@@ -26,15 +26,13 @@ class AIS_NonSelectableShape : public AIS_Shape {
    public:
 	AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {}
 
-	void ComputeSelection(const Handle(SelectMgr_Selection) &,
-						  const Standard_Integer) override {
+	void ComputeSelection(const Handle(SelectMgr_Selection) &, const Standard_Integer) override {
 		// Do nothing -> no selectable entities created
 	}
 };
 
 void open_cb() {
-	Fl_File_Chooser chooser(".", "*", Fl_File_Chooser::SINGLE,
-							"Escolha um arquivo");
+	Fl_File_Chooser chooser(".", "*", Fl_File_Chooser::SINGLE, "Escolha um arquivo");
 	chooser.show();
 	while (chooser.shown()) Fl::wait();
 	if (chooser.value()) {
@@ -58,17 +56,12 @@ struct OCC_Viewer : public flwindow {
 	Handle(AIS_NonSelectableShape) visible_;
 	Handle(AIS_ColoredShape) hidden_;
 
-	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_BLUE,
-															Aspect_TOL_DASH,
-															0.5);
-	Handle(Prs3d_LineAspect) edgeAspect =
-		new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
-	Handle(Prs3d_LineAspect) highlightaspect =
-		new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
+	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
+	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
 	Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
 
-	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0)
-		: flwindow(X, Y, W, H, L) {
+	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
 		Fl::add_timeout(10, idle_refresh_cb, 0);
 	}
 
@@ -125,8 +118,7 @@ struct OCC_Viewer : public flwindow {
 
 		aCtx = m_graphic_driver->GetSharedContext();
 
-		m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK,
-								0.08);
+		m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.08);
 
 		// Create and display a trihedron 0,0,0
 		gp_Ax2 axes(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), gp_Dir(1, 0, 0));
@@ -142,7 +134,7 @@ struct OCC_Viewer : public flwindow {
 		// m_context->DefaultDrawer()->SeenLineAspect()->SetWidth(lwidth);
 		// m_context->DefaultDrawer()->FaceBoundaryAspect()->SetWidth(lwidth);
 		// m_context->DefaultDrawer()->WireAspect()->SetWidth(lwidth);
- 
+
 		m_context->DefaultDrawer()->SetLineAspect(edgeAspect);
 		m_context->DefaultDrawer()->SetSeenLineAspect(edgeAspect);
 		m_context->DefaultDrawer()->SetFaceBoundaryAspect(edgeAspect);
@@ -173,8 +165,7 @@ struct OCC_Viewer : public flwindow {
 				std::cout << "OpenGL Renderer: " << renderer << std::endl;
 				std::cout << "OpenGL Version:  " << version << std::endl;
 			} else {
-				std::cout << "glGetString() failed — no OpenGL context active!"
-						  << std::endl;
+				std::cout << "glGetString() failed — no OpenGL context active!" << std::endl;
 			}
 		}
 
@@ -222,15 +213,12 @@ struct OCC_Viewer : public flwindow {
 			barStruct->Erase();
 			barStruct->Clear();
 		} else {
-			barStruct =
-				new Graphic3d_Structure(m_view->Viewer()->StructureManager());
-			barStruct->SetTransformPersistence(
-				new Graphic3d_TransformPers(Graphic3d_TMF_2d));
+			barStruct = new Graphic3d_Structure(m_view->Viewer()->StructureManager());
+			barStruct->SetTransformPersistence(new Graphic3d_TransformPers(Graphic3d_TMF_2d));
 			barStruct->SetZLayer(Graphic3d_ZLayerId_BotOSD);
 		}
 
-		Handle(Graphic3d_ArrayOfTriangles) tri =
-			new Graphic3d_ArrayOfTriangles(6);
+		Handle(Graphic3d_ArrayOfTriangles) tri = new Graphic3d_ArrayOfTriangles(6);
 
 		Standard_Real x0 = width - barWidth;
 		Standard_Real x1 = width;
@@ -247,8 +235,7 @@ struct OCC_Viewer : public flwindow {
 		Handle(Graphic3d_Group) group = barStruct->NewGroup();
 
 		// Create fill area aspect
-		Handle(Graphic3d_AspectFillArea3d) aspect =
-			new Graphic3d_AspectFillArea3d();
+		Handle(Graphic3d_AspectFillArea3d) aspect = new Graphic3d_AspectFillArea3d();
 		aspect->SetInteriorStyle(Aspect_IS_SOLID);
 		aspect->SetInteriorColor(Quantity_NOC_RED);
 
@@ -316,13 +303,11 @@ struct OCC_Viewer : public flwindow {
 		// 5. Assign to all highlight modes
 		// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic,
 		// customDrawer);
-		ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected,
-							   customDrawer);
+		ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, customDrawer);
 		cotm(5)
 			// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,
 			// customDrawer);
-			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected,
-								   customDrawer);
+			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected, customDrawer);
 	}
 
 #pragma endregion initialization
@@ -366,8 +351,7 @@ struct OCC_Viewer : public flwindow {
 		OCC_Viewer* occv;
 		// RTTI declaration
 		// DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
-		luadraw(string _name = "test", OCC_Viewer* p = 0)
-			: occv(p), name(_name) {
+		luadraw(string _name = "test", OCC_Viewer* p = 0) : occv(p), name(_name) {
 			// regen
 			//  if(occv->vaShape.size()>0){
 			//  	OCC_Viewer::luadraw*
@@ -396,8 +380,7 @@ struct OCC_Viewer : public flwindow {
 
 			// allocate something for the application and hand ownership to the
 			// wrapper
-			Handle(ManagedPtrWrapper<luadraw>) wrapper =
-				new ManagedPtrWrapper<luadraw>(this);
+			Handle(ManagedPtrWrapper<luadraw>) wrapper = new ManagedPtrWrapper<luadraw>(this);
 
 			// store the wrapper in the AIS object via SetOwner()
 			ashape->SetOwner(wrapper);
@@ -458,8 +441,8 @@ struct OCC_Viewer : public flwindow {
 			}
 			return false;
 		}
-		void translate(float x = 0, float y = 0, float z = 0, bool world = 1,
-					   float fromwx = 0, float fromwy = 0, float fromwz = 0) {
+		void translate(float x = 0, float y = 0, float z = 0, bool world = 1, float fromwx = 0, float fromwy = 0,
+					   float fromwz = 0) {
 			needsplacementupdate = 1;
 			if (world) {
 				gp_Trsf moveToOrigin;
@@ -498,18 +481,14 @@ struct OCC_Viewer : public flwindow {
 			} else {
 				ashape->Set(shape);
 			}
-			if (!shape.IsNull())
-				ashape->Set(shape);	 // if is part, show only the last
+			if (!shape.IsNull()) ashape->Set(shape);  // if is part, show only the last
 			needsplacementupdate = 0;
 		}
 		void copy_placement(luadraw* tocopy) { trsf = tocopy->trsf; }
-		void exit() {
-			throw std::runtime_error(lua_error_with_line(L, "exit"));
-		}
+		void exit() { throw std::runtime_error(lua_error_with_line(L, "exit")); }
 		void clone(luadraw* toclone) {
 			if (!toclone) {
-				throw std::runtime_error(
-					lua_error_with_line(L, "Something went wrong"));
+				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
 			}
 			if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
 			if (!toclone->shape.IsNull()) this->shape = toclone->shape;
@@ -537,9 +516,7 @@ struct OCC_Viewer : public flwindow {
 			// gp_Vec extrusionVec(dir);
 			gp_Vec extrusionVec(normal);
 			extrusionVec *= qtd;
-			TopoDS_Shape extrudedShape =
-				BRepPrimAPI_MakePrism(shape, extrusionVec)
-					.Shape();  // shape from last
+			TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(shape, extrusionVec).Shape();  // shape from last
 			mergeShape(cshape, extrudedShape);
 			// cshape=extrudedShape;
 			// throw std::runtime_error(lua_error_with_line(L, "Something went
@@ -548,8 +525,7 @@ struct OCC_Viewer : public flwindow {
 
 		void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			if (!tofuse1 || !tofuse2) {
-				throw std::runtime_error(
-					lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
+				throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
 			}
 			tofuse1->update_placement();
 			tofuse2->update_placement();
@@ -561,8 +537,7 @@ struct OCC_Viewer : public flwindow {
 			BRepAlgoAPI_Fuse fuse(ts1, ts2);
 			fuse.Build();
 			if (!fuse.IsDone()) {
-				throw std::runtime_error(
-					lua_error_with_line(L, "Fuse operation failed"));
+				throw std::runtime_error(lua_error_with_line(L, "Fuse operation failed"));
 			}
 
 			tofuse1->visible_hardcoded = 0;
@@ -571,14 +546,13 @@ struct OCC_Viewer : public flwindow {
 			TopoDS_Shape fusedShape = fuse.Shape();
 
 			// Refine the result
-			ShapeUpgrade_UnifySameDomain unify(
-				fusedShape, true, true, true);	// merge faces, edges, vertices
+			ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true);  // merge faces, edges, vertices
 			unify.Build();
 			this->shape = unify.Shape();
 		}
 
 		void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
-			if (toAdd.IsNull()){
+			if (toAdd.IsNull()) {
 				std::cerr << "Warning: toAdd is null." << std::endl;
 				return;
 			}
@@ -639,9 +613,7 @@ struct OCC_Viewer : public flwindow {
 			// }
 		}
 
-
-		void ConvertVec2dToPnt2d(const std::vector<gp_Vec2d>& vpoints,
-								 std::vector<gp_Pnt2d>& ppoints) {
+		void ConvertVec2dToPnt2d(const std::vector<gp_Vec2d>& vpoints, std::vector<gp_Pnt2d>& ppoints) {
 			ppoints.clear();
 			ppoints.reserve(vpoints.size());
 			for (const auto& vec : vpoints) {
@@ -649,8 +621,7 @@ struct OCC_Viewer : public flwindow {
 			}
 		}
 
-		void ConvertPnt2dToPnt(const std::vector<gp_Pnt2d>& pnts2d,
-							   std::vector<gp_Pnt>& pnts3d) {
+		void ConvertPnt2dToPnt(const std::vector<gp_Pnt2d>& pnts2d, std::vector<gp_Pnt>& pnts3d) {
 			pnts3d.clear();
 			pnts3d.reserve(pnts2d.size());
 			for (const auto& p : pnts2d) {
@@ -658,22 +629,12 @@ struct OCC_Viewer : public flwindow {
 			}
 		}
 
-		// Normalize vector
-		static gp_Vec2d Normalized(const gp_Vec2d& v) {
-			gp_Vec2d res = v;
-			if (res.Magnitude() > gp::Resolution()) res.Normalize();
-			return res;
-		}
-
 		// 2D cross‐product (scalar)
-		static double VCross(const gp_Vec2d& a, const gp_Vec2d& b) {
-			return a.X() * b.Y() - a.Y() * b.X();
-		}
+		static double VCross(const gp_Vec2d& a, const gp_Vec2d& b) { return a.X() * b.Y() - a.Y() * b.X(); }
 
 		// Intersect two infinite 2d lines: P1 + t1*d1  and  P2 + t2*d2
 		// Returns false if they’re (nearly) parallel.
-		static bool IntersectLines(const gp_Pnt2d& P1, const gp_Vec2d& d1,
-								   const gp_Pnt2d& P2, const gp_Vec2d& d2,
+		static bool IntersectLines(const gp_Pnt2d& P1, const gp_Vec2d& d1, const gp_Pnt2d& P2, const gp_Vec2d& d2,
 								   gp_Pnt2d& Pint) {
 			double denom = VCross(d1, d2);
 			if (std::abs(denom) < 1e-9) return false;
@@ -684,17 +645,14 @@ struct OCC_Viewer : public flwindow {
 			return true;
 		}
 
-
-
 		static constexpr double EPS = 1e-12;
 
 		// 2D cross-product helper
-		static double cross2d(const gp_Vec2d& u, const gp_Vec2d& v) {
-			return u.X() * v.Y() - u.Y() * v.X();
-		}
+		static double cross2d(const gp_Vec2d& u, const gp_Vec2d& v) { return u.X() * v.Y() - u.Y() * v.X(); }
 
 		// Intersect two infinite lines P1+t*d1 and P2+s*d2
-		static bool intersectLines(const gp_Pnt2d& P1, const gp_Vec2d& d1, const gp_Pnt2d& P2, const gp_Vec2d& d2,gp_Pnt2d& out) {
+		static bool intersectLines(const gp_Pnt2d& P1, const gp_Vec2d& d1, const gp_Pnt2d& P2, const gp_Vec2d& d2,
+								   gp_Pnt2d& out) {
 			double denom = cross2d(d1, d2);
 			if (std::abs(denom) < EPS) return false;
 			gp_Vec2d w(P2.X() - P1.X(), P2.Y() - P1.Y());
@@ -705,14 +663,11 @@ struct OCC_Viewer : public flwindow {
 
 		// Compare two 2D points
 		static bool equal2d(const gp_Pnt2d& A, const gp_Pnt2d& B) {
-			return (std::abs(A.X() - B.X()) < EPS) &&
-				   (std::abs(A.Y() - B.Y()) < EPS);
+			return (std::abs(A.X() - B.X()) < EPS) && (std::abs(A.Y() - B.Y()) < EPS);
 		}
 
 		// Convert 2D->3D
-		static gp_Pnt to3d(const gp_Pnt2d& P) {
-			return gp_Pnt(P.X(), P.Y(), 0.0);
-		}
+		static gp_Pnt to3d(const gp_Pnt2d& P) { return gp_Pnt(P.X(), P.Y(), 0.0); }
 
 		// Main: one function to build a ring‐shaped face offset by dist
 		// pts: must form a closed loop (first==last) or will close
@@ -766,8 +721,8 @@ struct OCC_Viewer : public flwindow {
 			// 5) build the offset wire
 			BRepBuilderAPI_MakeWire mkOff;
 			for (size_t i = 0; i < N; ++i) {
-				mkOff.Add(BRepBuilderAPI_MakeEdge(to3d(off[i]),to3d(off[(i + 1) % N])));
-			} 
+				mkOff.Add(BRepBuilderAPI_MakeEdge(to3d(off[i]), to3d(off[(i + 1) % N])));
+			}
 			TopoDS_Wire offsetWire = mkOff.Wire();
 
 			// 6) assign outer vs. hole based on sign of dist
@@ -804,8 +759,7 @@ struct OCC_Viewer : public flwindow {
 			// 1) Compute segment tangents and outward normals
 			std::vector<gp_Vec2d> dirs(N - 1), norms(N - 1);
 			for (size_t i = 0; i < N - 1; ++i) {
-				gp_Vec2d d(vpoints[i + 1].X() - vpoints[i].X(),
-						   vpoints[i + 1].Y() - vpoints[i].Y());
+				gp_Vec2d d(vpoints[i + 1].X() - vpoints[i].X(), vpoints[i + 1].Y() - vpoints[i].Y());
 				d.Normalize();
 				dirs[i] = d;
 				// left‐normal = ( -dy, dx ); right‐normal = ( dy, -dx )
@@ -837,10 +791,8 @@ struct OCC_Viewer : public flwindow {
 
 			// 2c) end cap: intersect offset‐line with perpendicular at the end
 			{
-				gp_Pnt2d PendOff =
-					vpoints[N - 1].Translated(norms[N - 2] * dist);
-				IntersectLines(PendOff, dirs[N - 2], vpoints[N - 1],
-							   norms[N - 2], offp[N - 1]);
+				gp_Pnt2d PendOff = vpoints[N - 1].Translated(norms[N - 2] * dist);
+				IntersectLines(PendOff, dirs[N - 2], vpoints[N - 1], norms[N - 2], offp[N - 1]);
 			}
 
 			// 3) Build the planar wire: original spine + end‐cap + offset side
@@ -879,31 +831,27 @@ struct OCC_Viewer : public flwindow {
 		}
 
 		// Helper: compute perpendicular vector
-		gp_Vec2d Perpendicular(const gp_Vec2d& v) {
-			return gp_Vec2d(-v.Y(), v.X());
-		}
+		gp_Vec2d Perpendicular(const gp_Vec2d& v) { return gp_Vec2d(-v.Y(), v.X()); }
 
 		void createOffset(double distance) {
 			vector<gp_Pnt2d> ppoints;
-			ConvertVec2dToPnt2d(vpoints, ppoints); 
+			ConvertVec2dToPnt2d(vpoints, ppoints);
 
-			bool closed = ((vpoints[0].X() == vpoints.back().X()) &&
-						   (vpoints[0].Y() == vpoints.back().Y()));
+			bool closed = ((vpoints[0].X() == vpoints.back().X()) && (vpoints[0].Y() == vpoints.back().Y()));
 			TopoDS_Face f;
-			if(closed){
-				f =	TopoDS::Face(MakeOffsetRingFace(ppoints, distance));  // well righ
-			}else{
-				TopoDS_Wire wOff =TopoDS::Wire(MakeOneSidedOffsetWire(ppoints, distance)); //well profile
+			if (closed) {
+				f = TopoDS::Face(MakeOffsetRingFace(ppoints, distance));  // well righ
+			} else {
+				TopoDS_Wire wOff = TopoDS::Wire(MakeOneSidedOffsetWire(ppoints, distance));	 // well profile
 				f = BRepBuilderAPI_MakeFace(wOff);
 			}
-			BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5,true);	// adjust deflection/angle
+			BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true);  // adjust deflection/angle
 			mergeShape(cshape, f);
 		}
 
 		std::vector<gp_Vec2d> vpoints;
 
-		void CreateWire(const std::vector<gp_Vec2d>& points,
-						bool closed = false) {
+		void CreateWire(const std::vector<gp_Vec2d>& points, bool closed = false) {
 			vpoints = points;
 			BRepBuilderAPI_MakePolygon poly;
 			for (auto& v : points) {
@@ -912,30 +860,26 @@ struct OCC_Viewer : public flwindow {
 			if (closed && points.size() > 2) poly.Close();
 			cotm("s1")
 
-			
-			TopoDS_Wire wire = poly.Wire();
-if(points.size()>2){
-cotm("s2")
-			// Make a planar face from that wire
-			TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
-cotm("s3")
-			// Mesh the face so it gets Poly_Triangulation
-			// if(points.size()>2)
-			BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-cotm("s4")
-			mergeShape(cshape, face);
-			cotm("s5")
-}else{
-	mergeShape(cshape, wire);
-}
-
+				TopoDS_Wire wire = poly.Wire();
+			if (points.size() > 2) {
+				cotm("s2")
+					// Make a planar face from that wire
+					TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+				cotm("s3")
+					// Mesh the face so it gets Poly_Triangulation
+					// if(points.size()>2)
+					BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
+				cotm("s4") mergeShape(cshape, face);
+				cotm("s5")
+			} else {
+				mergeShape(cshape, wire);
+			}
 		}
 
 		// GeomAbs_Intersection
 
 		// Creates a simple wire from points
-		TopoDS_Wire CreateWireFromPoints(const std::vector<gp_Pnt>& points,
-										 bool closed) {
+		TopoDS_Wire CreateWireFromPoints(const std::vector<gp_Pnt>& points, bool closed) {
 			BRepBuilderAPI_MakePolygon polyBuilder;
 			for (const auto& pnt : points) {
 				polyBuilder.Add(pnt);
@@ -943,7 +887,6 @@ cotm("s4")
 			if (closed) polyBuilder.Close();
 			return polyBuilder.Wire();
 		}
-
 
 		void dofromstart(int x = 0) {
 			gp_Pnt p1(0, 0, 0);
@@ -972,7 +915,7 @@ cotm("s4")
 			//  BRepBuilderAPI_Transform transformer(face, trsf);
 			//  shape= transformer.Shape();
 		}
-		
+
 		TopoDS_Shape GetLastFromCompound(const TopoDS_Compound& comp) {
 			TopoDS_Shape last;
 			for (TopoDS_Iterator it(comp); it.More(); it.Next()) {
@@ -985,8 +928,7 @@ cotm("s4")
 	luadraw* getluadraw_from_ashape(const Handle(AIS_Shape) & ashape) {
 		Handle(Standard_Transient) owner = ashape->GetOwner();
 		if (!owner.IsNull()) {
-			Handle(ManagedPtrWrapper<luadraw>) wrapper =
-				Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+			Handle(ManagedPtrWrapper<luadraw>) wrapper = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
 
 			if (!wrapper.IsNull() && wrapper->ptr) {
 				return wrapper->ptr;
@@ -1013,15 +955,13 @@ cotm("s4")
 
 	// Hash + equality for OCC Handle types (hash by underlying pointer)
 	struct HandleAISHasher {
-		std::size_t operator()(const Handle(AIS_InteractiveObject) &
-							   h) const noexcept {
+		std::size_t operator()(const Handle(AIS_InteractiveObject) & h) const noexcept {
 			return std::hash<const void*>()(h.get());
 		}
 	};
 	struct HandleAISEqual {
 		bool operator()(const Handle(AIS_InteractiveObject) & a,
-						const Handle(AIS_InteractiveObject) &
-							b) const noexcept {
+						const Handle(AIS_InteractiveObject) & b) const noexcept {
 			return a.get() == b.get();
 		}
 	};
@@ -1035,15 +975,12 @@ cotm("s4")
 		//     m_context->CloseLocalContext();
 
 		// ---- 1) Collect unique handles (skip nulls)
-		std::unordered_set<Handle(AIS_InteractiveObject), HandleAISHasher,
-						   HandleAISEqual>
-			unique;
+		std::unordered_set<Handle(AIS_InteractiveObject), HandleAISHasher, HandleAISEqual> unique;
 		unique.reserve(vaShape.size());
 		for (const auto& h : vaShape)
 			if (!h.IsNull()) unique.insert(h);
 
-		auto safeRemove = [&](const Handle(AIS_InteractiveObject) & obj,
-							  const char* tag) {
+		auto safeRemove = [&](const Handle(AIS_InteractiveObject) & obj, const char* tag) {
 			if (obj.IsNull()) return;
 
 			// Deactivate all selection modes for this object (mode=0 means all)
@@ -1051,25 +988,21 @@ cotm("s4")
 			try {
 				m_context->Deactivate(obj, 0);
 			} catch (const Standard_Failure& e) {
-				std::cerr << "Deactivate failed (" << tag
-						  << "): " << e.GetMessageString() << "\n";
+				std::cerr << "Deactivate failed (" << tag << "): " << e.GetMessageString() << "\n";
 			}
 
 			// If it’s displayed, try Remove(); on failure, fall back to Erase()
 			if (m_context->IsDisplayed(obj)) {
 				try {
-					m_context->Remove(
-						obj,
-						false);	 // don’t update per object; update once at end
+					m_context->Remove(obj,
+									  false);  // don’t update per object; update once at end
 				} catch (const Standard_Failure& e) {
-					std::cerr << "Remove failed (" << tag
-							  << "): " << e.GetMessageString()
+					std::cerr << "Remove failed (" << tag << "): " << e.GetMessageString()
 							  << " -> falling back to Erase()\n";
 					try {
 						m_context->Erase(obj, Standard_False);
 					} catch (const Standard_Failure& e2) {
-						std::cerr << "Erase also failed (" << tag
-								  << "): " << e2.GetMessageString() << "\n";
+						std::cerr << "Erase also failed (" << tag << "): " << e2.GetMessageString() << "\n";
 					}
 				}
 			} else {
@@ -1077,8 +1010,7 @@ cotm("s4")
 				try {
 					m_context->Erase(obj, Standard_False);
 				} catch (const Standard_Failure& e) {
-					std::cerr << "Erase (not displayed) failed (" << tag
-							  << "): " << e.GetMessageString() << "\n";
+					std::cerr << "Erase (not displayed) failed (" << tag << "): " << e.GetMessageString() << "\n";
 				}
 			}
 		};
@@ -1114,10 +1046,8 @@ cotm("s4")
 		m_context->UpdateCurrentViewer();
 	}
 
-	Handle(AIS_Shape)
-		myHighlightedPointAIS;	// To store the highlighting sphere
-	TopoDS_Vertex
-		myLastHighlightedVertex;  // To store the last highlighted vertex
+	Handle(AIS_Shape) myHighlightedPointAIS;  // To store the highlighting sphere
+	TopoDS_Vertex myLastHighlightedVertex;	  // To store the last highlighted vertex
 	void clearHighlight() {
 		if (!myHighlightedPointAIS.IsNull()) {
 			m_context->Remove(myHighlightedPointAIS, Standard_True);
@@ -1131,9 +1061,8 @@ cotm("s4")
 		const Handle(Graphic3d_Camera) & camera = m_view->Camera();
 
 		// Obtém a altura e largura do mundo visível na viewport
-		float viewportHeight = camera->ViewDimensions().Y();  // world
-		float viewportWidth =
-			camera->Aspect() * viewportHeight;	// Largura = ratio * altura
+		float viewportHeight = camera->ViewDimensions().Y();	  // world
+		float viewportWidth = camera->Aspect() * viewportHeight;  // Largura = ratio * altura
 
 		Standard_Integer winWidth, winHeight;
 		m_view->Window()->Size(winWidth, winHeight);
@@ -1148,8 +1077,7 @@ cotm("s4")
 		float windowToWorldX = viewportWidth / winWidth;
 		float windowToWorldY = viewportHeight / winHeight;
 		// cotm(camera->Aspect(),viewportWidth ,viewportHeight);
-		return {windowToWorldX, windowToWorldY, worldToWindowX,
-				worldToWindowY, viewportHeight, viewportWidth};
+		return {windowToWorldX, windowToWorldY, worldToWindowX, worldToWindowY, viewportHeight, viewportWidth};
 	}
 
 	void highlightVertex(const TopoDS_Vertex& aVertex) {
@@ -1165,22 +1093,18 @@ cotm("s4")
 		gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
 
 		// Create a small red sphere at the vertex location
-		Standard_Real sphereRadius =
-			7 * ratio;	// Small radius for the highlight ball
-		TopoDS_Shape sphereShape =
-			BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
+		Standard_Real sphereRadius = 7 * ratio;	 // Small radius for the highlight ball
+		TopoDS_Shape sphereShape = BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
 		myHighlightedPointAIS = new AIS_Shape(sphereShape);
 		myHighlightedPointAIS->SetColor(Quantity_NOC_RED);
 		myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
-		myHighlightedPointAIS->SetTransparency(0.2f);  // Slightly transparent
-		myHighlightedPointAIS->SetZLayer(
-			Graphic3d_ZLayerId_Top);  // Ensure it's drawn on top
+		myHighlightedPointAIS->SetTransparency(0.2f);			   // Slightly transparent
+		myHighlightedPointAIS->SetZLayer(Graphic3d_ZLayerId_Top);  // Ensure it's drawn on top
 
 		m_context->Display(myHighlightedPointAIS, Standard_True);
 		myLastHighlightedVertex = aVertex;
 
-		cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(),
-			 vertexPnt.Z());
+		cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
 		// 	if(!projector.Perspective()){
 		// 		gp_Pnt clickedPoint(mousex, mousey, 0);
 		// 		// Passo 1: converter mouse para coordenadas projetadas reais
@@ -1236,14 +1160,12 @@ cotm("s4")
 
 		Handle(SelectMgr_EntityOwner) foundOwner;
 
-		for (m_context->InitDetected(); m_context->MoreDetected();
-			 m_context->NextDetected()) {
+		for (m_context->InitDetected(); m_context->MoreDetected(); m_context->NextDetected()) {
 			Handle(SelectMgr_EntityOwner) owner = m_context->DetectedOwner();
 
 			if (owner.IsNull()) continue;
 
-			Handle(AIS_InteractiveObject) obj =
-				Handle(AIS_InteractiveObject)::DownCast(owner->Selectable());
+			Handle(AIS_InteractiveObject) obj = Handle(AIS_InteractiveObject)::DownCast(owner->Selectable());
 
 			// Skip the HLR shape
 			if (obj == hidden_) continue;
@@ -1253,8 +1175,7 @@ cotm("s4")
 		}
 
 		if (!foundOwner.IsNull()) {
-			Handle(StdSelect_BRepOwner) brepOwner =
-				Handle(StdSelect_BRepOwner)::DownCast(foundOwner);
+			Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(foundOwner);
 			if (!brepOwner.IsNull()) {
 				TopoDS_Shape detectedTopoShape = brepOwner->Shape();
 
@@ -1265,8 +1186,7 @@ cotm("s4")
 				printf("Value of TopAbs_VERTEX: %d\n", TopAbs_VERTEX);
 
 				if (detectedTopoShape.ShapeType() == TopAbs_VERTEX) {
-					TopoDS_Vertex currentVertex =
-						TopoDS::Vertex(detectedTopoShape);
+					TopoDS_Vertex currentVertex = TopoDS::Vertex(detectedTopoShape);
 					if (!myLastHighlightedVertex.IsEqual(currentVertex)) {
 						highlightVertex(currentVertex);
 					} else {
@@ -1277,8 +1197,7 @@ cotm("s4")
 							pt.X(), pt.Y(), pt.Z());
 					}
 				} else {
-					printf("Detected shape is not a vertex (type: %d)\n",
-						   detectedTopoShape.ShapeType());
+					printf("Detected shape is not a vertex (type: %d)\n", detectedTopoShape.ShapeType());
 					clearHighlight();
 				}
 			} else {
@@ -1300,18 +1219,14 @@ cotm("s4")
 		if (!entOwner.IsNull()) {
 			// 1) tenta obter o Selectable associado ao entOwner
 			if (entOwner->HasSelectable()) {
-				Handle(SelectMgr_SelectableObject) selObj =
-					entOwner->Selectable();
+				Handle(SelectMgr_SelectableObject) selObj = entOwner->Selectable();
 				// SelectableObject é a base de AIS_InteractiveObject, faz
 				// downcast
-				Handle(AIS_InteractiveObject) ao =
-					Handle(AIS_InteractiveObject)::DownCast(selObj);
+				Handle(AIS_InteractiveObject) ao = Handle(AIS_InteractiveObject)::DownCast(selObj);
 				if (!ao.IsNull() && ao->HasOwner()) {
 					Handle(Standard_Transient) owner = ao->GetOwner();
-					Handle(ManagedPtrWrapper<luadraw>) w =
-						Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
-					if (!w.IsNull())
-						return w->ptr;	// devolve o ponteiro armazenado
+					Handle(ManagedPtrWrapper<luadraw>) w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
+					if (!w.IsNull()) return w->ptr;	 // devolve o ponteiro armazenado
 				}
 			}
 		}
@@ -1378,8 +1293,7 @@ cotm("s4")
 
 		// --- Debugging and Highlighting Logic ---
 		if (!anOwner.IsNull()) {
-			Handle(StdSelect_BRepOwner) brepOwner =
-				Handle(StdSelect_BRepOwner)::DownCast(anOwner);
+			Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(anOwner);
 			if (!brepOwner.IsNull()) {
 				TopoDS_Shape detectedTopoShape = brepOwner->Shape();
 
@@ -1391,8 +1305,7 @@ cotm("s4")
 				if (detectedTopoShape.ShapeType() == TopAbs_VERTEX) {
 					// printf("--- CONDITION: detectedTopoShape.ShapeType() ==
 					// TopAbs_VERTEX is TRUE ---\n");
-					TopoDS_Vertex currentVertex =
-						TopoDS::Vertex(detectedTopoShape);
+					TopoDS_Vertex currentVertex = TopoDS::Vertex(detectedTopoShape);
 					if (!myLastHighlightedVertex.IsEqual(currentVertex)) {
 						highlightVertex(currentVertex);
 					} else {
@@ -1401,8 +1314,7 @@ cotm("s4")
 						printf(
 							"Hovering over same vertex: X=%.3f, Y=%.3f, "
 							"Z=%.3f\n",
-							BRep_Tool::Pnt(currentVertex).X(),
-							BRep_Tool::Pnt(currentVertex).Y(),
+							BRep_Tool::Pnt(currentVertex).X(), BRep_Tool::Pnt(currentVertex).Y(),
 							BRep_Tool::Pnt(currentVertex).Z());
 					}
 				} else {
@@ -1503,8 +1415,7 @@ cotm("s4")
 
 						// Rotate view (OpenCascade)
 						if (dy != 0) {
-							double angle =
-								dy * 0.005;	 // Rotation sensitivity factor
+							double angle = dy * 0.005;	// Rotation sensitivity factor
 							perf();
 							// Fl::wait(0.01);
 							m_view->Rotate(0, 0,
@@ -1544,25 +1455,21 @@ cotm("s4")
 
 			case FL_DRAG:
 				if (isRotating && m_initialized) {
-					funcfps(12, perf();
-							m_view->Rotation(Fl::event_x(), Fl::event_y());
+					funcfps(12, perf(); m_view->Rotation(Fl::event_x(), Fl::event_y());
 							// projectAndDisplayWithHLR(vaShape,1);
-							projectAndDisplayWithHLR(vshapes, 1);
-							redraw();  //  redraw(); // m_view->Update ();
+							projectAndDisplayWithHLR(vshapes, 1); redraw();	 //  redraw(); // m_view->Update ();
 							perf("vnormalr");
 
 							colorisebtn();
 							// redraw();
 					);
 					return 1;
-				} else if (isPanning && m_initialized &&
-						   Fl::event_button() == FL_RIGHT_MOUSE) {
+				} else if (isPanning && m_initialized && Fl::event_button() == FL_RIGHT_MOUSE) {
 					int dx = Fl::event_x() - lastX;
 					int dy = Fl::event_y() - lastY;
 					// m_view->Pan(dx, -dy); // Note: -dy to match typical
 					// screen coordinates
-					funcfps(25, m_view->Pan(dx, -dy);
-							redraw();  //  redraw(); // m_view->Update ();
+					funcfps(25, m_view->Pan(dx, -dy); redraw();	 //  redraw(); // m_view->Update ();
 
 							lastX = Fl::event_x(); lastY = Fl::event_y(););
 					return 1;
@@ -1580,27 +1487,23 @@ cotm("s4")
 				break;
 			case FL_MOUSEWHEEL:
 				if (m_initialized) {
-					funcfps(
-						25, int mouseX = Fl::event_x();
-						int mouseY = Fl::event_y();
-						m_view->StartZoomAtPoint(mouseX, mouseY);
-						// Get wheel delta (normalized)
-						int wheelDelta = Fl::event_dy();
+					funcfps(25, int mouseX = Fl::event_x(); int mouseY = Fl::event_y();
+							m_view->StartZoomAtPoint(mouseX, mouseY);
+							// Get wheel delta (normalized)
+							int wheelDelta = Fl::event_dy();
 
-						// According to OpenCASCADE docs, ZoomAtPoint needs:
-						// 1. The start point (where mouse is)
-						// 2. The end point (calculated based on wheel movement)
+							// According to OpenCASCADE docs, ZoomAtPoint needs:
+							// 1. The start point (where mouse is)
+							// 2. The end point (calculated based on wheel movement)
 
-						// Calculate end point - this determines zoom direction
-						// and magnitude
-						int endX = mouseX;
-						int endY =
-							mouseY - (wheelDelta * 5 *
-									  5);  // Vertical movement controls zoom
+							// Calculate end point - this determines zoom direction
+							// and magnitude
+							int endX = mouseX;
+							int endY = mouseY - (wheelDelta * 5 * 5);  // Vertical movement controls zoom
 
-						// Call ZoomAtPoint with both points
-						m_view->ZoomAtPoint(mouseX, mouseY, endX, endY);
-						redraw();  //  redraw(); // m_view->Update ();
+							// Call ZoomAtPoint with both points
+							m_view->ZoomAtPoint(mouseX, mouseY, endX, endY);
+							redraw();  //  redraw(); // m_view->Update ();
 
 					);
 					return 1;
@@ -1624,11 +1527,10 @@ cotm("s4")
 			Handle(Prs3d_Drawer) dr = new Prs3d_Drawer();
 
 			// 2) Linha tracejada vermelha, espessura 2
-			Handle(Prs3d_LineAspect) wireAsp =
-				new Prs3d_LineAspect(Quantity_NOC_BLUE,	 // cor vermelha
-									 Aspect_TOL_DASH,	 // tipo: dash
-									 0.5				 // espessura da linha
-				);
+			Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_BLUE,	// cor vermelha
+																	Aspect_TOL_DASH,	// tipo: dash
+																	0.5					// espessura da linha
+			);
 
 			// dr->SetWireAspect(wireAsp);
 			// dr->SetWireDraw(true);
@@ -1689,17 +1591,14 @@ cotm("s4")
 
 		// Extrude the face into a 3D solid
 		gp_Vec extrusionVector(0.0, 0.0, -10.0);  // Extrude along the Z-axis
-		TopoDS_Shape extrudedShape =
-			BRepPrimAPI_MakePrism(face, extrusionVector).Shape();
+		TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(face, extrusionVector).Shape();
 
 		return extrudedShape;
 	}
 	// Display trihedron at origin with no axis labels
-	void ShowTriedronWithoutLabels(gp_Trsf trsf,
-								   const Handle(AIS_InteractiveContext) & ctx) {
+	void ShowTriedronWithoutLabels(gp_Trsf trsf, const Handle(AIS_InteractiveContext) & ctx) {
 		// 1) create a trihedron at world origin
-		gp_Ax2 ax2(gp_Pnt(0, 0, 0).Transformed(trsf),
-				   gp_Dir(0, 0, 1).Transformed(trsf),
+		gp_Ax2 ax2(gp_Pnt(0, 0, 0).Transformed(trsf), gp_Dir(0, 0, 1).Transformed(trsf),
 				   gp_Dir(1, 0, 0).Transformed(trsf));
 		Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(ax2);
 		Handle(AIS_Trihedron) tri = new AIS_Trihedron(placement);
@@ -1712,15 +1611,12 @@ cotm("s4")
 		da->SetDrawLabels(false);  // :contentReference[oaicite:0]{index=0}
 
 		// 4) style each axis line (width = 2.0 px)
-		da->LineAspect(Prs3d_DatumParts_XAxis)
-			->SetWidth(4.0);  // :contentReference[oaicite:1]{index=1}
+		da->LineAspect(Prs3d_DatumParts_XAxis)->SetWidth(4.0);	// :contentReference[oaicite:1]{index=1}
 		da->LineAspect(Prs3d_DatumParts_YAxis)->SetWidth(4.0);
 		da->LineAspect(Prs3d_DatumParts_ZAxis)->SetWidth(4.0);
 
 		// 5) color each axis
-		da->LineAspect(Prs3d_DatumParts_XAxis)
-			->SetColor(
-				Quantity_NOC_RED);	// :contentReference[oaicite:2]{index=2}
+		da->LineAspect(Prs3d_DatumParts_XAxis)->SetColor(Quantity_NOC_RED);	 // :contentReference[oaicite:2]{index=2}
 		da->LineAspect(Prs3d_DatumParts_YAxis)->SetColor(Quantity_NOC_GREEN);
 		da->LineAspect(Prs3d_DatumParts_ZAxis)->SetColor(Quantity_NOC_BLUE);
 
@@ -1731,9 +1627,7 @@ cotm("s4")
 		da->LineAspect(Prs3d_DatumParts_ZArrow)->SetWidth(2.0);
 
 		// now set each arrow’s colour
-		da->LineAspect(Prs3d_DatumParts_XArrow)
-			->SetColor(
-				Quantity_NOC_RED);	// :contentReference[oaicite:0]{index=0}
+		da->LineAspect(Prs3d_DatumParts_XArrow)->SetColor(Quantity_NOC_RED);  // :contentReference[oaicite:0]{index=0}
 		da->LineAspect(Prs3d_DatumParts_YArrow)->SetColor(Quantity_NOC_GREEN);
 		da->LineAspect(Prs3d_DatumParts_ZArrow)->SetColor(Quantity_NOC_BLUE);
 
@@ -1749,8 +1643,7 @@ cotm("s4")
 	HLRAlgo_Projector projector;
 
 	Standard_Integer currentMode = AIS_WireFrame;
-	void toggle_shaded_transp(
-		Standard_Integer fromcurrentMode = AIS_WireFrame) {
+	void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 		perf1();
 		cotm(vaShape.size()) for (std::size_t i = 0; i < vaShape.size(); ++i) {
 			Handle(AIS_Shape) aShape = vaShape[i];
@@ -1760,9 +1653,8 @@ cotm("s4")
 				hlr_on = 1;
 				// Mudar para modo wireframe
 				// aShape->UnsetColor();
-				aShape->UnsetAttributes();  // limpa materiais, cor, largura, etc.
-				m_context->SetDisplayMode(aShape, AIS_WireFrame,
-										  Standard_False);
+				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+				m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
 
 				aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
 				aShape->Attributes()->SetLineAspect(wireAsp);
@@ -1774,8 +1666,7 @@ cotm("s4")
 			} else {
 				hlr_on = 0;
 				// Mudar para modo sombreado
-				aShape
-					->UnsetAttributes();  // limpa materiais, cor, largura, etc.
+				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
 
 				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
@@ -1807,7 +1698,6 @@ cotm("s4")
 	TopoDS_Shape vEdges;
 	TopoDS_Shape hEdges;
 	Handle(HLRBRep_PolyAlgo) hlrAlgo;
-	// gp_Trsf glb_invTrsf;
 
 	void fillvectopo() {
 		vshapes.clear();
@@ -1819,8 +1709,7 @@ cotm("s4")
 		cotm(vaShape.size(), vshapes.size());
 	}
 
-	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes,
-								  bool isDragonly = false) {
+	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 		perf1();
 
@@ -1857,54 +1746,50 @@ cotm("s4")
 		// 2. Criar projetor HLR
 		// projector = HLRAlgo_Projector(viewTrsf,
 		// !theProjector->IsOrthographic(), theProjector->Scale());
-		projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(),
-									  camera->Scale());
+		projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
 
 		// 3. Meshing (somente se ainda não estiver meshed)
 		Standard_Real deflection = 0.001;
 
 // perf();
 #ifdef ENABLE_PARALLEL
-		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
-					  [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
 #else
 		for (const auto& s : shapes) {
 #endif
-						  if (s.IsNull()) return;
+			if (s.IsNull()) return;
 
-						  bool needsMesh = false;
-						  // for (TopExp_Explorer exp(s, TopAbs_FACE);
-						  // exp.More(); exp.Next()) {
-						  //     TopLoc_Location loc;
-						  //     const TopoDS_Face& face =
-						  //     TopoDS::Face(exp.Current()); if
-						  //     (BRep_Tool::Triangulation(face, loc).IsNull())
-						  //     {
-						  //         needsMesh = true;
-						  //         break;
-						  //     }
-						  // }
-						  needsMesh = true;
-						  if (needsMesh) {
-							  BRepMesh_IncrementalMesh(s, deflection, true, 0.5,
-													   false);
-						  }
+			bool needsMesh = false;
+			// for (TopExp_Explorer exp(s, TopAbs_FACE);
+			// exp.More(); exp.Next()) {
+			//     TopLoc_Location loc;
+			//     const TopoDS_Face& face =
+			//     TopoDS::Face(exp.Current()); if
+			//     (BRep_Tool::Triangulation(face, loc).IsNull())
+			//     {
+			//         needsMesh = true;
+			//         break;
+			//     }
+			// }
+			needsMesh = true;
+			if (needsMesh) {
+				BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+			}
 #ifdef ENABLE_PARALLEL
-					  });
+		});
 #else
 		}
 #endif
 		// 4. Projeção HLR
 		Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
 #ifdef ENABLE_PARALLEL
-		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
-					  [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
 #else
 		for (const auto& s : shapes) {
 #endif
-						  if (!s.IsNull()) algo->Load(s);
+			if (!s.IsNull()) algo->Load(s);
 #ifdef ENABLE_PARALLEL
-					  });
+		});
 #else
 		}
 #endif
@@ -1944,8 +1829,7 @@ cotm("s4")
 
 	// #define ENABLE_PARALLEL
 	// less precision
-	void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes,
-									 bool isDragonly = false) {
+	void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 		perf1();
 
@@ -1982,54 +1866,50 @@ cotm("s4")
 		// 2. Criar projetor HLR
 		// projector = HLRAlgo_Projector(viewTrsf,
 		// !theProjector->IsOrthographic(), theProjector->Scale());
-		projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(),
-									  camera->Scale());
+		projector = HLRAlgo_Projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
 
 		// 3. Meshing (somente se ainda não estiver meshed)
 		Standard_Real deflection = 0.001;
 
 // perf();
 #ifdef ENABLE_PARALLEL
-		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
-					  [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
 #else
 		for (const auto& s : shapes) {
 #endif
-						  if (s.IsNull()) return;
+			if (s.IsNull()) return;
 
-						  bool needsMesh = false;
-						  // for (TopExp_Explorer exp(s, TopAbs_FACE);
-						  // exp.More(); exp.Next()) {
-						  //     TopLoc_Location loc;
-						  //     const TopoDS_Face& face =
-						  //     TopoDS::Face(exp.Current()); if
-						  //     (BRep_Tool::Triangulation(face, loc).IsNull())
-						  //     {
-						  //         needsMesh = true;
-						  //         break;
-						  //     }
-						  // }
-						  needsMesh = true;
-						  if (needsMesh) {
-							  BRepMesh_IncrementalMesh(s, deflection, true, 0.5,
-													   false);
-						  }
+			bool needsMesh = false;
+			// for (TopExp_Explorer exp(s, TopAbs_FACE);
+			// exp.More(); exp.Next()) {
+			//     TopLoc_Location loc;
+			//     const TopoDS_Face& face =
+			//     TopoDS::Face(exp.Current()); if
+			//     (BRep_Tool::Triangulation(face, loc).IsNull())
+			//     {
+			//         needsMesh = true;
+			//         break;
+			//     }
+			// }
+			needsMesh = true;
+			if (needsMesh) {
+				BRepMesh_IncrementalMesh(s, deflection, true, 0.5, false);
+			}
 #ifdef ENABLE_PARALLEL
-					  });
+		});
 #else
 		}
 #endif
 		// 4. Projeção HLR
 		Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
 #ifdef ENABLE_PARALLEL
-		std::for_each(std::execution::par, shapes.begin(), shapes.end(),
-					  [&](const TopoDS_Shape& s) {
+		std::for_each(std::execution::par, shapes.begin(), shapes.end(), [&](const TopoDS_Shape& s) {
 #else
 		for (const auto& s : shapes) {
 #endif
-						  if (!s.IsNull()) algo->Load(s);
+			if (!s.IsNull()) algo->Load(s);
 #ifdef ENABLE_PARALLEL
-					  });
+		});
 #else
 		}
 #endif
@@ -2067,8 +1947,7 @@ cotm("s4")
 	}
 
 	// precision
-	void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes,
-									bool isDragonly = false) {
+	void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on) return;
 		perf();
 		// cotm("hlr")
@@ -2097,8 +1976,7 @@ cotm("s4")
 		gp_Trsf aTrsf;
 		aTrsf.SetTransformation(anAx3);
 
-		HLRAlgo_Projector projector(aTrsf, !theProjector->IsOrthographic(),
-									theProjector->Scale());
+		HLRAlgo_Projector projector(aTrsf, !theProjector->IsOrthographic(), theProjector->Scale());
 
 		Handle(HLRBRep_Algo) hlrAlgo = new HLRBRep_Algo();
 		for (const auto& shp : shapes) {
@@ -2243,9 +2121,8 @@ toggle_shaded_transp(currentMode);
 		TopoDS_Shape pl1 = pl();
 
 		gp_Trsf trsf;
-		trsf.SetRotation(
-			gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)),
-			rot * (M_PI / 180));  // rotate 30 degrees around Z-axis
+		trsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)),
+						 rot * (M_PI / 180));  // rotate 30 degrees around Z-axis
 		BRepBuilderAPI_Transform transformer(box, trsf);
 		TopoDS_Shape rotatedShape = transformer.Shape();
 
@@ -2261,8 +2138,7 @@ toggle_shaded_transp(currentMode);
 		TopoDS_Shape fusedShape = fuse.Shape();
 
 		// Refine the result
-		ShapeUpgrade_UnifySameDomain unify(
-			fusedShape, true, true, true);	// merge faces, edges, vertices
+		ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true);  // merge faces, edges, vertices
 		unify.Build();
 		TopoDS_Shape refinedShape = unify.Shape();
 
@@ -2350,8 +2226,7 @@ toggle_shaded_transp(currentMode);
 			TopoDS_Shape rotatedShape = transformer.Shape();
 
 			gp_Ax3 ax3_;
-			ax3_.Transform(
-				trsf);	// aplica trsf no sistema de coordenadas padrão
+			ax3_.Transform(trsf);  // aplica trsf no sistema de coordenadas padrão
 			// gp_Dir dir = ax3.Direction();
 			gp_Dir dir = [](gp_Trsf trsf) {
 				gp_Ax3 ax3;
@@ -2362,8 +2237,7 @@ toggle_shaded_transp(currentMode);
 			gp_Vec extrusionVec(dir);
 			// gp_Vec extrusionVec(normal);
 			extrusionVec *= 10.0;
-			TopoDS_Shape extrudedShape =
-				BRepPrimAPI_MakePrism(rotatedShape, extrusionVec).Shape();
+			TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(rotatedShape, extrusionVec).Shape();
 			// TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(face,
 			// extrusionVec).Shape();
 
@@ -2388,8 +2262,7 @@ toggle_shaded_transp(currentMode);
 
 #pragma region view_rotate
 
-	void FitViewToShape(const Handle(V3d_View) & aView,
-						const TopoDS_Shape& aShape, double margin = 1.0,
+	void FitViewToShape(const Handle(V3d_View) & aView, const TopoDS_Shape& aShape, double margin = 1.0,
 						double zoomFactor = 1.0) {
 		if (aShape.IsNull()) return;
 
@@ -2407,8 +2280,7 @@ toggle_shaded_transp(currentMode);
 		boundingBox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 
 		// Calculate center
-		gp_Pnt center((xmin + xmax) * 0.5, (ymin + ymax) * 0.5,
-					  (zmin + zmax) * 0.5);
+		gp_Pnt center((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
 
 		// Adjust view
 		aView->SetProj(V3d_XposYnegZpos);  // Optional: set standard orientation
@@ -2460,10 +2332,8 @@ toggle_shaded_transp(currentMode);
 				// cotm(2)
 				// m_view->SetUp(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
 
-				occv->end_proj_global =
-					gp_Vec(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz);
-				occv->end_up_global =
-					gp_Vec(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
+				occv->end_proj_global = gp_Vec(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz);
+				occv->end_up_global = gp_Vec(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
 				occv->colorisebtn(wrapper->idx);
 				occv->start_animation(occv);
 				// occv->animate_flip_view(occv);
@@ -2493,21 +2363,13 @@ toggle_shaded_transp(currentMode);
 		// auto& sbt = occv->sbt;
 		// auto& sbts = occv->sbts;
 
-		std::function<void()> func = [this, &sbt = this->sbt] {
-			cotm(m_initialized, sbt[0].label)
-		};
+		std::function<void()> func = [this, &sbt = this->sbt] { cotm(m_initialized, sbt[0].label) };
 
 		sbt = {
-			sbts{"Front", {}, 1, {0, -1, 0, 0, 0, 1}},
-			sbts{"Top", {}, 1, {0, 0, 1, 0, 1, 0}},
-			sbts{"Left", {}, 1, {-1, 0, 0, 0, 0, 1}},
-			sbts{"Right", {}, 1, {1, 0, 0, 0, 0, 1}},
-			sbts{"Back", {}, 1, {0, 1, 0, 0, 0, 1}},
-			sbts{"Bottom", {}, 1, {0, 0, -1, 0, -1, 0}},
-			sbts{"Iso",
-				 {},
-				 1,
-				 {0.57735, -0.57735, 0.57735, -0.408248, 0.408248, 0.816497}},
+			sbts{"Front", {}, 1, {0, -1, 0, 0, 0, 1}}, sbts{"Top", {}, 1, {0, 0, 1, 0, 1, 0}},
+			sbts{"Left", {}, 1, {-1, 0, 0, 0, 0, 1}}, sbts{"Right", {}, 1, {1, 0, 0, 0, 0, 1}},
+			sbts{"Back", {}, 1, {0, 1, 0, 0, 0, 1}}, sbts{"Bottom", {}, 1, {0, 0, -1, 0, -1, 0}},
+			sbts{"Iso", {}, 1, {0.57735, -0.57735, 0.57735, -0.408248, 0.408248, 0.816497}},
 
 			// sbts{"Iso",{}, 1, { 1,  1,  1,   0,  0,  1 }},
 
@@ -2557,8 +2419,7 @@ toggle_shaded_transp(currentMode);
 		lop(i, 0, sbt.size()) {
 			sbt[i].occv = this;
 			sbt[i].idx = i;
-			sbt[i].occbtn =
-				new Fl_Button(w1 * i, 0, w1, hc1, sbt[i].label.c_str());
+			sbt[i].occbtn = new Fl_Button(w1 * i, 0, w1, hc1, sbt[i].label.c_str());
 			sbt[i].occbtn->callback(sbts::call, &sbt[i]);  // ✅ fixed here
 		}
 	}
@@ -2601,23 +2462,19 @@ toggle_shaded_transp(currentMode);
 		cameraEnd->SetEye(targetEye);
 		cameraEnd->SetCenter(center);
 		cameraEnd->SetDirection(targetDir);
-		cameraEnd->SetUp(gp_Dir(occv->end_up_global.X(),
-								occv->end_up_global.Y(),
-								occv->end_up_global.Z()));
+		cameraEnd->SetUp(gp_Dir(occv->end_up_global.X(), occv->end_up_global.Y(), occv->end_up_global.Z()));
 
 		// Create and configure animation
-		occv->CurrentAnimation =
-			new AIS_AnimationCamera("ViewAnimation", m_view);
+		occv->CurrentAnimation = new AIS_AnimationCamera("ViewAnimation", m_view);
 		occv->CurrentAnimation->SetCameraStart(cameraStart);
 		occv->CurrentAnimation->SetCameraEnd(cameraEnd);
 		occv->CurrentAnimation->SetOwnDuration(0.6);  // Duration in seconds
 
 		// Start animation immediately
-		occv->CurrentAnimation->StartTimer(
-			0.0,			// Start time
-			1.0,			// Playback speed (normal)
-			Standard_True,	// Update to start position
-			Standard_False	// Don't stop timer at start
+		occv->CurrentAnimation->StartTimer(0.0,			   // Start time
+										   1.0,			   // Playback speed (normal)
+										   Standard_True,  // Update to start position
+										   Standard_False  // Don't stop timer at start
 		);
 
 		// Start the update timer
@@ -2636,9 +2493,7 @@ toggle_shaded_transp(currentMode);
 
 		if (occv->CurrentAnimation->IsStopped()) {
 			// Ensure perfect final position with inverted direction
-			gp_Dir targetDir(-occv->end_proj_global.X(),
-							 -occv->end_proj_global.Y(),
-							 -occv->end_proj_global.Z());
+			gp_Dir targetDir(-occv->end_proj_global.X(), -occv->end_proj_global.Y(), -occv->end_proj_global.Z());
 
 			gp_Pnt center = m_view->Camera()->Center();
 			double distance = m_view->Camera()->Distance();
@@ -2646,9 +2501,7 @@ toggle_shaded_transp(currentMode);
 
 			m_view->Camera()->SetEye(targetEye);
 			m_view->Camera()->SetDirection(targetDir);
-			m_view->Camera()->SetUp(gp_Dir(occv->end_up_global.X(),
-										   occv->end_up_global.Y(),
-										   occv->end_up_global.Z()));
+			m_view->Camera()->SetUp(gp_Dir(occv->end_up_global.X(), occv->end_up_global.Y(), occv->end_up_global.Z()));
 
 			occv->colorisebtn();
 			occv->projectAndDisplayWithHLR(occv->vshapes);
@@ -2676,8 +2529,7 @@ toggle_shaded_transp(currentMode);
 		gp_Dir current_proj(dx, dy, dz);
 		gp_Dir current_up(ux, uy, uz);
 
-		vector<pair<double, int>>
-			view_scores;  // Stores angle sums with their indices
+		vector<pair<double, int>> view_scores;	// Stores angle sums with their indices
 
 		for (int i = 0; i < 6; i++) {
 			// for (int i = 0; i < sbt.size(); i++) {
@@ -2728,8 +2580,7 @@ void fillbrowser(void*) {
 	fbm->clear();
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
 	lop(i, 0, occv->vaShape.size()) {
-		OCC_Viewer::luadraw* ld =
-			occv->getluadraw_from_ashape(occv->vaShape[i]);
+		OCC_Viewer::luadraw* ld = occv->getluadraw_from_ashape(occv->vaShape[i]);
 		// cotm(ld->visible_hardcoded)
 		// OCC_Viewer::luadraw* ld=occv->vlua[i];
 		ld->redisplay();
@@ -2801,36 +2652,195 @@ int Part(lua_State* L) {
 }
 
 static std::vector<gp_Vec2d> to_vec2d_vector(const sol::table& t) {
-    std::vector<gp_Vec2d> out;
-    cotm("gp_Vec2d0");
-    out.reserve(t.size());
+	std::vector<gp_Vec2d> out;
+	cotm("gp_Vec2d0");
+	out.reserve(t.size());
 
-    for (std::size_t i = 1; i <= t.size(); ++i) {
-        sol::optional<gp_Vec2d> maybe_vec = t[i];
-        if (maybe_vec) {
-            out.push_back(*maybe_vec);
-            cotm(i);
-        } else {
-            cotm("Invalid gp_Vec2d at index " + std::to_string(i));
-        }
-    }
+	for (std::size_t i = 1; i <= t.size(); ++i) {
+		sol::optional<gp_Vec2d> maybe_vec = t[i];
+		if (maybe_vec) {
+			out.push_back(*maybe_vec);
+			cotm(i);
+		} else {
+			cotm("Invalid gp_Vec2d at index " + std::to_string(i));
+		}
+	}
 
-    cotm("gp_Vec2d1");
-    return out;
+	cotm("gp_Vec2d1");
+	return out;
+}
+// Track current part inside C++
+OCC_Viewer::luadraw* current_part = nullptr;
+void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
+	// Helper to parse "x,y x1,y1 ..." into vector<gp_Vec2d>
+	auto parse_coords = [](const std::string& coords) {
+		std::vector<gp_Vec2d> out;
+		double lastX = 0.0;
+		double lastY = 0.0;
+		bool have_last = false;
+
+		std::istringstream ss(coords);
+		std::string token;
+		while (ss >> token) {
+			bool relative = false;
+
+			// Detect relative form: "@dx,dy"
+			if (!token.empty() && token.front() == '@') {
+				relative = true;
+				token.erase(0, 1);
+			}
+
+			// Split "x,y"
+			const auto commaPos = token.find(',');
+			if (commaPos == std::string::npos) {
+				continue;  // skip malformed token
+			}
+
+			// Parse numbers
+			double x, y;
+			try {
+				x = std::stod(token.substr(0, commaPos));
+				y = std::stod(token.substr(commaPos + 1));
+			} catch (...) {
+				continue;  // skip malformed numbers
+			}
+
+			if (relative) {
+				if (have_last) {
+					lastX += x;
+					lastY += y;
+				} else {
+					// No previous point: treat as relative to (0,0)
+					lastX = x;
+					lastY = y;
+					have_last = true;
+				}
+			} else {
+				lastX = x;
+				lastY = y;
+				have_last = true;
+			}
+
+			out.emplace_back(lastX, lastY);
+		}
+
+		return out;
+	};
+
+	// Vec2 usertype
+	lua.new_usertype<gp_Vec2d>(
+		"Vec2", sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(), "x",
+		sol::property([](const gp_Vec2d& v) { return v.X(); }, [](gp_Vec2d& v, double x) { v.SetX(x); }), "y",
+		sol::property([](const gp_Vec2d& v) { return v.Y(); }, [](gp_Vec2d& v, double y) { v.SetY(y); }));
+
+	// luadraw usertype with methods (self is guaranteed to be the same instance)
+	lua.new_usertype<OCC_Viewer::luadraw>(
+		"luadraw", sol::no_constructor,
+
+		// properties
+		"name", &OCC_Viewer::luadraw::name, "visible_hardcoded", &OCC_Viewer::luadraw::visible_hardcoded,
+
+		// methods
+		"redisplay", &OCC_Viewer::luadraw::redisplay, "display", &OCC_Viewer::luadraw::display, "rotate",
+		&OCC_Viewer::luadraw::rotate, "rotatex",
+		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 1.f, 0.f, 0.f); }, "rotatey",
+		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 1.f, 0.f); }, "rotatez",
+		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 0.f, 1.f); }, "translate",
+		&OCC_Viewer::luadraw::translate, "extrude", &OCC_Viewer::luadraw::extrude, "clone", &OCC_Viewer::luadraw::clone,
+		"offset", &OCC_Viewer::luadraw::createOffset, "copy_placement", &OCC_Viewer::luadraw::copy_placement, "exit",
+		&OCC_Viewer::luadraw::exit, "fuse", &OCC_Viewer::luadraw::fuse, "dofromstart",
+		&OCC_Viewer::luadraw::dofromstart,
+
+		// create_wire: accept table OR string
+		"create_wire",
+		sol::overload(
+			// existing table overloads
+			[](OCC_Viewer::luadraw& self, sol::table pts, bool closed) {
+				self.CreateWire(to_vec2d_vector(pts), closed);
+			},
+			[](OCC_Viewer::luadraw& self, sol::table pts) { self.CreateWire(to_vec2d_vector(pts), false); },
+			// new string overloads
+			[parse_coords](OCC_Viewer::luadraw& self, const std::string& coords, bool closed) {
+				self.CreateWire(parse_coords(coords), closed);
+			},
+			[parse_coords](OCC_Viewer::luadraw& self, const std::string& coords) {
+				self.CreateWire(parse_coords(coords), false);
+			}),
+
+		// create_pl: method form, string "x,y x1,y1 ..."
+		"pl",
+		[parse_coords](OCC_Viewer::luadraw& self, const std::string& coords) {
+			auto pts = parse_coords(coords);
+			// Replace with the actual polyline builder you want to call:
+			self.CreateWire(pts, false);
+		},
+
+		// Optional: expose address for sanity checks
+		"addr", [](OCC_Viewer::luadraw& self) -> std::uintptr_t { return reinterpret_cast<std::uintptr_t>(&self); });
+
+	// Factory returns a shared_ptr so the same instance is kept alive in Lua
+	lua.set_function("luadraw_new", [occv](const std::string& name) {
+		auto* luaDrawPtr = new OCC_Viewer::luadraw(name, occv);
+		// Create with the OCC_Viewer* automatically injected
+		return luaDrawPtr;
+	});
+
+	lua.set_function("Part", [occv, &lua](const std::string& name) {
+		auto* obj = new OCC_Viewer::luadraw(name, occv);
+		lua[name] = obj;  // same as: name = obj in Lua
+		current_part = obj;
+		return obj;
+	});
+
+	// Helper: call method on current_part
+	// auto call_on_current = [&](const std::string& method, sol::variadic_args args) {
+	// 	if (!current_part) return;
+	// 	sol::function f = lua["luadraw"][method];
+	// 	if (f.valid()) {
+	// 		f(current_part, args);
+	// 	}
+	// };
+
+
+lua.set_function("pl", [&, parse_coords](const std::string& coords) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+    current_part->CreateWire(parse_coords(coords), false);
+});
+
+lua.set_function("offset", [&](double val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+    current_part->createOffset(val);
+});
+
+lua.set_function("extrude", [&](double val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+    current_part->extrude(val);
+});
+lua.set_function("clone", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+    current_part->clone(val);
+});
+	// std::vector<std::string> methods = {"pl", "offset", "extrude"};
+	// for (auto& m : methods) {
+	// 	lua.set_function(m, [&, m](sol::variadic_args va) { call_on_current(m, va); });
+	// }
+	// Optional free-function variant, if you like: create_pl(d, "1,2 3,4")
+	// lua.set_function("create_pl",
+	//     [parse_coords](OCC_Viewer::luadraw& self, const std::string& coords) {
+	//         self.CreateWire(parse_coords(coords), false);
+	//     }
+	// );
 }
 
-void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
+void bind_luadraw_v1(sol::state& lua, OCC_Viewer* occv) {
 	// store global pointer for the factory
 	// g_occv = occv;
 
 	// 1) Bind gp_Vec2d so Lua can construct and pass Vec2 objects
 	lua.new_usertype<gp_Vec2d>(
 		"Vec2", sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(), "x",
-		sol::property([](const gp_Vec2d& v) { return v.X(); },
-					  [](gp_Vec2d& v, double x) { v.SetX(x); }),
-		"y",
-		sol::property([](const gp_Vec2d& v) { return v.Y(); },
-					  [](gp_Vec2d& v, double y) { v.SetY(y); }));
+		sol::property([](const gp_Vec2d& v) { return v.X(); }, [](gp_Vec2d& v, double x) { v.SetX(x); }), "y",
+		sol::property([](const gp_Vec2d& v) { return v.Y(); }, [](gp_Vec2d& v, double y) { v.SetY(y); }));
 
 	// create the usertype for the real C++ class
 	lua.new_usertype<OCC_Viewer::luadraw>(
@@ -2839,43 +2849,26 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 		sol::no_constructor,
 
 		// properties
-		"name", &OCC_Viewer::luadraw::name, "visible_hardcoded",
-		&OCC_Viewer::luadraw::visible_hardcoded,
+		"name", &OCC_Viewer::luadraw::name, "visible_hardcoded", &OCC_Viewer::luadraw::visible_hardcoded,
 
 		// methods (bind member functions)
-		"redisplay", &OCC_Viewer::luadraw::redisplay, "display",
-		&OCC_Viewer::luadraw::display,
+		"redisplay", &OCC_Viewer::luadraw::redisplay, "display", &OCC_Viewer::luadraw::display,
 		// bind rotate as a member that takes single int (degrees)
 		"rotate", &OCC_Viewer::luadraw::rotate, "rotatex",
-		[](OCC_Viewer::luadraw& self, int angle) {
-			self.rotate(angle, 1.f, 0.f, 0.f);
-		},
-		"rotatey",
-		[](OCC_Viewer::luadraw& self, int angle) {
-			self.rotate(angle, 0.f, 1.f, 0.f);
-		},
-		"rotatez",
-		[](OCC_Viewer::luadraw& self, int angle) {
-			self.rotate(angle, 0.f, 0.f, 1.f);
-		},
-		"translate", &OCC_Viewer::luadraw::translate, "extrude",
-		&OCC_Viewer::luadraw::extrude, "clone", &OCC_Viewer::luadraw::clone,
-		"offset", &OCC_Viewer::luadraw::createOffset, "copy_placement",
-		&OCC_Viewer::luadraw::copy_placement, "exit",
+		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 1.f, 0.f, 0.f); }, "rotatey",
+		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 1.f, 0.f); }, "rotatez",
+		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 0.f, 1.f); }, "translate",
+		&OCC_Viewer::luadraw::translate, "extrude", &OCC_Viewer::luadraw::extrude, "clone", &OCC_Viewer::luadraw::clone,
+		"offset", &OCC_Viewer::luadraw::createOffset, "copy_placement", &OCC_Viewer::luadraw::copy_placement, "exit",
 		&OCC_Viewer::luadraw::exit,
 		// fuse expects two luadraw references; sol2 will convert Lua objects to
 		// C++ refs
-		"fuse", &OCC_Viewer::luadraw::fuse, "dofromstart",
-		&OCC_Viewer::luadraw::dofromstart,
+		"fuse", &OCC_Viewer::luadraw::fuse, "dofromstart", &OCC_Viewer::luadraw::dofromstart,
 
 		"create_wire",
-		sol::overload(
-			[](OCC_Viewer::luadraw& self, sol::table pts, bool closed) {
-				self.CreateWire(to_vec2d_vector(pts), closed);
-			},
-			[](OCC_Viewer::luadraw& self, sol::table pts) {
-				self.CreateWire(to_vec2d_vector(pts), false);
-			}));
+		sol::overload([](OCC_Viewer::luadraw& self, sol::table pts,
+						 bool closed) { self.CreateWire(to_vec2d_vector(pts), closed); },
+					  [](OCC_Viewer::luadraw& self, sol::table pts) { self.CreateWire(to_vec2d_vector(pts), false); }));
 
 	// factory function available in Lua as `luadraw_new(name)`
 	// returns a shared_ptr so the Lua GC owns the object lifetime safely.
@@ -2884,6 +2877,25 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 		// Create with the OCC_Viewer* automatically injected
 		return luaDrawPtr;
 		// return std::make_shared<OCC_Viewer::luadraw>(name, occv);
+	});
+
+	lua.set_function("create_pl", [&](const std::string& coords) {
+		std::vector<gp_Vec2d> out;
+
+		std::istringstream ss(coords);
+		std::string token;
+		while (ss >> token) {  // split by space
+			auto commaPos = token.find(',');
+			if (commaPos != std::string::npos) {
+				double x = std::stod(token.substr(0, commaPos));
+				double y = std::stod(token.substr(commaPos + 1));
+				out.emplace_back(x, y);
+			}
+		}
+
+		// Now 'out' is your vector<gp_Vec2d>
+		// Call your actual function or store it
+		// e.g. do_create_pl(out);
 	});
 
 	// // optional: convenience alias to create and store in OCC_Viewer map like
@@ -2945,8 +2957,7 @@ void luainit() {
 	lua.open_libraries(sol::lib::base, sol::lib::package);
 
 	// Adjust package.path
-	lua["package"]["path"] =
-		std::string("./lua/?.lua;") + std::string(lua["package"]["path"]);
+	lua["package"]["path"] = std::string("./lua/?.lua;") + std::string(lua["package"]["path"]);
 
 	// Example: if you need the raw lua_State* for C APIs
 	L = lua.lua_state();
@@ -2968,9 +2979,9 @@ void luainit() {
 	//     return new OCC_Viewer::luadraw(name, occv);
 	// });
 
-	setluafunc(Part,
-			   "Part(title,axle2,...)\
-			Sets the rotation angle of the servos of the arm.");
+	// setluafunc(Part,
+	// 		   "Part(title,axle2,...)\
+	// 		Sets the rotation angle of the servos of the arm.");
 
 	setluafunc(close,
 			   "close()\
@@ -3095,8 +3106,7 @@ void lua_str(string str, bool isfile) {
 
 				// occv->SafeClearShapes();
 
-				for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0;
-					 --i) {
+				for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i) {
 				// occv->vlua[i]->shape.Nullify();
 
 				// delete occv->vlua[i];
@@ -3108,8 +3118,7 @@ void lua_str(string str, bool isfile) {
 			// 1) Stop any hover/selection first
 			occv->m_context->ClearCurrents(Standard_False);
 			occv->m_context->ClearSelected(Standard_False);
-			for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0;
-				 --i) {
+			for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i) {
 				auto& aisShapeHandle = occv->vaShape[i];
 				// 2) Deactivate selection modes for this specific AIS object
 				occv->m_context->Deactivate(aisShapeHandle);
@@ -3145,18 +3154,9 @@ void lua_str(string str, bool isfile) {
 
 			if (status == LUA_OK) {
 				if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
-					std::cerr << "runtime error: " << lua_tostring(L, -1)
-							  << std::endl;
+					std::cerr << "runtime error: " << lua_tostring(L, -1) << std::endl;
 					lua_pop(L, 1);
 				}
-
-
-
-
-
-
-
-				
 
 				// perf1("lua script");
 				// lop(i,0,occv->vaShape.size()){
@@ -3195,8 +3195,7 @@ void lua_str(string str, bool isfile) {
 static Fl_Menu_Item items[] = {
 	// Main menu items
 	{"&File", 0, 0, 0, FL_SUBMENU},
-	{"&Open", FL_ALT + 'o', ([](Fl_Widget*, void* v) { open_cb(); }),
-	 (void*)menu},
+	{"&Open", FL_ALT + 'o', ([](Fl_Widget*, void* v) { open_cb(); }), (void*)menu},
 
 	{"Pause", 0, ([](Fl_Widget* fw, void* v) {
 		 if (!occv) cotm("notok") occv->m_view->SetProj(V3d_XposYposZpos);
@@ -3245,16 +3244,13 @@ static Fl_Menu_Item items[] = {
 
 	{"&View", 0, 0, 0, FL_SUBMENU},
 
-	{"&Fit all", FL_ALT + 'f',
-	 ([](Fl_Widget*, void* v) { occv->m_view->FitAll(); }), (void*)menu,
-	 FL_MENU_DIVIDER},
+	{"&Fit all", FL_ALT + 'f', ([](Fl_Widget*, void* v) { occv->m_view->FitAll(); }), (void*)menu, FL_MENU_DIVIDER},
 
 	{"&Transparent", FL_ALT + 't', ([](Fl_Widget* mnu, void* v) {
 		 // Fl_Menu_Item* btn=
 		 // const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&View/Transparent"));
 		 Fl_Menu_* menu = static_cast<Fl_Menu_*>(mnu);
-		 const Fl_Menu_Item* item =
-			 menu->mvalue();  // This gets the actually clicked item
+		 const Fl_Menu_Item* item = menu->mvalue();	 // This gets the actually clicked item
 
 		 if (!item->value()) {
 			 occv->toggle_shaded_transp(AIS_WireFrame);
@@ -3374,12 +3370,11 @@ std::string load_app_font(const std::string& filename);
 int main(int argc, char** argv) {
 	Fl::use_high_res_GL(1);
 	// setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
-	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION
-			  << "." << FL_PATCH_VERSION << std::endl;
+	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION << "." << FL_PATCH_VERSION
+			  << std::endl;
 	std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
 	OSD_Parallel::SetUseOcctThreads(1);
-	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads()
-			  << std::endl;
+	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
 	Fl::visual(FL_DOUBLE | FL_INDEX);
 	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
