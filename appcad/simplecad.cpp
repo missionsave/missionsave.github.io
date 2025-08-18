@@ -1,7 +1,46 @@
 #include "includes.hpp"
+#include <GProp_GProps.hxx> 
+#include <BRepGProp.hxx>
+#include <BRepTools.hxx>
+#include <GeomLProp_SLProps.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Trsf.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Geom_Surface.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Trsf.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Geom_Surface.hxx>
+#include <GeomAbs_SurfaceType.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Dir.hxx>
+#include <BRepGProp_Face.hxx>
+#include <GProp_GProps.hxx>
 
 #pragma region includes
 #include "fl_browser_msv.hpp"
+void WriteBinarySTL(const TopoDS_Shape& shape, const std::string& filename);
+std::string translate_shorthand(std::string_view src); 
+void install_shorthand_searcher(lua_State* L);
+
+std::string FaceToString(const TopoDS_Face& face);
+std::string SerializeCompact(const std::string& partName,
+                              int index,
+                              const gp_Dir& normal,
+                              const gp_Pnt& centroid,
+                              double area);
+
+std::string SerializeFaceInvariant(const TopoDS_Face& face);
+gp_Ax3 get_face_local_cs(const TopoDS_Face& face);
 
 Fl_Menu_Bar* menu;
 Fl_Group* content;
@@ -315,15 +354,15 @@ struct OCC_Viewer : public flwindow {
 #pragma region luastruct
 	struct luadraw;
 	// vector<luadraw*> vlua;
-	unordered_map<string, OCC_Viewer::luadraw*> ulua;
+	// unordered_map<string, OCC_Viewer::luadraw*> ulua;
 	vector<luadraw*> vlua;
-	// unordered_map<string,luadraw*> ulua;
+	unordered_map<string,luadraw*> ulua;
 	template <typename T>
 	struct ManagedPtrWrapper : public Standard_Transient {
 		T* ptr;
 		ManagedPtrWrapper(T* p) : ptr(p) {}
 		~ManagedPtrWrapper() override {
-			// if(ptr)delete ptr; // delete when wrapper is destroyed
+			if(ptr)delete ptr; // delete when wrapper is destroyed
 		}
 	};
 
@@ -371,6 +410,7 @@ struct OCC_Viewer : public flwindow {
 				counter++;
 			}
 			name = new_name;
+			cotm("new",name)
 
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
@@ -522,8 +562,34 @@ struct OCC_Viewer : public flwindow {
 			// throw std::runtime_error(lua_error_with_line(L, "Something went
 			// wrong")); throw std::runtime_error("Something went wrong");
 		}
+void fuse(luadraw* tofuse1, luadraw* tofuse2) {
+			if (!tofuse1 || !tofuse2) {
+				throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
+			}
+			tofuse1->update_placement();
+			tofuse2->update_placement();
+			Handle(AIS_Shape) af1 = tofuse1->ashape;
+			Handle(AIS_Shape) af2 = tofuse2->ashape;
+			TopoDS_Shape ts1 = tofuse1->shape;
+			TopoDS_Shape ts2 = tofuse2->shape;
 
-		void fuse(luadraw* tofuse1, luadraw* tofuse2) {
+			BRepAlgoAPI_Fuse fuse(ts1, ts2);
+			fuse.Build();
+			if (!fuse.IsDone()) {
+				throw std::runtime_error(lua_error_with_line(L, "Fuse operation failed"));
+			}
+
+			tofuse1->visible_hardcoded = 0;
+			tofuse2->visible_hardcoded = 0;
+
+			TopoDS_Shape fusedShape = fuse.Shape();
+
+			// Refine the result
+			ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true);  // merge faces, edges, vertices
+			unify.Build();
+			this->shape = unify.Shape();
+		}
+		void fuse_v1(luadraw* tofuse1, luadraw* tofuse2) {
 			if (!tofuse1 || !tofuse2) {
 				throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
 			}
@@ -923,6 +989,36 @@ struct OCC_Viewer : public flwindow {
 			}
 			return last;
 		}
+
+void connect(OCC_Viewer::luadraw* target, int faceIndex,
+                   const gp_Dir& nSerialized, const gp_Pnt& c, double /*area*/)
+{
+    TopTools_IndexedMapOfShape M; TopExp::MapShapes(target->shape, TopAbs_FACE, M);
+    if (faceIndex < 1 || faceIndex > M.Extent()) Standard_Failure::Raise("Face index out of range");
+    TopoDS_Face F = TopoDS::Face(M.FindKey(faceIndex));
+
+    Handle(Geom_Plane) pl = Handle(Geom_Plane)::DownCast(BRep_Tool::Surface(F));
+    if (pl.IsNull()) Standard_Failure::Raise("Target face is not planar");
+
+    // Face frame and robust normal aligned with face orientation
+    gp_Ax3 faceCS = pl->Position();
+    gp_Dir nFace = faceCS.Direction();
+    if (F.Orientation() == TopAbs_REVERSED) nFace.Reverse();
+    if (nFace.Dot(nSerialized) < 0) nFace.Reverse(); // keep same side as stored
+
+    // Map from world XY -> face frame at centroid
+    gp_Ax3 srcCS(gp_Pnt(0,0,0), gp_Dir(0,0,1), gp_Dir(1,0,0)); // world XY
+    gp_Ax3 dstCS(c, nFace, faceCS.XDirection());               // face at centroid
+
+    gp_Trsf xf; xf.SetTransformation(srcCS, dstCS);
+
+    BRepBuilderAPI_Transform tr(shape, xf, true);
+    shape = tr.Shape(); 
+}
+
+
+
+
 	};
 
 	luadraw* getluadraw_from_ashape(const Handle(AIS_Shape) & ashape) {
@@ -938,10 +1034,7 @@ struct OCC_Viewer : public flwindow {
 	}
 
 #pragma endregion luastruct
-
-#pragma region scint
-
-#pragma endregion scint
+ 
 #pragma region events
 
 	// Safe clear of AIS objects with compound-first order and selection-safe
@@ -1277,8 +1370,9 @@ struct OCC_Viewer : public flwindow {
 		// 4. Get the detected owner
 		Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
 
+		luadraw* ldd=0;
 		if (!anOwner.IsNull()) {
-			luadraw* ldd = lua_detected(anOwner);
+			ldd = lua_detected(anOwner);
 			if (ldd) {
 				cotm(ldd->name);
 			}
@@ -1317,7 +1411,129 @@ struct OCC_Viewer : public flwindow {
 							BRep_Tool::Pnt(currentVertex).X(), BRep_Tool::Pnt(currentVertex).Y(),
 							BRep_Tool::Pnt(currentVertex).Z());
 					}
-				} else {
+				} else if(detectedTopoShape.ShapeType() == TopAbs_FACE){
+
+
+TopoDS_Face pickedFace = TopoDS::Face(detectedTopoShape);
+
+// Get original location
+TopLoc_Location origLoc = pickedFace.Location();
+
+// Reset to identity for geometry calculations
+TopoDS_Face pickedRaw = pickedFace;
+pickedRaw.Location(TopLoc_Location());
+
+// --- stable face index ---
+// Build map from the full owner shape with identity location
+int faceIndex = -1;
+if (!brepOwner.IsNull()) {
+    Handle(SelectMgr_SelectableObject) selObj = brepOwner->Selectable();
+    Handle(AIS_Shape) aisShape = Handle(AIS_Shape)::DownCast(selObj);
+    if (!aisShape.IsNull()) {
+        TopoDS_Shape fullRaw = aisShape->Shape();
+        fullRaw.Location(TopLoc_Location());
+
+        TopTools_IndexedMapOfShape faceMap;
+        TopExp::MapShapes(fullRaw, TopAbs_FACE, faceMap);
+
+        faceIndex = faceMap.FindIndex(pickedRaw);
+    }
+}
+
+// --- centroid & area ---
+GProp_GProps props;
+BRepGProp::SurfaceProperties(pickedRaw, props);
+gp_Pnt centroid = props.CentreOfMass();
+double area     = props.Mass();
+
+// --- normal ---
+Standard_Real u1,u2,v1,v2;
+BRepTools::UVBounds(pickedRaw, u1,u2, v1,v2);
+Handle(Geom_Surface) surf = BRep_Tool::Surface(pickedRaw);
+GeomLProp_SLProps slp(surf, (u1+u2)*0.5, (v1+v2)*0.5, 1, Precision::Confusion());
+gp_Dir normal = slp.IsNormalDefined() ? slp.Normal() : gp_Dir(0,0,1);
+if (pickedFace.Orientation() == TopAbs_REVERSED) normal.Reverse();
+
+// --- serialize ---
+std::string serialized = SerializeCompact(
+    ldd ? ldd->name : std::string("part"),
+    faceIndex,
+    normal,
+    centroid,
+    area
+);
+cotm("serialized", serialized);
+
+// --- restore original placement ---
+pickedFace.Location(origLoc);
+
+
+#if 0					
+	TopoDS_Face pickedFace = TopoDS::Face(detectedTopoShape);
+
+    // Get original location
+    TopLoc_Location origLoc = pickedFace.Location();
+
+    // Reset to identity
+    pickedFace.Location(TopLoc_Location());
+
+    // --- all geometry now in "raw" model space ---
+    // Stable face index
+    TopTools_IndexedMapOfShape faceMap;
+    TopExp::MapShapes(pickedFace, TopAbs_FACE, faceMap);
+    int faceIndex = faceMap.FindIndex(pickedFace);
+
+    // Centroid & area
+    GProp_GProps props;
+    BRepGProp::SurfaceProperties(pickedFace, props);
+    gp_Pnt centroid = props.CentreOfMass();
+    double area     = props.Mass();
+
+    // Normal
+    Standard_Real u1,u2,v1,v2;
+    BRepTools::UVBounds(pickedFace, u1,u2, v1,v2);
+    Handle(Geom_Surface) surf = BRep_Tool::Surface(pickedFace);
+    GeomLProp_SLProps slp(surf, (u1+u2)*0.5, (v1+v2)*0.5, 1, Precision::Confusion());
+    gp_Dir normal = slp.IsNormalDefined() ? slp.Normal() : gp_Dir(0,0,1);
+    if (pickedFace.Orientation() == TopAbs_REVERSED) normal.Reverse();
+
+    // Serialize
+    std::string serialized = SerializeCompact(
+        ldd ? ldd->name : std::string("part"),
+        faceIndex,
+        normal,
+        centroid,
+        area
+    );
+    cotm("serialized", serialized);
+
+    // --- restore original placement ---
+    pickedFace.Location(origLoc);
+	#endif
+
+					// string ser=SerializeFaceInvariant(TopoDS::Face(detectedTopoShape));
+					// cotm(ser)
+
+					    // Step 3: Get the selected shape
+    // if (context->HasSelectedShape()) {
+    //     TopoDS_Shape selectedShape = context->SelectedShape();
+
+    //     // Step 4: Explore faces in the selected shape
+    //     for (TopExp_Explorer exp(selectedShape, TopAbs_FACE); exp.More(); exp.Next()) {
+    //         TopoDS_Face face = TopoDS::Face(exp.Current());
+
+    //         // You now have the face!
+    //         std::cout << "Picked face found!" << std::endl;
+
+    //         // You can now use this face for transformation
+    //         break; // Just take the first face for simplicity
+    //     }
+    // }
+
+
+
+				}		
+				else {
 					// printf("--- CONDITION: detectedTopoShape.ShapeType() ==
 					// TopAbs_VERTEX is FALSE (Type %d) ---\n",
 					// detectedTopoShape.ShapeType());
@@ -1391,7 +1607,11 @@ struct OCC_Viewer : public flwindow {
 
 			ev_highlight();
 
-			return 1;
+			// return 1;
+		}
+		if(event==FL_PUSH){
+			cotm("")
+			OnMouseClick(mousex,mousey,m_context,m_view);
 		}
 
 		switch (event) {
@@ -1516,6 +1736,42 @@ struct OCC_Viewer : public flwindow {
 	int lastX, lastY;
 	bool isRotating = false;
 	bool isPanning = false;
+
+
+
+
+// Assume: context is your AIS_InteractiveContext
+//         view is your V3d_View
+//         x, y are mouse click coordinates
+
+void OnMouseClick(Standard_Integer x, Standard_Integer y,
+                  const Handle(AIS_InteractiveContext)& context,
+                  const Handle(V3d_View)& view)
+{
+	context->Activate(TopAbs_FACE);
+    // Step 1: Move the selection to the clicked point
+    context->MoveTo(x, y, view,0);
+
+    // Step 2: Select the clicked object
+    context->Select(true); // true = update viewer
+
+    // Step 3: Get the selected shape
+    if (context->HasSelectedShape()) {
+        TopoDS_Shape selectedShape = context->SelectedShape();
+
+        // Step 4: Explore faces in the selected shape
+        for (TopExp_Explorer exp(selectedShape, TopAbs_FACE); exp.More(); exp.Next()) {
+            TopoDS_Face face = TopoDS::Face(exp.Current());
+
+            // You now have the face!
+            std::cout << "Picked face found!" << std::endl;
+
+            // You can now use this face for transformation
+            break; // Just take the first face for simplicity
+        }
+    }
+}
+
 #pragma endregion events
 
 	struct pashape : public AIS_Shape {
@@ -2142,10 +2398,10 @@ toggle_shaded_transp(currentMode);
 		unify.Build();
 		TopoDS_Shape refinedShape = unify.Shape();
 
-		{
+		if(1){
 			// gp_Pnt origin=gp_Pnt(50, 86.6025, 0);
 			// gp_Dir normal=gp_Dir(0.5, 0.866025, 0);
-			gp_Pnt origin = gp_Pnt(0, 0, 100);
+			gp_Pnt origin = gp_Pnt(0, 0, 200);//
 			gp_Dir normal = gp_Dir(0, 0, 1);
 			gp_Dir xdir = gp_Dir(0, 1, 0);
 			gp_Dir ydir = gp_Dir(0.1, -0.5, 0);
@@ -2246,7 +2502,7 @@ toggle_shaded_transp(currentMode);
 			// vshapes.push_back(face);
 		}
 
-		vshapes.push_back(pl1);
+		// vshapes.push_back(pl1);
 		vshapes.push_back(refinedShape);
 		// vshapes=std::vector<TopoDS_Shape>{pl1,face};
 		// vshapes=std::vector<TopoDS_Shape>{refinedShape,pl1,face};
@@ -2651,24 +2907,64 @@ int Part(lua_State* L) {
 	return 1;
 }
 
-static std::vector<gp_Vec2d> to_vec2d_vector(const sol::table& t) {
-	std::vector<gp_Vec2d> out;
-	cotm("gp_Vec2d0");
-	out.reserve(t.size());
+// static std::vector<gp_Vec2d> to_vec2d_vector(const sol::table& t) {
+// 	std::vector<gp_Vec2d> out;
+// 	cotm("gp_Vec2d0");
+// 	out.reserve(t.size());
 
-	for (std::size_t i = 1; i <= t.size(); ++i) {
-		sol::optional<gp_Vec2d> maybe_vec = t[i];
-		if (maybe_vec) {
-			out.push_back(*maybe_vec);
-			cotm(i);
-		} else {
-			cotm("Invalid gp_Vec2d at index " + std::to_string(i));
-		}
-	}
+// 	for (std::size_t i = 1; i <= t.size(); ++i) {
+// 		sol::optional<gp_Vec2d> maybe_vec = t[i];
+// 		if (maybe_vec) {
+// 			out.push_back(*maybe_vec);
+// 			cotm(i);
+// 		} else {
+// 			cotm("Invalid gp_Vec2d at index " + std::to_string(i));
+// 		}
+// 	}
 
-	cotm("gp_Vec2d1");
-	return out;
+// 	cotm("gp_Vec2d1");
+// 	return out;
+// }
+#include <gp_Pnt.hxx>
+#include <gp_Trsf.hxx>
+#include <vector>
+
+// Helper: move points so that refPoint goes to (0,0,0)
+// Returns the transform and fills localPts
+gp_Trsf MakeRelativeCoords(const std::vector<gp_Pnt>& worldPts,
+                           std::vector<gp_Pnt>& localPts,
+                           gp_Pnt& refPoint)
+{
+    if (worldPts.empty()) {
+        localPts.clear();
+        refPoint = gp_Pnt(0,0,0);
+        gp_Trsf trsf;
+        trsf.SetTranslation(gp_Vec(0,0,0));
+        return trsf;
+    }
+
+    // Choose reference point (for simplicity: first point)
+    refPoint = worldPts.front();
+
+    // Build translation that moves refPoint → origin
+    gp_Trsf trsf;
+    trsf.SetTranslation(gp_Vec(refPoint, gp_Pnt(0,0,0)));
+
+    // Apply to all points → local coordinates
+    localPts.clear();
+    localPts.reserve(worldPts.size());
+    for (const gp_Pnt& p : worldPts) {
+        localPts.push_back(p.Transformed(trsf));
+    }
+
+    return trsf; // This is the "placement" you store separately
 }
+
+
+
+
+
+
 // Track current part inside C++
 OCC_Viewer::luadraw* current_part = nullptr;
 void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
@@ -2728,10 +3024,10 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 	};
 
 	// Vec2 usertype
-	lua.new_usertype<gp_Vec2d>(
-		"Vec2", sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(), "x",
-		sol::property([](const gp_Vec2d& v) { return v.X(); }, [](gp_Vec2d& v, double x) { v.SetX(x); }), "y",
-		sol::property([](const gp_Vec2d& v) { return v.Y(); }, [](gp_Vec2d& v, double y) { v.SetY(y); }));
+	// lua.new_usertype<gp_Vec2d>(
+	// 	"Vec2", sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(), "x",
+	// 	sol::property([](const gp_Vec2d& v) { return v.X(); }, [](gp_Vec2d& v, double x) { v.SetX(x); }), "y",
+	// 	sol::property([](const gp_Vec2d& v) { return v.Y(); }, [](gp_Vec2d& v, double y) { v.SetY(y); }));
 
 	// luadraw usertype with methods (self is guaranteed to be the same instance)
 	lua.new_usertype<OCC_Viewer::luadraw>(
@@ -2741,31 +3037,39 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 		"name", &OCC_Viewer::luadraw::name, "visible_hardcoded", &OCC_Viewer::luadraw::visible_hardcoded,
 
 		// methods
-		"redisplay", &OCC_Viewer::luadraw::redisplay, "display", &OCC_Viewer::luadraw::display, "rotate",
-		&OCC_Viewer::luadraw::rotate, "rotatex",
-		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 1.f, 0.f, 0.f); }, "rotatey",
+		"redisplay", &OCC_Viewer::luadraw::redisplay, 
+		"display", &OCC_Viewer::luadraw::display, 
+		"rotate", &OCC_Viewer::luadraw::rotate, 
+		"rotatex",	[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 1.f, 0.f, 0.f); }, "rotatey",
 		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 1.f, 0.f); }, "rotatez",
 		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 0.f, 1.f); }, "translate",
 		&OCC_Viewer::luadraw::translate, "extrude", &OCC_Viewer::luadraw::extrude, "clone", &OCC_Viewer::luadraw::clone,
-		"offset", &OCC_Viewer::luadraw::createOffset, "copy_placement", &OCC_Viewer::luadraw::copy_placement, "exit",
+		
+		"offset", &OCC_Viewer::luadraw::createOffset, 
+		
+		"copy_placement", &OCC_Viewer::luadraw::copy_placement, 
+		// "add_placement", &OCC_Viewer::luadraw::add_placement, 
+		
+		
+		"exit",
 		&OCC_Viewer::luadraw::exit, "fuse", &OCC_Viewer::luadraw::fuse, "dofromstart",
 		&OCC_Viewer::luadraw::dofromstart,
 
 		// create_wire: accept table OR string
-		"create_wire",
-		sol::overload(
-			// existing table overloads
-			[](OCC_Viewer::luadraw& self, sol::table pts, bool closed) {
-				self.CreateWire(to_vec2d_vector(pts), closed);
-			},
-			[](OCC_Viewer::luadraw& self, sol::table pts) { self.CreateWire(to_vec2d_vector(pts), false); },
-			// new string overloads
-			[parse_coords](OCC_Viewer::luadraw& self, const std::string& coords, bool closed) {
-				self.CreateWire(parse_coords(coords), closed);
-			},
-			[parse_coords](OCC_Viewer::luadraw& self, const std::string& coords) {
-				self.CreateWire(parse_coords(coords), false);
-			}),
+		// "create_wire",
+		// sol::overload(
+		// 	// existing table overloads
+		// 	[](OCC_Viewer::luadraw& self, sol::table pts, bool closed) {
+		// 		self.CreateWire(to_vec2d_vector(pts), closed);
+		// 	},
+		// 	[](OCC_Viewer::luadraw& self, sol::table pts) { self.CreateWire(to_vec2d_vector(pts), false); },
+		// 	// new string overloads
+		// 	[parse_coords](OCC_Viewer::luadraw& self, const std::string& coords, bool closed) {
+		// 		self.CreateWire(parse_coords(coords), closed);
+		// 	},
+		// 	[parse_coords](OCC_Viewer::luadraw& self, const std::string& coords) {
+		// 		self.CreateWire(parse_coords(coords), false);
+		// 	}),
 
 		// create_pl: method form, string "x,y x1,y1 ..."
 		"pl",
@@ -2779,11 +3083,11 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 		"addr", [](OCC_Viewer::luadraw& self) -> std::uintptr_t { return reinterpret_cast<std::uintptr_t>(&self); });
 
 	// Factory returns a shared_ptr so the same instance is kept alive in Lua
-	lua.set_function("luadraw_new", [occv](const std::string& name) {
-		auto* luaDrawPtr = new OCC_Viewer::luadraw(name, occv);
-		// Create with the OCC_Viewer* automatically injected
-		return luaDrawPtr;
-	});
+	// lua.set_function("luadraw_new", [occv](const std::string& name) {
+	// 	auto* luaDrawPtr = new OCC_Viewer::luadraw(name, occv);
+	// 	// Create with the OCC_Viewer* automatically injected
+	// 	return luaDrawPtr;
+	// });
 
 	lua.set_function("Part", [occv, &lua](const std::string& name) {
 		auto* obj = new OCC_Viewer::luadraw(name, occv);
@@ -2802,24 +3106,283 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 	// };
 
 
-lua.set_function("pl", [&, parse_coords](const std::string& coords) {
+lua.set_function("Pl", [&, parse_coords](const std::string& coords) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
     current_part->CreateWire(parse_coords(coords), false);
 });
 
-lua.set_function("offset", [&](double val) {
+lua.set_function("Offset", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->createOffset(val);
 });
 
-lua.set_function("extrude", [&](double val) {
+lua.set_function("Extrude", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->extrude(val);
 });
-lua.set_function("clone", [&](OCC_Viewer::luadraw* val) {
+lua.set_function("Clone", [&](OCC_Viewer::luadraw* val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->clone(val);
 });
+
+lua.set_function("Add_placement", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+    // current_part->trsf*=val->trsf;//.Inverted();
+    current_part->trsf*=val->trsf;
+});
+lua.set_function("Placeg", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+    // current_part->trsf*=val->trsf;//.Inverted();
+    current_part->trsf=val->trsf*current_part->trsf;
+});
+
+// to_local: move current_part into the local space of 'val'
+lua.set_function("to_local", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part) 
+        luaL_error(lua.lua_state(), "No current part.");
+
+    // Apply inverse of val's transform to bring current_part into val's local space
+    val->trsf = val->trsf.Inverted() ;
+    // current_part->trsf = val->trsf.Inverted() * current_part->trsf;
+});
+
+// to_world: move current_part back to world coordinates from 'val'
+lua.set_function("to_world", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part) 
+        luaL_error(lua.lua_state(), "No current part.");
+
+    // Apply val's transform to bring current_part back into world space
+    current_part->trsf = val->trsf * current_part->trsf;
+    // current_part->trsf = val->trsf * current_part->trsf;
+});
+
+
+
+// Lua binding
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Trsf.hxx>
+#include <BRepAdaptor_Surface.hxx>
+
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Trsf.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Geom_Surface.hxx>
+#include <GeomAbs_SurfaceType.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Dir.hxx>
+
+lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex) {
+    TopoDS_Shape target = targetShape->shape;
+    gp_Trsf targetTrsf = targetShape->trsf;
+
+    // Find the requested face
+    TopExp_Explorer faceExplorer(target, TopAbs_FACE);
+    TopoDS_Face targetFace;
+    int currentIndex = 0;
+    for (; faceExplorer.More(); faceExplorer.Next(), currentIndex++) {
+        if (currentIndex == targetFaceIndex) {
+            targetFace = TopoDS::Face(faceExplorer.Current());
+            break;
+        }
+    }
+    if (targetFace.IsNull()) {
+        std::cerr << "Error: Invalid face index or face not found." << std::endl;
+        return;
+    }
+
+    // Ensure it’s planar
+    BRepAdaptor_Surface faceAdaptor(targetFace);
+    if (faceAdaptor.GetType() != GeomAbs_Plane) {
+        std::cerr << "Error: Only planar faces are supported." << std::endl;
+        return;
+    }
+
+    // Get plane in world coordinates
+    gp_Pln plane = faceAdaptor.Plane();
+    gp_Ax3 faceAx3 = plane.Position();
+    faceAx3.Transform(targetTrsf); // <--- important!
+
+    // Define the part’s local reference system you want to map
+    gp_Ax3 partAx3(gp_Pnt(0,0,0), gp::DZ(), gp::DX()); 
+
+    // Build transformation to glue part to face
+    gp_Trsf alignmentTrsf;
+    alignmentTrsf.SetDisplacement(partAx3, faceAx3);
+
+    // Apply to current part
+    current_part->trsf = alignmentTrsf;
+});
+
+	
+
+// Lua binding
+lua.set_function("Connect_v1", [&](const std::string& s) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    // Parse serialized line (world/model-space centroid + normal)
+    std::istringstream iss(s);
+    std::string name;
+    int idx;
+    double nx, ny, nz, cx, cy, cz, areaIn;
+    char comma;
+    if (!(iss >> name >> idx
+              >> nx >> comma >> ny >> comma >> nz
+              >> cx >> comma >> cy >> comma >> cz
+              >> areaIn))
+    {
+        luaL_error(lua.lua_state(),
+                   "Expected: \"partName index nx,ny,nz cx,cy,cz area\"");
+    }
+
+    Handle(AIS_Shape) aisShape = current_part->ashape;
+    if (aisShape.IsNull())
+        luaL_error(lua.lua_state(), "Current part has no AIS_Shape");
+
+    // Full owner shape in raw model space
+    TopoDS_Shape fullRaw = aisShape->Shape();
+    fullRaw.Location(TopLoc_Location());
+
+    // Map all faces
+    TopTools_IndexedMapOfShape faceMap;
+    TopExp::MapShapes(fullRaw, TopAbs_FACE, faceMap);
+
+    // Incoming signature (world/model space)
+    gp_Dir nIn(nx, ny, nz);
+    gp_Pnt cIn(cx, cy, cz);
+
+    // Matching tolerances/weights
+    const Standard_Real tolLen  = 1.0e-4;     // length (model units)
+    const Standard_Real tolAng  = 1.0e-3;     // radians
+    const Standard_Real tolRelA = 5.0e-3;     // 0.5%
+    const Standard_Real wAng    = 10.0;
+    const Standard_Real wLen    = 1.0;
+    const Standard_Real wRelA   = 0.25;
+
+    auto faceNormalW = [](const TopoDS_Face& F) -> gp_Dir {
+        Standard_Real u1,u2,v1,v2;
+        BRepTools::UVBounds(F, u1,u2, v1,v2);
+        Handle(Geom_Surface) surf = BRep_Tool::Surface(F);
+        GeomLProp_SLProps slp(surf, (u1+u2)*0.5, (v1+v2)*0.5, 1, Precision::Confusion());
+        gp_Dir n = slp.IsNormalDefined() ? slp.Normal() : gp_Dir(0,0,1);
+        if (F.Orientation() == TopAbs_REVERSED) n.Reverse();
+        return n;
+    };
+
+    auto faceCentroidAreaW = [](const TopoDS_Face& F, gp_Pnt& cW, double& a) {
+        GProp_GProps props;
+        BRepGProp::SurfaceProperties(F, props);
+        cW = props.CentreOfMass();
+        a  = props.Mass();
+    };
+
+    // Cost in world space (use unsigned normal angle)
+    auto costFace = [&](const gp_Dir& nW, const gp_Pnt& cW, double aW) -> double {
+        const double cosang = std::abs(nW.Dot(nIn));
+        const double ang = std::acos(std::clamp(cosang, -1.0, 1.0));
+        const double cDist = cW.Distance(cIn);
+        const double relA  = std::abs(aW - areaIn) / std::max(aW, areaIn);
+        return wAng * ang + wLen * cDist + wRelA * relA;
+    };
+
+    // Try to resolve by signature
+    int resolvedIdx = -1;
+    double bestCost = std::numeric_limits<double>::infinity();
+
+    for (int i = 1; i <= faceMap.Extent(); ++i) {
+        const TopoDS_Face F = TopoDS::Face(faceMap(i));
+        gp_Pnt cW; double aW = 0.0; faceCentroidAreaW(F, cW, aW);
+        gp_Dir nW = faceNormalW(F);
+
+        const double cosang = std::abs(nW.Dot(nIn));
+        const double ang = std::acos(std::clamp(cosang, -1.0, 1.0));
+        const bool okAng  = (ang <= tolAng);
+        const bool okCent = (cW.Distance(cIn) <= tolLen);
+        const bool okArea = (std::abs(aW - areaIn) <= tolRelA * std::max(aW, areaIn));
+
+        const double cost = costFace(nW, cW, aW);
+
+        if ((okAng && okCent && okArea && cost < bestCost) || cost < bestCost) {
+            bestCost = cost;
+            resolvedIdx = i;
+        }
+    }
+
+    const int idxToUse = (resolvedIdx > 0) ? resolvedIdx : idx;
+    const TopoDS_Face targetFace = TopoDS::Face(faceMap(idxToUse));
+
+    // Build a stable in-plane X from topology; get Z from the actual face normal
+    auto intrinsicFrame = [&](const TopoDS_Face& F, gp_Pnt& anchorW, gp_Dir& zW, gp_Dir& xW) -> bool {
+        zW = faceNormalW(F);
+
+        TopoDS_Wire w = BRepTools::OuterWire(F);
+        if (!w.IsNull()) {
+            BRepTools_WireExplorer wexp(w);
+            if (wexp.More()) {
+                TopoDS_Edge e1 = wexp.Current();
+                TopoDS_Vertex vAnchor = wexp.CurrentVertex();
+                TopoDS_Vertex vA, vB; TopExp::Vertices(e1, vA, vB);
+                TopoDS_Vertex vNext = vAnchor.IsSame(vA) ? vB : vA;
+
+                anchorW = BRep_Tool::Pnt(vAnchor);
+                gp_Pnt nextW = BRep_Tool::Pnt(vNext);
+
+                gp_Vec edgeVec(anchorW, nextW);
+                gp_Vec z(zW.X(), zW.Y(), zW.Z());
+                gp_Vec xProj = edgeVec - (edgeVec.Dot(z)) * z;
+
+                if (xProj.SquareMagnitude() > Precision::SquareConfusion()) {
+                    xW = gp_Dir(xProj);
+                    return true;
+                }
+            }
+        }
+
+        // Fallback: project global X (then Y) into the plane
+        anchorW = BRep_Tool::Pnt(TopExp::FirstVertex(TopoDS::Edge(TopExp_Explorer(F, TopAbs_EDGE).Current())));
+        gp_Vec z(zW.X(), zW.Y(), zW.Z());
+
+        gp_Vec alt(1,0,0); gp_Vec xProj = alt - (alt.Dot(z)) * z;
+        if (xProj.SquareMagnitude() < Precision::SquareConfusion()) {
+            alt = gp_Vec(0,1,0);
+            xProj = alt - (alt.Dot(z)) * z;
+        }
+        xW = gp_Dir(xProj);
+        return true;
+    };
+
+// Rebuild destination CS using world-space centroid directly
+gp_Pnt anchorW; gp_Dir zW; gp_Dir xW;
+if (!intrinsicFrame(targetFace, anchorW, zW, xW))
+    Standard_Failure::Raise("Failed to build face frame");
+
+// Flip Z if needed
+if (zW.Dot(nIn) < 0) zW.Reverse();
+
+// Destination frame origin = stored centroid (world/model space)
+gp_Ax3 dstCS(cIn, zW, xW);
+
+// Source frame = part's "XY face"
+gp_Ax3 srcCS(gp_Pnt(0,0,0), gp_Dir(0,0,1), gp_Dir(1,0,0));
+
+gp_Trsf place;
+place.SetTransformation(srcCS, dstCS);
+
+current_part->trsf = place;
+current_part->needsplacementupdate = 1;
+});
+
+
+
 	// std::vector<std::string> methods = {"pl", "offset", "extrude"};
 	// for (auto& m : methods) {
 	// 	lua.set_function(m, [&, m](sol::variadic_args va) { call_on_current(m, va); });
@@ -2832,83 +3395,7 @@ lua.set_function("clone", [&](OCC_Viewer::luadraw* val) {
 	// );
 }
 
-void bind_luadraw_v1(sol::state& lua, OCC_Viewer* occv) {
-	// store global pointer for the factory
-	// g_occv = occv;
-
-	// 1) Bind gp_Vec2d so Lua can construct and pass Vec2 objects
-	lua.new_usertype<gp_Vec2d>(
-		"Vec2", sol::constructors<gp_Vec2d(), gp_Vec2d(double, double)>(), "x",
-		sol::property([](const gp_Vec2d& v) { return v.X(); }, [](gp_Vec2d& v, double x) { v.SetX(x); }), "y",
-		sol::property([](const gp_Vec2d& v) { return v.Y(); }, [](gp_Vec2d& v, double y) { v.SetY(y); }));
-
-	// create the usertype for the real C++ class
-	lua.new_usertype<OCC_Viewer::luadraw>(
-		"luadraw",
-		// no constructor exposed to Lua directly (we provide a factory instead)
-		sol::no_constructor,
-
-		// properties
-		"name", &OCC_Viewer::luadraw::name, "visible_hardcoded", &OCC_Viewer::luadraw::visible_hardcoded,
-
-		// methods (bind member functions)
-		"redisplay", &OCC_Viewer::luadraw::redisplay, "display", &OCC_Viewer::luadraw::display,
-		// bind rotate as a member that takes single int (degrees)
-		"rotate", &OCC_Viewer::luadraw::rotate, "rotatex",
-		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 1.f, 0.f, 0.f); }, "rotatey",
-		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 1.f, 0.f); }, "rotatez",
-		[](OCC_Viewer::luadraw& self, int angle) { self.rotate(angle, 0.f, 0.f, 1.f); }, "translate",
-		&OCC_Viewer::luadraw::translate, "extrude", &OCC_Viewer::luadraw::extrude, "clone", &OCC_Viewer::luadraw::clone,
-		"offset", &OCC_Viewer::luadraw::createOffset, "copy_placement", &OCC_Viewer::luadraw::copy_placement, "exit",
-		&OCC_Viewer::luadraw::exit,
-		// fuse expects two luadraw references; sol2 will convert Lua objects to
-		// C++ refs
-		"fuse", &OCC_Viewer::luadraw::fuse, "dofromstart", &OCC_Viewer::luadraw::dofromstart,
-
-		"create_wire",
-		sol::overload([](OCC_Viewer::luadraw& self, sol::table pts,
-						 bool closed) { self.CreateWire(to_vec2d_vector(pts), closed); },
-					  [](OCC_Viewer::luadraw& self, sol::table pts) { self.CreateWire(to_vec2d_vector(pts), false); }));
-
-	// factory function available in Lua as `luadraw_new(name)`
-	// returns a shared_ptr so the Lua GC owns the object lifetime safely.
-	lua.set_function("luadraw_new", [occv](const std::string& name) {
-		auto* luaDrawPtr = new OCC_Viewer::luadraw(name, occv);
-		// Create with the OCC_Viewer* automatically injected
-		return luaDrawPtr;
-		// return std::make_shared<OCC_Viewer::luadraw>(name, occv);
-	});
-
-	lua.set_function("create_pl", [&](const std::string& coords) {
-		std::vector<gp_Vec2d> out;
-
-		std::istringstream ss(coords);
-		std::string token;
-		while (ss >> token) {  // split by space
-			auto commaPos = token.find(',');
-			if (commaPos != std::string::npos) {
-				double x = std::stod(token.substr(0, commaPos));
-				double y = std::stod(token.substr(commaPos + 1));
-				out.emplace_back(x, y);
-			}
-		}
-
-		// Now 'out' is your vector<gp_Vec2d>
-		// Call your actual function or store it
-		// e.g. do_create_pl(out);
-	});
-
-	// // optional: convenience alias to create and store in OCC_Viewer map like
-	// your example
-	// // if you want a function that mimics `OCC_Viewer::luadraw* test=new
-	// OCC_Viewer::luadraw("consegui",occv);`
-	// lua.set_function("luadraw_new_raw", [occv](const std::string& name) ->
-	// OCC_Viewer::luadraw* {
-	//     // allocate raw pointer and return it -- caller (C++ side) must
-	//     manage lifetime return new OCC_Viewer::luadraw(name, occv);
-	// });
-}
-
+ 
 // void extractMethodNames(const FunctionDecl* bindFunc) {
 //     std::vector<std::string> methodNames;
 
@@ -2946,6 +3433,78 @@ void lua_hook(lua_State* L, lua_Debug* ar) {
 	cotm(cl, ar->source, ar->name)
 	// }
 }
+
+
+//
+void luainit() {
+    if (G) return;
+    if (!occv) cotm("occv not init");
+
+    G = std::make_unique<sol::state>();
+    auto& lua = *G;
+    lua.open_libraries(sol::lib::base, sol::lib::package);
+    lua["package"]["path"] = std::string("./lua/?.lua;") + std::string(lua["package"]["path"]);
+    L = lua.lua_state();
+
+    bind_luadraw(lua, occv);
+    setluafunc(close, "close()Exit script.");
+    install_shorthand_searcher(lua.lua_state());
+}
+
+nmutex lua_mtx("lua_mtx", 1);
+
+void lua_str(string str, bool isfile) {
+    thread([](string str, bool isfile, OCC_Viewer* occv) {
+        lua_mtx.lock();
+        luainit();
+
+        cotm("luarun", occv->vaShape.size());
+        for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i) {
+            occv->m_context->Deactivate(occv->vaShape[i]);
+            if (occv->m_context->IsDisplayed(occv->vaShape[i]))
+                occv->m_context->Remove(occv->vaShape[i], Standard_False);
+            else
+                occv->m_context->Erase(occv->vaShape[i], Standard_False);
+            occv->vaShape[i].Nullify();
+            occv->vlua[i]->cshape.Nullify();
+        }
+        occv->vshapes.clear();
+        occv->vaShape.clear();
+        occv->ulua.clear();
+        occv->vlua.clear();
+
+        int status;
+        std::string code;
+        if (isfile) {
+            std::ifstream f(str, std::ios::binary);
+            if (!f) {
+                std::cerr << "Load error: cannot open " << str << std::endl;
+                lua_mtx.unlock();
+                return;
+            }
+            std::string src((std::istreambuf_iterator<char>(f)), {});
+            code = translate_shorthand(src);
+            status = luaL_loadbuffer(L, code.data(), code.size(), str.c_str());
+        } else {
+            code = translate_shorthand(str);
+            status = luaL_loadbuffer(L, code.data(), code.size(), "chunk");
+        }
+
+        if (status == LUA_OK) {
+            if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
+                std::cerr << "runtime error: " << lua_tostring(L, -1) << std::endl;
+                lua_pop(L, 1);
+            }
+            Fl::awake(fillbrowser);
+        } else {
+            std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
+            lua_pop(L, 1);
+        }
+        lua_mtx.unlock();
+    }, str, isfile, occv).detach();
+}
+
+#if 0
 void luainit() {
 	if (G) return;
 	if (!occv)
@@ -3189,7 +3748,7 @@ void lua_str(string str, bool isfile) {
 		str, isfile, occv)
 		.detach();
 }
-
+#endif
 #pragma endregion lua
 
 static Fl_Menu_Item items[] = {
@@ -3276,10 +3835,11 @@ static Fl_Menu_Item items[] = {
 	 (void*)menu, FL_MENU_TOGGLE},
 
 	{"&test", 0, ([](Fl_Widget*, void* v) {
-		 perf();
-		 lop(i, 0, 40) occv->test(i * 5);
-		 perf("test");
+		//  perf();
+		//  lop(i, 0, 40) occv->test(i * 5);
+		//  perf("test");
 		 {
+			occv->test(0);
 			 occv->draw_objs();
 			 perf("draw");
 			 // occv->m_view->FitAll();

@@ -36,6 +36,7 @@
 !/appcad
 !simplecad.cpp
 !scintlua.cpp
+!helpers.cpp
 !includes.hpp
 
 !/approbot

@@ -207,6 +207,7 @@ endif
 # lib files
 SRC_LIB :=  \
     scintlua.cpp \
+    helpers.cpp \
     ../common/general.cpp \
     ../common/font_loader.cpp \
     ../common/fl_scintilla.cpp \
