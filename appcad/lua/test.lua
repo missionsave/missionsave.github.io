@@ -1,18 +1,20 @@
 function inocent3()
 Part sketch
-Pl 0,0 200,0 @0,100 @-300,0 @100,-50 0,0
+Pl 0,0 200,0 @0,100 @-300,0 @0,-20 @100,-50 
 Offset 10
 
 Part p1
 Clone sketch
 Extrude 800
+p1:rotatez(20)
+p1:translate(80)
 
 Part p2
 Clone sketch
 Extrude 400
-Connect(p1,0)
+Connect(p1,2)
 end
-
+inocent3()
 
 function inocent2()
 Part sketch
@@ -41,7 +43,7 @@ Extrude 50
 --p3:copy_placement(p1)
 
 end
-inocent2()
+--inocent2()
 
 
 

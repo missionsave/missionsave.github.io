@@ -3282,6 +3282,7 @@ lua.set_function("Connectwl", [&](OCC_Viewer::luadraw* targetShape, int targetFa
 lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex) {
     TopoDS_Shape target = targetShape->shape;
     gp_Trsf targetTrsf = targetShape->trsf;
+
     // Find the requested face
     TopExp_Explorer faceExplorer(target, TopAbs_FACE);
     TopoDS_Face targetFace;
@@ -3296,27 +3297,41 @@ lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFace
         std::cerr << "Error: Invalid face index or face not found." << std::endl;
         return;
     }
+
     // Ensure it’s planar
     BRepAdaptor_Surface faceAdaptor(targetFace);
     if (faceAdaptor.GetType() != GeomAbs_Plane) {
         std::cerr << "Error: Only planar faces are supported." << std::endl;
         return;
     }
-    // Get plane in world coordinates
+
+    // Get the face's plane and its coordinate system in world space
     gp_Pln plane = faceAdaptor.Plane();
     gp_Ax3 faceAx3 = plane.Position();
-    faceAx3.Transform(targetTrsf); // Transform to global space
+    faceAx3.Transform(targetTrsf); // Apply the target's transformation
 
-    // Define the part’s local reference system (Z-up)
-    gp_Ax3 partAx3(gp_Pnt(0,0,0), gp::DZ(), gp::DX());
+    // Define the part's coordinate system to match the face's axes
+    gp_Ax3 partAx3(
+        gp_Pnt(0, 0, 0),  // Origin of the part
+        faceAx3.Direction(),  // Z-axis (normal)
+        faceAx3.XDirection()   // X-axis (defines rotation in the plane)
+    );
 
-    // Build transformation to glue part to face (SWAPPED ORDER)
+    // Invert the face's coordinate system to align the part correctly
+    gp_Ax3 invertedFaceAx3(
+        faceAx3.Location(),
+        -faceAx3.Direction(),  // Invert Z-axis
+        faceAx3.XDirection()    // Keep X-axis
+    );
+
+    // Build the transformation to align the part to the inverted face coordinate system
     gp_Trsf alignmentTrsf;
-    alignmentTrsf.SetDisplacement(faceAx3, partAx3); // <-- Now maps face to part (inverse)
+    alignmentTrsf.SetDisplacement(gp_Ax3(gp_Pnt(0, 0, 0), gp::DZ(), gp::DX()), invertedFaceAx3);
 
-    // Apply to current part
+    // Apply the transformation to the current part
     current_part->trsf = alignmentTrsf;
 });
+
 	
 
 // Lua binding
