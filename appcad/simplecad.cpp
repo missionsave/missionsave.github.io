@@ -3159,28 +3159,85 @@ lua.set_function("to_world", [&](OCC_Viewer::luadraw* val) {
 
 
 // Lua binding
-#include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRep_Tool.hxx>
-#include <gp_Ax3.hxx>
-#include <gp_Trsf.hxx>
-#include <BRepAdaptor_Surface.hxx>
 
-#include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRep_Tool.hxx>
-#include <gp_Ax3.hxx>
-#include <gp_Trsf.hxx>
-#include <BRepAdaptor_Surface.hxx>
-#include <Geom_Surface.hxx>
-#include <GeomAbs_SurfaceType.hxx>
-#include <gp_Pnt.hxx>
-#include <gp_Vec.hxx>
-#include <gp_Dir.hxx>
+lua.set_function("ConnectAtCenter", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex) {
+    TopoDS_Shape target = targetShape->shape;
+    gp_Trsf targetTrsf = targetShape->trsf;
 
-lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex) {
+    // --- Find the requested face in the target
+    TopExp_Explorer faceExplorer(target, TopAbs_FACE);
+    TopoDS_Face targetFace;
+    int currentIndex = 0;
+    for (; faceExplorer.More(); faceExplorer.Next(), currentIndex++) {
+        if (currentIndex == targetFaceIndex) {
+            targetFace = TopoDS::Face(faceExplorer.Current());
+            break;
+        }
+    }
+    if (targetFace.IsNull()) {
+        std::cerr << "Error: Invalid face index or face not found." << std::endl;
+        return;
+    }
+
+    // --- Ensure target face is planar
+    BRepAdaptor_Surface targetAdaptor(targetFace);
+    if (targetAdaptor.GetType() != GeomAbs_Plane) {
+        std::cerr << "Error: Only planar faces are supported." << std::endl;
+        return;
+    }
+
+    // --- Target face system in world coords
+    gp_Pln targetPlane = targetAdaptor.Plane();
+    gp_Ax3 targetAx3 = targetPlane.Position();
+    targetAx3.Transform(targetTrsf);
+
+    // --- Target face center (world coords)
+    GProp_GProps targetProps;
+    BRepGProp::SurfaceProperties(targetFace, targetProps);
+    gp_Pnt targetCenter = targetProps.CentreOfMass();
+    targetCenter.Transform(targetTrsf);
+
+    // --- Current part: pick its "main face" (e.g. index 0 for now)
+    TopExp_Explorer curExplorer(current_part->shape, TopAbs_FACE);
+    if (!curExplorer.More()) {
+        std::cerr << "Error: current_part has no faces." << std::endl;
+        return;
+    }
+    TopoDS_Face currentFace = TopoDS::Face(curExplorer.Current());
+
+    // --- Ensure current face is planar
+    BRepAdaptor_Surface curAdaptor(currentFace);
+    if (curAdaptor.GetType() != GeomAbs_Plane) {
+        std::cerr << "Error: current_part face not planar." << std::endl;
+        return;
+    }
+
+    // --- Current face system in local coords
+    gp_Pln curPlane = curAdaptor.Plane();
+    gp_Ax3 curAx3 = curPlane.Position();
+
+    // --- Current face center (local coords → then into world with part’s trsf)
+    GProp_GProps curProps;
+    BRepGProp::SurfaceProperties(currentFace, curProps);
+    gp_Pnt curCenter = curProps.CentreOfMass();
+    curCenter.Transform(current_part->trsf);
+
+    curAx3.Transform(current_part->trsf);
+
+    // --- Build frames using centers as locations
+    gp_Ax3 sourceFrame(curCenter, curAx3.Direction(), curAx3.XDirection());
+    gp_Ax3 targetFrame(targetCenter, targetAx3.Direction(), targetAx3.XDirection());
+
+    // --- Build displacement (maps source face → target face)
+    gp_Trsf alignmentTrsf;
+    alignmentTrsf.SetDisplacement(sourceFrame, targetFrame);
+
+    // --- Apply to current part
+    current_part->trsf = alignmentTrsf;
+});
+
+
+lua.set_function("Connectwl", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex, int currface=0) {
     TopoDS_Shape target = targetShape->shape;
     gp_Trsf targetTrsf = targetShape->trsf;
 
@@ -3222,6 +3279,44 @@ lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFace
     current_part->trsf = alignmentTrsf;
 });
 
+lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex) {
+    TopoDS_Shape target = targetShape->shape;
+    gp_Trsf targetTrsf = targetShape->trsf;
+    // Find the requested face
+    TopExp_Explorer faceExplorer(target, TopAbs_FACE);
+    TopoDS_Face targetFace;
+    int currentIndex = 0;
+    for (; faceExplorer.More(); faceExplorer.Next(), currentIndex++) {
+        if (currentIndex == targetFaceIndex) {
+            targetFace = TopoDS::Face(faceExplorer.Current());
+            break;
+        }
+    }
+    if (targetFace.IsNull()) {
+        std::cerr << "Error: Invalid face index or face not found." << std::endl;
+        return;
+    }
+    // Ensure it’s planar
+    BRepAdaptor_Surface faceAdaptor(targetFace);
+    if (faceAdaptor.GetType() != GeomAbs_Plane) {
+        std::cerr << "Error: Only planar faces are supported." << std::endl;
+        return;
+    }
+    // Get plane in world coordinates
+    gp_Pln plane = faceAdaptor.Plane();
+    gp_Ax3 faceAx3 = plane.Position();
+    faceAx3.Transform(targetTrsf); // Transform to global space
+
+    // Define the part’s local reference system (Z-up)
+    gp_Ax3 partAx3(gp_Pnt(0,0,0), gp::DZ(), gp::DX());
+
+    // Build transformation to glue part to face (SWAPPED ORDER)
+    gp_Trsf alignmentTrsf;
+    alignmentTrsf.SetDisplacement(faceAx3, partAx3); // <-- Now maps face to part (inverse)
+
+    // Apply to current part
+    current_part->trsf = alignmentTrsf;
+});
 	
 
 // Lua binding

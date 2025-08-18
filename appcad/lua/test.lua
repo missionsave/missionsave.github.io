@@ -1,3 +1,4 @@
+function inocent3()
 Part sketch
 Pl 0,0 200,0 @0,100 @-300,0 @100,-50 0,0
 Offset 10
@@ -5,23 +6,42 @@ Offset 10
 Part p1
 Clone sketch
 Extrude 800
-p1:rotatey(-10)
-p1:translate(100,9)
+
+Part p2
+Clone sketch
+Extrude 400
+Connect(p1,0)
+end
+
+
+function inocent2()
+Part sketch
+Pl 0,0 200,0 @0,100 @-300,0 @100,-50 0,0
+Offset 10
+
+Part p1
+Clone sketch
+Extrude 800
+--p1:rotatez(-10)
+--p1:translate(100,9)
 
 Part p3
 
-Pl 0,0 @30,0 @0,60 @-30,0 0,0
+Pl 0,0 @50,0 @0,60 @-30,0 0,0
 --Connect("p1 4 -1,-0,-0 0,50,300 60000")
 Offset(3)
-Connect(p1 ,3)
-p3:translate(0,-60)
-Extrude -50
+--p3:rotatex(180)
+Connect(p1 ,0)
+--p3:rotatex(180)
+--p3:translate(0,-60)
+--p3:translate(0,0,60,1)
+Extrude 50
 
 --Extrude 500
 --p3:copy_placement(p1)
 
-
-
+end
+inocent2()
 
 
 
