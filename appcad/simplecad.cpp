@@ -4424,6 +4424,7 @@ static Fl_Menu_Item items[] = {
 		 } else {
 			 occv->toggle_shaded_transp(AIS_Shaded);
 		 }
+		 occv->redraw();
 		 return;
 
 		 if (item->value()) {  // Check if the item is checked
@@ -4541,7 +4542,7 @@ int main(int argc, char** argv) {
 	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION << "." << FL_PATCH_VERSION
 			  << std::endl;
 	std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
-	OSD_Parallel::SetUseOcctThreads(1);
+	// OSD_Parallel::SetUseOcctThreads(1);
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
 	Fl::visual(FL_DOUBLE | FL_INDEX);
