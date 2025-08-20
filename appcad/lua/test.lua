@@ -3,7 +3,6 @@ function robot1()
 Part sketch_body
 Pl 0,0 220,0 @0,170 @-220,0 0,0
 
-
 Part body_robot
 Clone sketch_body
 Offset 4
@@ -14,14 +13,16 @@ Pl 0,0 50,0 @0,50 @-50,0 0,0
 Offset 4 
 Extrude -80
 Rotatexl(-90)
+Rotatexl(45)
 Movel(220,170-50,0)
+Movel(50)
 
 Part bucket
 Pl 0,0, 220,0 @0,100 @-220,0 0,0
 Offset 4
-Extrude 90
+Extrude 170-50
 Rotatexl(90)
-Movel(0,130,0)
+Movel(0,170-50,0)
 
 
 

@@ -2088,8 +2088,10 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		perf1("toggle_shaded_transp");
 		if (hlr_on == 1) {
 			cotm("hlr1")
+			cotm(vshapes.size())
 				// projectAndDisplayWithHLR(vaShape);
 				projectAndDisplayWithHLR(vshapes);
+				// projectAndDisplayWithHLR(vshapes);
 		} else {
 			cotm("hlr0") if (!visible_.IsNull()) {
 				m_context->Remove(visible_, 0);
@@ -2113,8 +2115,13 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		}
 		cotm(vaShape.size(), vshapes.size());
 	}
-
-	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
+	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
+		// projectAndDisplayWithHLR_P(shapes,isDragonly);
+		// projectAnqdDisplayWithHLR_lp(shapes,isDragonly);
+		projectAndDisplayWithHLR_ntw(shapes,isDragonly);
+	}
+	#define ENABLE_PARALLEL
+	void projectAndDisplayWithHLR_ntw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 		perf1();
 
@@ -3548,10 +3555,7 @@ lua.set_function("Movel", [&](float x = 0, float y = 0, float z = 0) {
 
     // Replace the original compound
 
-    current_part->cshape = newCompound;
-    current_part->shape = shapeToMove;
-    // compound = newCompound;
-    // current_part->needsplacementupdate = 0;
+    current_part->cshape = newCompound; 
 });
 
 // guarda orientação acumulada em quaternion dentro da tua struct
