@@ -64,10 +64,10 @@ ifeq ($(OS_NAME), Windows)
 	
 	LDFLAGS+= -ltbb12 -l:libtbbbind_2_5.dll.a  -l:libtbbmalloc.dll.a -l:libtbbmalloc_proxy.dll.a
 	CXXFLAGS+= -I"C:\msys64\mingw64\include\opencascade"
-	
+
 	# dynamic
 # 	LDFLAGS+= -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKMesh  -lTKOffset
-	LDFLAGS+= -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKBRep -lTKMesh -lTKOffset
+	LDFLAGS+= -lTKBRep -lTKGeomBase -lTKG2d -lTKG3d -lTKMath -lTKernel -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKBRep -lTKMesh -lTKOffset -lTKGeomBase
 
 	#static
 	# LDFLAGS+=  -Wl,-Bstatic
