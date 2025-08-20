@@ -1,3 +1,55 @@
+function robot1()
+
+Part sketch_body
+Pl 0,0 220,0 @0,170 @-220,0 0,0
+
+
+Part body_robot
+Clone sketch_body
+Offset 4
+Extrude -100
+Clone sketch_body
+Extrude -4 
+Pl 0,0 50,0 @0,50 @-50,0 0,0
+Offset 4 
+Extrude -80
+Rotatexl(-90)
+Movel(220,170-50,0)
+
+Part bucket
+Pl 0,0, 220,0 @0,100 @-220,0 0,0
+Offset 4
+Extrude 90
+Rotatexl(90)
+Movel(0,130,0)
+
+
+
+end
+robot1()
+
+
+
+function robot()
+Part sketch_body
+Pl 0,0 220,0 @0,170 @-220,0 0,0
+
+Part helper_body
+Clone sketch_body
+Offset 4
+Extrude -100
+
+Part body_robotoioioioioioioi
+Clone sketch_body
+Extrude -4
+Fuse helper_body
+Pl 0,0 50,0 @0,50 @-50,0 0,0
+Extrude -80
+--compound()
+--body_robot:translate(100,0)
+
+end
+--robot()
 function inocent3()
 Part sketch
 Pl 0,0 200,0 @0,100 @-300,0 @0,-20 @100,-50 
@@ -14,7 +66,7 @@ Clone sketch
 Extrude 400
 Connect(p1,2)
 end
-inocent3()
+--inocent3()
 
 function inocent2()
 Part sketch

@@ -25,6 +25,8 @@
 #include <gp_Dir.hxx>
 #include <BRepGProp_Face.hxx>
 #include <GProp_GProps.hxx>
+#include <BOPAlgo_BOP.hxx>
+#include <TopoDS_Shape.hxx>
 
 #pragma region includes
 #include "fl_browser_msv.hpp"
@@ -343,7 +345,7 @@ struct OCC_Viewer : public flwindow {
 		// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic,
 		// customDrawer);
 		ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, customDrawer);
-		cotm(5)
+		// cotm(5)
 			// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,
 			// customDrawer);
 			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected, customDrawer);
@@ -367,17 +369,21 @@ struct OCC_Viewer : public flwindow {
 	};
 
 	struct luadraw {
+		vector<luadraw*> vnl;
+		bool editing=0;
 		bool protectedshape = 0;
 
 		string command = "";
 
 		// build it using BRep_Builder
 		BRep_Builder builder;
-
+gp_Quaternion qrot; 
 		string name = "";
 		bool visible_hardcoded = 1;
+		// TopoDS_Shape cshape;
 		TopoDS_Compound cshape;
 		TopoDS_Shape shape;
+		TopoDS_Shape fshape;
 		// std::shared_ptr<TopoDS_Shape> shape;
 		Handle(AIS_Shape) ashape;
 		TopoDS_Face face;
@@ -385,6 +391,7 @@ struct OCC_Viewer : public flwindow {
 		gp_Dir normal = gp_Dir(0, 0, 1);
 		gp_Dir xdir = gp_Dir(1, 0, 0);
 		gp_Trsf trsf;
+		vector<gp_Trsf> vtrsf;
 		gp_Trsf trsftmp;
 		bool needsplacementupdate = 1;
 		OCC_Viewer* occv;
@@ -399,7 +406,7 @@ struct OCC_Viewer : public flwindow {
 			//  	ld->redisplay();
 			//  }
 
-			builder.MakeCompound(cshape);
+			builder.MakeCompound(TopoDS::Compound( cshape) );
 
 			auto it = occv->ulua.find(name);
 			int counter = 0;
@@ -410,13 +417,13 @@ struct OCC_Viewer : public flwindow {
 				counter++;
 			}
 			name = new_name;
-			cotm("new",name)
+			// cotm("new",name)
 
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
 			trsf.Invert();
 			ashape = new AIS_Shape(cshape);
-			shape = cshape;
+			// shape = cshape;
 
 			// allocate something for the application and hand ownership to the
 			// wrapper
@@ -501,12 +508,122 @@ struct OCC_Viewer : public flwindow {
 				trsf *= trsftmp;
 			}
 		}
+
+std::vector<TopoDS_Solid> ExtractSolids(const TopoDS_Shape& shape) {
+    std::vector<TopoDS_Solid> solids;
+    for (TopExp_Explorer exp(shape, TopAbs_SOLID); exp.More(); exp.Next()) {
+        solids.push_back(TopoDS::Solid(exp.Current()));
+    }
+    return solids;
+}
+
+
+TopoDS_Shape FuseAllSolids(const TopoDS_Shape& shape) {
+    std::vector<TopoDS_Solid> solids = ExtractSolids(shape);
+    if (solids.empty()) return TopoDS_Shape();
+    if (solids.size() == 1) return solids[0]; // only one solid, nothing to fuse
+
+    BOPAlgo_BOP bop;
+    bop.SetOperation(BOPAlgo_FUSE);
+    for (const auto& s : solids) {
+        bop.AddArgument(s);
+    }
+    bop.Perform();
+
+    // Check for errors instead of IsDone()
+    // if (bop.HasErrors()) {
+    //     throw std::runtime_error("BOPAlgo_BOP fuse failed (HasErrors).");
+    // }
+
+    return bop.Shape();
+}
+// #include <ShapeUpgrade_UnifySameDomain.hxx>
+static TopoDS_Shape CompoundInstead(const std::vector<TopoDS_Solid>& solids) {
+    BRep_Builder builder;
+    TopoDS_Compound comp;
+    builder.MakeCompound(comp);
+    for (auto& s : solids) builder.Add(comp, s);
+    return comp;
+}
+TopoDS_Shape FuseAndRefineWithAPI(const TopoDS_Shape& inputShape) {
+    auto solids = ExtractSolids(inputShape);
+    if (solids.empty()) {
+        std::cerr << "⚠️ No solids found in input shape\n";
+        return TopoDS_Shape();
+    }
+    if (solids.size() == 1) {
+        // Only one solid → just refine it
+        ShapeUpgrade_UnifySameDomain unify(solids[0], true, true, true);
+        unify.Build();
+        return unify.Shape();
+    }
+
+    // Iteratively fuse solids
+    TopoDS_Shape fused = solids[0];
+    for (size_t i = 1; i < solids.size(); ++i) {
+        BRepAlgoAPI_Fuse fuse(fused, solids[i]);
+        fuse.Build();
+        if (!fuse.IsDone()) {
+            std::cerr << "❌ Fuse failed at step " << i << ", returning compound instead.\n";
+            // return CompoundInstead(solids);
+        }
+        fused = fuse.Shape();
+    }
+
+    // Refine result: merge faces, edges, vertices
+    ShapeUpgrade_UnifySameDomain unify(fused, true, true, true);
+    unify.Build();
+    TopoDS_Shape refined = unify.Shape();
+
+    return refined;
+}
+void update_placement_v1() {
+    cotm(name, needsplacementupdate);
+    if (needsplacementupdate == 0) return;
+
+    // Apply transformation to the base shape
+    BRepBuilderAPI_Transform transformer(shape, trsf);
+    shape = transformer.Shape();
+
+    // If cshape is the compound containing all parts, update it
+    if (!cshape.IsNull()) {
+        BRepCheck_Analyzer ana(cshape, Standard_True);
+        if (!ana.IsValid()) {
+            std::cout << "Compound has invalid geometry or topology\n";
+        }
+
+        // Re-mesh compound
+        BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
+        mesher.Perform();
+
+        // Work with solids inside the compound
+        std::vector<TopoDS_Solid> ext = ExtractSolids(cshape);
+        cotm(ext.size());
+
+        // Replace compound with fused version if not in editing mode
+        if (!editing) {
+            shape = FuseAndRefineWithAPI(cshape);
+        } else {
+            shape = cshape;
+        }
+    }
+
+    // Update displayed AIS shape once
+    if (!shape.IsNull()) {
+        ashape->Set(shape);
+    }
+
+    needsplacementupdate = 0;
+}
+
+
 		void update_placement() {
+			cotm(name,needsplacementupdate);
 			if (needsplacementupdate == 0) return;
-			BRepBuilderAPI_Transform transformer(shape,
-												 trsf);	 // if part only last
-			// cshape = TopoDS::Compound(transformer.Shape());
-			shape = transformer.Shape();
+			// BRepBuilderAPI_Transform transformer(shape,
+			// 									 trsf);	 // if part only last
+			// // cshape = TopoDS::Compound(transformer.Shape());
+			// shape = transformer.Shape();
 			if (!cshape.IsNull()) {
 				BRepCheck_Analyzer ana(cshape, Standard_True);
 				if (!ana.IsValid()) {
@@ -515,22 +632,38 @@ struct OCC_Viewer : public flwindow {
 				BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
 				mesher.Perform();
 
-				cotm(hasAnyTriangulation(cshape))
+				// cotm(hasAnyTriangulation(cshape))
 					// shape=cshape;
 					ashape->Set(cshape);
 			} else {
 				ashape->Set(shape);
 			}
-			if (!shape.IsNull()) ashape->Set(shape);  // if is part, show only the last
+
+
+
+			std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
+			cotm(ext.size());
+			if(!editing){
+				fshape=FuseAndRefineWithAPI(cshape);
+			}else{
+				fshape=cshape;
+			}
+
+
+
+			// if (!cshape.IsNull()) ashape->Set(cshape);   
+			if (!shape.IsNull()) ashape->Set(fshape);  // if is part, show only the last
 			needsplacementupdate = 0;
 		}
+
+
 		void copy_placement(luadraw* tocopy) { trsf = tocopy->trsf; }
 		void exit() { throw std::runtime_error(lua_error_with_line(L, "exit")); }
 		void clone(luadraw* toclone) {
 			if (!toclone) {
 				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
 			}
-			if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
+			// if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
 			if (!toclone->shape.IsNull()) this->shape = toclone->shape;
 			this->vpoints = toclone->vpoints;
 		}
@@ -553,6 +686,11 @@ struct OCC_Viewer : public flwindow {
 		}
 		void extrude(float qtd = 0) {
 			solidify_wire_to_face();
+			// 			gp_Dir dir = [](gp_Trsf trsf) {
+			// 	gp_Ax3 ax3;
+			// 	ax3.Transform(trsf);
+			// 	return ax3.Direction();
+			// }(vtrsf);
 			// gp_Vec extrusionVec(dir);
 			gp_Vec extrusionVec(normal);
 			extrusionVec *= qtd;
@@ -617,12 +755,22 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			this->shape = unify.Shape();
 		}
 
-		void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
+		void mergeShape(TopoDS_Shape& target, const TopoDS_Shape& toAdd) {
+		// void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
 			if (toAdd.IsNull()) {
 				std::cerr << "Warning: toAdd is null." << std::endl;
 				return;
 			}
 			builder.Add(target, toAdd);
+			gp_Ax2 ax3(origin, normal, xdir);
+			trsf.SetTransformation(ax3);
+			trsf.Invert();
+			vtrsf.push_back(trsf);
+			    int count = 0;
+    for (TopExp_Explorer exp(target, TopAbs_SHAPE); exp.More(); exp.Next()) {
+        ++count;
+    }
+	// cotm(count);
 			shape = toAdd;
 			return;
 			// try
@@ -924,22 +1072,24 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 				poly.Add(gp_Pnt(v.X(), v.Y(), 0));
 			}
 			if (closed && points.size() > 2) poly.Close();
-			cotm("s1")
+			// cotm("s1")
 
 				TopoDS_Wire wire = poly.Wire();
 			if (points.size() > 2) {
-				cotm("s2")
+				// cotm("s2")
 					// Make a planar face from that wire
 					TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
-				cotm("s3")
+				// cotm("s3")
 					// Mesh the face so it gets Poly_Triangulation
 					// if(points.size()>2)
 					BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-				cotm("s4") mergeShape(cshape, face);
-				cotm("s5")
+				// cotm("s4") 
+				mergeShape(cshape, face);
+				// cotm("s5")
 			} else {
 				mergeShape(cshape, wire);
 			}
+			
 		}
 
 		// GeomAbs_Intersection
@@ -1176,12 +1326,12 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 	void highlightVertex(const TopoDS_Vertex& aVertex) {
 		clearHighlight();  // Clear any existing highlight first
 
-		perf();
+		// perf();
 		// sleepms(1000);
 		float ratio = GetViewportAspectRatio()[0];
-		perf("GetViewportAspectRatio");
+		// perf("GetViewportAspectRatio");
 		// double ratio=theProjector->Aspect();
-		cotm(ratio);
+		// cotm(ratio);
 
 		gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
 
@@ -1432,13 +1582,12 @@ if (!brepOwner.IsNull()) {
     if (!aisShape.IsNull()) {
         TopoDS_Shape fullRaw = aisShape->Shape();
         fullRaw.Location(TopLoc_Location());
-
         TopTools_IndexedMapOfShape faceMap;
         TopExp::MapShapes(fullRaw, TopAbs_FACE, faceMap);
-
-        faceIndex = faceMap.FindIndex(pickedRaw);
+        faceIndex = faceMap.FindIndex(pickedRaw) - 1; // Subtract 1 to convert to 0-based index
     }
 }
+
 
 // --- centroid & area ---
 GProp_GProps props;
@@ -2622,9 +2771,13 @@ toggle_shaded_transp(currentMode);
 		std::function<void()> func = [this, &sbt = this->sbt] { cotm(m_initialized, sbt[0].label) };
 
 		sbt = {
-			sbts{"Front", {}, 1, {0, -1, 0, 0, 0, 1}}, sbts{"Top", {}, 1, {0, 0, 1, 0, 1, 0}},
-			sbts{"Left", {}, 1, {-1, 0, 0, 0, 0, 1}}, sbts{"Right", {}, 1, {1, 0, 0, 0, 0, 1}},
-			sbts{"Back", {}, 1, {0, 1, 0, 0, 0, 1}}, sbts{"Bottom", {}, 1, {0, 0, -1, 0, -1, 0}},
+			sbts{"Front", {}, 1, {0, -1, 0, 0, 0, 1}}, 
+			sbts{"Top", {}, 1, {0, 0, 1, 0, 1, 0}},
+			sbts{"Left", {}, 1, {-1, 0, 0, 0, 0, 1}}, 
+			sbts{"Right", {}, 1, {1, 0, 0, 0, 0, 1}},
+			sbts{"Back", {}, 1, {0, 1, 0, 0, 0, 1}}, 
+			sbts{"Bottom", {}, 1, {0, 0, -1, 0, 1, 0}},
+			// sbts{"Bottom", {}, 1, {0, 0, -1, 0, -1, 0}}, //iso but dont like it
 			sbts{"Iso", {}, 1, {0.57735, -0.57735, 0.57735, -0.408248, 0.408248, 0.816497}},
 
 			// sbts{"Iso",{}, 1, { 1,  1,  1,   0,  0,  1 }},
@@ -3159,7 +3312,7 @@ lua.set_function("to_world", [&](OCC_Viewer::luadraw* val) {
 
 
 // Lua binding
-
+//keeper
 lua.set_function("ConnectAtCenter", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex) {
     TopoDS_Shape target = targetShape->shape;
     gp_Trsf targetTrsf = targetShape->trsf;
@@ -3279,6 +3432,7 @@ lua.set_function("Connectwl", [&](OCC_Viewer::luadraw* targetShape, int targetFa
     current_part->trsf = alignmentTrsf;
 });
 
+//keeper working well tested
 lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFaceIndex) {
     TopoDS_Shape target = targetShape->shape;
     gp_Trsf targetTrsf = targetShape->trsf;
@@ -3332,8 +3486,247 @@ lua.set_function("Connect", [&](OCC_Viewer::luadraw* targetShape, int targetFace
     current_part->trsf = alignmentTrsf;
 });
 
-	
+lua.set_function("Movel_v1", [&](float x = 0, float y = 0, float z = 0) {
+	gp_Trsf trsftmp = gp_Trsf();
+	trsftmp.SetTranslation(gp_Vec(x, y, z));
+	// trsf = trsftmp * trsf; //world
+	current_part->vtrsf.back() *= trsftmp;
 
+	// TopoDS_Shape target = current_part->shape;
+	// gp_Trsf targetTrsf = current_part->vtrsf.back();
+
+	BRepBuilderAPI_Transform transformer(current_part->shape, current_part->vtrsf.back());	// if part only last
+	// cshape = TopoDS::Compound(transformer.Shape());
+	current_part->shape = transformer.Shape();
+});
+
+
+lua.set_function("Movel", [&](float x = 0, float y = 0, float z = 0) {
+    // Get reference to the current part's compound
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToMove = current_part->shape;
+    
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    // Define the translation
+    gp_Trsf translation;
+    translation.SetTranslation(gp_Vec(x, y, z));
+
+    // Iterate over all shapes in the original compound
+    for (TopoDS_Iterator it(compound); it.More(); it.Next())
+    {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        // Check if this is the exact same shape object
+        if (currentShape.IsSame(shapeToMove))
+        {
+            cotm("Movel")
+            // Translate the shape
+            BRepBuilderAPI_Transform transformer(currentShape, translation, false);
+            if (transformer.IsDone())
+            {
+                TopoDS_Shape movedShape = transformer.Shape();
+                builder.Add(newCompound, movedShape);
+                
+                // Update the reference shape as well
+                shapeToMove = movedShape;
+            }
+            else
+            {
+                // Fallback: add the original shape if translation fails
+                builder.Add(newCompound, currentShape);
+            }
+        }
+        else
+        {
+            // Add the unmodified shape
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    // Replace the original compound
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToMove;
+    // compound = newCompound;
+    // current_part->needsplacementupdate = 0;
+});
+
+// guarda orientação acumulada em quaternion dentro da tua struct
+ // inicializar como identidade na criação da peça
+
+lua.set_function("Rotatex", [&](float angle = 0) {
+    // Get the current transformation of the part
+    gp_Trsf currentTrsf = current_part->trsf;
+    // gp_Trsf currentTrsf = current_part->vtrsf.back();
+
+    // Invert the current transformation to work in local space
+    // gp_Trsf invCurrentTrsf = currentTrsf.Inverted();
+
+    // Define the X-axis at the origin
+    gp_Ax1 xAxis(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0));
+
+    // Create a rotation transformation
+    gp_Trsf rotation;
+    rotation.SetRotation(xAxis, angle * (M_PI / 180));
+
+    // Apply the rotation in local space:
+    // new_transform = current_transform * inverse_current * rotation * current_transform
+    current_part->trsf = current_part->trsf * rotation ;
+
+    // Apply the transformation to the shape
+    BRepBuilderAPI_Transform transformer(current_part->cshape,  current_part->trsf );
+    // current_part->cshape = transformer.Shape();               ///////////////////////////////
+
+    // // Update the part's transformation stack if needed
+    // current_part->vtrsf.push_back(newTrsf);
+});
+
+
+#include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Iterator.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <gp_Trsf.hxx>
+#include <gp_Ax1.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <TopLoc_Location.hxx>
+
+// … other necessary OCCT headers …
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <TopLoc_Location.hxx>
+
+#include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <TopLoc_Location.hxx>
+#include <AIS_InteractiveContext.hxx>
+
+// … your other OCCT includes …
+
+// Assume you have a valid Handle(AIS_InteractiveContext) named 'aisContext'
+// extern Handle(AIS_InteractiveContext) aisContext;
+
+lua.set_function("Rotatexl_v1notw", [&](float angleDegrees = 0.0f) {
+TopoDS_Compound compound=current_part->cshape;
+TopoDS_Shape shapeToRotate=current_part->shape;
+
+
+	 BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    // Define the rotation
+    gp_Ax1 xAxis(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0));
+    gp_Trsf rotation;
+    rotation.SetRotation(xAxis, angleDegrees * (M_PI / 180.0));
+
+    // Iterate over all shapes in the original compound
+    for (TopoDS_Iterator it(compound); it.More(); it.Next())
+    {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(shapeToRotate))
+        {
+			cotm("Rotatexl")
+            // Rotate the shape
+            BRepBuilderAPI_Transform transformer(currentShape, rotation);
+            if (transformer.IsDone())
+            {
+                TopoDS_Shape rotatedShape = transformer.Shape();
+                builder.Add(newCompound, rotatedShape);
+            }
+            else
+            {
+                // Fallback: add the original shape if rotation fails
+                builder.Add(newCompound, currentShape);
+            }
+        }
+        else
+        {
+            // Add the unmodified shape
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    // Replace the original compound
+    compound = newCompound;
+	current_part->needsplacementupdate=0;
+});
+
+lua.set_function("Rotatexl_almost", [&](float angleDegrees = 0.0f) {
+    // Create rotation transformation
+    gp_Ax1 xAxis(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0));
+    gp_Trsf rotation;
+    rotation.SetRotation(xAxis, angleDegrees * (M_PI / 180.0));
+    
+    // Apply rotation to the specific shape
+    BRepBuilderAPI_Transform transformer(current_part->shape, rotation, false);
+    if (transformer.IsDone()) {
+        current_part->shape = transformer.Shape();
+        
+        // Rebuild the compound with the rotated shape
+        BRep_Builder builder;
+        TopoDS_Compound newCompound;
+        builder.MakeCompound(newCompound);
+        builder.Add(newCompound, current_part->shape);
+        
+        current_part->cshape = newCompound;
+    }
+    
+    // current_part->needsplacementupdate = 0;
+});
+
+lua.set_function("Rotatexl", [&](float angleDegrees = 0.0f) {
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToRotate = current_part->shape;
+    
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    // Define the rotation
+    gp_Ax1 xAxis(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0));
+    gp_Trsf rotation;
+    rotation.SetRotation(xAxis, angleDegrees * (M_PI / 180.0));
+
+	TopoDS_Shape rshape;
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next())
+    {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        // Check if this is the exact same shape object
+        if (currentShape.IsSame(shapeToRotate))
+        {
+            cotm("Rotatexl")
+            BRepBuilderAPI_Transform transformer(currentShape, rotation, false);
+            if (transformer.IsDone())
+            {
+                TopoDS_Shape rotatedShape = transformer.Shape();
+                builder.Add(newCompound, rotatedShape);
+                shapeToRotate = rotatedShape; // Update reference
+            }
+            else
+            {
+                builder.Add(newCompound, currentShape);
+            }
+        }
+        else
+        {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToRotate;
+    // current_part->needsplacementupdate = 0;
+});
 // Lua binding
 lua.set_function("Connect_v1", [&](const std::string& s) {
     if (!current_part)
@@ -3490,6 +3883,106 @@ place.SetTransformation(srcCS, dstCS);
 current_part->trsf = place;
 current_part->needsplacementupdate = 1;
 });
+
+//keeper
+lua.set_function("Fuse", [&](OCC_Viewer::luadraw* tofuse2){
+		OCC_Viewer::luadraw* tofuse1=current_part;
+		if (!tofuse1 || !tofuse2) {
+			throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
+		}
+		// tofuse1->update_placement();
+		// tofuse2->update_placement();
+		// Handle(AIS_Shape) af1 = tofuse1->ashape;
+		// Handle(AIS_Shape) af2 = tofuse2->ashape;
+		TopoDS_Shape ts1 = tofuse1->shape;
+		TopoDS_Shape ts2 = tofuse2->shape;
+
+		BRepAlgoAPI_Fuse fuse(ts1, ts2);
+		fuse.Build();
+		if (!fuse.IsDone()) {
+			throw std::runtime_error(lua_error_with_line(L, "Fuse operation failed"));
+		}
+
+		// tofuse1->visible_hardcoded = 0;
+		tofuse2->visible_hardcoded = 0;
+
+		TopoDS_Shape fusedShape = fuse.Shape();
+
+		// Refine the result
+		ShapeUpgrade_UnifySameDomain unify(fusedShape, true, true, true);  // merge faces, edges, vertices
+		unify.Build();
+		tofuse1->shape = unify.Shape();
+});
+
+lua.set_function("compound", [&](){
+    TopoDS_Shape shape = current_part->cshape;
+    std::function<void(const TopoDS_Shape&, int)> dump = [&](const TopoDS_Shape& s, int indent) {
+        if (s.IsNull()) return;
+        std::string prefix(indent * 2, ' ');
+        std::string typeName;
+        switch (s.ShapeType()) {
+            case TopAbs_COMPOUND:   typeName = "COMPOUND"; break;
+            case TopAbs_COMPSOLID:  typeName = "COMPSOLID"; break;
+            case TopAbs_SOLID:      typeName = "SOLID"; break;
+            case TopAbs_SHELL:      typeName = "SHELL"; break;
+            case TopAbs_FACE:       typeName = "FACE"; break;
+            case TopAbs_WIRE:       typeName = "WIRE"; break;
+            case TopAbs_EDGE:       typeName = "EDGE"; break;
+            case TopAbs_VERTEX:     typeName = "VERTEX"; break;
+            default: return;
+        }
+        std::cout << prefix << typeName << std::endl;
+
+        // Only explore children for shapes that can logically contain them
+        TopAbs_ShapeEnum childType;
+        bool shouldExplore = true;
+        switch (s.ShapeType()) {
+            case TopAbs_COMPOUND:
+            case TopAbs_COMPSOLID:
+                // Compounds and Compsolids can contain any type
+                for (int i = TopAbs_COMPOUND; i <= TopAbs_VERTEX; ++i) {
+                    TopExp_Explorer exp(s, static_cast<TopAbs_ShapeEnum>(i));
+                    if (exp.More()) { // Only proceed if there are children
+                        for (; exp.More(); exp.Next()) {
+                            dump(exp.Current(), indent + 1);
+                        }
+                    }
+                }
+                break;
+            case TopAbs_SOLID:
+                childType = TopAbs_SHELL;
+                break;
+            case TopAbs_SHELL:
+                childType = TopAbs_FACE;
+                break;
+            case TopAbs_FACE:
+                childType = TopAbs_WIRE;
+                break;
+            case TopAbs_WIRE:
+                childType = TopAbs_EDGE;
+                break;
+            case TopAbs_EDGE:
+                childType = TopAbs_VERTEX;
+                break;
+            default:
+                shouldExplore = false;
+                break;
+        }
+
+        if (shouldExplore && s.ShapeType() != TopAbs_VERTEX) {
+            TopExp_Explorer exp(s, childType);
+            if (exp.More()) { // Only proceed if there are children
+                for (; exp.More(); exp.Next()) {
+                    dump(exp.Current(), indent + 1);
+                }
+            }
+        }
+    };
+    dump(shape, 0);
+});
+
+
+
 
 
 

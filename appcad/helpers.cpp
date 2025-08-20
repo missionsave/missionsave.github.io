@@ -491,7 +491,7 @@ std::string translate_shorthand(std::string_view src){
 
 	std::string code = translate_shorthand(src, S, A);
 
-	cotm(code);
+	//cotm(code);
 
 
 	return code;
