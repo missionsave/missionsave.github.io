@@ -9,9 +9,17 @@ using namespace std;
 
 void lua_str(string str,bool isfile);
 
+
+string currfilename="";
+
 struct scint : public fl_scintilla { 
 	scint(int X, int Y, int W, int H, const char* l = 0)
-	: fl_scintilla(X, Y, W, H, l) { }
+	: fl_scintilla(X, Y, W, H, l) {
+		//  show_browser=0; set_flag(FL_ALIGN_INSIDE); 
+		cotm(filename)
+		currfilename=filename;
+		// lua_str(filename,1);
+		}
 	int handle(int e)override;
 };
 

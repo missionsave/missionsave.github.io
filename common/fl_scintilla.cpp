@@ -306,11 +306,49 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	cotm("set_lua")
     SetNotify(cb_editor, this); 	
 	cotm("cb_editor")
-    helperinit();
-	cotm("helperinit")
+    // helperinit();
+	// cotm("helperinit")
+	update_menu();
 	SendEditor(SCI_AUTOCSETAUTOHIDE,0);
 	cotm("SCI_AUTOCSETAUTOHIDE")
 
+}
+void fl_scintilla::update_menu(){
+	    window()->begin(); 
+		fmb=new Fl_Menu_Bar(x(),0,w(),22);
+	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
+	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
+	    // Initial menu items
+    fmb->add("Files/Open folder",0, menu_callback);
+    // fmb->add("Files/Quit", 0, menu_callback);
+
+
+
+	lfiles=list_files_in_dir(folder);
+	vector<FileEntry> &files=lfiles;
+	// std::sort(files.begin(), files.end(), sortByFilename);
+    // for (const auto& f : files) {
+	// 	editor->bfiles->add(fs::path(f.filename).filename().string().c_str());
+    //     // std::cout << f.filename << " - " << std::asctime(std::localtime(&f.modified));
+    // }
+
+	//open first last modified
+    std::sort(files.begin(), files.end());
+    for (const auto& f : files) {
+		string str=(fs::path(f.filename).filename().string());
+		cotm("FICH", folder+str);
+		setscint(this,folder+str);
+		break;
+
+
+        // std::cout << std::asctime(std::localtime(&f.modified)) << " " << f.filename << '\n';
+    }
+
+
+    
+    // Dynamically add more items later
+    // fmb->add("Edits/Copy", FL_COMMAND + 'c', menu_callback);
+    // fmb->add("Edits/Paste", FL_COMMAND + 'v', menu_callback);
 }
 bool isFilenameValid(const char *filename) {
     if (!filename) return false;
@@ -349,10 +387,15 @@ string fl_scintilla::getSelected(){
 			printf("Shift pressionado\n");
 
 		}
+		
+        if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='b'){
+            helperinit();
+            return 0;
+        }
 
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='s'){
             save();
-            return 1;
+            return 0;
         }
 
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='f'){
@@ -484,6 +527,8 @@ void fl_scintilla::set_lua(){
 	
 	// const char* fntname="";
 
+	int fntsize=9;
+
 	// const char* fntname="Cascadia Code";
     SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0); //allways when opening new file
     SendEditor(SCI_SETLEXER, SCLEX_LUA);
@@ -491,7 +536,7 @@ void fl_scintilla::set_lua(){
 	for (int i = 0; i < STYLE_LASTPREDEFINED; ++i) {
 		SendEditor(SCI_STYLESETFONT, i, (sptr_t)fntname);
 		SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, RGB(0, 0, 0));
-		SendEditor(SCI_STYLESETSIZE, i, 10);  
+		SendEditor(SCI_STYLESETSIZE, i, fntsize);  
 		// SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
 	} 
  
@@ -511,7 +556,7 @@ void fl_scintilla::set_lua(){
 	// SendEditor(SCI_STYLEGETFONT,STYLE_LINENUMBER,(sptr_t)fontname);
 	// printf("fontname %s\n",fontname);
 	SendEditor(SCI_STYLESETFONT, STYLE_LINENUMBER, (sptr_t)fntname);
-    SendEditor(SCI_STYLESETSIZE, STYLE_LINENUMBER, 9);
+    SendEditor(SCI_STYLESETSIZE, STYLE_LINENUMBER, fntsize-2);
 
     SendEditor(SCI_SETTABWIDTH, 4);
 
@@ -538,9 +583,9 @@ void fl_scintilla::set_lua(){
 	comment="--";
 
     SendEditor(SCI_STYLESETFONT, SCE_LUA_COMMENTLINE, (sptr_t)fntname); 
-    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTLINE, 9);
-    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENT, 9);
-    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTDOC, 9);
+    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTLINE, fntsize-2);
+    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENT, fntsize-2);
+    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTDOC, fntsize-2);
 	SendEditor(SCI_STYLESETFORE, SCE_LUA_COMMENT, 0x00008000);
     SendEditor(SCI_STYLESETFORE, SCE_LUA_COMMENTLINE, 0x00008000);
     SendEditor(SCI_STYLESETFORE, SCE_LUA_COMMENTDOC, 0x00008000);
@@ -695,13 +740,13 @@ char* g_szFuncDesc[FUNCSIZE]= { //函数信息
 	" BOOL bRepaint"
 	"="
 };
-void move_item(Fl_Browser* browser, string str) {
+void fl_scintilla::move_item(Fl_Browser* browser, string str) {
 	int from=0;
 	int to=1;
 
 	lop(i,1,browser->size()+1){
 		stringstream strm;
-		strm<<"lua/"<<browser->text(i);
+		strm<<folder<<browser->text(i);
 		// cotm(str,strm.str())
 		if(str==strm.str() || str+"*"==strm.str()){
 			from=i;
@@ -945,7 +990,7 @@ bool sortByFilename(const FileEntry& a, const FileEntry& b) {
     return a.filename < b.filename;
 }
 
-std::vector<FileEntry> list_files_in_dir(const std::string path) {
+std::vector<FileEntry> fl_scintilla::list_files_in_dir(const std::string path) {
     std::vector<FileEntry> entries;
 
     for (const auto& entry : fs::directory_iterator(path)) {
@@ -967,7 +1012,7 @@ std::vector<FileEntry> list_files_in_dir(const std::string path) {
 }
 
 void updatenavigator(fl_scintilla* editor){
-	editor->lfiles=list_files_in_dir("lua/");
+	editor->lfiles=editor->list_files_in_dir(editor->folder);
 	vector<FileEntry> &files=editor->lfiles;
 	std::sort(files.begin(), files.end(), sortByFilename);
     for (const auto& f : files) {
@@ -979,6 +1024,8 @@ void updatenavigator(fl_scintilla* editor){
     std::sort(files.begin(), files.end());
     for (const auto& f : files) {
 		editor->bfilesmodified->add(fs::path(f.filename).filename().string().c_str());
+
+
         // std::cout << std::asctime(std::localtime(&f.modified)) << " " << f.filename << '\n';
     }
 }
@@ -990,7 +1037,7 @@ void fl_scintilla::setnsaved(){
 			str.pop_back();
 		}
 		// cotm(str);
-		if(files["lua/"+str].notsaved){
+		if(files[folder+str].notsaved){
 			str+="*";
 		}
 		bfiles->text(i,str.c_str());
@@ -1001,8 +1048,8 @@ void fl_scintilla::setnsaved(){
 			str.pop_back();
 		}
 		// cotm(str);
-		// cotm(files["lua/"+str].notsaved)
-		if(files["lua/"+str].notsaved){
+		// cotm(files[folder+str].notsaved)
+		if(files[folder+str].notsaved){
 			str+="*";
 		}
 		bfilesmodified->text(i,str.c_str());
@@ -1015,26 +1062,17 @@ extern Fl_Menu_Bar* menu;
 void fl_scintilla::helperinit(){   
 
 
-    window()->begin(); 
-		Fl_Menu_Bar* fmb=new Fl_Menu_Bar(x(),0,w(),22);
-	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
-	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
-	    // Initial menu items
-    fmb->add("Files/Openfile",0, menu_callback);
-    fmb->add("Files/Quit", 0, menu_callback);
-    
-    // Dynamically add more items later
-    // fmb->add("Edits/Copy", FL_COMMAND + 'c', menu_callback);
-    // fmb->add("Edits/Paste", FL_COMMAND + 'v', menu_callback);
 
 
 
-
+	if(!show_browser)return;
+	show_browser=0;
 	// Fl_Browser
     window()->begin(); 
 	int sz=22*3;
     size(w(),h()-sz); 
-    navigator=new Fl_Group(x(), h()+22 ,w(),sz);
+    navigator=new Fl_Window(x(), h()+22*1 ,w(),sz);
+    // navigator=new Fl_Group(x(), h()+22*1 ,w(),sz);
     
     navigator->box(FL_FLAT_BOX);
     navigator->color(FL_BLUE);
@@ -1047,7 +1085,7 @@ void fl_scintilla::helperinit(){
 		Fl_Browser* b=vs->bfiles;
 		// cotm(b->value())
 		stringstream strm;
-		strm<<"lua/"<<b->text(b->value());
+		strm<<vs->folder<<b->text(b->value());
 		string str=strm.str();
 		if (!str.empty() && str.back() == '*') {
 			str.pop_back();
@@ -1068,7 +1106,7 @@ void fl_scintilla::helperinit(){
 		Fl_Browser* b=vs->bfilesmodified;
 		// cotm(b->value())
 		stringstream strm;
-		strm<<"lua/"<<b->text(b->value());
+		strm<<vs->folder<<b->text(b->value());
 		string str=strm.str();
 		if (!str.empty() && str.back() == '*') {
 			str.pop_back();
@@ -1111,10 +1149,11 @@ void fl_scintilla::helperinit(){
 		// cotm(b->value()) 
     },this); 
 
-
-    window()->end();
-    child_to_local(navigator);
+	navigator->show();
+    // window()->end();
+    // child_to_local(navigator);
 	Fl_Group::current(nullptr);
+	window()->redraw();
 
 }
 

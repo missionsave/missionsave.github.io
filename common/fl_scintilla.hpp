@@ -4,6 +4,7 @@
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Browser.H>
+#include <FL/Fl_Menu_Bar.H>
 #include <FL/Fl_Button.H>
 #include "Fl_Scintilla.h"
     
@@ -44,6 +45,8 @@ struct FileEntry {
  struct fl_scintilla : public Fl_Scintilla {  
     std::string filename="";
 	std::string floaded="";
+	bool show_browser=1;
+	std::string folder="lua/";
     sptr_t curr_file_pointer=0;
     std::string comment;
     std::unordered_map<sptr_t,uptr_t> filesfirstline;  
@@ -56,11 +59,16 @@ struct FileEntry {
 	std::tuple<int,int> csearch(const char* needle, bool dirDown = true, int flags = SCFIND_MATCHCASE);
     void searchshow(); 
 
+	std::vector<FileEntry> list_files_in_dir(const std::string path);
+	void update_menu();
+	Fl_Menu_Bar* fmb;
+	void move_item(Fl_Browser* browser, std::string str);
 
     void save();
     void setnsaved();
     void set_lua(); 
-    Fl_Group * navigator;  
+    Fl_Window * navigator;  
+    // Fl_Group * navigator;  
     Fl_Button* btntop; 
     void helperinit();
     Fl_Browser* bfiles;

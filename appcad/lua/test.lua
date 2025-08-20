@@ -17,12 +17,19 @@ Rotatexl(45)
 Movel(220,170-50,0)
 Movel(50)
 
-Part robot_bucket
+
+Part sketch_bucket
 Pl 0,0, 220,0 @0,100 @-220,0 0,0
+
+Part robot_bucket
+Clone sketch_bucket
 Offset 4
 Extrude 170-50
 Rotatexl(90)
 Movel(0,170-50,0)
+Clone sketch_bucket
+Extrude -4
+Rotatexl(90)
 
 Part robot_arm
 Pl 0,0 70,0 @0,70 @-70,0

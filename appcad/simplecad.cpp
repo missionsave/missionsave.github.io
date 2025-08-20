@@ -52,6 +52,8 @@ fl_browser_msv* fbm;
 lua_State* L;
 static std::unique_ptr<sol::state> G;
 
+extern string currfilename;
+
 #pragma endregion includes
 
 std::string lua_error_with_line(lua_State* L, const std::string& msg) {
@@ -221,7 +223,7 @@ struct OCC_Viewer : public flwindow {
 				l->parent()->remove(l);
 				l->hide();
 			},
-			ldg);
+			ldg); 
 	}
 	static void idle_refresh_cb(void*) {
 		// clear gpu usage each 10 secs
@@ -4559,7 +4561,7 @@ int main(int argc, char** argv) {
 	Fl::lock();
 	int w = 1024;
 	int h = 576;
-	int firstblock = w * 0.52;
+	int firstblock = w * 0.62;
 	int secondblock = w * 0.12;
 	int lastblock = w - firstblock - secondblock;
 
@@ -4648,6 +4650,14 @@ int main(int argc, char** argv) {
 	occv->initialize_opencascade();
 	perf("occv-load.");
 
+	lua_str(currfilename,1); //init
+		Fl::add_timeout(
+			0.7,
+			[](void* d) {
+			occv->m_view->FitAll();				
+			occv->sbt[7].occbtn->do_callback(); 
+			},
+			0); 
 	// occv->test2();
 	// occv->test();
 	{
