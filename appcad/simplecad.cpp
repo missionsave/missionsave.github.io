@@ -27,6 +27,7 @@
 #include <GProp_GProps.hxx>
 #include <BOPAlgo_BOP.hxx>
 #include <TopoDS_Shape.hxx>
+#include <Geom2dAdaptor_Curve.hxx>
 
 #pragma region includes
 #include "fl_browser_msv.hpp"
