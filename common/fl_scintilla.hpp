@@ -72,8 +72,8 @@ struct FileEntry {
     Fl_Button* btntop; 
     void helperinit();
     Fl_Browser* bfiles;
-    Fl_Browser* bfilesmodified;
-    Fl_Browser* bfunctions;
+    Fl_Browser* bfilesmodified=0;
+    Fl_Browser* bfunctions=0;
     vint vline;
     void getfuncs();
     void navigatorSetUpdated();

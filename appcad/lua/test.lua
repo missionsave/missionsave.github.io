@@ -13,9 +13,9 @@ Pl 0,0 50,0 @0,50 @-50,0 0,0
 Offset 4 
 Extrude -89
 Rotatexl(-90)
-Rotatexl(45)
+--Rotatexl(45)
 Movel(220,170-50,0)
-Movel(50)
+--Movel(50)
 
 
 Part sketch_bucket

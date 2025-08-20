@@ -602,6 +602,7 @@ void fl_scintilla::set_lua(){
     SendEditor(  SCI_SETWRAPINDENTMODE, SC_WRAPINDENT_INDENT, 0);
 }
 void fl_scintilla::getfuncs(){
+	if(!bfunctions)return;
     const int lineCount = SendEditor(SCI_GETLINECOUNT);
     std::stack<int> blockStack;
 	vint vlinel;
@@ -770,12 +771,19 @@ void fl_scintilla::move_item(Fl_Browser* browser, string str) {
     browser->insert(to, moved_text.c_str());
 }
 void fl_scintilla::navigatorSetUpdated(){
+		cotm("v1")
 	    filesfirstline[curr_file_pointer]=SendEditor(SCI_GETFIRSTVISIBLELINE,0,0);
         filesfirstline[curr_file_pointer]=SendEditor(SCI_DOCLINEFROMVISIBLE,filesfirstline[curr_file_pointer],0);
         // filescaret[curr_file_pointer]=SendEditor(SCI_GETCURRENTPOS);
         files[filename].notsaved=SendEditor(SCI_GETMODIFY  , 0,0);
+		cotm("v2")
 		setnsaved();
-		move_item(bfilesmodified,filename);
+		cotm("v3")
+		if(bfilesmodified){
+			cotm("v4")
+			move_item(bfilesmodified,filename);
+			cotm("v5")
+		}
 }
 static void cb_editor(Scintilla::SCNotification *scn, void *data)
 {
@@ -1012,6 +1020,7 @@ std::vector<FileEntry> fl_scintilla::list_files_in_dir(const std::string path) {
 }
 
 void updatenavigator(fl_scintilla* editor){
+	if(!editor->bfilesmodified)return;
 	editor->lfiles=editor->list_files_in_dir(editor->folder);
 	vector<FileEntry> &files=editor->lfiles;
 	std::sort(files.begin(), files.end(), sortByFilename);
@@ -1031,6 +1040,8 @@ void updatenavigator(fl_scintilla* editor){
 }
 
 void fl_scintilla::setnsaved(){
+	if(!bfilesmodified)return;
+
 	lop(i,1,bfiles->size()+1){
 		string str=bfiles->text(i);
 		if (!str.empty() && str.back() == '*') {
