@@ -23,4 +23,7 @@ public:
 	void triggerCallback(std::function<void(void* data_ptr,int)> callbackFunc) {
 		callbackFunc(data_ptr,99);
 	}
+	    int item_height(void *) const override {
+        return 18; // Set exact pixel height for each line
+    }
 };

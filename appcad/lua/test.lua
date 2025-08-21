@@ -13,7 +13,7 @@ Pl 0,0 50,0 @0,50 @-50,0 0,0
 Offset 4 
 Extrude -89
 Rotatexl(-90)
---Rotatexl(45)
+Rotatexl(45)
 Movel(220,170-50,0)
 --Movel(50)
 
@@ -26,10 +26,11 @@ Clone sketch_bucket
 Offset 4
 Extrude 170-50
 Rotatexl(90)
-Movel(0,170-50,0)
+Movel(0,170-50,1)
 Clone sketch_bucket
 Extrude -4
 Rotatexl(90)
+Movel(0,0,1)
 
 Part robot_arm
 Pl 0,0 70,0 @0,70 @-70,0

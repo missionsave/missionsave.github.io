@@ -1,35 +1,12 @@
 #include "includes.hpp"
-#include <GProp_GProps.hxx> 
-#include <BRepGProp.hxx>
-#include <BRepTools.hxx>
-#include <GeomLProp_SLProps.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRep_Tool.hxx>
-#include <gp_Ax3.hxx>
-#include <gp_Trsf.hxx>
-#include <BRepAdaptor_Surface.hxx>
-#include <Geom_Surface.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRep_Tool.hxx>
-#include <gp_Ax3.hxx>
-#include <gp_Trsf.hxx>
-#include <BRepAdaptor_Surface.hxx>
-#include <Geom_Surface.hxx>
-#include <GeomAbs_SurfaceType.hxx>
-#include <gp_Pnt.hxx>
-#include <gp_Vec.hxx>
-#include <gp_Dir.hxx>
-#include <BRepGProp_Face.hxx>
-#include <GProp_GProps.hxx>
-#include <BOPAlgo_BOP.hxx>
-#include <TopoDS_Shape.hxx>
-#include <Geom2dAdaptor_Curve.hxx>
 
 #pragma region includes
+
+#define flwindow Fl_Window  
+// #ifdef __linux__
+// #define flwindow Fl_Double_Window
+// #endif
+
 #include "fl_browser_msv.hpp"
 void WriteBinarySTL(const TopoDS_Shape& shape, const std::string& filename);
 std::string translate_shorthand(std::string_view src); 
@@ -49,12 +26,46 @@ Fl_Menu_Bar* menu;
 Fl_Group* content;
 Fl_Window* ldg;
 fl_browser_msv* fbm;
+Fl_Help_View* helpv;
+
 lua_State* L;
 static std::unique_ptr<sol::state> G;
 
 extern string currfilename;
 
 #pragma endregion includes
+
+struct shelpv_{
+	string pname="";
+	string point="";
+	string error="";
+
+	void upd(){
+	std::string html = R"(
+<html>
+<body marginwidth=0 marginheight=0 topmargin=0 leftmargin=0><font face=Arial > 
+<b><font color="Red">texto</font>
+$pname $point  
+</font>
+</body>
+</html>
+)";
+	point="<br>"+point;
+	replace_All(html,"$point",point);
+	replace_All(html,"$pname",pname);
+
+	helpv->value(html.c_str());
+}
+
+}help;
+
+
+auto fmt = [](double v) {
+    if (std::fabs(v) < 1e-9) v = 0; // treat near-zero as zero
+    std::ostringstream oss;
+    oss << std::defaultfloat << v;
+    return oss.str();
+};
 
 std::string lua_error_with_line(lua_State* L, const std::string& msg) {
 	lua_Debug ar;
@@ -224,6 +235,13 @@ struct OCC_Viewer : public flwindow {
 				l->hide();
 			},
 			ldg); 
+		Fl::add_timeout(
+			1.4,
+			[](void* d) {
+				auto l = (Fl_Help_View*)d;
+				l->value("");
+			},
+			helpv); 
 	}
 	static void idle_refresh_cb(void*) {
 		// clear gpu usage each 10 secs
@@ -244,6 +262,7 @@ struct OCC_Viewer : public flwindow {
 		if (m_initialized) {
 			m_view->MustBeResized();
 			setbar5per();
+			// redraw();
 		}
 	}
 
@@ -1350,7 +1369,12 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 		m_context->Display(myHighlightedPointAIS, Standard_True);
 		myLastHighlightedVertex = aVertex;
 
-		cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
+		// cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
+		help.point = "Point: "
+    + fmt(vertexPnt.X()) + ","
+    + fmt(vertexPnt.Y()) + ","
+    + fmt(vertexPnt.Z());
+		help.upd();
 		// 	if(!projector.Perspective()){
 		// 		gp_Pnt clickedPoint(mousex, mousey, 0);
 		// 		// Passo 1: converter mouse para coordenadas projetadas reais
@@ -1527,7 +1551,9 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 		if (!anOwner.IsNull()) {
 			ldd = lua_detected(anOwner);
 			if (ldd) {
-				cotm(ldd->name);
+				string pname="name: "+ldd->name;
+				if(pname!=help.pname){help.pname=pname;help.upd();}
+				// cotm(ldd->name);
 			}
 		}
 
@@ -1563,8 +1589,13 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 							"Z=%.3f\n",
 							BRep_Tool::Pnt(currentVertex).X(), BRep_Tool::Pnt(currentVertex).Y(),
 							BRep_Tool::Pnt(currentVertex).Z());
+	// 						help.point = "Point: " 
+    // + std::to_string( BRep_Tool::Pnt(currentVertex).X() ) + ","
+    // + std::to_string( BRep_Tool::Pnt(currentVertex).Y() ) + ","
+    // + std::to_string( BRep_Tool::Pnt(currentVertex).Z() );
+	// 						help.upd();
 					}
-				} else if(detectedTopoShape.ShapeType() == TopAbs_FACE){
+				} else if(0 && detectedTopoShape.ShapeType() == TopAbs_FACE){
 
 
 TopoDS_Face pickedFace = TopoDS::Face(detectedTopoShape);
@@ -1590,7 +1621,6 @@ if (!brepOwner.IsNull()) {
         faceIndex = faceMap.FindIndex(pickedRaw) - 1; // Subtract 1 to convert to 0-based index
     }
 }
-
 
 // --- centroid & area ---
 GProp_GProps props;
@@ -1733,9 +1763,29 @@ pickedFace.Location(origLoc);
 		// AIS_Shape itself is sufficient for this approach.
 
 		// In your handle(int event) method:
-		if (event == FL_MOVE) {
+
+static std::chrono::steady_clock::time_point lastTime;
+
+if (event == FL_MOVE) {
+    int x = Fl::event_x();
+    int y = Fl::event_y();
+
+    auto now = std::chrono::steady_clock::now();
+    double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTime).count();
+
+    if ((abs(x - mousex) > 5 || abs(y - mousey) > 5) && elapsedMs > 50) {
+        mousex = x;
+        mousey = y;
+        ev_highlight();
+        lastTime = now;
+    }
+}
+
+
+		if (0 && event == FL_MOVE) {
 			int x = Fl::event_x();
 			int y = Fl::event_y();
+			
 			mousex = x;
 			mousey = y;
 			// getvertex();
@@ -2801,6 +2851,7 @@ toggle_shaded_transp(currentMode);
 			//  sbts{"Right",     {}, 1, { -1,  0,  0,   0, 1,  0 }},
 			//  sbts{"Isometric", {}, 1, { -1,  1,  1,   0, 1,  0 }},
 			sbts{"Iso z", {}, 1, {-1, 1, 1, 0, 1, 0}},
+			sbts{"Iso zr", {}, 1, {1, 1, -1, 0, 1, 0}},
 
 			// sbts{"T",[this,&sbt = this->sbt]{ cotm(sbt[0].label)   }},
 
@@ -4361,6 +4412,15 @@ void lua_str(string str, bool isfile) {
 #endif
 #pragma endregion lua
 
+#pragma region help
+
+
+
+
+ 
+#pragma endregion help
+
+
 static Fl_Menu_Item items[] = {
 	// Main menu items
 	{"&File", 0, 0, 0, FL_SUBMENU},
@@ -4601,12 +4661,16 @@ int main(int argc, char** argv) {
 	// content1->end();
 	woccbtn->resizable(content1);
 
+
+
+	int htable=22*3;
+
 	Fl_Group::current(content);
-	fbm = new fl_browser_msv(firstblock, 22, secondblock, h - 22);
+	fbm = new fl_browser_msv(firstblock, 22, secondblock, h - 22-htable);
 
 	Fl_Group::current(content);
 	// content->begin();
-	scint_init(firstblock + secondblock, 22, lastblock, h - 22 - hc1);
+	scint_init(firstblock + secondblock, 22, lastblock, h - 22 - htable);
 	cotm("scint_init");
 
 	Fl_Group::current(content);
@@ -4616,10 +4680,59 @@ int main(int argc, char** argv) {
 	// Loading Loading Loading Loading Loading Loading ");
 	ldgb->color(FL_GREEN);
 	ldgb->labelcolor(FL_RED);
+	ldg->show();
 	// win->add(ldg);
 	// win->flush();
 
 	cotm("ldg");
+
+	Fl_Group::current(content);
+	// helpv=new SelectableColumnBrowser(firstblock, h-htable, w-firstblock, htable);
+    // // helpv->set_columns({100, 150, 150,0});
+    // helpv->add_line("Name\tEmail\tPhone");
+    // helpv->add_line("John\tjohn@example.com\t123456789");
+    // helpv->add_line("Jane\tjane@example.com\t987654321");
+
+
+
+
+	helpv=new Fl_Help_View(firstblock, h-htable, w-firstblock, htable);
+	helpv->box(FL_UP_BOX);
+	helpv->value(R"(
+<html> 
+    <font face="Helvetica">
+		<br><br>
+      <b><font size=5 color="Red">Loading...</font></b>
+    </font> 
+</html>
+)");
+	// helpv->textfont(5);
+	// helpv->textsize(14);
+	// string hhtml= R"(<pre><font face=Arial ></font><b>testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun\t testrun\t testrun\t testrun\t testrun	testrun\t testrun\t </b>)";
+	// stringstream strm;
+	// strm<<hhtml;
+	// helpv->value(strm.str().c_str());
+	// // helpv->value(helpvstr.c_str());
+	// helpv->show();
+
+
+
+
+    // helpv->hv->value(
+    //     "<html>"
+    //     "<body>"
+    //     "<h3>Custom Help View</h3>"
+    //     "<p>Click anywhere here to test.</p>"
+    //     "<p><a href=\"https://www.fltk.org\">FLTK Link</a></p>"
+    //     "<table border=1>"
+    //     "<tr><td>Cell 1</td><td>Cell 2</td></tr>"
+    //     "<tr><td colspan=2>Spanning cell</td></tr>"
+    //     "</table>"
+    //     "</body>"
+    //     "</html>"
+    // );
+
+
 
 	// win->clear_visible_focus();
 	woccbtn->color(0x7AB0CfFF);

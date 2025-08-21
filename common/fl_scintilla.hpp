@@ -49,6 +49,7 @@ struct FileEntry {
 	std::string folder="lua/";
     sptr_t curr_file_pointer=0;
     std::string comment;
+	void toggle_comment();
     std::unordered_map<sptr_t,uptr_t> filesfirstline;  
     // std::unordered_map<sptr_t,uptr_t> filescaret;  
     fl_scintilla(int X, int Y, int W, int H, const char* l = 0);

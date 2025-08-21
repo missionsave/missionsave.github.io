@@ -1080,6 +1080,7 @@ void fldbg_pos() {
 
         strm << "</html>";
     }
+	// cotm(strm.str())
 
     Fl::awake(fldbg_pos_cb, new std::string(std::move(strm.str())));
 }

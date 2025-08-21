@@ -157,7 +157,7 @@ ifeq ($(OS_NAME), Linux)
 
 	LDFLAGS+= -llua5.4
 	# LDFLAGS+=  -lsqlite3 
-	LDFLAGS+= -lfltk_gl -lfltk 
+	LDFLAGS+= -lfltk_gl -lfltk -lfontconfig
 	LDFLAGS+=  -lX11
 	LDFLAGS+= -lGL -lGLU
 	# LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a 
@@ -171,7 +171,7 @@ ifeq ($(OS_NAME), Linux)
 # 	LDFLAGS+= -ltbb
 
 	#static fltk:
-# 	LDFLAGS+= -lX11 -lXext -lGL -lGLU -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++
+	LDFLAGS+= -lX11 -lXext -lGL -lGLU -lXft -lXrender -lXcursor -lXinerama -lXfixes -lfontconfig -lfreetype -lz -lm -ldl -lpthread -lstdc++
 	# LDFLAGS+=  -lX11
 	# LDFLAGS+= -lGL -lGLU
 	# LDFLAGS+= -lfontconfig

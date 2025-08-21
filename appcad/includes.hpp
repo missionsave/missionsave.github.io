@@ -251,6 +251,38 @@
 #include <stdexcept>
 #include <unordered_set>
 #include <vector>
+#include <GProp_GProps.hxx> 
+#include <BRepGProp.hxx>
+#include <BRepTools.hxx>
+#include <GeomLProp_SLProps.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Trsf.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Geom_Surface.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Trsf.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Geom_Surface.hxx>
+#include <GeomAbs_SurfaceType.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Dir.hxx>
+#include <BRepGProp_Face.hxx>
+#include <GProp_GProps.hxx>
+#include <BOPAlgo_BOP.hxx>
+#include <TopoDS_Shape.hxx>
+#include <Geom2dAdaptor_Curve.hxx>
+#include <FL/Fl.H>
+#include <FL/Fl_Help_View.H>
+#include <FL/Fl_Window.H>
 
 #include <chrono>
 #include <execution> // Para C++17 paralelismo
@@ -266,9 +298,6 @@
 
 void scint_init(int x,int y,int w,int h);
 
-#define flwindow Fl_Window  
-#ifdef __linux__
-#define flwindow Fl_Double_Window
-#endif
+
 
 using namespace std;

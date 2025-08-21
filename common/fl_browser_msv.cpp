@@ -1,5 +1,6 @@
 #include "fl_browser_msv.hpp"
-
+#include <FL/Fl.H>
+#include <FL/fl_draw.H> 
 
 int fl_browser_msv::handle(int event){
 	if(event==FL_RELEASE){
@@ -42,4 +43,20 @@ int fl_browser_msv::handle(int event){
     }
     return Fl_Browser::handle(event);
 }
+	
 
+    
+    // // Override item height for narrow spacing
+    // int fl_browser_msv::item_height(void *item) {
+    //     return line_height;
+    // }
+    
+    // // Custom drawing to fit text in narrow space
+    // void fl_browser_msv::item_draw(void *item, int X, int Y, int W, int H){
+    //     const char *text = (const char *)item;
+    //     if (text) {
+    //         // Draw text vertically centered in the narrow space
+    //         // fl_font(FL_HELVETICA, 10); // Small font
+    //         fl_draw(text, X + 2, Y + (20 + 8) / 2);
+    //     }
+    // }

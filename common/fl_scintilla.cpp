@@ -313,6 +313,86 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	cotm("SCI_AUTOCSETAUTOHIDE")
 
 }
+void fl_scintilla::toggle_comment() {
+    int doc_length = SendEditor(SCI_GETLENGTH);
+    if (doc_length <= 0) return;
+
+    int start = SendEditor(SCI_GETSELECTIONSTART);
+    int end = SendEditor(SCI_GETSELECTIONEND);
+    if (start < 0 || end < 0 || start > doc_length || end > doc_length) {
+        return;
+    }
+
+    int start_line = SendEditor(SCI_LINEFROMPOSITION, start);
+    int end_line   = SendEditor(SCI_LINEFROMPOSITION, end);
+    if (start_line < 0 || end_line < 0) return;
+
+    if (start_line == end_line && start == end) {
+        end_line = start_line;
+    }
+
+    SendEditor(SCI_BEGINUNDOACTION);
+
+    bool all_commented = true;
+
+    // --- First pass: check if every line is already commented ---
+    for (int line = start_line; line <= end_line; line++) {
+        int pos = SendEditor(SCI_POSITIONFROMLINE, line);
+        int line_end = SendEditor(SCI_GETLINEENDPOSITION, line);
+        int line_length = line_end - pos;
+        if (line_length <= 0) continue;
+
+        // Skip whitespace at start
+        int non_ws_pos = SendEditor(SCI_GETLINEINDENTPOSITION, line);
+
+        char buf[16] = {0};
+        TextRange tr;
+        tr.chrg.cpMin = non_ws_pos;
+        tr.chrg.cpMax = non_ws_pos + (int)comment.size();
+        tr.lpstrText = buf;
+        SendEditor(SCI_GETTEXTRANGE, 0, (sptr_t)&tr);
+
+        if (strncmp(buf, comment.c_str(), comment.size()) != 0) {
+            all_commented = false;
+            break;
+        }
+    }
+
+    // --- Second pass: apply action to all lines ---
+    for (int line = start_line; line <= end_line; line++) {
+        int pos = SendEditor(SCI_POSITIONFROMLINE, line);
+        int line_end = SendEditor(SCI_GETLINEENDPOSITION, line);
+        int line_length = line_end - pos;
+        if (line_length <= 0) continue;
+
+        int non_ws_pos = SendEditor(SCI_GETLINEINDENTPOSITION, line);
+
+        if (all_commented) {
+            // Remove comment
+            char buf[16] = {0};
+            TextRange tr;
+            tr.chrg.cpMin = non_ws_pos;
+            tr.chrg.cpMax = non_ws_pos + (int)comment.size();
+            tr.lpstrText = buf;
+            SendEditor(SCI_GETTEXTRANGE, 0, (sptr_t)&tr);
+
+            if (strncmp(buf, comment.c_str(), comment.size()) == 0) {
+                SendEditor(SCI_SETTARGETSTART, non_ws_pos);
+                SendEditor(SCI_SETTARGETEND, non_ws_pos + (int)comment.size());
+                SendEditor(SCI_REPLACETARGET, 0, (sptr_t)"");
+            }
+        } else {
+            // Add comment at indent position
+            SendEditor(SCI_INSERTTEXT, non_ws_pos, (sptr_t)comment.c_str());
+        }
+    }
+
+    SendEditor(SCI_ENDUNDOACTION);
+}
+
+
+
+
 void fl_scintilla::update_menu(){
 	    window()->begin(); 
 		fmb=new Fl_Menu_Bar(x(),0,w(),22);
@@ -401,6 +481,11 @@ string fl_scintilla::getSelected(){
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='f'){
 			// cotm("f") 
 			searchshow();
+            return 1;
+        }
+		
+        if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='q'){ 
+			toggle_comment();
             return 1;
         }
 
@@ -540,6 +625,10 @@ void fl_scintilla::set_lua(){
 		// SendEditor(SCI_STYLESETBOLD, STYLE_DEFAULT, 1); // 1 = true
 	} 
  
+SendEditor(SCI_SETEXTRAASCENT, -2);
+SendEditor(SCI_SETEXTRADESCENT, -2);
+
+
 	string keys0="function end if then local print for do while break return until else in elseif true false goto require";
 	SendEditor(SCI_SETKEYWORDS, 0, (sptr_t)keys0.c_str());
 	SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD, RGB(0, 0, 255));
