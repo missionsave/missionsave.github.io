@@ -1,6 +1,6 @@
 #include "includes.hpp"
-
-#pragma region includes
+#include <AIS_ListOfInteractive.hxx>
+#pragma region globals
 
 #define flwindow Fl_Window  
 // #ifdef __linux__
@@ -22,11 +22,44 @@ std::string SerializeCompact(const std::string& partName,
 std::string SerializeFaceInvariant(const TopoDS_Face& face);
 gp_Ax3 get_face_local_cs(const TopoDS_Face& face);
 
+class FixedHeightWindow : public Fl_Window {
+private:
+    int fixed_height;
+    bool in_resize; // Prevent infinite recursion
+public:
+    FixedHeightWindow(int x, int y, int w, int h, const char* label = 0) 
+        : Fl_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
+    
+    void resize(int X, int Y, int W, int H) override {
+        if (in_resize) return; // Prevent recursion
+        
+        in_resize = true;
+        
+		        // Calculate bottom position: parent height minus our fixed height
+        int bottom_y = window()->h() - fixed_height;
+        
+        // Only allow width to change, keep height fixed, and stick to bottom
+        if (H != fixed_height || Y != bottom_y) {
+            Fl_Window::resize(X, bottom_y, W, fixed_height);
+        } else {
+            Fl_Window::resize(X, Y, W, H);
+        }
+        // // Only allow width to change, keep height fixed
+        // if (H != fixed_height) {
+        //     Fl_Window::resize(X, Y, W, fixed_height);
+        // } else {
+        //     Fl_Window::resize(X, Y, W, H);
+        // }
+        
+        in_resize = false;
+    }
+};
 Fl_Menu_Bar* menu;
-Fl_Group* content;
-Fl_Window* ldg;
+Fl_Group* content; 
 fl_browser_msv* fbm;
 Fl_Help_View* helpv;
+// Fl_Window* woccbtn;
+FixedHeightWindow* woccbtn;
 
 lua_State* L;
 static std::unique_ptr<sol::state> G;
@@ -35,7 +68,7 @@ extern string currfilename;
 
 #pragma endregion includes
 
-struct shelpv_{
+struct shelpv{
 	string pname="";
 	string point="";
 	string error="";
@@ -145,10 +178,7 @@ struct OCC_Viewer : public flwindow {
 		m_view = m_viewer->CreateView();
 		m_view->SetWindow(wind);
 
-		content->remove(ldg);  // Remove from current position
-		content->add(ldg);	   // Add again to move it to the top
-		content->redraw();
-		// return;
+
 
 		m_view->SetImmediateUpdate(Standard_False);
 
@@ -181,6 +211,11 @@ struct OCC_Viewer : public flwindow {
 		trihedron0_0_0 = new AIS_Trihedron(placement);
 		trihedron0_0_0->SetSize(25.0);
 		m_context->Display(trihedron0_0_0, Standard_False);
+
+
+		m_context->MainSelector()->AllowOverlapDetection(0);
+		m_context->SetPixelTolerance(4);
+		// m_context->AddFilter(new StdSelect_FaceFilter(StdSelect_Reject));
 
 		// BRepMesh_IncrementalMesh::SetParallel(Standard_True);
 
@@ -225,16 +260,7 @@ struct OCC_Viewer : public flwindow {
 		}
 
 		toggle_shaded_transp(currentMode);
-		// content->remove(ldg);
-		// ldg->hide();
-		Fl::add_timeout(
-			0.4,
-			[](void* d) {
-				auto l = (Fl_Box*)d;
-				l->parent()->remove(l);
-				l->hide();
-			},
-			ldg); 
+ 
 		Fl::add_timeout(
 			1.4,
 			[](void* d) {
@@ -258,11 +284,19 @@ struct OCC_Viewer : public flwindow {
 	}
 
 	void resize(int X, int Y, int W, int H) override {
+		cotm(W)
 		Fl_Window::resize(X, Y, W, H);
+		cotm(W)
+        	// woccbtn->resize(woccbtn->x(), woccbtn->y(), W, 24*0.7);
 		if (m_initialized) {
+
+			// lop(i, 0, sbt.size()) {	sbt[i].occbtn->size(sbt[i].occbtn->w(),24);}
+			
+	woccbtn->size(W-40, 24);
 			m_view->MustBeResized();
 			setbar5per();
-			// redraw();
+			// redraw(); 
+			// init_sizes();
 		}
 	}
 
@@ -464,6 +498,7 @@ gp_Quaternion qrot;
 		void redisplay() {
 			update_placement();
 
+				// cotm("notvisible",name,visible_hardcoded)
 			// If visible, redisplay (only if it's displayed already, otherwise
 			// Display)
 			if (visible_hardcoded) {
@@ -473,6 +508,7 @@ gp_Quaternion qrot;
 					occv->m_context->Display(ashape, false);
 				}
 			} else {
+				cotm("notvisible",name)
 				// Only erase if it is displayed
 				if (occv->m_context->IsDisplayed(ashape)) {
 					occv->m_context->Erase(ashape, Standard_False);
@@ -1345,6 +1381,95 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 		return {windowToWorldX, windowToWorldY, worldToWindowX, worldToWindowY, viewportHeight, viewportWidth};
 	}
 
+bool IsShapeVisible(const Handle(AIS_Shape)& aisShape, const Handle(V3d_View)& view, const Handle(AIS_InteractiveContext)& context)
+{
+    if (aisShape.IsNull() || view.IsNull() || context.IsNull())
+        return false;
+
+    AIS_ListOfInteractive visibleObjects;
+    context->ObjectsForView(visibleObjects, view, Standard_True);
+
+    AIS_ListIteratorOfListOfInteractive it(visibleObjects);
+    for (; it.More(); it.Next())
+    {
+        if (it.Value() == aisShape)
+            return true;
+    }
+    return false;
+}
+ 
+
+bool IsVertexVisible(
+    const gp_Pnt& vertex,
+    const Handle(V3d_View)& view,
+    const Handle(AIS_InteractiveContext)& context)
+{
+    if (view.IsNull())
+        return false;
+
+    const Handle(Graphic3d_Camera)& camera = view->Camera();
+    if (camera.IsNull())
+        return false;
+
+    // 1. Project the vertex to screen space
+    Standard_Real Xv, Yv, Zv;
+    view->Project(vertex.X(), vertex.Y(), vertex.Z(), Xv, Yv, Zv);
+
+    // 2. Get viewport dimensions
+    Standard_Integer w, h;
+    view->Window()->Size(w, h);
+
+    // 3. Convert to integer pixel coordinates
+    Standard_Integer px = static_cast<Standard_Integer>(Xv + 0.5);
+    Standard_Integer py = static_cast<Standard_Integer>(Yv + 0.5);
+
+    // 4. Check if the projected vertex is inside the viewport
+    if (px < 0 || py < 0 || px >= w || py >= h)
+    {
+        return false;
+    }
+
+    // 5. Grab the depth buffer
+    Image_PixMap zMap;
+    if (!view->ToPixMap(zMap, Graphic3d_BT_Depth, Image_Format_GrayF))
+    {
+        return false;
+    }
+
+    // 6. Convert depth to normalized [0, 1] range
+    float shapeDepth = 0.0f;
+    if (camera->IsOrthographic())
+    {
+        // For orthographic: Zv is in NDC [-1, 1], convert to [0, 1]
+        shapeDepth = static_cast<float>((Zv + 1.0) * 0.5);
+    }
+    else
+    {
+        // For perspective: linearize depth
+        float zNear = static_cast<float>(camera->ZNear());
+        float zFar = static_cast<float>(camera->ZFar());
+        shapeDepth = static_cast<float>((Zv - zNear) / (zFar - zNear));
+    }
+    shapeDepth = std::clamp(shapeDepth, 0.0f, 1.0f);
+
+    // 7. Get depth from depth buffer (flip Y coordinate for OpenGL)
+    Standard_Integer bufferY = h - 1 - py;
+    const float* depthRow = reinterpret_cast<const float*>(zMap.Row(bufferY));
+    float depthAtPixel = depthRow[px];
+
+    // 8. INVERTED DEPTH COMPARISON
+    // In OpenGL: lower depth values = closer to camera
+    // So if shapeDepth is LESS than depthAtPixel, vertex is closer = visible
+    static const float DEPTH_TOLERANCE = 1e-4f;
+    
+    // TRY THIS INVERTED VERSION:
+    bool isVisible = (shapeDepth < depthAtPixel - DEPTH_TOLERANCE);
+    
+    // If that doesn't work, try the original:
+    // bool isVisible = (shapeDepth <= depthAtPixel + DEPTH_TOLERANCE);
+
+    return isVisible;
+}
 	void highlightVertex(const TopoDS_Vertex& aVertex) {
 		clearHighlight();  // Clear any existing highlight first
 
@@ -1357,6 +1482,10 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 
 		gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
 
+		//check here
+		// if(!IsVertexVisible(vertexPnt,m_view,m_context))return;
+
+
 		// Create a small red sphere at the vertex location
 		Standard_Real sphereRadius = 7 * ratio;	 // Small radius for the highlight ball
 		TopoDS_Shape sphereShape = BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
@@ -1368,6 +1497,10 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 
 		m_context->Display(myHighlightedPointAIS, Standard_True);
 		myLastHighlightedVertex = aVertex;
+		redraw();
+		help.point ="";help.upd();
+		// if(!IsVisible(myHighlightedPointAIS,m_view))return;
+		if(!IsShapeVisible(myHighlightedPointAIS,m_view,m_context))return;
 
 		// cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
 		help.point = "Point: "
@@ -1516,6 +1649,107 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 	}
 
 	void ev_highlight() {
+
+    clearHighlight();
+
+    // Activate only what you need once per hover
+    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
+    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+    if (!hlr_on)
+        m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
+    else
+        m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+
+    // Move cursor in context
+    m_context->MoveTo(mousex, mousey, m_view, Standard_False);
+    m_context->SelectDetected(AIS_SelectionScheme_Replace);
+
+    Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
+    if (anOwner.IsNull()) {
+        clearHighlight();
+        redraw();
+        return;
+    }
+
+    luadraw* ldd = lua_detected(anOwner);
+    if (ldd) {
+        std::string pname = "name: " + ldd->name;
+        if (pname != help.pname) { help.pname = pname; help.upd(); }
+    }
+
+    Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(anOwner);
+    if (brepOwner.IsNull()) {
+        clearHighlight();
+        redraw();
+        return;
+    }
+
+    TopoDS_Shape detected = brepOwner->Shape();
+    if (detected.IsNull()) {
+        clearHighlight();
+        redraw();
+        return;
+    }
+
+    switch (detected.ShapeType()) {
+    case TopAbs_VERTEX: {
+        TopoDS_Vertex v = TopoDS::Vertex(detected);
+        if (!myLastHighlightedVertex.IsEqual(v))
+            highlightVertex(v);
+        break;
+    }
+
+    case TopAbs_FACE: {
+        TopoDS_Face picked = TopoDS::Face(detected);
+        TopLoc_Location origLoc = picked.Location();
+        picked.Location(TopLoc_Location()); // normalize
+
+        // stable face index
+        int faceIndex = -1;
+        {
+            Handle(AIS_Shape) aisShape = Handle(AIS_Shape)::DownCast(brepOwner->Selectable());
+            if (!aisShape.IsNull()) {
+                TopoDS_Shape full = aisShape->Shape();
+                full.Location(TopLoc_Location());
+                static TopTools_IndexedMapOfShape faceMap;
+                faceMap.Clear();
+                TopExp::MapShapes(full, TopAbs_FACE, faceMap);
+                faceIndex = faceMap.FindIndex(picked) - 1;
+            }
+        }
+
+        // centroid & area
+        GProp_GProps props;
+        BRepGProp::SurfaceProperties(picked, props);
+        gp_Pnt centroid = props.CentreOfMass();
+        double area     = props.Mass();
+
+        // normal
+        Standard_Real u1,u2,v1,v2;
+        BRepTools::UVBounds(picked, u1,u2, v1,v2);
+        Handle(Geom_Surface) surf = BRep_Tool::Surface(picked);
+        GeomLProp_SLProps slp(surf, (u1+u2)*0.5, (v1+v2)*0.5, 1, Precision::Confusion());
+        gp_Dir normal = slp.IsNormalDefined() ? slp.Normal() : gp_Dir(0,0,1);
+        if (picked.Orientation() == TopAbs_REVERSED)
+            normal.Reverse();
+
+        std::string serialized = SerializeCompact(
+            ldd ? ldd->name : "part", faceIndex, normal, centroid, area);
+        cotm("serialized", serialized);
+
+        picked.Location(origLoc); // restore
+        break;
+    }
+
+    default:
+        clearHighlight();
+        break;
+    }
+
+    redraw();
+}
+
+	void ev_highlight_v1() {
 		// Start with a clean slate for the custom highlight
 		clearHighlight();
 
@@ -1595,7 +1829,7 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
     // + std::to_string( BRep_Tool::Pnt(currentVertex).Z() );
 	// 						help.upd();
 					}
-				} else if(0 && detectedTopoShape.ShapeType() == TopAbs_FACE){
+				} else if(detectedTopoShape.ShapeType() == TopAbs_FACE){
 
 
 TopoDS_Face pickedFace = TopoDS::Face(detectedTopoShape);
@@ -1776,9 +2010,11 @@ if (event == FL_MOVE) {
     if ((abs(x - mousex) > 5 || abs(y - mousey) > 5) && elapsedMs > 50) {
         mousex = x;
         mousey = y;
+        // getvertex();
         ev_highlight();
         lastTime = now;
     }
+	// return 1;
 }
 
 
@@ -2169,6 +2405,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		cotm(vaShape.size(), vshapes.size());
 	}
 	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
+		if (!hlr_on)return;
 		// projectAndDisplayWithHLR_P(shapes,isDragonly);
 		// projectAnqdDisplayWithHLR_lp(shapes,isDragonly);
 		projectAndDisplayWithHLR_ntw(shapes,isDragonly);
@@ -3054,8 +3291,17 @@ void fillbrowser(void*) {
 		// cotm(ld->visible_hardcoded)
 		// OCC_Viewer::luadraw* ld=occv->vlua[i];
 		ld->redisplay();
-		fbm->add(ld->name.c_str());
+		fbm->add(ld->name.c_str()); 
+        fbm->data(fbm->size(), (void*)ld);
 	}
+	fbm->setCallback([](void* data, int code) { 
+		OCC_Viewer::luadraw* ld=(OCC_Viewer::luadraw*)data;
+        std::cout << "Callback fired! data_ptr=" 
+                  << ld->name 
+                  << ", code=" << code 
+                  << std::endl;
+    });
+
 	occv->fillvectopo();
 	cotm("vshapes", occv->vshapes.size());
 	perf1("bench fillvectopo");
@@ -3337,6 +3583,10 @@ lua.set_function("Extrude", [&](double val) {
 lua.set_function("Clone", [&](OCC_Viewer::luadraw* val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->clone(val);
+});
+lua.set_function("Visible", [&](int val=1) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+    current_part->visible_hardcoded=val;
 });
 
 lua.set_function("Add_placement", [&](OCC_Viewer::luadraw* val) {
@@ -4610,7 +4860,8 @@ int main(int argc, char** argv) {
 	Fl::visual(FL_DOUBLE | FL_INDEX);
 	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
-	Fl::scheme("gleam");
+	Fl::scheme("gleam");	Fl_Group::current(content);
+ 
 
 	// string floaded = load_app_font("Courier Prime Bold.otf");
 	// string floaded = load_app_font("DejaVuSansMono.ttf");
@@ -4642,25 +4893,40 @@ int main(int argc, char** argv) {
 	// scint_init(w*0.62,22,w*0.38,h-22-hc1);
 
 	// win->begin();
-
-	// ldg->show();
+ 
 
 	// win->show(argc, argv); return Fl::run();
 
-	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1);
+	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1+22);  //resizing almost good, should not have +22
 	content->add(occv);
-	OSD_Parallel::SetUseOcctThreads(1);
+	// OSD_Parallel::SetUseOcctThreads(0);
 	// occv->label("Loading");
 
-	Fl_Window* woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
-	content->add(woccbtn);
 
-	Fl_Group* content1 = new Fl_Group(0, 0, woccbtn->w() + 0, woccbtn->h());
+	// Fl_Group::current(nullptr);
 
+	// Fl_Group* content1 = new Fl_Group(0, 0, firstblock + 0, 24);
+	// win->begin();
+	// woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
+	win->begin();
+	woccbtn = new FixedHeightWindow(0, h - hc1, occv->w(), hc1, "");
+	// woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
+
+	// woccbtn->align(FL_ALIGN_BOTTOM);
+	// content->add(woccbtn);
 	occv->drawbuttons(woccbtn->w(), hc1);
+	woccbtn->resizable(woccbtn);
 	// content1->end();
-	woccbtn->resizable(content1);
-
+	// occv->resizable(woccbtn);
+	// woccbtn->resizable(new Fl_Box(0,0,woccbtn->w(),1));
+	// woccbtn->resizable(0);
+	// woccbtn->resizable(content1);
+	// woccbtn->resizable(nullptr);
+	// woccbtn->size(firstblock, woccbtn->h());
+	// woccbtn->resizable(win);
+	// woccbtn->size_range(0, 24, 0, 24);
+    // int fixed_height = 200;
+    // woccbtn->callback(resize_callback, &fixed_height);
 
 
 	int htable=22*3;
@@ -4673,18 +4939,7 @@ int main(int argc, char** argv) {
 	scint_init(firstblock + secondblock, 22, lastblock, h - 22 - htable);
 	cotm("scint_init");
 
-	Fl_Group::current(content);
-	ldg = new Fl_Window(firstblock, 22 * 4, 100, 22, "loading.");
-	Fl_Box* ldgb = new Fl_Box(0, 0, 100, 22, "Loading");
-	// ldgb->copy_label("Loading Loading Loading Loading Loading Loading Loading
-	// Loading Loading Loading Loading Loading Loading ");
-	ldgb->color(FL_GREEN);
-	ldgb->labelcolor(FL_RED);
-	ldg->show();
-	// win->add(ldg);
-	// win->flush();
-
-	cotm("ldg");
+   
 
 	Fl_Group::current(content);
 	// helpv=new SelectableColumnBrowser(firstblock, h-htable, w-firstblock, htable);
@@ -4737,6 +4992,9 @@ int main(int argc, char** argv) {
 	// win->clear_visible_focus();
 	woccbtn->color(0x7AB0CfFF);
 	win->resizable(content);
+	// win->resizable(content);
+	// content->resizable(content);
+	// win->resizable(occv);
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0);
 	cotm("preshow");

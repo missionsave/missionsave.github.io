@@ -147,7 +147,8 @@
 		"forward_list": "cpp",
 		"variant": "cpp",
 		"plane": "cpp",
-		"polytopeintersector": "cpp"
+		"polytopeintersector": "cpp",
+		"serializer": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {

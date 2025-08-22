@@ -20,15 +20,17 @@ Movel(220,170-50,0)
 
 Part sketch_bucket
 Pl 0,0, 220,0 @0,100 @-220,0 0,0
+--Visible(0)
 
 Part robot_bucket
+--Visible(0)
 Clone sketch_bucket
-Offset 4
+Offset 6
 Extrude 170-50
 Rotatexl(90)
 Movel(0,170-50,1)
 Clone sketch_bucket
-Extrude -4
+Extrude -6
 Rotatexl(90)
 Movel(0,0,1)
 
