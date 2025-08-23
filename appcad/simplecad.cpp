@@ -99,8 +99,7 @@ public:
         : Fl_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
     
     void resize(int X, int Y, int W, int H) override {
-        if (in_resize) return; // Prevent recursion
-        
+        if (in_resize) return; // Prevent recursion        
         in_resize = true;
         
 
@@ -358,8 +357,13 @@ struct OCC_Viewer : public flwindow {
 	}
 
 	void resize(int X, int Y, int W, int H) override {
+		static bool in_resize=0;
+		if (in_resize) return; // Prevent recursion
+        in_resize = true;
+
 		cotm(W)
-		Fl_Window::resize(X, Y, W, H);
+		Fl_Window::resize(X, Y, W, window()->h()-22-25);
+		// Fl_Window::resize(X, Y, W, H);
 		cotm(W)
         	// woccbtn->resize(woccbtn->x(), woccbtn->y(), W, 24*0.7);
 		if (m_initialized) {
@@ -372,6 +376,7 @@ struct OCC_Viewer : public flwindow {
 			// redraw(); 
 			// init_sizes();
 		}
+		in_resize=false;
 	}
 
 	void setbar5per() {
@@ -5342,7 +5347,7 @@ int main(int argc, char** argv) {
 
 	// win->show(argc, argv); return Fl::run();
 
-	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1+20);  //resizing almost good, should not have +20
+	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1-1);  //resizing almost good, should not have +20
 	content->add(occv);
 	// OSD_Parallel::SetUseOcctThreads(0);
 	// occv->label("Loading");
