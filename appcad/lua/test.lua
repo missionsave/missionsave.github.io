@@ -5,12 +5,12 @@ Pl 0,0 220,0 @0,170 @-220,0 0,0
 
 Part robot_body
 Clone sketch_body
-Offset 4
+Offset 6
 Extrude -100
 Clone sketch_body
-Extrude -4 
+Extrude -6
 Pl 0,0 50,0 @0,50 @-50,0 0,0
-Offset 4 
+Offset 6
 Extrude -89
 Rotatexl(-90)
 Rotatexl(45)

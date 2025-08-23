@@ -1,5 +1,57 @@
 #include "includes.hpp"
 #include <AIS_ListOfInteractive.hxx>
+	#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
+#include <TopoDS_Shape.hxx>
+#include <AIS_Shape.hxx>
+#include <V3d_View.hxx>
+
+#include <V3d_View.hxx>
+#include <TopoDS_Shape.hxx>
+#include <gp_Pnt.hxx>
+#include <Graphic3d_BufferType.hxx>
+#include <Image_PixMap.hxx>
+
+#include <TopoDS_Shape.hxx>
+#include <V3d_View.hxx>
+#include <Graphic3d_Camera.hxx>
+#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+
+#include <BRepIntCurveSurface_Inter.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <TopoDS.hxx>
+#include <Precision.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <V3d_View.hxx>
+#include <Graphic3d_BufferType.hxx>
+#include <Image_PixMap.hxx>
+#include <BRepExtrema_DistShapeShape.hxx>
+#include <TopoDS_Shape.hxx>
+#include <gp_Pnt.hxx>
+#include <V3d_View.hxx>
+
+#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <Geom_Curve.hxx>
+#include <GeomAPI_ProjectPointOnCurve.hxx>
+#include <V3d_View.hxx>
+#include <Graphic3d_BufferType.hxx>
+#include <Image_PixMap.hxx>
+#include <BRepClass3d_SolidClassifier.hxx>
+#include <BRepClass_FaceClassifier.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Precision.hxx>
+#include <Standard_TypeDef.hxx>
 #pragma region globals
 
 #define flwindow Fl_Window  
@@ -22,11 +74,27 @@ std::string SerializeCompact(const std::string& partName,
 std::string SerializeFaceInvariant(const TopoDS_Face& face);
 gp_Ax3 get_face_local_cs(const TopoDS_Face& face);
 
+std::string to_string_trim(double value) {
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << value;
+    std::string s = oss.str();
+
+    // if there’s a decimal point, strip trailing zeros
+    if (auto pos = s.find('.'); pos != std::string::npos) {
+        while (!s.empty() && s.back() == '0')
+            s.pop_back();
+        // if the last character is now the dot, remove it too
+        if (!s.empty() && s.back() == '.')
+            s.pop_back();
+    }
+    return s;
+}
 class FixedHeightWindow : public Fl_Window {
 private:
     int fixed_height;
     bool in_resize; // Prevent infinite recursion
 public:
+	Fl_Group* parent=0;
     FixedHeightWindow(int x, int y, int w, int h, const char* label = 0) 
         : Fl_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
     
@@ -35,8 +103,12 @@ public:
         
         in_resize = true;
         
+
+		// if(parent==0)
+		 parent=window();
+
 		        // Calculate bottom position: parent height minus our fixed height
-        int bottom_y = window()->h() - fixed_height;
+        int bottom_y = parent->h() - fixed_height;
         
         // Only allow width to change, keep height fixed, and stick to bottom
         if (H != fixed_height || Y != bottom_y) {
@@ -72,13 +144,14 @@ struct shelpv{
 	string pname="";
 	string point="";
 	string error="";
+	string edge="";
 
 	void upd(){
 	std::string html = R"(
 <html>
 <body marginwidth=0 marginheight=0 topmargin=0 leftmargin=0><font face=Arial > 
 <b><font color="Red">texto</font>
-$pname $point  
+$pname $point $edge
 </font>
 </body>
 </html>
@@ -86,6 +159,7 @@ $pname $point
 	point="<br>"+point;
 	replace_All(html,"$point",point);
 	replace_All(html,"$pname",pname);
+	replace_All(html,"$edge",edge);
 
 	helpv->value(html.c_str());
 }
@@ -214,7 +288,7 @@ struct OCC_Viewer : public flwindow {
 
 
 		m_context->MainSelector()->AllowOverlapDetection(0);
-		m_context->SetPixelTolerance(4);
+		m_context->SetPixelTolerance(2);
 		// m_context->AddFilter(new StdSelect_FaceFilter(StdSelect_Reject));
 
 		// BRepMesh_IncrementalMesh::SetParallel(Standard_True);
@@ -292,7 +366,7 @@ struct OCC_Viewer : public flwindow {
 
 			// lop(i, 0, sbt.size()) {	sbt[i].occbtn->size(sbt[i].occbtn->w(),24);}
 			
-	woccbtn->size(W-40, 24);
+	// woccbtn->size(W-40, 24);
 			m_view->MustBeResized();
 			setbar5per();
 			// redraw(); 
@@ -1381,7 +1455,84 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 		return {windowToWorldX, windowToWorldY, worldToWindowX, worldToWindowY, viewportHeight, viewportWidth};
 	}
 
-bool IsShapeVisible(const Handle(AIS_Shape)& aisShape, const Handle(V3d_View)& view, const Handle(AIS_InteractiveContext)& context)
+	#include <AIS_Shape.hxx>
+#include <V3d_View.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <Image_PixMap.hxx>
+
+bool IsShapeVisible(const Handle(AIS_Shape)& aisShape,
+                           const Handle(V3d_View)& view,
+                           const Handle(AIS_InteractiveContext)& context)
+{
+    if (aisShape.IsNull() || aisShape->Shape().IsNull())
+        return false;
+
+    // 1. Cena completa
+    view->Redraw();
+    Image_PixMap depthAll;
+    if (!view->ToPixMap(depthAll, 256, 256, Graphic3d_BT_Depth, true, V3d_SDO_MONO))
+        return false;
+
+    // Guardar lista de objetos
+    NCollection_Sequence<Handle(AIS_InteractiveObject)> objs;
+    for (context->InitCurrent(); context->MoreCurrent(); context->NextCurrent())
+    {
+        Handle(AIS_InteractiveObject) o = context->Current();
+        if (!o.IsNull() && context->IsDisplayed(o))
+            objs.Append(o);
+    }
+
+    // 2. Cena sem o shape
+    context->Erase(aisShape, false);
+    view->Redraw();
+    Image_PixMap depthWithout;
+    if (!view->ToPixMap(depthWithout, 256, 256, Graphic3d_BT_Depth, true, V3d_SDO_MONO))
+        return false;
+
+    // 3. Só o shape
+    for (auto it = objs.cbegin(); it != objs.cend(); ++it)
+        if (*it != aisShape)
+            context->Erase(*it, false);
+    context->Display(aisShape, false);
+    view->Redraw();
+    Image_PixMap depthShape;
+    if (!view->ToPixMap(depthShape, 256, 256, Graphic3d_BT_Depth, true, V3d_SDO_MONO))
+        return false;
+
+    // 4. Comparação pixel a pixel
+    bool visible = false;
+    for (Standard_Size y = 0; y < depthShape.SizeY() && !visible; ++y)
+    {
+        const float* rowShape   = (const float*)depthShape.Row(y);
+        const float* rowAll     = (const float*)depthAll.Row(y);
+        const float* rowWithout = (const float*)depthWithout.Row(y);
+
+        for (Standard_Size x = 0; x < depthShape.SizeX(); ++x)
+        {
+            float zS = rowShape[x];
+            if (zS < 1.0f) // pixel do shape
+            {
+                float zA = rowAll[x];
+                float zW = rowWithout[x];
+
+                if (fabs(zS - zA) < 1e-5f && zS <= zW) // está à frente
+                {
+                    visible = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Restaurar cena
+    for (auto it = objs.cbegin(); it != objs.cend(); ++it)
+        context->Display(*it, false);
+    view->Redraw();
+
+    return visible;
+}
+
+bool IsShapeVisible_v1(const Handle(AIS_Shape)& aisShape, const Handle(V3d_View)& view, const Handle(AIS_InteractiveContext)& context)
 {
     if (aisShape.IsNull() || view.IsNull() || context.IsNull())
         return false;
@@ -1470,6 +1621,178 @@ bool IsVertexVisible(
 
     return isVisible;
 }
+
+#include <V3d_View.hxx>
+#include <Image_PixMap.hxx>
+#include <Image_Format.hxx>
+#include <V3d_View.hxx>
+#include <Image_PixMap.hxx>
+#include <Image_Format.hxx>
+#include <V3d_View.hxx>
+#include <Image_PixMap.hxx>
+#include <Image_Format.hxx>
+#include <gp_Pnt.hxx>
+#include <V3d_View.hxx>
+#include <Image_PixMap.hxx>
+#include <Image_Format.hxx>
+#include <gp_Pnt.hxx>
+
+bool IsWorldPointGreen(const Handle(V3d_View)& view,
+                           const gp_Pnt&            point,
+                           int                      radius       = 5,
+                           unsigned char            minGreen     = 200,
+                           unsigned char            maxRedBlue   =  64)
+{
+    // 1. Get view size
+    Standard_Integer w = 0, h = 0;
+    view->Window()->Size(w, h);
+
+    // 2. Project world point → view coords → pixel coords
+    Standard_Real Xv = 0., Yv = 0., Zv = 0.;
+    view->Project(point.X(), point.Y(), point.Z(), Xv, Yv, Zv);
+
+    Standard_Integer px = 0, py = 0;
+    view->Convert(Xv, Yv, px, py);
+
+    // 3. Bail out if point is outside view
+    if (px < 0 || px >= w || py < 0 || py >= h)
+        return false;
+
+    // 4. Capture full-view pixmap
+    Image_PixMap pix;
+    if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
+        return false;
+
+    // 5. Determine channel count and stride
+    const Image_Format fmt      = pix.Format();
+    const size_t      channels = (fmt == Image_Format_RGBA ? 4 : 3);
+    const size_t      rowBytes = pix.Width() * channels;
+    const Standard_Byte* data   = pix.Data();
+
+    // 6. Scan a circular neighborhood for “greenish” pixels
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            if (dx*dx + dy*dy > radius*radius)
+                continue;                      // outside circle
+
+            int sx = px + dx;
+            int sy = py + dy;
+            if (sx < 0 || sx >= w || sy < 0 || sy >= h)
+                continue;                      // out of bounds
+
+            // Flip Y: mouse top-left vs pixmap bottom-left
+            int yPix = h - 1 - sy;
+            size_t idx = size_t(yPix) * rowBytes + size_t(sx) * channels;
+
+            unsigned char r = data[idx + 0];
+            unsigned char g = data[idx + 1];
+            unsigned char b = data[idx + 2];
+
+            if (g >= minGreen && r <= maxRedBlue && b <= maxRedBlue)
+                return true;                   // found greenish pixel
+        }
+    }
+
+    return false;  // no green near the projected point
+}
+
+// Scans a circular neighborhood around the mouse for “greenish” pixels.
+//working but not great
+bool IsPixelQuantityGreen(const Handle(V3d_View)& view,
+                      int mouseX,
+                      int mouseY,
+                      int radius       = 4,    // search radius in pixels
+                      unsigned char minGreen    = 200,
+                      unsigned char maxRedBlue  =  64)
+{
+    // 1. Get view dimensions
+    Standard_Integer w = 0, h = 0;
+    view->Window()->Size(w, h);
+
+    // 2. Capture the full-view pixmap
+    Image_PixMap pix;
+    if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
+        return false;
+
+    // 3. Determine channel count (RGB or RGBA)
+    const Image_Format fmt      = pix.Format();
+    const size_t      channels = (fmt == Image_Format_RGBA ? 4 : 3);
+    const size_t      width    = pix.Width();
+    const size_t      rowBytes = width * channels;
+    const Standard_Byte* data   = pix.Data();
+    if (!data)
+        return false;
+
+    // 4. Scan in a circle of given radius
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            // Skip outside circular region
+            if (dx*dx + dy*dy > radius*radius)
+                continue;
+
+            int x = mouseX + dx;
+            int y = mouseY + dy;
+            // Skip out-of-bounds
+            if (x < 0 || x >= w || y < 0 || y >= h)
+                continue;
+
+            // Flip Y to OCCT pixmap origin (bottom-left)
+            int yPix = h - 1 - y;
+            size_t idx = size_t(yPix) * rowBytes + size_t(x) * channels;
+
+            unsigned char r = data[idx + 0];
+            unsigned char g = data[idx + 1];
+            unsigned char b = data[idx + 2];
+
+            // If this pixel is “green enough,” return true immediately
+            if (g >= minGreen && r <= maxRedBlue && b <= maxRedBlue)
+                return true;
+        }
+    }
+
+    // No green pixel found in the neighborhood
+    return false;
+}
+
+bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
+                                int mouseX,
+                                int mouseY,
+                                unsigned char minGreen = 200,
+                                unsigned char maxRedBlue = 64)
+{
+    // 1. Get view size
+    Standard_Integer w = 0, h = 0;
+    view->Window()->Size(w, h);
+
+    // 2. Capture full-view pixmap
+    Image_PixMap pix;
+    if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
+        return false;
+
+    // 3. Determine channel count (RGB or RGBA)
+    Image_Format fmt     = pix.Format();
+    int          chan    = (fmt == Image_Format_RGBA ? 4 : 3);
+
+    // 4. Flip Y to go from top-left mouse to bottom-left pixmap origin
+    int yPix = h - 1 - mouseY;
+
+    // 5. Compute byte offset into raw buffer
+    const Standard_Byte* data     = pix.Data();
+    size_t               rowBytes = size_t(pix.Width()) * chan;
+    size_t               idx      = size_t(yPix) * rowBytes
+                                      + size_t(mouseX) * chan;
+
+    unsigned char r = data[idx + 0];
+    unsigned char g = data[idx + 1];
+    unsigned char b = data[idx + 2];
+
+    // 6. Tolerance test: strong green, low red and blue
+    return (g >= minGreen
+         && r <= maxRedBlue
+         && b <= maxRedBlue);
+}
+
+
 	void highlightVertex(const TopoDS_Vertex& aVertex) {
 		clearHighlight();  // Clear any existing highlight first
 
@@ -1487,20 +1810,25 @@ bool IsVertexVisible(
 
 
 		// Create a small red sphere at the vertex location
-		Standard_Real sphereRadius = 7 * ratio;	 // Small radius for the highlight ball
+		Standard_Real sphereRadius = 5 * ratio;	 // Small radius for the highlight ball
 		TopoDS_Shape sphereShape = BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
 		myHighlightedPointAIS = new AIS_Shape(sphereShape);
-		myHighlightedPointAIS->SetColor(Quantity_NOC_RED);
+		myHighlightedPointAIS->SetColor(Quantity_NOC_GREEN);
 		myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
-		myHighlightedPointAIS->SetTransparency(0.2f);			   // Slightly transparent
+		// myHighlightedPointAIS->SetTransparency(0.2f);			   // Slightly transparent
 		myHighlightedPointAIS->SetZLayer(Graphic3d_ZLayerId_Top);  // Ensure it's drawn on top
 
 		m_context->Display(myHighlightedPointAIS, Standard_True);
 		myLastHighlightedVertex = aVertex;
 		redraw();
+		// Fl::wait();
+		if(!IsWorldPointGreen(m_view,vertexPnt))return;
+		// if(!IsPixelQuantityGreen(m_view,mousex,mousey))return;
+
+
 		help.point ="";help.upd();
 		// if(!IsVisible(myHighlightedPointAIS,m_view))return;
-		if(!IsShapeVisible(myHighlightedPointAIS,m_view,m_context))return;
+		// if(!IsShapeVisible(myHighlightedPointAIS,m_view,m_context))return;
 
 		// cotm("Highlighted Vertex:", vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z());
 		help.point = "Point: "
@@ -1648,7 +1976,85 @@ bool IsVertexVisible(
 		return nullptr;
 	}
 
-	void ev_highlight() {
+#include <TopoDS_Shape.hxx>
+#include <gp_Pnt.hxx>
+#include <V3d_View.hxx>
+
+bool IsPointVisible_Shaded(const Handle(AIS_InteractiveContext)& ctx,
+                           const Handle(V3d_View)& view,
+                           const gp_Pnt& point3d)
+{
+    // Converter ponto para coordenadas de ecrã
+    Standard_Integer x, y;
+    view->Convert(point3d.X(), point3d.Y(), point3d.Z(), x, y);
+
+    // Limpar seleção e fazer pick
+    ctx->MoveTo(x, y, view, false);
+    ctx->Select(false);
+
+    // Verificar se o primeiro objeto selecionado contém o ponto
+    if (ctx->NbSelected() > 0) {
+        // Aqui podes verificar se é o shape certo
+        return true;
+    }
+    return false;
+}
+
+bool IsPointVisibleOnShape(const TopoDS_Shape& shape,
+                                   const Handle(V3d_View)& view,
+                                   const gp_Pnt& point3d)
+{
+    if (shape.IsNull() || view.IsNull())
+        return false;
+
+    const Handle(Graphic3d_Camera)& cam = view->Camera();
+    gp_Pnt camPos = cam->Eye();
+    gp_Dir dir(point3d.XYZ() - camPos.XYZ());
+
+    // Criar uma linha infinita da câmara na direção do ponto
+    gp_Lin ray(camPos, dir);
+
+    // Interseção linha-shape
+    BRepIntCurveSurface_Inter inter;
+    inter.Init(shape, ray, Precision::Confusion());
+
+    double distToPoint = camPos.Distance(point3d);
+    bool visible = true;
+
+    while (inter.More()) {
+        gp_Pnt ip = inter.Pnt();
+        double distHit = camPos.Distance(ip);
+
+        // Se a interseção for antes do ponto (com tolerância), está oculto
+        if (distHit < distToPoint - Precision::Confusion()) {
+            visible = false;
+            break;
+        }
+        inter.Next();
+    }
+
+    return visible;
+}
+bool IsPointVisible_Picking(const Handle(AIS_InteractiveContext)& ctx,
+                            const Handle(V3d_View)& view,
+                            const gp_Pnt& point3d)
+{
+    Standard_Integer px, py;
+    view->Convert(point3d.X(), point3d.Y(), point3d.Z(), px, py);
+
+    ctx->MoveTo(px, py, view, false);
+    ctx->Select(false);
+
+    return (ctx->NbSelected() > 0);
+}
+
+void ev_highlight() {
+// m_context->SetViewAffinity((Standard_False);
+// Handle(SelectMgr_ViewerSelector) viewerSel = m_context->MainSelector();
+// viewerSel->GetManager().AllowOverlapDetection(0);
+
+
+
 
     clearHighlight();
 
@@ -1694,11 +2100,26 @@ bool IsVertexVisible(
     switch (detected.ShapeType()) {
     case TopAbs_VERTEX: {
         TopoDS_Vertex v = TopoDS::Vertex(detected);
+
+		gp_Pnt vertexPnt = BRep_Tool::Pnt(v);
+		// if(!IsPointVisible_Picking(m_context,m_view,vertexPnt))break;
+		// if(!IsPointVisible_Shaded(m_context,m_view,vertexPnt))break;
+		// if(!IsPointVisibleOnShape(detected,m_view,vertexPnt))break;
+
         if (!myLastHighlightedVertex.IsEqual(v))
             highlightVertex(v);
         break;
     }
 
+    case TopAbs_EDGE: {
+        TopoDS_Edge edge = TopoDS::Edge(detected);
+		GProp_GProps props;
+		BRepGProp::LinearProperties(edge, props);
+		double length = props.Mass();
+		string pname="Edge length: "+to_string_trim(length);
+		if(pname!=help.edge){help.edge=pname;help.upd();}
+		break;
+	}
     case TopAbs_FACE: {
         TopoDS_Face picked = TopoDS::Face(detected);
         TopLoc_Location origLoc = picked.Location();
@@ -4847,8 +5268,32 @@ static Fl_Menu_Item items[] = {
 // aisShape.Nullify();
 // BRepTools::Clean();
 
+void test(){
+	// 110,250,-20),vec3(110,250,200)
+	gp_Pnt axisBegin(110,250,-20);    // Start point
+gp_Pnt axisEnd(110,250,200);      // End point (Y-direction)
+
+// and set direction 0,1,0
+
+
+
+// Calculate direction vector from begin to end
+gp_Vec directionVec(axisBegin, axisEnd);
+gp_Dir direction(directionVec);
+
+// Create the axis
+gp_Ax1 axis(axisBegin, direction);
+
+// Verify direction is (0,1,0)
+std::cout << "Direction: (" << direction.X() << ", " 
+          << direction.Y() << ", " << direction.Z() << ")" << std::endl;
+}
+
+
 std::string load_app_font(const std::string& filename);
 int main(int argc, char** argv) {
+	test();
+	// pausa
 	Fl::use_high_res_GL(1);
 	// setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
 	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION << "." << FL_PATCH_VERSION
@@ -4897,7 +5342,7 @@ int main(int argc, char** argv) {
 
 	// win->show(argc, argv); return Fl::run();
 
-	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1+22);  //resizing almost good, should not have +22
+	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1+20);  //resizing almost good, should not have +20
 	content->add(occv);
 	// OSD_Parallel::SetUseOcctThreads(0);
 	// occv->label("Loading");
@@ -4909,7 +5354,10 @@ int main(int argc, char** argv) {
 	// win->begin();
 	// woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
 	win->begin();
+
+	Fl_Group::current(content);
 	woccbtn = new FixedHeightWindow(0, h - hc1, occv->w(), hc1, "");
+	// woccbtn->parent=content;
 	// woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
 
 	// woccbtn->align(FL_ALIGN_BOTTOM);
@@ -4933,6 +5381,8 @@ int main(int argc, char** argv) {
 
 	Fl_Group::current(content);
 	fbm = new fl_browser_msv(firstblock, 22, secondblock, h - 22-htable);
+	fbm->box(FL_UP_BOX);
+	fbm->color(FL_GRAY);
 
 	Fl_Group::current(content);
 	// content->begin();
@@ -5037,5 +5487,6 @@ int main(int argc, char** argv) {
 		// occv->redraw(); //for win
 		// occv->m_view->Update();
 	}
+	// test();
 	return Fl::run();
 }
