@@ -11,10 +11,17 @@ Clone sketch_body
 Extrude -6
 Pl 0,0 50,0 @0,50 @-50,0 0,0
 Offset 6
+
+--Rotatexl(-90)
+--Rotatexl(45)
+--Movel(220,170-50,0)
+
 Extrude -89
+
 Rotatexl(-90)
 Rotatexl(45)
 Movel(220,170-50,0)
+
 --Movel(50)
 
 

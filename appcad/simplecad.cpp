@@ -54,12 +54,12 @@
 #include <Standard_TypeDef.hxx>
 #pragma region globals
 
+#include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
 // #endif
 
-#include "fl_browser_msv.hpp"
 void WriteBinarySTL(const TopoDS_Shape& shape, const std::string& filename);
 std::string translate_shorthand(std::string_view src); 
 void install_shorthand_searcher(lua_State* L);
@@ -102,11 +102,8 @@ public:
         if (in_resize) return; // Prevent recursion        
         in_resize = true;
         
-
 		// if(parent==0)
 		 parent=window();
-
-		        // Calculate bottom position: parent height minus our fixed height
         int bottom_y = parent->h() - fixed_height;
         
         // Only allow width to change, keep height fixed, and stick to bottom
@@ -128,8 +125,7 @@ public:
 Fl_Menu_Bar* menu;
 Fl_Group* content; 
 fl_browser_msv* fbm;
-Fl_Help_View* helpv;
-// Fl_Window* woccbtn;
+Fl_Help_View* helpv; 
 FixedHeightWindow* woccbtn;
 
 lua_State* L;
@@ -137,8 +133,9 @@ static std::unique_ptr<sol::state> G;
 
 extern string currfilename;
 
-#pragma endregion includes
+#pragma endregion globals
 
+#pragma region help 
 struct shelpv{
 	string pname="";
 	string point="";
@@ -165,6 +162,7 @@ $pname $point $edge
 
 }help;
 
+#pragma endregion help
 
 auto fmt = [](double v) {
     if (std::fabs(v) < 1e-9) v = 0; // treat near-zero as zero
@@ -504,7 +502,8 @@ struct OCC_Viewer : public flwindow {
 	};
 
 	struct luadraw {
-		vector<luadraw*> vnl;
+		int type=0;
+		// vector<luadraw*> vnl;
 		bool editing=0;
 		bool protectedshape = 0;
 
@@ -573,7 +572,10 @@ gp_Quaternion qrot;
 			occv->ulua[name] = this;
 			occv->vlua.push_back(this);
 		}
+		void display_sketch(){
+			ashape->Set(cshape);
 
+		}
 		void redisplay() {
 			update_placement();
 
@@ -587,7 +589,7 @@ gp_Quaternion qrot;
 					occv->m_context->Display(ashape, false);
 				}
 			} else {
-				cotm("notvisible",name)
+				// cotm("notvisible",name)
 				// Only erase if it is displayed
 				if (occv->m_context->IsDisplayed(ashape)) {
 					occv->m_context->Erase(ashape, Standard_False);
@@ -645,6 +647,40 @@ gp_Quaternion qrot;
 				trsf *= trsftmp;
 			}
 		}
+
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopoDS.hxx>
+#include <BRep_Builder.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Iterator.hxx>
+#include <TopoDS_Shape.hxx>
+#include <BRep_Builder.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+
+TopoDS_Shape ExtractNonSolids(const TopoDS_Shape& compound)
+{
+    BRep_Builder builder;
+    TopoDS_Compound result;
+    builder.MakeCompound(result);
+
+    // Iterate only over immediate children of the compound
+    for (TopoDS_Iterator it(compound); it.More(); it.Next())
+    {
+        const TopoDS_Shape& child = it.Value();
+
+        if (child.ShapeType() != TopAbs_SOLID)
+        {
+            builder.Add(result, child);
+        }
+    }
+
+    return result;
+}
+
+
 
 std::vector<TopoDS_Solid> ExtractSolids(const TopoDS_Shape& shape) {
     std::vector<TopoDS_Solid> solids;
@@ -2825,7 +2861,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		vshapes.clear();
 		cotm(vaShape.size(), vshapes.size());
 		for (int i = 0; i < vaShape.size(); i++) {
-			if (!m_context->IsDisplayed(vaShape[i])) continue;
+			if (!m_context->IsDisplayed(vaShape[i]) || !vlua[i]->visible_hardcoded) continue;
 			vshapes.push_back(vaShape[i]->Shape());
 		}
 		cotm(vaShape.size(), vshapes.size());
@@ -2836,7 +2872,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		// projectAnqdDisplayWithHLR_lp(shapes,isDragonly);
 		projectAndDisplayWithHLR_ntw(shapes,isDragonly);
 	}
-	#define ENABLE_PARALLEL
+	#define ENABLE_PARALLEL 0
 	void projectAndDisplayWithHLR_ntw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 		perf1();
@@ -3710,22 +3746,77 @@ OCC_Viewer* occv = 0;
 
 void fillbrowser(void*) {
 	perf();
-	fbm->clear();
+	fbm->clear_all();
+	fbm->vcols={{18,"@B1"},{18,"@B2","@B5"},{18,"@B3"}}; 
+	fbm->init();
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
 	lop(i, 0, occv->vaShape.size()) {
 		OCC_Viewer::luadraw* ld = occv->getluadraw_from_ashape(occv->vaShape[i]);
 		// cotm(ld->visible_hardcoded)
 		// OCC_Viewer::luadraw* ld=occv->vlua[i];
-		ld->redisplay();
-		fbm->add(ld->name.c_str()); 
+		ld->redisplay(); 
+		fbm->addnew({"H","S",ld->name});
         fbm->data(fbm->size(), (void*)ld);
 	}
-	fbm->setCallback([](void* data, int code) { 
+	fbm->setCallback([](void* data, int code, void* fbm_) { 
+
 		OCC_Viewer::luadraw* ld=(OCC_Viewer::luadraw*)data;
         std::cout << "Callback fired! data_ptr=" 
                   << ld->name 
                   << ", code=" << code 
                   << std::endl;
+
+		//solo
+		if(code==1){
+			bool flagempty=1;
+			lop(i,0,fbm->on_off.size()){
+				if(fbm->on_off[i][code]==1){
+					flagempty=0;
+					break;
+				}
+			}
+			if(flagempty){
+				lop(i,0,occv->vlua.size()){
+					OCC_Viewer::luadraw* ldi=occv->vlua[i];
+					ldi->visible_hardcoded=1;
+					ldi->redisplay();
+				}
+				ld->occv->redraw();
+				return;
+			}
+
+			//at least one selected
+			lop(i,0,occv->vlua.size()){
+
+				OCC_Viewer::luadraw* ldi=occv->vlua[i];
+				ldi->visible_hardcoded=1;
+				
+				// if(ldi==ld){
+				if(fbm->on_off[i][code] ==1){
+					static Handle(AIS_Shape) ashape;
+					if (ashape) ld->occv->m_context->Remove(ashape, false);
+
+					if (ld->fshape.IsNull()) {
+						TopoDS_Shape shape2d = ld->ExtractNonSolids(ld->cshape);
+						if (!shape2d.IsNull()) {
+							ldi->visible_hardcoded = 0;
+							ldi->redisplay();
+							ashape = new AIS_Shape(shape2d);
+							ld->occv->m_context->Display(ashape, false);
+						}
+					} else {
+						ldi->redisplay();
+					}
+					continue;
+				}
+				// ldi->occv->m_context->
+
+				ldi->visible_hardcoded=0;
+				ldi->redisplay();
+			}
+			ld->occv->redraw();
+		}
+
     });
 
 	occv->fillvectopo();
@@ -5088,13 +5179,6 @@ void lua_str(string str, bool isfile) {
 #endif
 #pragma endregion lua
 
-#pragma region help
-
-
-
-
- 
-#pragma endregion help
 
 
 static Fl_Menu_Item items[] = {
@@ -5156,7 +5240,7 @@ static Fl_Menu_Item items[] = {
 		 // const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&View/Transparent"));
 		 Fl_Menu_* menu = static_cast<Fl_Menu_*>(mnu);
 		 const Fl_Menu_Item* item = menu->mvalue();	 // This gets the actually clicked item
-
+		 occv->fillvectopo();
 		 if (!item->value()) {
 			 occv->toggle_shaded_transp(AIS_WireFrame);
 		 } else {
@@ -5335,53 +5419,15 @@ int main(int argc, char** argv) {
 	menu = new Fl_Menu_Bar(0, 0, firstblock, 22);
 	menu->menu(items);
 
+
+	content = new Fl_Group(0, 22, w, h - 22); 
 	int hc1 = 24;
-
-	content = new Fl_Group(0, 22, w, h - 22);
-	// Fl_Group* content = new Fl_Group(0, 22, w, h-22);
-
-	// scint_init(w*0.62,22,w*0.38,h-22-hc1);
-
-	// win->begin();
- 
-
-	// win->show(argc, argv); return Fl::run();
-
-	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1-1);  //resizing almost good, should not have +20
-	content->add(occv);
-	// OSD_Parallel::SetUseOcctThreads(0);
-	// occv->label("Loading");
-
-
-	// Fl_Group::current(nullptr);
-
-	// Fl_Group* content1 = new Fl_Group(0, 0, firstblock + 0, 24);
-	// win->begin();
-	// woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
-	win->begin();
-
+	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1-1);
+	// content->add(occv);
 	Fl_Group::current(content);
-	woccbtn = new FixedHeightWindow(0, h - hc1, occv->w(), hc1, "");
-	// woccbtn->parent=content;
-	// woccbtn = new Fl_Window(0, h - hc1, occv->w(), hc1, "");
-
-	// woccbtn->align(FL_ALIGN_BOTTOM);
-	// content->add(woccbtn);
+	woccbtn = new FixedHeightWindow(0, h - hc1, occv->w(), hc1, ""); 
 	occv->drawbuttons(woccbtn->w(), hc1);
-	woccbtn->resizable(woccbtn);
-	// content1->end();
-	// occv->resizable(woccbtn);
-	// woccbtn->resizable(new Fl_Box(0,0,woccbtn->w(),1));
-	// woccbtn->resizable(0);
-	// woccbtn->resizable(content1);
-	// woccbtn->resizable(nullptr);
-	// woccbtn->size(firstblock, woccbtn->h());
-	// woccbtn->resizable(win);
-	// woccbtn->size_range(0, 24, 0, 24);
-    // int fixed_height = 200;
-    // woccbtn->callback(resize_callback, &fixed_height);
-
-
+	woccbtn->resizable(woccbtn); 
 	int htable=22*3;
 
 	Fl_Group::current(content);
@@ -5389,23 +5435,10 @@ int main(int argc, char** argv) {
 	fbm->box(FL_UP_BOX);
 	fbm->color(FL_GRAY);
 
-	Fl_Group::current(content);
-	// content->begin();
-	scint_init(firstblock + secondblock, 22, lastblock, h - 22 - htable);
-	cotm("scint_init");
+	Fl_Group::current(content); 
+	scint_init(firstblock + secondblock, 22, lastblock, h - 22 - htable); 
 
-   
-
-	Fl_Group::current(content);
-	// helpv=new SelectableColumnBrowser(firstblock, h-htable, w-firstblock, htable);
-    // // helpv->set_columns({100, 150, 150,0});
-    // helpv->add_line("Name\tEmail\tPhone");
-    // helpv->add_line("John\tjohn@example.com\t123456789");
-    // helpv->add_line("Jane\tjane@example.com\t987654321");
-
-
-
-
+	Fl_Group::current(content); 
 	helpv=new Fl_Help_View(firstblock, h-htable, w-firstblock, htable);
 	helpv->box(FL_UP_BOX);
 	helpv->value(R"(
@@ -5415,83 +5448,30 @@ int main(int argc, char** argv) {
       <b><font size=5 color="Red">Loading...</font></b>
     </font> 
 </html>
-)");
-	// helpv->textfont(5);
-	// helpv->textsize(14);
-	// string hhtml= R"(<pre><font face=Arial ></font><b>testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun	testrun\t testrun\t testrun\t testrun\t testrun	testrun\t testrun\t </b>)";
-	// stringstream strm;
-	// strm<<hhtml;
-	// helpv->value(strm.str().c_str());
-	// // helpv->value(helpvstr.c_str());
-	// helpv->show();
+)"); 
 
-
-
-
-    // helpv->hv->value(
-    //     "<html>"
-    //     "<body>"
-    //     "<h3>Custom Help View</h3>"
-    //     "<p>Click anywhere here to test.</p>"
-    //     "<p><a href=\"https://www.fltk.org\">FLTK Link</a></p>"
-    //     "<table border=1>"
-    //     "<tr><td>Cell 1</td><td>Cell 2</td></tr>"
-    //     "<tr><td colspan=2>Spanning cell</td></tr>"
-    //     "</table>"
-    //     "</body>"
-    //     "</html>"
-    // );
-
-
-
-	// win->clear_visible_focus();
 	woccbtn->color(0x7AB0CfFF);
-	win->resizable(content);
-	// win->resizable(content);
-	// content->resizable(content);
-	// win->resizable(occv);
+	win->resizable(content); 
+
 	// win->position(Fl::w()/2-win->w()/2,10);
-	win->position(0, 0);
-	cotm("preshow");
-	win->show(argc, argv);
-	cotm("winshow");
-	// while (!win->shown()) Fl::wait();
-	// win->wait_for_expose();     // wait, until displayed
-	cotm("winshow1");
-	// occv->wait_for_expose();     // wait, until displayed
-	cotm("winshow2");
+	win->position(0, 0); 
+	win->show(argc, argv);  
 	Fl::flush();  // make sure everything gets drawn
-	win->flush();
-	cotm("winshow3");
+	win->flush(); 
 
 	// win->maximize();
 	// int x, y, _w, _h;
 	// Fl::screen_work_area(x, y, _w, _h);
-	// win->resize(x, y+22, _w, _h-22);
-	// sleepms(200);
-
-	cotm("preoccvload.....");
-	perf();
-	// Fl::flush();
-	occv->initialize_opencascade();
-	perf("occv-load.");
+	// win->resize(x, y+22, _w, _h-22);   
+	occv->initialize_opencascade(); 
 
 	lua_str(currfilename,1); //init
-		Fl::add_timeout(
-			0.7,
-			[](void* d) {
-			occv->m_view->FitAll();				
-			occv->sbt[7].occbtn->do_callback(); 
-			},
-			0); 
-	// occv->test2();
-	// occv->test();
-	{
-		// occv->draw_objs();
-		// occv->m_view->FitAll(0.01,0);
-		// occv->redraw(); //for win
-		// occv->m_view->Update();
-	}
-	// test();
+	Fl::add_timeout(
+		0.7,
+		[](void* d) {
+		occv->m_view->FitAll();				
+		occv->sbt[7].occbtn->do_callback(); 
+		},
+		0);  
 	return Fl::run();
 }

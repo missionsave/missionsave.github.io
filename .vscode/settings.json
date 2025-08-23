@@ -8,8 +8,12 @@
     "editor.folding": true,
     "editor.showFoldingControls": "always",
     // "editor.scrollbar.vertical": "auto",
-    "editor.scrollbar.horizontal": "hidden", //
+    "editor.scrollbar.horizontal":"auto",
     "editor.scrollbar.scrollByPage": true,
+
+	"editor.wrappingStrategy": "advanced",
+	"editor.wordWrap": "on",
+	"editor.wordWrapColumn": 120,
 
     "editor.minimap.enabled": false, 
     "notebook.showFoldingControls": "always",
@@ -21,7 +25,7 @@
 	"C_Cpp.clang_format_style": "{ BasedOnStyle: Google, UseTab: Always, TabWidth: 4, IndentWidth: 4, ColumnLimit: 120, BinPackParameters: true, AllowAllParametersOfDeclarationOnNextLine: false }",
     // "editor.scrollbar.ignoreHorizontalScrollbarInContentHeight":false,
     "workbench.statusBar.visible": true,
-    "editor.wordWrap": "on",
+    // "editor.wordWrap": "on",
 
         
     "C_Cpp.errorSquiggles": "disabled",
@@ -177,7 +181,7 @@
       
     "workbench.colorTheme": "Visual Studio Light",
     "editor.fontWeight": "bold",
-    "terminal.integrated.fontWeightBold": true,
+    // "terminal.integrated.fontWeightBold": true,
     "security.workspace.trust.untrustedFiles": "open",
     "php.validate.executablePath": "",
         
