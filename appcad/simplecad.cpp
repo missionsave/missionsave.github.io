@@ -1706,7 +1706,9 @@ bool IsWorldPointGreen(const Handle(V3d_View)& view,
     if (px < 0 || px >= w || py < 0 || py >= h)
         return false;
 
-	make_current();
+	// make_current();
+	// if (view->IsInvalidated())
+    m_view->Redraw();
     // 4. Capture full-view pixmap
     // Image_AlienPixMap pix;
     Image_PixMap pix;
