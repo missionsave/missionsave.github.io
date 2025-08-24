@@ -108,6 +108,18 @@ upload_v2(){
 	mirror --reverse --only-newer "/home/super/msv/site" "/htdocs/test"
 }
 
+
+chromef5(){
+	# Focus Chrome window
+wmctrl -a "Google Chrome"
+
+# Send F5 key to refresh
+xdotool key F5
+}
+
+
+
+
 upload() {
   echo "📂 Loading credentials from .lftp_sftp_login..."
   source "$HOME/.lftp_sftp_login"
@@ -121,6 +133,24 @@ upload() {
   echo "⏫ Starting upload: syncing /home/super/msv/site to /htdocs/test..."
   mirror --reverse --only-newer --verbose "/home/super/msv/site" "/htdocs/test"
   echo "✅ Upload complete."
+
+  quit
+EOF
+}
+
+downloadftp() {
+  echo "📂 Loading credentials from .lftp_sftp_login..."
+  source "$HOME/.lftp_sftp_login"
+
+  echo "🔗 Connecting to $FTP_HOST with user $FTP_USER..."
+  lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<EOF
+  echo "🔒 Enforcing SSL and skipping certificate verification..."
+  set ftp:ssl-force true
+  set ssl:verify-certificate no
+
+  echo "⏫ Starting download: syncing /htdocs to /home/super/msv/sitebkp..."
+  mirror --only-newer --verbose "/htdocs" "/home/super/msv/sitebkp"
+  echo "✅ download complete."
 
   quit
 EOF

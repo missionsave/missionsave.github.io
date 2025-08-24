@@ -3747,7 +3747,7 @@ OCC_Viewer* occv = 0;
 void fillbrowser(void*) {
 	perf();
 	fbm->clear_all();
-	fbm->vcols={{18,"@B1"},{18,"@B2","@B5"},{18,"@B3"}}; 
+	fbm->vcols={{18,"@B1"},{18,"@B2","@B5"},{18,"@B48"}}; 
 	fbm->init();
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
 	lop(i, 0, occv->vaShape.size()) {
@@ -5425,7 +5425,10 @@ int main(int argc, char** argv) {
 	occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1-1);
 	// content->add(occv);
 	Fl_Group::current(content);
-	woccbtn = new FixedHeightWindow(0, h - hc1, occv->w(), hc1, ""); 
+	woccbtn = new FixedHeightWindow(0, h - hc1, firstblock, hc1, ""); 
+	
+	// woccbtn->color(0x7AB0CfFF);
+	// woccbtn->show();
 	occv->drawbuttons(woccbtn->w(), hc1);
 	woccbtn->resizable(woccbtn); 
 	int htable=22*3;
@@ -5450,14 +5453,14 @@ int main(int argc, char** argv) {
 </html>
 )"); 
 
-	woccbtn->color(0x7AB0CfFF);
 	win->resizable(content); 
 
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0); 
-	win->show(argc, argv);  
+	win->show(argc, argv); 
 	Fl::flush();  // make sure everything gets drawn
-	win->flush(); 
+	win->flush();	 
+	woccbtn->flush(); 
 
 	// win->maximize();
 	// int x, y, _w, _h;

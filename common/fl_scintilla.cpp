@@ -613,6 +613,9 @@ void fl_scintilla::set_lua(){
 	// const char* fntname="";
 
 	int fntsize=9;
+	#ifdef _WIN32
+	fntsize=8;
+	#endif
 
 	// const char* fntname="Cascadia Code";
     SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0); //allways when opening new file

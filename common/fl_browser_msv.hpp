@@ -5,6 +5,7 @@
 // #include <FL/Fl_Window.H>
 // #include <FL/Fl_Group.H>
 #include <FL/Fl_Browser.H> 
+#include <FL/fl_draw.H>
     
 #include "general.hpp"
 
@@ -24,7 +25,7 @@ public:
 	int line_height;
 	int tclicked=-1;
     fl_browser_msv(int X, int Y, int W, int H, const char *L = 0)
-        : Fl_Browser(X, Y, W, H, L) {}
+        : Fl_Browser(X, Y, W, H, L) {has_scrollbar(Fl_Browser::VERTICAL);}
 
 	int handle(int event) override;
 	// void triggerCallback(std::function<void(void* data_ptr,int)> callbackFunc) {
@@ -79,4 +80,4 @@ public:
 	int item_height(void *) const override {
         return 18;
     }
-};
+	};
