@@ -11,6 +11,7 @@
 #include <gp_Pnt.hxx>
 #include <Graphic3d_BufferType.hxx>
 #include <Image_PixMap.hxx>
+#include <Image_AlienPixMap.hxx>
 
 #include <TopoDS_Shape.hxx>
 #include <V3d_View.hxx>
@@ -52,6 +53,7 @@
 #include <BRepAdaptor_Surface.hxx>
 #include <Precision.hxx>
 #include <Standard_TypeDef.hxx>
+
 #pragma region globals
 
 #include "fl_browser_msv.hpp"
@@ -1704,7 +1706,9 @@ bool IsWorldPointGreen(const Handle(V3d_View)& view,
     if (px < 0 || px >= w || py < 0 || py >= h)
         return false;
 
+	make_current();
     // 4. Capture full-view pixmap
+    // Image_AlienPixMap pix;
     Image_PixMap pix;
     if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
         return false;
