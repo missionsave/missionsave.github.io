@@ -1706,21 +1706,29 @@ bool IsWorldPointGreen(const Handle(V3d_View)& view,
     if (px < 0 || px >= w || py < 0 || py >= h)
         return false;
 
+	cotm("w1")
 	// make_current();
 	// if (view->IsInvalidated())
-    m_view->Redraw();
-    // 4. Capture full-view pixmap
-    // Image_AlienPixMap pix;
-    Image_PixMap pix;
-    if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
-        return false;
+    // m_view->Redraw();
+    // 4. Capture full-view pixmap 
+    // Image_PixMap pix;
+    // if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
+    //     return false;
 
+
+    Image_PixMap pix;
+    if (!view->ToPixMap(pix, w, h,Graphic3d_BT_RGB,1,V3d_StereoDumpOptions::V3d_SDO_BLENDED) || pix.IsEmpty())
+    //     return false;
+// 	Image_AlienPixMap pix;
+// if (!view->ToPixMap(pix, w, h, Graphic3d_BT_Depth) || pix.IsEmpty())
+//     return false;
+cotm("w2")
     // 5. Determine channel count and stride
     const Image_Format fmt      = pix.Format();
     const size_t      channels = (fmt == Image_Format_RGBA ? 4 : 3);
     const size_t      rowBytes = pix.Width() * channels;
     const Standard_Byte* data   = pix.Data();
-
+cotm("w3")
     // 6. Scan a circular neighborhood for “greenish” pixels
     for (int dy = -radius; dy <= radius; ++dy) {
         for (int dx = -radius; dx <= radius; ++dx) {
@@ -1744,7 +1752,7 @@ bool IsWorldPointGreen(const Handle(V3d_View)& view,
                 return true;                   // found greenish pixel
         }
     }
-
+cotm("w7")
     return false;  // no green near the projected point
 }
 
