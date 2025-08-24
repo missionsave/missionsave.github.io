@@ -89,14 +89,13 @@ std::string to_string_trim(double value) {
     }
     return s;
 }
-class FixedHeightWindow : public Fl_Window {
-private:
+class FixedHeightWindow : public Fl_Double_Window { 
+public:
     int fixed_height;
     bool in_resize; // Prevent infinite recursion
-public:
 	Fl_Group* parent=0;
     FixedHeightWindow(int x, int y, int w, int h, const char* label = 0) 
-        : Fl_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
+        : Fl_Double_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
     
     void resize(int X, int Y, int W, int H) override {
         if (in_resize) return; // Prevent recursion        
@@ -5387,6 +5386,7 @@ int main(int argc, char** argv) {
 	// setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
 	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION << "." << FL_PATCH_VERSION
 			  << std::endl;
+	std::cout << "FLTK ABI version: " << FL_ABI_VERSION << std::endl;
 	std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
 	// OSD_Parallel::SetUseOcctThreads(1);
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
