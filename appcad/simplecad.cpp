@@ -89,14 +89,17 @@ std::string to_string_trim(double value) {
     }
     return s;
 }
-class FixedHeightWindow : public Fl_Double_Window { 
+class FixedHeightWindow : public Fl_Window { 
 public:
     int fixed_height;
     bool in_resize; // Prevent infinite recursion
 	Fl_Group* parent=0;
     FixedHeightWindow(int x, int y, int w, int h, const char* label = 0) 
-        : Fl_Double_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
+        : Fl_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
     
+	void flush(){
+		Fl_Window::flush();
+	}
     void resize(int X, int Y, int W, int H) override {
         if (in_resize) return; // Prevent recursion        
         in_resize = true;
@@ -117,7 +120,10 @@ public:
         // } else {
         //     Fl_Window::resize(X, Y, W, H);
         // }
-        
+		
+		// damage(FL_DAMAGE_ALL); 
+		// redraw();
+        // flush();
         in_resize = false;
     }
 };
@@ -5458,9 +5464,13 @@ int main(int argc, char** argv) {
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0); 
 	win->show(argc, argv); 
+
+	// woccbtn->damage(FL_DAMAGE_ALL); 
+	// woccbtn->redraw(); 
 	Fl::flush();  // make sure everything gets drawn
 	win->flush();	 
 	woccbtn->flush(); 
+	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
 	// win->maximize();
 	// int x, y, _w, _h;
