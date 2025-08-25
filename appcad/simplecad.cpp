@@ -1711,16 +1711,16 @@ bool IsWorldPointGreen(const Handle(V3d_View)& view,
 	// if (view->IsInvalidated())
     // m_view->Redraw();
     // 4. Capture full-view pixmap 
-    // Image_PixMap pix;
-    // if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
-    //     return false;
-
-
     Image_PixMap pix;
-    if (!view->ToPixMap(pix, w, h,Graphic3d_BT_RGB,1,V3d_StereoDumpOptions::V3d_SDO_BLENDED) || pix.IsEmpty())
+    if (!view->ToPixMap(pix, w, h) || pix.IsEmpty())
+        return false;
+
+
+    // Image_PixMap pix;
+    // if (!view->ToPixMap(pix, w, h,Graphic3d_BT_RGB,1,V3d_StereoDumpOptions::V3d_SDO_BLENDED) || pix.IsEmpty())
     //     return false;
 // 	Image_AlienPixMap pix;
-// if (!view->ToPixMap(pix, w, h, Graphic3d_BT_Depth) || pix.IsEmpty())
+// if (!view->ToPixMap(pix, w, h, Graphic3d_BT_RGB) || pix.IsEmpty())
 //     return false;
 cotm("w2")
     // 5. Determine channel count and stride
@@ -5430,7 +5430,8 @@ int main(int argc, char** argv) {
 	int secondblock = w * 0.12;
 	int lastblock = w - firstblock - secondblock;
 
-	Fl_Double_Window* win = new Fl_Double_Window(0, 0, w, h, "simplecad");
+	// Fl_Window* win = new Fl_Window(0, 0, w, h, "simplecad");
+	Fl_Double_Window* win = new Fl_Double_Window(0, 0, w, h, "simplecad"); 
 	win->color(FL_RED);
 	win->callback([](Fl_Widget* widget, void*) {
 		if (Fl::event() == FL_SHORTCUT && Fl::event_key() == FL_Escape) return;
@@ -5459,7 +5460,7 @@ int main(int argc, char** argv) {
 	fbm->color(FL_GRAY);
 
 	Fl_Group::current(content); 
-	scint_init(firstblock + secondblock, 22, lastblock, h - 22 - htable); 
+	scint_init(firstblock + secondblock, 0, lastblock, h - 0 - htable); 
 
 	Fl_Group::current(content); 
 	helpv=new Fl_Help_View(firstblock, h-htable, w-firstblock, htable);

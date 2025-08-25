@@ -395,7 +395,9 @@ void fl_scintilla::toggle_comment() {
 
 void fl_scintilla::update_menu(){
 	    window()->begin(); 
-		fmb=new Fl_Menu_Bar(x(),0,w(),22);
+		fmb=new Fl_Menu_Bar(x(),y(),w(),22);
+		size(w(),h()-22);
+		position(x(),y()+22);
 	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
 	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
 	    // Initial menu items
@@ -1159,7 +1161,7 @@ void fl_scintilla::setnsaved(){
 	}
 }
 
-extern Fl_Menu_Bar* menu;
+// extern Fl_Menu_Bar* menu;
 
 
 void fl_scintilla::helperinit(){   

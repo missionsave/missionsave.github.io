@@ -118,7 +118,25 @@ xdotool key F5
 }
 
 
+uploadigv() {
+  echo "📂 Loading credentials from .lftp_sftp_login..."
+  source "$HOME/.lftp_sftp_login"
 
+  echo "🔗 Connecting to $FTP_HOST with user $FTP_USER..."
+  lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<EOF
+  echo "🔒 Enforcing SSL and skipping certificate verification..."
+  set ftp:ssl-force true
+  set ssl:verify-certificate no
+
+  echo "⏫ Starting upload: syncing /home/super/msv/site to /htdocs/test..."
+  mirror --reverse --only-newer --verbose \
+         --exclude-glob utils/vendor/ \
+         "/home/super/msv/site" "/htdocs/test"
+  echo "✅ Upload complete."
+
+  quit
+EOF
+}
 
 upload() {
   echo "📂 Loading credentials from .lftp_sftp_login..."
