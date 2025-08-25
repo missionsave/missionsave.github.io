@@ -103,6 +103,9 @@
 !site
 !site/index.html
 
+!docs
+!docs/index.html
+
 *_v1*
 *_v2*
 *_v3*
