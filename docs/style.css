@@ -170,8 +170,9 @@ body {
 
 /*buttonpaypal*/
 		
-.buttonpp { //background-image: linear-gradient(#A9A932, #E5D153, #E9CC0E);
-	//width: 170px; //change width of button here
+.buttonpp { 
+	/* background-image: linear-gradient(#A9A932, #E5D153, #E9CC0E); */
+	/* width: 170px; //change width of button here */
 	height: 32px;
 	color: #2e3192;
 	text-decoration: none;

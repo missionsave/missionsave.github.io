@@ -51,8 +51,9 @@ Movel(-70,170-70,-70-15)
 
 
 Part robot_arm_1
-Pl 0,0 70,70 @70,-70 @70,70
+Pl 0,0 70,70 @70,-70 @70,70 @70,-70
 Offset 7
+Extrude 70
 
 end
 robot1()
