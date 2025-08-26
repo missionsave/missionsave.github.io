@@ -38,7 +38,6 @@ int fl_browser_msv::handle(int event){
 		tclicked = x;
 		// select(clicked_line);  /// test only
 
-		std::string msel = "@b@u";
 
 // for (int i = 1; i <= size(); ++i) {
 //     int col = 0;

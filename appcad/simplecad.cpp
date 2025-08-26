@@ -3762,21 +3762,106 @@ toggle_shaded_transp(currentMode);
 OCC_Viewer* occv = 0;
 
 #pragma region browser
-
+unordered_map<string,bool> msolo;
 void fillbrowser(void*) {
 	perf();
+	static int binit=1;
+	// if (fbm->size()==0){
+	if(binit){
+		binit=0;
+		// lop(i,0,occv->vlua.size()){
+		// 	OCC_Viewer::luadraw* ld = occv->vlua[i];
+		// 	msolo[ld->name]=0;
+		// }
+	}
+
+for (const auto& [key, value] : msolo) {
+    std::cout << key << " => " << std::boolalpha << value << '\n';
+}
+
+bool allTrue = true;
+for (const auto& [key, value] : msolo) {
+    if (!value) { // value == false
+        allTrue = false;		
+        break; // no need to check further
+    }
+}
+if(allTrue)msolo.clear();
+		
+
+	std::vector<std::vector<bool>> on_off=fbm->on_off;
+
 	fbm->clear_all();
 	fbm->vcols={{18,"@B1"},{18,"@B2","@B5"},{18,"@B48"}}; 
 	fbm->init();
+	// }
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
 	lop(i, 0, occv->vaShape.size()) {
-		OCC_Viewer::luadraw* ld = occv->getluadraw_from_ashape(occv->vaShape[i]);
+		OCC_Viewer::luadraw* ld = occv->vlua[i];
+		// OCC_Viewer::luadraw* ld = occv->getluadraw_from_ashape(occv->vaShape[i]);
 		// cotm(ld->visible_hardcoded)
 		// OCC_Viewer::luadraw* ld=occv->vlua[i];
-		ld->redisplay(); 
+
+		// OCC_Viewer::luadraw* ldi=0;
+// 		if(fbm->cache.size()>0){
+// 			ldi=(OCC_Viewer::luadraw*)fbm->data(i+1);
+// 		}
+// 		if(ld==ldi)continue;
+// 		// Remove the old item
+// fbm->remove(i+1);
+
+// // Insert the new item at the same position
+// fbm->insert_at(i+1, {"H","S",ld->name});
+// fbm->data(i+1, (void*)ld); 
+
+// 		if(fbm->on_off[i][1]==1 || binit)
+		// if(on_off.size()>0 && on_off[i][1])
+
+
 		fbm->addnew({"H","S",ld->name});
         fbm->data(fbm->size(), (void*)ld);
+
+
+			ld->visible_hardcoded=1;
+			// ld->visible_hardcoded=0;
+			// fbm->on_off[i][1]=0;
+			// fbm->toggleon(fbm->size(),1,1);
+		if(msolo.size()>0 && msolo[ld->name]==1){
+ld->visible_hardcoded=0;
+			// int line=fbm->size();
+			// fbm->toggleon(line,1,0);
+			// fbm->on_off[i][1]=1;
+		}
+		
+		if(msolo.size()>0 && msolo[ld->name]==0){
+			// ld->visible_hardcoded=1;
+			int line=fbm->size();
+			if(msolo.size()>0 )fbm->toggleon(line,1,1);
+
+		}
+		//else fbm->toggleon(fbm->size(),1,1);
+		// else{
+		// 	ld->visible_hardcoded=1;
+		// 	fbm->on_off[i][1]=1;
+		// 	cotm(ld->name,ld->visible_hardcoded)
+		// }
+
+
+
+		// fbm->addnew({"H","S",ld->name});
+        // fbm->data(fbm->size(), (void*)ld);
+
+// 		if(msolo[ld->name]==1){
+// 			ld->visible_hardcoded=1;
+// 			fbm->on_off[i][1]=0;
+// 			cotm(ld->name,ld->visible_hardcoded)
+// 		}else{
+// ld->visible_hardcoded=0;
+// 			fbm->on_off[i][1]=1;
+// 		}
+		ld->redisplay(); 
 	}
+
 	fbm->setCallback([](void* data, int code, void* fbm_) { 
 
 		OCC_Viewer::luadraw* ld=(OCC_Viewer::luadraw*)data;
@@ -3791,6 +3876,8 @@ void fillbrowser(void*) {
 			lop(i,0,fbm->on_off.size()){
 				if(fbm->on_off[i][code]==1){
 					flagempty=0;
+					msolo[ld->name]=0;
+					cotm("c1")
 					break;
 				}
 			}
@@ -3799,6 +3886,13 @@ void fillbrowser(void*) {
 					OCC_Viewer::luadraw* ldi=occv->vlua[i];
 					ldi->visible_hardcoded=1;
 					ldi->redisplay();
+
+
+
+
+
+					msolo[ld->name]=1;
+					cotm("c2")
 				}
 				ld->occv->redraw();
 				return;
@@ -3809,6 +3903,8 @@ void fillbrowser(void*) {
 
 				OCC_Viewer::luadraw* ldi=occv->vlua[i];
 				ldi->visible_hardcoded=1;
+				msolo[ldi->name]=0;
+				cotm("c3")
 				
 				// if(ldi==ld){
 				if(fbm->on_off[i][code] ==1){
@@ -3819,6 +3915,7 @@ void fillbrowser(void*) {
 						TopoDS_Shape shape2d = ld->ExtractNonSolids(ld->cshape);
 						if (!shape2d.IsNull()) {
 							ldi->visible_hardcoded = 0;
+							msolo[ldi->name]=1;
 							ldi->redisplay();
 							ashape = new AIS_Shape(shape2d);
 							ld->occv->m_context->Display(ashape, false);
@@ -3831,6 +3928,7 @@ void fillbrowser(void*) {
 				// ldi->occv->m_context->
 
 				ldi->visible_hardcoded=0;
+				msolo[ldi->name]=1;
 				ldi->redisplay();
 			}
 			ld->occv->redraw();
