@@ -1436,6 +1436,12 @@ alias umntpen='sudo umount -l ~/pen'
 
 alias cdr='cd ~/desk/missionsave/robot_driver'
 
+
+testsite(){
+	google-chrome --disable-web-security --user-data-dir=/tmp/chrome_dev file:///home/super/msv/docs/index.html
+}
+
+
 syncf() {
 	DIR1="~/desk/missionsave/robot_driver"  # First directory (current directory)
 	DIR2="~/pen/desk"  # Second directory

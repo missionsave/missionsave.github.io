@@ -104,7 +104,7 @@
 !site/index.html
 
 !docs
-!docs/index.html
+!docs/**/**
 
 *_v1*
 *_v2*

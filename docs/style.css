@@ -1,0 +1,331 @@
+p  { text-align: justify;}
+
+.topnav {  
+
+  overflow: hidden;
+  background-color: #333; 
+  //background-image: linear-gradient(gray, #333);
+}
+
+.topnav a {
+  float: left;
+  display: block;
+  color: #f2f2f2;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+  font-size: 17px;
+}
+
+.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.topnav .icon {
+	
+	align:right;
+  display: none;
+}
+
+.dropdownc {
+	
+  float: left; 
+  overflow: auto;
+}
+
+.dropdownc .dropbtn {
+
+  font-size: 17px;    
+  border: none;
+  outline: none;
+  color: white;
+  padding: 14px 16px;
+	background-color: #333; 
+	//background-image: linear-gradient(gray, #333);
+  font-family: inherit;
+  margin: 0;
+}
+
+.dropdown-content {
+		
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  min-width: 160px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+  z-index: 1;
+}
+
+.dropdown-content a {
+  float: none;
+  color: black;
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+  text-align: left;
+ 
+}
+
+.topnav a:hover, .dropdownc:hover .dropbtn {
+  background-color: #555;
+  color: white;  
+}
+.topnav a:not(.icon):hover { text-decoration: underline; }
+	
+
+.dropdown-content a:hover {
+  text-decoration: underline;
+  background-color: #ddd;
+  color: black;
+}
+
+
+
+
+
+
+@media screen and (max-width: 600px) {
+  .topnav a:not(:first-child), .dropdownc .dropbtn {
+    display: none;
+  }
+  .topnav a.icon {
+	 
+    float: right;
+    display: block;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .topnav.responsive {position: relative;}
+  .topnav.responsive .icon {
+    position: absolute;
+    right: 0;
+    top: 0;
+	
+  }
+  .topnav.responsive a {
+    float: none;
+    display: block;
+    text-align: left; z-index: 2000;
+  }
+  .topnav.responsive .dropdownc {float: none;}
+  .topnav.responsive .dropdown-content {position: relative;}
+  .topnav.responsive .dropdownc .dropbtn {
+    display: block;
+    width: 100%;
+    text-align: left;
+  }
+  
+  
+.show {display:block;}
+}
+
+ 
+html {  
+    margin: auto;
+	text-align: justify;
+}
+ 
+body {
+	
+	margin:0px;
+	font-family: Arial, Helvetica, sans-serif;
+    display: inline;
+
+}
+ 
+.htr {    
+    max-width: 21cm;
+	margin:10px auto;
+	font-family: Arial, Helvetica, sans-serif; 
+    color:black;
+    text-align:left;
+	padding-left:10px;
+	padding-right:10px;
+	    
+	
+}
+
+.topheader {
+	z-index:1;
+  position:fixed;
+  width: 100%;  
+}
+@media screen and (min-width: 600px) {
+	.dropdownc:hover .dropdown-content {
+	  display: block; 
+	}
+}
+
+.chosen{
+  text-decoration: underline;
+}
+
+
+
+
+
+
+
+/*buttonpaypal*/
+		
+.buttonpp { //background-image: linear-gradient(#A9A932, #E5D153, #E9CC0E);
+	//width: 170px; //change width of button here
+	height: 32px;
+	color: #2e3192;
+	text-decoration: none;
+	cursor: pointer;
+	display: block;
+	text-align: center;
+	position: relative;
+
+	/* BACKGROUND GRADIENTS */
+	background: #FEE1A5;
+	background: -moz-linear-gradient(top, #FFF, #FEE1A5 50%, #FFB829 51%,
+	#FEE1A5 95%, #FEE1A5);
+	background: -webkit-gradient(linear, left top, left bottom,
+	color-stop(0, #FFF), color-stop(.5, #FEE1A5), color-stop(.51, #FFB829),
+	color-stop(.95, #FEE1A5), color-stop(.96, #FEE1A5), to(#FEE1A5));
+
+	/* BORDER RADIUS */
+	-moz-border-radius: 18px;
+	-webkit-border-radius: 18px;
+	border-radius: 18px;
+
+	border-bottom: 1px solid #FFF;
+	border-top: 1px solid #FFB829;
+	border-left: 1px solid #FEE1A5;
+	border-right: 1px solid #FEE1A5;
+
+	/* TEXT SHADOW */
+
+	text-shadow: 0px 1px 1px white;
+
+	/* BOX SHADOW */
+	-moz-box-shadow: 0 1px 3px #777;
+	-webkit-box-shadow: 0 1px 3px #777;
+	box-shadow: 0 1px 3px #777;
+	font: italic bold 18px/32px helvetica, arial;
+	}
+
+	/* WHILE HOVERED */
+	.buttonpp:hover {
+	background: #FEE1A5;
+	background: -moz-linear-gradient(top, #FFF, #FEE1A5 50%,
+	#FFB829 51%, #FEE1A5 95%, #FEE1A5);
+	background: -webkit-gradient(linear, left top, left bottom,
+	color-stop(0, #FFF), color-stop(.5, #FEE1A5), color-stop(.51, #FFB829),
+	color-stop(.95, #FEE1A5), color-stop(.96, #FEE1A5), to(#FEE1A5));
+	-moz-box-shadow: 0 1px 2px black;
+	-webkit-box-shadow: 0 1px 2px black;
+	}
+
+	/* WHILE BEING CLICKED */
+	.buttonpp:active {
+	-moz-box-shadow: 0 2px 6px black;
+	-webkit-box-shadow: 0 2px 6px black;
+	}
+
+
+
+
+
+
+
+    input {
+        outline: 0;
+        border-width: 0 0 2px;
+        border-color: blue
+        }
+        input:focus {
+        border-color: green
+        }
+        /* Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+        }
+    
+        /* Firefox */
+        input[type=number] {
+        -moz-appearance: textfield;
+        }
+        .button {
+        padding:  5px 15px;
+        font-size: 24px;
+        text-align: center;
+        cursor: pointer;
+        outline: none;
+        color: #fff;
+        background-color: #3e8f41;
+        
+        border: none;
+        border-radius: 5px;
+        box-shadow: 0 4px #999;
+        }
+    
+
+
+
+
+
+        select {
+
+            /* styling */
+            background-color: white;
+            border: thin solid blue;
+            border-radius: 4px;
+            display: inline-block;
+            font: 10px;
+            line-height: 1.5em;
+            padding: 0.5em 3.5em 0.5em 1em;
+            
+            /* reset */
+            
+            margin: 0;      
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            }
+            
+            
+            /* arrows */
+            
+            select.classic {
+            background-image:
+              linear-gradient(45deg, transparent 50%, blue 50%),
+              linear-gradient(135deg, blue 50%, transparent 50%),
+              linear-gradient(to right, skyblue, skyblue);
+            background-position:
+              calc(100% - 20px) calc(1em + 2px),
+              calc(100% - 15px) calc(1em + 2px),
+              100% 0;
+            background-size:
+              5px 5px,
+              5px 5px,
+              2.5em 2.5em;
+            background-repeat: no-repeat;
+            }
+            
+            select.classic:focus {
+            background-image:
+              linear-gradient(45deg, white 50%, transparent 50%),
+              linear-gradient(135deg, transparent 50%, white 50%),
+              linear-gradient(to right, gray, gray);
+            background-position:
+              calc(100% - 15px) 1em,
+              calc(100% - 20px) 1em,
+              100% 0;
+            background-size:
+              5px 5px,
+              5px 5px,
+              2.5em 2.5em;
+            background-repeat: no-repeat;
+            border-color: grey;
+            outline: 0;
+            }
+
