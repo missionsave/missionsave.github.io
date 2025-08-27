@@ -1,172 +1,72 @@
-<!doctype html>
-<html lang="pt">
+
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <title>Gest (D1 via Worker)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    body { margin:0; font-family:helvetica,arial,sans-serif; }
-    #wrapper { width:995px; margin:0 auto; padding:0; text-align:center; position:relative; top:140px; }
-    td { text-align:center; }
-    .save { display:none; float:left; }
-    table.fixed { table-layout:fixed; width:100%; }
-    table.fixed td { overflow:hidden; }
-    tr:nth-child(even) { background:#f0f0f0; }
-    .left_fixed { position:fixed; z-index:1; width:16%; min-width:170px; top:0; bottom:0; left:0; border:1px solid #ddd; padding:6px; box-sizing:border-box; }
-    .right_side { width:100%; float:right; max-width:calc(100% - 170px); }
-    .top_side { position:fixed; z-index:1; width:100%; top:0; left:175px; background:#eee; min-height:140px; display:flex; flex-flow:row wrap; padding:8px; box-sizing:border-box; gap:8px; align-items:flex-start; }
-    .toolbar { width:160px; display:flex; flex-direction:column; gap:6px; }
-    .sqlbox { border:1px solid #aaa; background:#fafafa; height:130px; width:calc(100% - 177px - 155px); }
-    .sqlbox textarea { width:100%; height:100%; border:0; resize:none; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; padding:6px; box-sizing:border-box; }
-    .btn { height:28px; cursor:pointer; }
-  </style>
-</head>
-<body>
-
-<div class="left_fixed">
-  <div style="margin-bottom:6px; font-weight:bold;">Tabelas</div>
-  <select id="tables" size="8" onchange="tablechange(this.value)" style="min-width:170px; width:100%;"></select>
-
-  <div style="margin:10px 0 6px; font-weight:bold;">Campos</div>
-  <select id="selfields" size="10" style="min-width:170px; width:100%;"></select>
-</div>
-
-<div class="right_side">
-  <div class="top_side">
-    <div class="toolbar">
-      <input id="descrsql" placeholder="descrição" />
-      <button class="btn" onclick="runsql()">Run</button>
-      <label style="display:flex; align-items:center; gap:6px;">
-        <input id="autorun" type="checkbox" title="autorun" /> autorun
-      </label>
-      <button class="btn" onclick="savesql()">Save</button>
-      <button class="btn" onclick="toggleAdmin()">Admin</button>
-      <small id="adminStatus" style="color:#666;"></small>
-    </div>
-    <div class="sqlbox">
-      <textarea id="txtsql" spellcheck="false" placeholder="Escreva SQL aqui. Ex.: SELECT * FROM tabGest ORDER BY id DESC LIMIT 50;"
-        onkeypress="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); runsql();}">
-      </textarea>
-    </div>
-  </div>
-
-  <div id="wrapper"></div>
-</div>
+<meta charset="UTF-8">
+<title>Gest</title>
+<link rel="shortcut icon" href="../favicon.png">
 
 <script>
-  // =========================
-  // Config
-  // =========================
-  const ENDPOINT = "https://superdb-api.superbem.workers.dev/sql";
-  // Opcional: defina um token de admin (quando o Worker exigir Authorization: Bearer <token> para INSERT/UPDATE/DELETE).
-  // Deixe null para ocultar botões de escrita.
-  let ADMIN_TOKEN = null; // "COLOQUE_SEU_TOKEN_AQUI_SE_FOR_PRIVADO";
+/* ====== CONFIG ====== */
+const ENDPOINT = "https://superdb-api.superbem.workers.dev/sql";
+let data_table = "tabGest";
+var head = [];
+let tableobj = [];
 
-  // =========================
-  // Estado
-  // =========================
-  let data_table = "tabGest";
-  let head = [];         // [{ name: 'col' }, ...]
-  let tableobj = [];     // rows atuais
-  let adminEnabled = false;
-
-  // =========================
-  // Helpers
-  // =========================
-  function wantsWrite(sql) {
-    return /^\s*(insert|update|delete|create|drop|alter|replace|pragma|attach|vacuum|begin|commit|rollback)\b/i.test(sql);
+/* ====== CORE API ====== */
+async function apiSQL(sql, params = []) {
+  const resp = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params })
+  });
+  const data = await resp.json();
+  if (!resp.ok || data.success === false) {
+    throw new Error(data.error || `Erro HTTP ${resp.status}`);
   }
+  return data.rows || [];
+}
 
-  async function api(sql, params = []) {
-    const headers = { "Content-Type": "application/json" };
-    if (wantsWrite(sql) && adminEnabled && ADMIN_TOKEN) {
-      headers["Authorization"] = "Bearer " + ADMIN_TOKEN;
-    }
-    const resp = await fetch(ENDPOINT, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ sql, params })
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok || data.success === false) {
-      throw new Error((data && data.error) || `HTTP ${resp.status}`);
-    }
-    return data;
-  }
+/* ====== FUNÇÕES ADAPTADAS ====== */
+async function addtables(){
+  const rows = await apiSQL("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+  const x = document.getElementById("tables");
+  x.innerHTML = "";
+  rows.forEach(r=>{
+    const o=document.createElement("option");
+    o.text=r.name; o.value=r.name; x.add(o);
+  });
+}
 
+async function addsqlt(){
+  const rows = await apiSQL("SELECT * FROM tabSql ORDER BY descr ASC");
+  const x = document.getElementById("selsql");
+  x.innerHTML="";
+  rows.forEach(r=>{
+    const o=document.createElement("option");
+    o.text=r.descr;
+    o.value=`${r.descr}$split${r.sqlt}$split${r.autorun}`;
+    x.add(o);
+  });
+}
   function inferTableFromSQL(sql) {
     const m = /\bfrom\s+([^\s;]+)/i.exec(sql);
     return m ? m[1].replace(/["`]/g, "") : "";
   }
-
-  function buildPlaceholders(n) {
-    return Array.from({ length: n }).map(() => "?").join(", ");
-  }
-
-  function genlink(field, vals) {
-    if (field === "link") {
-      const parts = String(vals || "").replace(/\n/g, " ").split(" ");
-      let html = "";
-      for (const p of parts) {
-        const m = /^https?:\/\/([^\/?#]+)(?:[\/?#]|$)/i.exec(p);
-        const host = m && m[1];
-        if (host) {
-          let label = host.replace(/^www\./, "");
-          const bits = label.split(".");
-          label = bits.length === 3 ? bits[0] + bits[1] : bits[0];
-          html += `<a href="${p}" target="_blank" rel="noopener">${label}</a> `;
-        }
-      }
-      return html || vals;
+    async function getSchema(table) {
+    const { rows } = await api(`PRAGMA table_info(${table})`);
+    head = rows.map(r => ({ name: r.name }));
+    // Atualiza lista de campos
+    const sel = document.getElementById("selfields");
+    sel.innerHTML = "";
+    for (const c of head) {
+      const opt = document.createElement("option");
+      opt.textContent = c.name;
+      opt.value = c.name;
+      sel.appendChild(opt);
     }
-    if (field === "data") {
-      const d = new Date(vals);
-      if (!isNaN(d)) return d.toISOString().slice(0, 10);
-    }
-    return vals;
   }
-
-  function toggleAdmin() {
-    adminEnabled = !!ADMIN_TOKEN && !adminEnabled ? true : !adminEnabled;
-    document.getElementById("adminStatus").textContent = adminEnabled
-      ? "admin ativo"
-      : (ADMIN_TOKEN ? "admin inativo" : "admin desativado (sem token)");
-    // Re-render para mostrar/ocultar botões
-    renderTable(tableobj);
-  }
-
-  // =========================
-  // UI de tabela
-  // =========================
-  function genbuttons(rowIndex, row) {
-    if (!adminEnabled || !ADMIN_TOKEN) {
-      return `<td style="width:150px;"></td>`;
-    }
-    const bid = data_table + rowIndex;
-    return `
-      <td style="width:150px;">
-        <input style="float:left;" type="button" id="edit_button${bid}" value="E" class="edit" onclick="editrow('${data_table}', ${rowIndex})">
-        <input style="float:left;" type="button" id="save_button${bid}" value="S" class="save" onclick="saverow('${data_table}', ${rowIndex})">
-        <input style="float:left;" type="button" value="D" class="delete" onclick="deleterow('${data_table}', ${rowIndex})">
-      </td>
-    `;
-  }
-
-  function genreg(table, field, rowIndex, val) {
-    return `<td id="${table}${field}${rowIndex}">${genlink(field, val ?? "")}</td>`;
-  }
-
-  function geninsertrow() {
-    if (!adminEnabled || !ADMIN_TOKEN) return "";
-    let html = `<tr><td><input id="add_row" type="button" class="add" onclick="insertrow();" value="Add Row"></td>`;
-    for (const col of head) {
-      html += `<td><input style="width:100%;" type="text" id="new${col.name}"></td>`;
-    }
-    html += `</tr>`;
-    return html;
-  }
-
-  function renderTable(rows) {
+    function renderTable(rows) {
     const wrapper = document.getElementById("wrapper");
     if (!rows || rows.length === 0) {
       wrapper.innerHTML = `<div style="padding:10px;">Sem resultados.</div>`;
@@ -209,189 +109,419 @@
     }
   }
 
-  // =========================
-  // Edição
-  // =========================
-  async function saverow(table, rowIndex) {
-    if (!adminEnabled || !ADMIN_TOKEN) return;
-    const bid = table + rowIndex;
-    const vals = [];
-    const params = [];
-
-    // Precisamos de uma PK (assume coluna 'id')
-    const row = tableobj[rowIndex - 1];
-    if (!row || typeof row.id === "undefined") {
-      alert("Não foi encontrada a coluna 'id' para salvar.");
-      return;
+    function wantsWrite(sql) {
+    return /^\s*(insert|update|delete|create|drop|alter|replace|pragma|attach|vacuum|begin|commit|rollback)\b/i.test(sql);
+  }
+    async function api(sql, params = []) {
+    const headers = { "Content-Type": "application/json" };
+    if (wantsWrite(sql) && adminEnabled && ADMIN_TOKEN) {
+      headers["Authorization"] = "Bearer " + ADMIN_TOKEN;
     }
-
-    for (const col of head) {
-      const namefield = col.name;
-      const bidn = bid + namefield;
-      const ta = document.getElementById("txtarea" + bidn);
-      if (!ta) continue;
-      let v = ta.value;
-      params.push(v);
-      vals.push(`${namefield} = ?`);
-      // pós-salvar: render simples
-      row[namefield] = v;
-      document.getElementById("txtarea" + bidn).outerHTML = genlink(namefield, v);
+    const resp = await fetch(ENDPOINT, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ sql, params })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data.success === false) {
+      throw new Error((data && data.error) || `HTTP ${resp.status}`);
     }
+    return data;
+  }
+async function getdata(sql) {
+  const tableMatch = /\bfrom\s+([^\s;]+)/i.exec(sql);
+  if (!tableMatch) {
+    alert("Não foi possível detectar o nome da tabela.");
+    return;
+  }
+  data_table = tableMatch[1];
 
-    const sql = `UPDATE ${table} SET ${vals.join(", ")} WHERE id = ?`;
-    params.push(row.id);
-
-    try {
-      await api(sql, params); // write
-    } catch (e) {
-      alert("Erro ao salvar: " + e.message);
-      return;
-    }
-
-    document.getElementById("edit_button" + bid).style.display = "block";
-    document.getElementById("save_button" + bid).style.display = "none";
+  // 1️⃣ Consulta real dos dados
+  const dataResp = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params: [] })
+  });
+  const data = await dataResp.json();
+  if (!data.success || !Array.isArray(data.rows)) {
+    alert("Erro ao buscar dados da tabela.");
+    return;
   }
 
-  function editrow(table, rowIndex) {
-    if (!adminEnabled || !ADMIN_TOKEN) return;
-    const bid = table + rowIndex;
-    const row = tableobj[rowIndex - 1];
+  tableobj = data.rows;
 
-    const eb = document.getElementById("edit_button" + bid);
-    const sb = document.getElementById("save_button" + bid);
-    if (eb) eb.style.display = "none";
-    if (sb) sb.style.display = "block";
+  // 2️⃣ Extrai colunas a partir do primeiro registro
+  if (tableobj.length > 0) {
+    head = Object.keys(tableobj[0]).map(name => ({ name }));
+  } else {
+    alert("Tabela sem dados.");
+    return;
+  }
 
-    for (const col of head) {
-      const namefield = col.name;
-      const reg = document.getElementById(table + namefield + rowIndex);
-      const bidn = bid + namefield;
-      const value = row[namefield] ?? "";
-      reg.innerHTML =
-        `<textarea autocomplete="on" id="txtarea${bidn}" style="background-color:orange; resize:none; width:100%;">` +
-        String(value) +
-        `</textarea>`;
+  // 3️⃣ Monta cabeçalho da tabela
+  let html = `<table class='fixed' border='1' cellpadding='0' cellspacing='0' id='${data_table}'>
+    <col width='70'><col width='50'><tr><td style='width:150px;'></td>`;
+  for (let i = 0; i < head.length; i++) {
+    html += `<td>${head[i].name}</td>`;
+  }
+  html += `</tr></table>`;
+  document.getElementById("wrapper").innerHTML = html;
+
+  // 4️⃣ Linha de inserção
+  if (data_table !== "data_table") geninsertrow(head, data_table);
+
+  // 5️⃣ Renderiza linhas
+  for (let i = 0; i < tableobj.length; i++) {
+    const id = i + 1;
+    const bid = data_table + id;
+    let rowHTML = `<tr id="row${bid}">`;
+    rowHTML += genbuttons(id);
+    for (let j = 0; j < head.length; j++) {
+      const colName = head[j].name;
+      rowHTML += genreg(data_table, colName, id, tableobj[i][colName]);
     }
+    rowHTML += `</tr>`;
+    const table = document.getElementById(data_table);
+    table.insertAdjacentHTML("beforeend", rowHTML);
   }
 
-  async function deleterow(table, rowIndex) {
-    if (!adminEnabled || !ADMIN_TOKEN) return;
-    const row = tableobj[rowIndex - 1];
-    if (!row || typeof row.id === "undefined") {
-      alert("Não foi encontrada a coluna 'id' para deletar.");
-      return;
-    }
-    if (!confirm(`Apagar registro id=${row.id}?`)) return;
-    try {
-      await api(`DELETE FROM ${table} WHERE id = ?`, [row.id]);
-      document.getElementById("row" + table + rowIndex).outerHTML = "";
-    } catch (e) {
-      alert("Erro ao deletar: " + e.message);
-    }
+  // 6️⃣ Oculta botões se não autorizado
+  if (!email_autorized) {
+    const edits = document.getElementsByClassName("edit");
+    const deletes = document.getElementsByClassName("delete");
+    for (let i = 0; i < edits.length; i++) edits[i].style.display = "none";
+    for (let i = 0; i < deletes.length; i++) deletes[i].style.display = "none";
   }
+}
 
-  async function insertrow() {
-    if (!adminEnabled || !ADMIN_TOKEN) return;
-    const names = [];
-    const params = [];
-    for (const col of head) {
-      const inp = document.getElementById("new" + col.name);
-      if (!inp) continue;
-      let v = inp.value;
-      if (v !== "") {
-        names.push(col.name);
-        params.push(v);
-      }
-    }
-    if (names.length === 0) return;
 
-    const sql = `INSERT INTO ${data_table} (${names.join(", ")}) VALUES (${buildPlaceholders(names.length)})`;
 
-    try {
-      await api(sql, params);
-      runsql(); // recarrega
-    } catch (e) {
-      alert("Erro ao inserir: " + e.message);
-    }
+async function saverow(dt,id){
+  const bid = dt+id;
+  const vals=[];
+  for(let h of head){
+    const v = document.getElementById("txtarea"+bid+h.name).value.replace(/'/g,'"');
+    vals.push(v);
+    tableobj[id-1][h.name]=v;
+    document.getElementById("txtarea"+bid+h.name).outerHTML = genlink(h.name,v);
   }
+  const setC = head.map(h=>`${h.name}=?`).join(",");
+  const rowid = tableobj[id-1].id;
+  await apiSQL(`UPDATE ${dt} SET ${setC} WHERE id = ?`,[...vals,rowid]);
+  document.getElementById("edit_button"+bid).style.display="block";
+  document.getElementById("save_button"+bid).style.display="none";
+}
 
-  // =========================
-  // Data loading
-  // =========================
-  async function getTables() {
-    const { rows } = await api(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`);
-    const sel = document.getElementById("tables");
-    sel.innerHTML = "";
-    for (const r of rows) {
-      const opt = document.createElement("option");
-      opt.textContent = r.name;
-      opt.value = r.name;
-      sel.appendChild(opt);
-    }
-  }
+async function insertrow(){
+  const names=[], vals=[];
+  head.forEach(h=>{
+    const v = document.getElementById("new"+h.name).value.replace(/['"]/g,'`');
+    if(v!==""){names.push(h.name); vals.push(v);}
+  });
+  if(!names.length) return;
+  const ph = names.map(()=>"?").join(",");
+  await apiSQL(`INSERT INTO ${data_table} (${names.join(",")}) VALUES (${ph})`,vals);
+  runsql();
+}
 
-  async function getSchema(table) {
-    const { rows } = await api(`PRAGMA table_info(${table})`);
-    head = rows.map(r => ({ name: r.name }));
-    // Atualiza lista de campos
-    const sel = document.getElementById("selfields");
-    sel.innerHTML = "";
-    for (const c of head) {
-      const opt = document.createElement("option");
-      opt.textContent = c.name;
-      opt.value = c.name;
-      sel.appendChild(opt);
-    }
-  }
+/* ====== RESTO DAS FUNÇÕES ORIGINAIS (genbuttons, genreg, geninsertrow, runsql, etc.) ====== */
+/* Copie-as do seu gest.txt original, pois não precisam de alteração */
 
-  async function getdata(sql) {
-    // Tentar identificar tabela para schema
-    const maybeTable = inferTableFromSQL(sql);
-    if (maybeTable) {
-      data_table = maybeTable;
-      try { await getSchema(data_table); } catch {}
-    } else {
-      head = [];
-    }
-
-    const { rows } = await api(sql);
-    tableobj = rows || [];
-    renderTable(tableobj);
-  }
-
-  async function tablechange(val) {
-    if (!val) return;
-    data_table = val;
-    await getSchema(val);
-    await getdata(`SELECT * FROM ${val} ORDER BY id DESC LIMIT 200`);
-    document.getElementById("txtsql").value = `SELECT * FROM ${val} ORDER BY id DESC LIMIT 200;`;
-  }
-
-  function runsql() {
-    const tsql = document.getElementById("txtsql").value.trim();
-    if (!tsql) return;
-    const sql = tsql.split(";")[0].replace(/`/g, '"');
-    getdata(sql).catch(e => alert("Erro: " + e.message));
-  }
-
-  function savesql() {
-    alert("Salvar consultas: implemente usando uma tabela própria (ex.: tabSql) e chamadas autenticadas.");
-  }
-
-  // =========================
-  // Boot
-  // =========================
-  async function boot() {
-    document.getElementById("adminStatus").textContent =
-      ADMIN_TOKEN ? "admin inativo" : "admin desativado (sem token)";
-
-    await getTables().catch(() => {});
-    // Consulta inicial padrão
-    document.getElementById("txtsql").value = `SELECT * FROM ${data_table} ORDER BY id DESC LIMIT 50;`;
-    runsql();
-  }
-  boot();
 </script>
+<script>
+ 
+// var data_table="tabGest";
+// var tableobj;
+// var head;
 
+var email_autorized=1;
+
+
+ 
+
+
+
+function editrow(data_table,id){ 
+	var bid=data_table+id;
+	// console.log(data_table,id);
+	
+	document.getElementById("edit_button"+bid).style.display="none";
+	document.getElementById("save_button"+bid).style.display="block";
+	
+	for(var i=0;i<head.length;i++){
+		var namefield=head[i]['name'];
+		var reg=document.getElementById(data_table+namefield+id);
+		var bidn=bid+namefield;
+		var h="";
+		h="<textarea autocomplete='on' id='txtarea$id' style='background-color:orange; resize:none; width:100%;' type='text' >";
+		h+=tableobj[id-1][ namefield];
+		h+="</textarea>";
+		h=h.split("$id").join(bidn);
+		reg.innerHTML=h;
+		
+	} 
+}
+
+function deleterow(data_table,id){ 
+	var bid=data_table+id;
+	document.getElementById("row"+bid+"").outerHTML="";
+}
+
+//dont send empty values (for predef mysql)
+
+function geninsertrow(head,data_table){
+	// var html="<tr>";
+	// html+='<td><input type="button" class="add" onclick="insertrow();" value="Add Row"></td>';
+	// for(var i=0;i<head.length;i++)
+		// html+='<td><input style="width:100%;" type="text" id="new'+head[i]['name']+'"></td>';
+	// html+="</tr>";
+	var html="<tr>";
+	html+='<td><input id="add_row" type="button" class="add" onclick="insertrow();" value="Add Row"></td>';
+	for(var i=0;i<head.length;i++)
+		html+='<td><input style="width:100%;" type="text" id="new'+head[i]['name']+'"></td>';
+	html+="</tr>";
+	
+
+	var table=document.getElementById(data_table);
+	var table_len=(table.rows.length)-0;
+	var row = table.insertRow(table_len).outerHTML=html;
+
+	if(!email_autorized){
+		add_row.style.display="none";
+		txtsql.style.display="none";
+	}
+}
+
+function genbuttons(id){
+	var bid=data_table+id;
+	var h='<td style="width:150px;"><input style="float:left;" type="button" id="edit_button$bid" value="E" class="edit" onclick="editrow(`data_table`,$id)">';
+	h+='<input style="float:left;" type="button" id="save_button$bid" value="S" class="save" onclick="saverow(`data_table`,$id)">'; 
+	h+='<input style="float:left;" type="button" value="D" class="delete" onclick="deleterow(`data_table`,$id)">';
+	h+='</td>';
+	h=h.split("data_table").join(data_table);
+	h=h.split("$id").join(id);
+	h=h.split("$bid").join(bid);
+	return h;
+}
+
+function genlink(field,vals){
+	if(field=="link"){ 
+		var val=vals.split("\n").join(" ");
+		val=val.split(" ");
+		var html="";
+		for(var i=0;i<val.length;i++){
+			var matches = val[i].match(/^https?\:\/\/([^\/?#]+)(?:[\/?#]|$)/i);
+			// console.log(matches);
+			var h = matches && matches[1];
+			// h=val[i];
+			if(h){ 
+				h=h.split("www.").join("");
+				h=h.split(".");
+				if(h.length==3)h=h[0]+h[1]; else h=h[0];
+				html+= "<a href="+val[i]+" target='_blank'>"+h+"</a> ";
+			}
+		}
+		if(html=="")return vals;
+		return html;
+	}
+	if(field=="data"){
+		var date = new Date(vals); 
+		if(date!="Invalid Date"){
+			var fdate = date.toISOString().slice(0,10);
+			return fdate;
+		} 
+	}
+	return vals;
+}
+
+function genreg(data_table,field,id,val){ 
+	var html="";
+	html+="<td id='"+data_table+field+id+"'>";
+	html+= genlink(field,val);
+	html+="</td>";
+	return html;
+}
+
+// getdata('select * from tabzall order by id desc');
+getdata('select * from tabGest order by id desc');
+// getdata('select * from tabPontos order by id desc');
+ 
+
+ 
+function tablechange(val){
+	console.log(val);
+}
+
+ 
+function changesql(val){
+	var sql=val.split("$split")[1];
+	var tsql=document.getElementById("txtsql");
+	tsql.value=sql;
+	var descr=val.split("$split")[0];
+	var tdescrsql=document.getElementById("descrsql");
+	tdescrsql.value=descr;
+	var autorun=val.split("$split")[2];
+	var tautorun=document.getElementById("autorun");
+	tautorun.checked=Number(autorun); 
+	if(autorun==1)runsql();
+}
+
+function runsql(){
+	var tsql=document.getElementById("txtsql").value;
+	var sql=tsql.split(";")[0];
+	sql=sql.split("`").join('"');
+	var dt=sql.split("from")[1];
+	if(dt){
+		dt=dt.trim();
+		if(dt.split(" ").length>1)dt=dt.split(" ")[0].trim(); 
+	}else dt="";
+	data_table="data_table";
+	if(dt!="")data_table=dt;
+	getdata(sql);
+	
+	// addsqlt();
+	// CREATE TABLE if not exists `tabSql` ( `id` int(11) NOT NULL AUTO_INCREMENT, `date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `descr` varchar(256) COLLATE utf8_unicode_ci NOT NULL DEFAULT '', `sqlt` text CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL, PRIMARY KEY (`id`) ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
+	
+}
+function savesql(){
+
+}
+</script>
+<style>
+body
+{
+margin:0px; auto;
+padding:0px;
+font-family:helvetica;
+}
+#wrapper
+{
+  width:995px;
+  padding:0px;
+  margin:0px auto;
+  font-family:helvetica;
+  text-align:center;
+}
+h1
+{
+  text-align:center;
+  font-size:35px;
+  color:#2E2E2E;
+  padding:10px;
+}
+h1 p
+{
+	font-size:20px;
+	margin:0px;
+	color:#585858;
+}
+td
+{
+	// width:150px;
+	text-align:center;
+}
+input[type="button"]
+{
+	// margin-top:5px;
+}
+.save
+{
+	float:left;
+	display:none;
+}
+table.fixed {
+      table-layout: fixed;
+      width: 100%;
+    }
+    table.fixed td {
+      overflow: hidden;
+    }
+tr:nth-child(even) {
+  background-color: #f0f0f0;
+}
+.left_fixed {
+	position: fixed;
+	z-index:1;
+	width: 16%;
+	top: 0px;
+	bottom: 0px;
+	left: 0px;
+	// background-color: #0412303f; 
+	min-width: 170px;
+}
+.right_side {
+	width: 100%; 
+	height: 100vh;
+	float: right;
+	max-width: calc(100% - 170px);
+}
+.top_side {
+	position: fixed;
+	// grid-area: 1 / 1;
+	z-index:1;
+	width: 100%;
+	top: 0px; 
+	left: 175px;
+	background-color: gray;
+	min-height: 140px;
+	display: flex;
+  flex-flow: row wrap;
+}
+#wrapper{
+	top:140px;
+	position: relative; 
+}
+</style>
+</head>
+<?php //utils
+// function clog($output, $with_script_tags = true) {
+//     $js_code = 'console.log("php",' . json_encode($output, JSON_HEX_TAG) . 
+// ');';
+//     if ($with_script_tags) {
+//         $js_code = '<script>' . $js_code . '</script>';
+//     }
+//     echo $js_code;
+// }
+?>
+<?php
+ 
+?>
+<body>
+
+<div class="left_fixed" style=" border-style: solid; min-height:10px; width:100px;">
+	<select id="tables" size="5" onchange="tablechange(value);" style="min-width:170px;">
+	</select>
+	<select id="selfields" size="8" onchange="tablechange(value);" style="min-width:170px;">
+	</select>
+	<select id="selsql" size="8" onchange="changesql(value);" style="min-width:170px; height:calc(100% - 220px); ">
+	</select>
+</div> 
+<div class="right_side" > 
+	<div class="top_side">
+		<div style="float:left; width:140px;">
+			<input id="descrsql" style="float:left; width:140px;" />
+			<button style="  width:120px; height:20px;"  onclick="runsql();" >run</button>
+			<input id="autorun" type="checkbox" style=" float:right; " title="autorun" />
+			<button style="  width:150px; height:20px;"  onclick="savesql();" >save</button>
+			<button style="  width:150px; height:20px;"  onclick="glogin();" >login</button>
+		</div>
+		<div style="position:relative; border:solid; left: 0px;   width:calc(100% - 177px - 155px); height:130px; background-color: red; ">
+			<textarea id="txtsql" onkeypress="if(window.event.keyCode==13 && !window.event.shiftKey){runsql();return false;}" style="resize:none;  border:solid; width:calc(100% - 0px);  height:127px;" spellcheck="false"></textarea>
+		</div>
+	</div>
+	<div id="wrapper">
+	</div>
+</div>
+
+<script> 
+addtables();
+addsqlt();
+</script>
 </body>
 </html>
+
+
+
+
+
+
