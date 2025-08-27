@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <body>
+    <h3>SQL SELECT</h3>
+    <textarea id="sql" rows="6" cols="80">SELECT * FROM mensagens ORDER BY id DESC LIMIT 20;</textarea>
+    <br>
+    <label>Params (JSON array): <input id="params" value="[]"></label>
+    <button id="run">Executar</button>
+    <pre id="out"></pre>
+
+    <script>
+      const ENDPOINT = "https://superdb-api.superbem.workers.dev/sql";
+
+      document.getElementById("run").onclick = async () => {
+        const sql = document.getElementById("sql").value;
+        let params;
+        try {
+          params = JSON.parse(document.getElementById("params").value || "[]");
+          if (!Array.isArray(params)) throw new Error("Params deve ser array");
+        } catch (e) {
+          document.getElementById("out").textContent = "Erro nos params: " + e.message;
+          return;
+        }
+
+        try {
+          const resp = await fetch(ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sql, params })
+          });
+          const data = await resp.json();
+          document.getElementById("out").textContent = JSON.stringify(data, null, 2);
+        } catch (e) {
+          document.getElementById("out").textContent = "Falha na requisição: " + e.message;
+        }
+      };
+    </script>
+  </body>
+</html>
