@@ -28,6 +28,27 @@
 	<link rel="icon" type="image/png" href="favicon.png">
 
 
+<script>
+  async function listarMensagens() {
+    const resp = await fetch("https://superdb-api.superbem.workers.dev/mensagens");
+    const dados = await resp.json();
+    console.log(dados);
+  }
+
+  async function enviarMensagem(txt) {
+    await fetch("https://superdb-api.superbem.workers.dev/mensagens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texto: txt })
+    });
+  }
+
+  enviarMensagem("Teste do GitHub Pages");
+  listarMensagens();
+</script>
+
+
+
 
 <script>
 	function dropdownFunction() {
