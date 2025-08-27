@@ -12,9 +12,73 @@ const ENDPOINT = "https://superdb-api.superbem.workers.dev/sql";
 let data_table = "tabGest";
 var head = [];
 let tableobj = [];
+let apikey="";
+const headers = { "Content-Type": "application/json" };
+var email_autorized=0;
+
+
+async function isKeyValid(key) {
+    const resp = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + key
+      },
+      body: JSON.stringify({
+        sql: "PRAGMA table_info(tabGest)", // any auth‑protected query
+        params: []
+      })
+    });
+	console.log("resp",resp.status);
+    if (resp.status === 401) {
+      // Auth layer rejected it
+      return false;
+    }
+	if(resp.status===200){
+		return true;
+	}
+	return false;
+}
+
+async function checklogin(valuekey) {
+  console.log("Checking key:", valuekey);
+
+  try {
+    const valid = await isKeyValid(valuekey); // wait for the async call
+
+    if (valid) {
+      console.log("✅ Key is valid");
+      headers["Authorization"] = "Bearer " + valuekey;
+      apikey = valuekey; // store if needed
+	  email_autorized=1;
+	  addsqlt();
+    } else {
+      console.warn("❌ Invalid key");
+    }
+  } catch (err) {
+    console.error("Error validating key:", err);
+  }
+}
+
 
 /* ====== CORE API ====== */
 async function apiSQL(sql, params = []) {
+  const resp = await fetch(ENDPOINT, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ sql, params })
+  });
+  
+  const data = await resp.json();
+  
+  if (!resp.ok || data.success === false) {
+    throw new Error(data.error || `Erro HTTP ${resp.status}`);
+  }
+  
+  return data.rows || [];
+}
+async function apiSQL_v1(sql, params = []) {
+	
   const resp = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -222,25 +286,13 @@ async function insertrow(){
   const ph = names.map(()=>"?").join(",");
   await apiSQL(`INSERT INTO ${data_table} (${names.join(",")}) VALUES (${ph})`,vals);
   runsql();
-}
-
-/* ====== RESTO DAS FUNÇÕES ORIGINAIS (genbuttons, genreg, geninsertrow, runsql, etc.) ====== */
-/* Copie-as do seu gest.txt original, pois não precisam de alteração */
+} 
 
 </script>
 <script>
  
-// var data_table="tabGest";
-// var tableobj;
-// var head;
-
-var email_autorized=1;
-
 
  
-
-
-
 function editrow(data_table,id){ 
 	var bid=data_table+id;
 	// console.log(data_table,id);
@@ -288,7 +340,7 @@ function geninsertrow(head,data_table){
 
 	if(!email_autorized){
 		add_row.style.display="none";
-		txtsql.style.display="none";
+		// txtsql.style.display="none";
 	}
 }
 
@@ -343,7 +395,7 @@ function genreg(data_table,field,id,val){
 }
 
 // getdata('select * from tabzall order by id desc');
-getdata('select * from tabGest order by id desc');
+getdata('select * from tabGest order by id desc LIMIT 50');
 // getdata('select * from tabPontos order by id desc');
  
 
@@ -473,19 +525,7 @@ tr:nth-child(even) {
 }
 </style>
 </head>
-<?php //utils
-// function clog($output, $with_script_tags = true) {
-//     $js_code = 'console.log("php",' . json_encode($output, JSON_HEX_TAG) . 
-// ');';
-//     if ($with_script_tags) {
-//         $js_code = '<script>' . $js_code . '</script>';
-//     }
-//     echo $js_code;
-// }
-?>
-<?php
- 
-?>
+
 <body>
 
 <div class="left_fixed" style=" border-style: solid; min-height:10px; width:100px;">
@@ -503,7 +543,7 @@ tr:nth-child(even) {
 			<button style="  width:120px; height:20px;"  onclick="runsql();" >run</button>
 			<input id="autorun" type="checkbox" style=" float:right; " title="autorun" />
 			<button style="  width:150px; height:20px;"  onclick="savesql();" >save</button>
-			<button style="  width:150px; height:20px;"  onclick="glogin();" >login</button>
+			<input id="key" style="  width:150px; height:20px;"   ></input>
 		</div>
 		<div style="position:relative; border:solid; left: 0px;   width:calc(100% - 177px - 155px); height:130px; background-color: red; ">
 			<textarea id="txtsql" onkeypress="if(window.event.keyCode==13 && !window.event.shiftKey){runsql();return false;}" style="resize:none;  border:solid; width:calc(100% - 0px);  height:127px;" spellcheck="false"></textarea>
@@ -514,6 +554,11 @@ tr:nth-child(even) {
 </div>
 
 <script> 
+  document.getElementById("key").addEventListener("keydown", function(event) {
+    if (event.key === "Enter") {
+      checklogin(this.value);
+    }
+  });
 addtables();
 addsqlt();
 </script>
