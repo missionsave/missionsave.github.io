@@ -25,10 +25,7 @@ struct scint : public fl_scintilla {
 };
 
 int scint::handle(int e){
-	fl_scintilla::handle(e);
-	if(e == FL_KEYDOWN){
-		lua_str_realtime(getalltext());
-	}
+
 
 
 	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()==FL_F + 1){
@@ -48,7 +45,7 @@ int scint::handle(int e){
 	// 	return 1; 
 	// }
 	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='s'){
-		// fl_scintilla::handle(e);
+		fl_scintilla::handle(e);
 		// cotm("f2",filename)
 		lua_str(filename,1);
 		return 1;
@@ -58,8 +55,11 @@ int scint::handle(int e){
 	if(e==FL_UNFOCUS)SendEditor(SCI_AUTOCCANCEL);
 
 
-	return 0;
-	// return fl_scintilla::handle(e);
+	int ret= fl_scintilla::handle(e);
+	if(e == FL_KEYDOWN){
+		lua_str_realtime(getalltext());
+	}
+	return ret;
 }
 
 

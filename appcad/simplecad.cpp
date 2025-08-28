@@ -4998,9 +4998,27 @@ void luainit() {
 
 nmutex lua_mtx("lua_mtx", 1);
 
+void clearAll(OCC_Viewer* occv){
+	cotm("luarun", occv->vaShape.size());
+	for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i) {
+		occv->m_context->Deactivate(occv->vaShape[i]);
+		if (occv->m_context->IsDisplayed(occv->vaShape[i]))
+			occv->m_context->Remove(occv->vaShape[i], Standard_False);
+		else
+			occv->m_context->Erase(occv->vaShape[i], Standard_False);
+		occv->vaShape[i].Nullify();
+		occv->vlua[i]->cshape.Nullify();
+	}
+	occv->vshapes.clear();
+	occv->vaShape.clear();
+	occv->ulua.clear();
+	occv->vlua.clear();
+}
+
+
 void lua_str_realtime(string str){
     luainit();
-	// cotm(str);
+	cotm(str);
 
 }
 void lua_str(string str, bool isfile) {
@@ -5008,20 +5026,21 @@ void lua_str(string str, bool isfile) {
         lua_mtx.lock();
         luainit();
 
-        cotm("luarun", occv->vaShape.size());
-        for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i) {
-            occv->m_context->Deactivate(occv->vaShape[i]);
-            if (occv->m_context->IsDisplayed(occv->vaShape[i]))
-                occv->m_context->Remove(occv->vaShape[i], Standard_False);
-            else
-                occv->m_context->Erase(occv->vaShape[i], Standard_False);
-            occv->vaShape[i].Nullify();
-            occv->vlua[i]->cshape.Nullify();
-        }
-        occv->vshapes.clear();
-        occv->vaShape.clear();
-        occv->ulua.clear();
-        occv->vlua.clear();
+		clearAll(occv);
+        // cotm("luarun", occv->vaShape.size());
+        // for (int i = static_cast<int>(occv->vaShape.size()) - 1; i >= 0; --i) {
+        //     occv->m_context->Deactivate(occv->vaShape[i]);
+        //     if (occv->m_context->IsDisplayed(occv->vaShape[i]))
+        //         occv->m_context->Remove(occv->vaShape[i], Standard_False);
+        //     else
+        //         occv->m_context->Erase(occv->vaShape[i], Standard_False);
+        //     occv->vaShape[i].Nullify();
+        //     occv->vlua[i]->cshape.Nullify();
+        // }
+        // occv->vshapes.clear();
+        // occv->vaShape.clear();
+        // occv->ulua.clear();
+        // occv->vlua.clear();
 
         int status;
         std::string code;
