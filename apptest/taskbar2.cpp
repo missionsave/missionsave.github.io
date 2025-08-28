@@ -2048,12 +2048,16 @@ int listenusb() {
 
             // Only partitions, never whole disks
             const char* devtype = udev_device_get_devtype(dev);
-            if (!devtype || std::string(devtype) != "partition") {
-                udev_device_unref(dev);
-                continue;
-            }
+            // if (!devtype || std::string(devtype) != "partition") {
+            //     udev_device_unref(dev);
+            //     continue;
+            // }
+			if (!devtype || (std::string(devtype) != "partition" && std::string(devtype) != "disk")) {
+				udev_device_unref(dev);
+				continue;
+			}
 
-            const char* devnode_c = udev_device_get_devnode(dev);
+			const char* devnode_c = udev_device_get_devnode(dev);
             if (!devnode_c) {
                 udev_device_unref(dev);
                 continue;
@@ -2061,6 +2065,7 @@ int listenusb() {
             std::string devnode = devnode_c; // e.g., /dev/sdb1
 
             // Optional: only filesystem partitions
+			usleep(500 * 1000);
             const char* fs_usage = udev_device_get_property_value(dev, "ID_FS_USAGE");
             if (!fs_usage || std::string(fs_usage) != "filesystem") {
                 udev_device_unref(dev);
@@ -2074,11 +2079,27 @@ int listenusb() {
 
             if (action == "add") {
                 // Mount the partition device (not the disk)
-                if (pmountDevice(devnode /*, mountName*/)) {
-                    std::cout << "Mounted " << devnode << " at " << mediaMountPoint << "\n";
-                } else {
-                    std::cerr << "Failed to mount " << devnode << "\n";
-                }
+                // if (pmountDevice(devnode /*, mountName*/)) {
+                //     std::cout << "Mounted " << devnode << " at " << mediaMountPoint << "\n";
+                // } else {
+                //     std::cerr << "Failed to mount " << devnode << "\n";
+                // }
+				std::string fs_type = udev_device_get_property_value(dev, "ID_FS_TYPE") ?: "";
+				cotm(devnode);
+// // If FS type is ntfs, vfat, or exfat, apply uid/gid/umask
+// std::ostringstream opts;
+// if (fs_type == "ntfs" || fs_type == "vfat" || fs_type == "exfat") {
+//     opts << "uid=" << getuid()
+//          << ",gid=" << getgid()
+//          << ",umask=000";
+// }
+
+// // Call the updated pmountDevice
+// if (pmountDevice(devnode, mountName, fs_type, opts.str())) {
+//     std::cout << "Mounted " << devnode << " (" << fs_type << ") at /media/" << mountName << "\n";
+// } else {
+//     std::cerr << "Failed to mount " << devnode << "\n";
+// }
             } else if (action == "remove") {
                 // Try to unmount by device; if that fails, try the media mountpoint
                 if (pumountDevice(devnode)) {

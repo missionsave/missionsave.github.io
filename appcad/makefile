@@ -208,18 +208,24 @@ ifeq ($(OS_NAME), Arm)
 endif
 
 # lib files
-SRC_LIB :=  \
+# SRC_LIB :=  \
+#     scintlua.cpp \
+#     helpers.cpp \
+#     ../common/general.cpp \
+#     ../common/font_loader.cpp \
+#     ../common/fl_scintilla.cpp \
+#     ../common/fl_browser_msv.cpp
+
+
+# exec
+SRC_APP := \
+    simplecad.cpp \
     scintlua.cpp \
     helpers.cpp \
     ../common/general.cpp \
     ../common/font_loader.cpp \
     ../common/fl_scintilla.cpp \
     ../common/fl_browser_msv.cpp
-
-
-# exec
-SRC_APP := \
-    simplecad.cpp
 
 ifneq ($(app),)
     TARGET := $(app)

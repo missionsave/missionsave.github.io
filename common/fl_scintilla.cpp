@@ -477,6 +477,7 @@ string fl_scintilla::getSelected(){
 
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='s'){
             save();
+			// cotm("f1");
             return 0;
         }
 
@@ -547,6 +548,19 @@ string fl_scintilla::getSelected(){
 		return Fl_Scintilla::handle(e);
 	}
 
+	std::string fl_scintilla::getalltext() {
+		// Get the total length (without null terminator)
+		const auto length = static_cast<size_t>(SendEditor(SCI_GETTEXTLENGTH, 0, 0));
+
+		// Allocate a string with space for the text + null terminator
+		std::string allText(length, '\0');
+
+		// Fill it (length+1 to include null terminator)
+		SendEditor(SCI_GETTEXT, length + 1, reinterpret_cast<sptr_t>(allText.data()));
+
+		// Now allText contains the editor’s text
+		return allText;
+	}
 void fl_scintilla::save(){ 
 	// ScintillaObject *sci=scicurr;
 	// if(ptfcurr==0)return;

@@ -56,6 +56,7 @@ struct FileEntry {
     // void resize(int x, int y, int w, int h) override;
     int handle(int e)override;
 	std::string getSelected();
+	std::string getalltext();
 
 	std::tuple<int,int> csearch(const char* needle, bool dirDown = true, int flags = SCFIND_MATCHCASE);
     void searchshow(); 

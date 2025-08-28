@@ -8,6 +8,7 @@
 using namespace std;
 
 void lua_str(string str,bool isfile);
+void lua_str_realtime(string str);
 
 
 string currfilename="";
@@ -24,6 +25,12 @@ struct scint : public fl_scintilla {
 };
 
 int scint::handle(int e){
+	fl_scintilla::handle(e);
+	if(e == FL_KEYDOWN){
+		lua_str_realtime(getalltext());
+	}
+
+
 	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()==FL_F + 1){
 		int currentPos = SendEditor( SCI_GETCURRENTPOS, 0, 0);
 		int currentLine = SendEditor(SCI_LINEFROMPOSITION, currentPos, 0);
@@ -35,15 +42,24 @@ int scint::handle(int e){
 		// lua_str(buffer,0);
 		return 1;
 	}
-	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()==FL_F + 2){
-		cotm("f2",filename);
+	// if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()==FL_F + 2){
+	// 	// cotm("f2",filename);
+	// 	lua_str(filename,1);
+	// 	return 1; 
+	// }
+	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='s'){
+		// fl_scintilla::handle(e);
+		// cotm("f2",filename)
 		lua_str(filename,1);
-		return 1; 
+		return 1;
 	}
+
+
 	if(e==FL_UNFOCUS)SendEditor(SCI_AUTOCCANCEL);
 
 
-	return fl_scintilla::handle(e);
+	return 0;
+	// return fl_scintilla::handle(e);
 }
 
 

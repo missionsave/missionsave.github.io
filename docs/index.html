@@ -29,28 +29,6 @@
 
 
 <script>
-  async function listarMensagens() {
-    const resp = await fetch("https://superdb-api.superbem.workers.dev/mensagens");
-    const dados = await resp.json();
-    console.log(dados);
-  }
-
-  async function enviarMensagem(txt) {
-    await fetch("https://superdb-api.superbem.workers.dev/mensagens", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texto: txt })
-    });
-  }
-
-  enviarMensagem("Teste do GitHub Pages");
-  listarMensagens();
-</script>
-
-
-
-
-<script>
 	function dropdownFunction() {
 		var elements = document.querySelectorAll('.dropdown-content');
 
@@ -127,6 +105,11 @@
 					<a style="cursor:pointer;" onclick="loadPage('home.html')">Nutrindo esperança</a>
 				</div>
  			</div> -->
+
+
+			<!-- <a  onclick='loadPage("gest/index.html"); return false;'>gest</a>
+			<a  onclick='loadPage("pages/Nutrition.html"); return false;'>Nutrition</a>
+			<a  onclick='loadPage("pages/Technology-to-fight-hunger.html"); return false;'>Tec</a> -->
 
 			<a href="?p=Nutrition.html">Nutrition</a>
 			<a style="cursor:pointer;" href="?p=Technology-to-fight-hunger.html">Studys</a>
@@ -345,9 +328,54 @@
 				document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
 			});
 	}
-	const pValue = params.get("p");
 
-	
+async function loadPage_v1(url, addToHistory = true) {
+  try {
+	// url="https://missionsave.github.io/"+url;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const html = await resp.text();
+
+    // Parse HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    // Replace viewer content
+    const viewer = document.getElementById("viewer");
+    viewer.innerHTML = doc.body.innerHTML;
+
+    // Execute <script> tags
+    viewer.querySelectorAll("script").forEach(oldScript => {
+      const newScript = document.createElement("script");
+      if (oldScript.src) {
+        newScript.src = oldScript.src; // external script
+      } else {
+        newScript.textContent = oldScript.textContent; // inline script
+      }
+      document.body.appendChild(newScript);
+      document.body.removeChild(newScript);
+    });
+
+    // Update browser history (for back/forward)
+    // if (addToHistory) {
+    //   history.pushState({ url }, "", url);
+    // }
+  } catch (err) {
+    document.getElementById("viewer").innerHTML =
+      "<p>Error loading page: " + err.message + "</p>";
+  }
+}
+
+// Handle back/forward buttons
+// window.addEventListener("popstate", e => {
+//   if (e.state && e.state.url) {
+//     loadPage(e.state.url, false); // don't push again
+//   }
+// });
+
+
+
+const pValue = params.get("p");
 if (pValue){ //replace "%2F" from p to "/"
 	// Clone current params without 'p'
 	const params = new URLSearchParams(window.location.search);
@@ -368,9 +396,11 @@ if (pValue){ //replace "%2F" from p to "/"
 
 	console.log(pValue);
 	if (!pValue || pValue.trim() === "") {
-		loadPage('home.html');
+		// loadPage('gest/index.html');
+		// loadPage('https://missionsave.github.io/gest/index.html');
+		loadPage('https://missionsave.github.io/home.html');
 	} else {
-		loadPage("pages/"+pValue);
+		loadPage("https://missionsave.github.io/pages/"+pValue);
 	}
 </script>
 

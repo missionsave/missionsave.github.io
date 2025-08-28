@@ -4998,6 +4998,11 @@ void luainit() {
 
 nmutex lua_mtx("lua_mtx", 1);
 
+void lua_str_realtime(string str){
+    luainit();
+	// cotm(str);
+
+}
 void lua_str(string str, bool isfile) {
     thread([](string str, bool isfile, OCC_Viewer* occv) {
         lua_mtx.lock();
