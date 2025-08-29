@@ -48,7 +48,8 @@ Extrude 70
 Movel(-70,170-70,-70-15)
 
 
-
+Part skech_arm_1
+Pl 0,0 280,0 @0,6 @-280,0 0,0
 
 Part robot_arm_1
 Pl 0,0 70,70 @70,-70 @70,70 @70,-70
@@ -56,6 +57,19 @@ Offset 7
 Extrude (56) 
 Rotatexl(90)
 Movel(-285,170-7,-100)
+
+--Pl 0,0 280,0 @0,6 @-280,0 0,0
+--Extrude 56
+Clone skech_arm_1
+Extrude 56
+Rotatexl(90)
+Movel(-285,170-7,-100)
+Clone skech_arm_1
+Extrude 56
+Movel(0,70)
+Rotatexl(90)
+Movel(-285,170-7,-100)
+
 
 end
 robot1()

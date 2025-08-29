@@ -1,65 +1,112 @@
-// g++ askpass.cpp -o askpass `fltk-config --cxxflags --ldflags`
-
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
-#include <FL/Fl_Secret_Input.H>
+#include <FL/Fl_Input.H>
 #include <FL/Fl_Button.H>
-#include <thread>
 #include <iostream>
-#include <cstdio>
+#include <thread>
+#include <cstdlib>
 #include <cstring>
-#include <mutex>
-#include <condition_variable>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
-static std::string g_password;
-static Fl_Window* g_win = nullptr;
-static std::mutex mtx;
-static std::condition_variable cv;
-static bool ready = false; // Flag to indicate if input is ready
-
-static void ok_cb(Fl_Widget*, void* v) {
-    Fl_Secret_Input* in = static_cast<Fl_Secret_Input*>(v);
-    g_password = in->value();
-    in->value("");              // limpa input
-    if (g_win) g_win->hide();   // fecha janela
-    {
-        std::lock_guard<std::mutex> lk(mtx);
-        ready = true; // Signal that password is ready
-    }
-    cv.notify_one(); // Notify waiting thread
+// returns true if sudo -n fails (i.e. password is required)
+bool run_command_check(const std::string &cmd) {
+    int ret = std::system((cmd + " >/dev/null 2>&1").c_str());
+    return ret != 0;
 }
 
-void ask_password_gui() {
-    Fl_Window win(300, 100, "Password");
-    g_win = &win;
-    Fl_Secret_Input input(80, 20, 200, 25, "Senha:");
-    Fl_Button ok(110, 60, 80, 25, "OK");
-    ok.callback(ok_cb, &input);
-    win.end();
-    win.show();
-    Fl::run();
+struct PassDialog {
+    Fl_Window *win;
+    Fl_Input  *input;
+    Fl_Button *ok;
+    std::string password;
+    bool done = false;
+};
+
+void ok_cb(Fl_Widget *w, void *data) {
+    PassDialog *dlg = static_cast<PassDialog*>(data);
+    dlg->password = dlg->input->value();
+    dlg->done = true;
+    dlg->win->hide();
+}
+
+void ask_password_gui(std::string &out_pass) {
+    PassDialog dlg;
+    dlg.win   = new Fl_Window(300,100,"Password Required");
+    dlg.input = new Fl_Input(80,20,200,30,"Password:");
+    dlg.ok    = new Fl_Button(120,60,60,30,"OK");
+    dlg.ok->callback(ok_cb, &dlg);
+    dlg.win->end();
+    dlg.win->show();
+
+    // wait until user clicks OK
+    while (!dlg.done) {
+        Fl::wait();
+    }
+    out_pass = dlg.password;
+    delete dlg.win;
+}
+
+// if password is empty, we assume password-less sudo works
+void do_mount(const std::string &password) {
+    if (password.empty()) {
+        // no password needed: use sudo -n which will error out if password IS needed
+        int ret = std::system("sudo -n mount /dev/sdc1 ~/pen");
+        if (ret != 0) {
+            std::cerr << "mount failed without password. Perhaps password is actually required.\n";
+        }
+        return;
+    }
+
+    // password is provided: pipe it to sudo -S
+    int pipefd[2];
+    if (pipe(pipefd)<0) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
+    pid_t pid = fork();
+    if (pid<0) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+    if (pid==0) {
+        // child: read password from pipe
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        execl("/bin/sh","sh","-c","sudo -S mount /dev/sdc1 ~/pen",(char*)NULL);
+        perror("execl");
+        exit(EXIT_FAILURE);
+    } else {
+        // parent: write password + newline
+        close(pipefd[0]);
+        std::string pw = password + "\n";
+        write(pipefd[1], pw.c_str(), pw.size());
+        close(pipefd[1]);
+        wait(nullptr);
+    }
 }
 
 int main() {
-    std::thread t([]{ ask_password_gui(); });
+    std::string password;
 
-    // Wait for password input
-    {
-        std::unique_lock<std::mutex> lk(mtx);
-        cv.wait(lk, []{return ready;});
+    // first check: is password required?
+    if (run_command_check("sudo -n ls /root")) {
+        std::cout << "Password is required for sudo.\n";
+        // ask GUI on main thread
+        ask_password_gui(password);
     }
-    t.join(); // Ensure thread is finished before proceeding
+    else {
+        std::cout << "No password needed for sudo.\n";
+    }
 
-    if (!g_password.empty()) {
-        FILE* pipe = popen("sudo mount /dev/sdc2 ~/pen", "w");
-        if (pipe) {
-            std::string pw = g_password + "\n";
-            fwrite(pw.c_str(), 1, pw.size(), pipe);
-            fflush(pipe);
-            pclose(pipe);
-        }
-        // apaga a password da memória
-        std::fill(g_password.begin(), g_password.end(), '\0');
-        g_password.clear();
-    }
+    // perform the mount, with or without the password
+    do_mount(password);
+
+    // scrub the password
+    std::fill(password.begin(), password.end(), '\0');
+    password.clear();
+
+    return 0;
 }

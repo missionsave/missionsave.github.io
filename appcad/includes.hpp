@@ -280,6 +280,61 @@
 #include <BOPAlgo_BOP.hxx>
 #include <TopoDS_Shape.hxx>
 #include <Geom2dAdaptor_Curve.hxx>
+
+#include <AIS_ListOfInteractive.hxx>
+#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
+#include <TopoDS_Shape.hxx>
+#include <AIS_Shape.hxx>
+#include <V3d_View.hxx>
+
+#include <V3d_View.hxx>
+#include <TopoDS_Shape.hxx>
+#include <gp_Pnt.hxx>
+#include <Graphic3d_BufferType.hxx>
+#include <Image_PixMap.hxx>
+#include <Image_AlienPixMap.hxx>
+
+#include <TopoDS_Shape.hxx>
+#include <V3d_View.hxx>
+#include <Graphic3d_Camera.hxx>
+#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+
+#include <BRepIntCurveSurface_Inter.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <TopoDS.hxx>
+#include <Precision.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <V3d_View.hxx>
+#include <Graphic3d_BufferType.hxx>
+#include <Image_PixMap.hxx>
+#include <BRepExtrema_DistShapeShape.hxx>
+#include <TopoDS_Shape.hxx>
+#include <gp_Pnt.hxx>
+#include <V3d_View.hxx>
+
+#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <Geom_Curve.hxx>
+#include <GeomAPI_ProjectPointOnCurve.hxx>
+#include <V3d_View.hxx>
+#include <Graphic3d_BufferType.hxx>
+#include <Image_PixMap.hxx>
+#include <BRepClass3d_SolidClassifier.hxx>
+#include <BRepClass_FaceClassifier.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Precision.hxx>
+#include <Standard_TypeDef.hxx>
 #include <FL/Fl.H>
 #include <FL/Fl_Help_View.H>
 #include <FL/Fl_Window.H>

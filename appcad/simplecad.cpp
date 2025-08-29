@@ -1,58 +1,4 @@
 #include "includes.hpp"
-#include <AIS_ListOfInteractive.hxx>
-	#include <HLRBRep_Algo.hxx>
-#include <HLRBRep_HLRToShape.hxx>
-#include <TopoDS_Shape.hxx>
-#include <AIS_Shape.hxx>
-#include <V3d_View.hxx>
-
-#include <V3d_View.hxx>
-#include <TopoDS_Shape.hxx>
-#include <gp_Pnt.hxx>
-#include <Graphic3d_BufferType.hxx>
-#include <Image_PixMap.hxx>
-#include <Image_AlienPixMap.hxx>
-
-#include <TopoDS_Shape.hxx>
-#include <V3d_View.hxx>
-#include <Graphic3d_Camera.hxx>
-#include <HLRBRep_Algo.hxx>
-#include <HLRBRep_HLRToShape.hxx>
-#include <BRepBuilderAPI_Transform.hxx>
-
-#include <BRepIntCurveSurface_Inter.hxx>
-#include <BRepBuilderAPI_MakeEdge.hxx>
-#include <TopoDS.hxx>
-#include <Precision.hxx>
-#include <AIS_InteractiveContext.hxx>
-#include <V3d_View.hxx>
-#include <Graphic3d_BufferType.hxx>
-#include <Image_PixMap.hxx>
-#include <BRepExtrema_DistShapeShape.hxx>
-#include <TopoDS_Shape.hxx>
-#include <gp_Pnt.hxx>
-#include <V3d_View.hxx>
-
-#include <HLRBRep_Algo.hxx>
-#include <HLRBRep_HLRToShape.hxx>
-#include <TopExp_Explorer.hxx>
-#include <BRep_Tool.hxx>
-#include <Geom_Curve.hxx>
-#include <GeomAPI_ProjectPointOnCurve.hxx>
-#include <V3d_View.hxx>
-#include <Graphic3d_BufferType.hxx>
-#include <Image_PixMap.hxx>
-#include <BRepClass3d_SolidClassifier.hxx>
-#include <BRepClass_FaceClassifier.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopoDS.hxx>
-#include <TopoDS_Face.hxx>
-#include <BRep_Tool.hxx>
-#include <gp_Pnt.hxx>
-#include <gp_Pnt2d.hxx>
-#include <BRepAdaptor_Surface.hxx>
-#include <Precision.hxx>
-#include <Standard_TypeDef.hxx>
 
 #pragma region globals
 
@@ -61,6 +7,9 @@
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
 // #endif
+
+
+void gopart(const string& str);
 
 void WriteBinarySTL(const TopoDS_Shape& shape, const std::string& filename);
 std::string translate_shorthand(std::string_view src); 
@@ -366,10 +315,10 @@ struct OCC_Viewer : public flwindow {
 		if (in_resize) return; // Prevent recursion
         in_resize = true;
 
-		cotm(W)
+		// cotm(W)
 		Fl_Window::resize(X, Y, W, window()->h()-22-25);
 		// Fl_Window::resize(X, Y, W, H);
-		cotm(W)
+		// cotm(W)
         	// woccbtn->resize(woccbtn->x(), woccbtn->y(), W, 24*0.7);
 		if (m_initialized) {
 
@@ -798,7 +747,7 @@ void update_placement_v1() {
 
 
 		void update_placement() {
-			cotm(name,needsplacementupdate);
+			// cotm(name,needsplacementupdate);
 			if (needsplacementupdate == 0) return;
 			// BRepBuilderAPI_Transform transformer(shape,
 			// 									 trsf);	 // if part only last
@@ -822,7 +771,7 @@ void update_placement_v1() {
 
 
 			std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
-			cotm(ext.size());
+			// cotm(ext.size());
 			if(!editing){
 				fshape=FuseAndRefineWithAPI(cshape);
 			}else{
@@ -1706,7 +1655,7 @@ bool IsWorldPointGreen(const Handle(V3d_View)& view,
     if (px < 0 || px >= w || py < 0 || py >= h)
         return false;
 
-	cotm("w1")
+	// cotm("w1")
 	// make_current();
 	// if (view->IsInvalidated())
     // m_view->Redraw();
@@ -1722,13 +1671,13 @@ bool IsWorldPointGreen(const Handle(V3d_View)& view,
 // 	Image_AlienPixMap pix;
 // if (!view->ToPixMap(pix, w, h, Graphic3d_BT_RGB) || pix.IsEmpty())
 //     return false;
-cotm("w2")
+// cotm("w2")
     // 5. Determine channel count and stride
     const Image_Format fmt      = pix.Format();
     const size_t      channels = (fmt == Image_Format_RGBA ? 4 : 3);
     const size_t      rowBytes = pix.Width() * channels;
     const Standard_Byte* data   = pix.Data();
-cotm("w3")
+// cotm("w3")
     // 6. Scan a circular neighborhood for “greenish” pixels
     for (int dy = -radius; dy <= radius; ++dy) {
         for (int dx = -radius; dx <= radius; ++dx) {
@@ -1752,7 +1701,7 @@ cotm("w3")
                 return true;                   // found greenish pixel
         }
     }
-cotm("w7")
+// cotm("w7")
     return false;  // no green near the projected point
 }
 
@@ -2878,12 +2827,12 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 
 	void fillvectopo() {
 		vshapes.clear();
-		cotm(vaShape.size(), vshapes.size());
+		// cotm(vaShape.size(), vshapes.size());
 		for (int i = 0; i < vaShape.size(); i++) {
 			if (!m_context->IsDisplayed(vaShape[i]) || !vlua[i]->visible_hardcoded) continue;
 			vshapes.push_back(vaShape[i]->Shape());
 		}
-		cotm(vaShape.size(), vshapes.size());
+		// cotm(vaShape.size(), vshapes.size());
 	}
 	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
 		if (!hlr_on)return;
@@ -3870,6 +3819,9 @@ ld->visible_hardcoded=0;
                   << ", code=" << code 
                   << std::endl;
 
+		if(code==2){		  
+			gopart(ld->name);
+		}
 		//solo
 		if(code==1){
 			bool flagempty=1;
@@ -3937,11 +3889,11 @@ ld->visible_hardcoded=0;
     });
 
 	occv->fillvectopo();
-	cotm("vshapes", occv->vshapes.size());
-	perf1("bench fillvectopo");
+	// cotm("vshapes", occv->vshapes.size());
+	// perf1("bench fillvectopo");
 	occv->toggle_shaded_transp(occv->currentMode);
 	occv->redraw();
-	perf("fillbrowser");
+	// perf("fillbrowser");
 }
 
 #pragma endregion browser
@@ -5016,13 +4968,9 @@ void clearAll(OCC_Viewer* occv){
 }
 
 
-void lua_str_realtime(string str){
-    luainit();
-	cotm(str);
 
-}
-void lua_str(string str, bool isfile) {
-    thread([](string str, bool isfile, OCC_Viewer* occv) {
+void lua_str(const string &str, bool isfile) {
+    // thread([](string str, bool isfile, OCC_Viewer* occv) {
         lua_mtx.lock();
         luainit();
 
@@ -5070,9 +5018,20 @@ void lua_str(string str, bool isfile) {
             lua_pop(L, 1);
         }
         lua_mtx.unlock();
-    }, str, isfile, occv).detach();
+    // }, str, isfile, occv).detach();
 }
+void lua_str_realtime(const string &str){
+	
+    // luainit();
+	// cotm(str);
+	// clearAll(occv);
+	// int status;
+	// std::string code;
+	// code = translate_shorthand(str);
+	// status = luaL_loadbuffer(L, code.data(), code.size(), "chunk");
 
+
+}
 #if 0
 void luainit() {
 	if (G) return;

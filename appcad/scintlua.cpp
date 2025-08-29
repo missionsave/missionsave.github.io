@@ -7,8 +7,8 @@
 
 using namespace std;
 
-void lua_str(string str,bool isfile);
-void lua_str_realtime(string str);
+void lua_str(const string &str,bool isfile);
+void lua_str_realtime(const string &str);
 
 
 string currfilename="";
@@ -68,3 +68,45 @@ scint* editor;
 void scint_init(int x,int y,int w,int h){ 
 	editor = new scint(x,y,w,h);
 }
+#include <string>
+#include <string>
+
+void gopart(const std::string& str) {
+    if (str.empty()) return;
+
+    const int docLen   = editor->SendEditor(SCI_GETTEXTLENGTH);
+    const int matchLen = static_cast<int>(str.size());
+    if (matchLen <= 0 || docLen <= 0) return;
+
+    // Deterministic search over the whole document
+    editor->SendEditor(SCI_SETSEARCHFLAGS, 0);              // adjust flags if needed
+    editor->SendEditor(SCI_SETTARGETSTART, 0);
+    editor->SendEditor(SCI_SETTARGETEND, docLen);
+
+    const int pos = editor->SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)str.c_str());
+    if (pos == -1) return;                                  // no match
+
+    // Target doc line for the first match
+    const int line = editor->SendEditor(SCI_LINEFROMPOSITION, pos);
+
+    // If folding might hide it, ensure it's visible
+    // (optional but helpful when code is folded)
+    editor->SendEditor(SCI_ENSUREVISIBLE, line);
+
+    // Compute wrap-aware visual line index and scroll delta
+    const int visual_line        = editor->SendEditor(SCI_VISIBLEFROMDOCLINE, line);
+    const int current_visual_top = editor->SendEditor(SCI_GETFIRSTVISIBLELINE);
+    const int delta              = visual_line - current_visual_top;
+
+    // Scroll so the found line is at the very top of the view
+    if (delta != 0)
+        editor->SendEditor(SCI_LINESCROLL, 0, delta);
+
+    // Highlight the match (caret stays visible; no jump since line is already at top)
+    editor->SendEditor(SCI_SETSEL, pos, pos + matchLen);
+}
+
+
+
+
+
