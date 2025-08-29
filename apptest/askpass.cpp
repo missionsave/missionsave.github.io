@@ -1,3 +1,5 @@
+// g++ ./askpass.cpp -o ./askpass -lfltk -lX11 -lXinerama -lXrender -lXfixes -lfontconfig -lfreetype -lXft -lXcursor
+
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Input.H>
@@ -52,7 +54,7 @@ void ask_password_gui(std::string &out_pass) {
 void do_mount(const std::string &password) {
     if (password.empty()) {
         // no password needed: use sudo -n which will error out if password IS needed
-        int ret = std::system("sudo -n mount /dev/sdc1 ~/pen");
+        int ret = std::system("sudo -n mount /dev/sdb2 ~/pen");
         if (ret != 0) {
             std::cerr << "mount failed without password. Perhaps password is actually required.\n";
         }
@@ -75,7 +77,7 @@ void do_mount(const std::string &password) {
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
-        execl("/bin/sh","sh","-c","sudo -S mount /dev/sdc1 ~/pen",(char*)NULL);
+        execl("/bin/sh","sh","-c","sudo -S mount /dev/sdb2 ~/pen",(char*)NULL);
         perror("execl");
         exit(EXIT_FAILURE);
     } else {

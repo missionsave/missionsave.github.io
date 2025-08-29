@@ -45,7 +45,8 @@ Part robot_arm
 Pl 0,0 70,0 @0,70 @-70,0
 Offset 6
 Extrude 70
-Movel(-70,170-70,-70-15)
+Rotatexl(90)
+Movel(-70,170,-70-15)
 
 
 Part skech_arm_1
