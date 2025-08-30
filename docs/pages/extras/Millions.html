@@ -5,40 +5,45 @@
 
 <!-- variaveis -->
 <script>
+
+var histsize=0;
 var vardate = [];
 var varball = [];
 
-function fillkeysall() {
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "https://nunofcguerreiro.com/api-euromillions-json?result=all", false); // false = synchronous
-  xhr.send(null);
+// 👇 use your Cloudflare Worker endpoint here
+const API_URL = "https://superdb-api.superbem.workers.dev/euromillions";
 
-  if (xhr.status === 200) {
-    var data = JSON.parse(xhr.responseText);
-    var arr = data.drawns;
+async function fillkeysall() {
+  const response = await fetch(API_URL);
+  const data = await response.json();
+  const arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 450; i--) {
-      vardate.push(arr[i].date);
-      varball.push([
-        arr[i].number_1,
-        arr[i].number_2,
-        arr[i].number_3,
-        arr[i].number_4,
-        arr[i].number_5,
-        arr[i].star_1,
-        arr[i].star_2
-      ]);
-    }
+  for (let i = arr.length - 1; i >= 450; i--) {
+    vardate.push(arr[i].date);
+    varball.push([
+      arr[i].number_1,
+      arr[i].number_2,
+      arr[i].number_3,
+      arr[i].number_4,
+      arr[i].number_5,
+      arr[i].star_1,
+      arr[i].star_2
+    ]);
   }
 }
 
-// run immediately, globals are ready after this
-fillkeysall();
+// run immediately on load
+(async () => {
+  await fillkeysall();
 
-console.log("vardate:", vardate);
-console.log("varball:", varball);
-
-// rest of your script can safely use vardate / varball here
+	histsize=varball.length;
+  // globals are ready here
+  console.log("vardate:", vardate);
+  console.log("varball:", varball);
+//   test();
+// init();
+  // you can safely use vardate/varball in the rest of your script
+})();
 </script>
 
 <button onclick="vote()" >Vote</button>
@@ -47,7 +52,7 @@ console.log("varball:", varball);
 <script>
 var n=50;
 var k=5;
-var histsize=varball.length;
+// var histsize=varball.length;
 var histrb;
 var qtdi;
 var qtdisum=new Array(k+1); 
@@ -528,7 +533,7 @@ window.onload = function(e){
 		loading=0;
 		test();
 		document.getElementById("totais").innerHTML="";
-	},30);
+	},300);
 }
 </script>
 <style>
@@ -689,7 +694,7 @@ function addfilter(){
 	
 }
 
-init();
+// init();
 
 var arr=[0];
 console.log("arr"+arr.length);
