@@ -18,7 +18,7 @@ async function fillkeysall() {
   const data = await response.json();
   const arr = data.drawns;
 
-  for (let i = arr.length - 1; i >= 450; i--) {
+  for (let i = arr.length - 1; i >= 0; i--) {
     vardate.push(arr[i].date);
     varball.push([
       arr[i].number_1,
@@ -26,8 +26,8 @@ async function fillkeysall() {
       arr[i].number_3,
       arr[i].number_4,
       arr[i].number_5,
-      arr[i].star_1,
-      arr[i].star_2
+    //   arr[i].star_1,
+    //   arr[i].star_2
     ]);
   }
 }
