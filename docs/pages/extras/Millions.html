@@ -1,49 +1,92 @@
 <!DOCTYPE html>
 
 <html>
+<meta http-equiv="Cache-Control" content="public, max-age=86400">
 <button onclick="vote()" >Vote</button>
 
-<!-- variaveis -->
-<script>
-
-var histsize=0;
+<!-- variaveis --> 
+ <script>
 var vardate = [];
 var varball = [];
 
-// 👇 use your Cloudflare Worker endpoint here
-const API_URL = "https://superdb-api.superbem.workers.dev/euromillions";
+function fillkeysall() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "https://superdb-api.superbem.workers.dev/euromillions", false); // false = synchronous
+  xhr.send(null);
 
-async function fillkeysall() {
-  const response = await fetch(API_URL);
-  const data = await response.json();
-  const arr = data.drawns;
+  if (xhr.status === 200) {
+    var data = JSON.parse(xhr.responseText);
+    var arr = data.drawns;
 
-  for (let i = arr.length - 1; i >= 0; i--) {/////////////////////////
-    vardate.push(arr[i].date);
-    varball.push([
-      arr[i].number_1,
-      arr[i].number_2,
-      arr[i].number_3,
-      arr[i].number_4,
-      arr[i].number_5,
-    //   arr[i].star_1,
-    //   arr[i].star_2
-    ]);
+    for (var i = arr.length - 1; i >= 450; i--) {
+      vardate.push(arr[i].date);
+      varball.push([
+        arr[i].number_1,
+        arr[i].number_2,
+        arr[i].number_3,
+        arr[i].number_4,
+        arr[i].number_5,
+        arr[i].star_1,
+        arr[i].star_2
+      ]);
+    }
   }
 }
+</script>
+<script defer>
+  var histsize = 0;
+  var vardate = [];
+  var varball = [];
 
-// run immediately on load
-(async () => {
-  await fillkeysall();
+  // use your Cloudflare Worker endpoint here
+  const API_URL = "https://superdb-api.superbem.workers.dev/euromillions";
 
-	histsize=varball.length;
-  // globals are ready here
-//   console.log("vardate:", vardate);
-  console.log("varball:", varball);
-//   test();
-// init();
-  // you can safely use vardate/varball in the rest of your script
-})();
+  async function fillkeysall_v1() {
+    try {
+      const response = await fetch(API_URL, {
+        mode: "cors",
+        cache: "no-cache"
+      });
+
+      if (!response.ok) {
+        // non-2xx responses land here
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const arr = data.drawns;
+
+      // iterate all draws (oldest → newest)
+      for (let i = arr.length - 1; i >= 1; i--) {
+        vardate.push(arr[i].date);
+        varball.push([
+          arr[i].number_1,
+          arr[i].number_2,
+          arr[i].number_3,
+          arr[i].number_4,
+          arr[i].number_5
+        ]);
+      }
+
+      histsize = varball.length;
+      console.log("Loaded draws:", histsize, varball);
+
+    } catch (err) {
+      console.error("Failed to fetch draws:", err);
+    }
+  }
+
+//   (async () => {
+//     await fillkeysall();
+
+// 	histsize=varball.length;
+//   // globals are ready here
+// //   console.log("vardate:", vardate);
+//   console.log("varball:", varball);
+// //   test();
+// // init();
+//   // you can safely use vardate/varball in the rest of your script
+// })();
 </script>
 
 <button onclick="vote()" >Vote</button>
@@ -367,14 +410,14 @@ function best(idkey){
 		var qtkeys=keys[idkey].length-1;
 
 		var dif=[4];
-		for(var i=0;i<4;i++){ 
+		for(var i=0;i<k+1;i++){ 
 		// for(var i=0;i<k+1;i++){ 
 			var sel=keys[idkey][keys[idkey].length-1];
 			var totalchavesper=(keysProbt[qtkeys][i]*100/keysProbt[0][0]);
 			var persaidas=(qtdisum[i]*100/histsize);
 			var diff=mathDiffPer(persaidas,totalchavesper,1);
 			if(diff==-2.0 || isNaN(diff))diff=0;
-			dif[i]=diff.toFixed(3);
+			dif[i]=Number(diff.toFixed(3));
 			// console.log("best",i,diff.toFixed(2));
 		}
 
@@ -383,8 +426,16 @@ function best(idkey){
 		// let isgood=(Math.abs(dif[0])<=0.01 && Math.abs(dif[3])<=0.01);
 
 		//good +-
-		isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04);
+		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04);
 
+		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04  && dif[0]>0.02 && dif[3]<-0.02);
+
+		// isgood=dif[2]>0.15 && dif[3]<-0.15;
+		isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+		// isgood=dif[5]>0.20 && dif[5]>dif[4] && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+		// isgood=dif[1]<-0.13 && dif[4]>0.13 && dif[5]<-0.2;
+		// isgood=dif[0]<-0.4 && dif[5]>0.4;
+		// isgood=dif[2]<-0.15 && dif[3]>0.15;
 
 		// isgood=(isgood && dif[1]<-0.14 && dif[2]>=0.03 && dif[2]<=0.08);
 
@@ -397,6 +448,7 @@ function best(idkey){
 		if (isgood)break;
 	}
 	test();
+	// console.log(-0.048<-0.132);
 }
 
 
@@ -501,7 +553,7 @@ function testcomb(){
 
 function addonebt(){
 	var idkey=keys.length; //new 
-	var keysize=16; ///////////////////////////////////////////////////////////////////
+	var keysize=25; ///////////////////////////////////////////////////////////////////
 	var sel=1;
 	var kes=genrand(keysize,1,n);
 	// console.log("ks"+kes.length+"kp"+keysize);
@@ -572,11 +624,22 @@ console.log(navigator.hardwareConcurrency);
 window.onload = function(e){ 
 	document.getElementById("totais").innerHTML="Um momento por favor, a carregar a cache dos algoritmos.";
     setTimeout(function(){
+		//   (async () => {
+     fillkeysall();
+
+	histsize=varball.length;
+  // globals are ready here
+//   console.log("vardate:", vardate);
+  console.log("varball:", varball);
+//   test();
+// init();
+  // you can safely use vardate/varball in the rest of your script
+// })();
 		fillcache();
 		loading=0;
 		test();
 		document.getElementById("totais").innerHTML="";
-	},300);
+	},30);
 }
 </script>
 <style>
