@@ -18,7 +18,7 @@ async function fillkeysall() {
   const data = await response.json();
   const arr = data.drawns;
 
-  for (let i = arr.length - 1; i >= 0; i--) {
+  for (let i = arr.length - 1; i >= 0; i--) {/////////////////////////
     vardate.push(arr[i].date);
     varball.push([
       arr[i].number_1,
@@ -38,7 +38,7 @@ async function fillkeysall() {
 
 	histsize=varball.length;
   // globals are ready here
-  console.log("vardate:", vardate);
+//   console.log("vardate:", vardate);
   console.log("varball:", varball);
 //   test();
 // init();
@@ -158,7 +158,7 @@ function mathDiffPer(baseone,confront,ratio){
 }
 
 
-function fillcache(){
+async function fillcache(){
 	//allkeys = JSON.parse(de(localStorage.getItem("allkeys")));
 	// allkeys=de(localStorage.getItem("allkeys"));
 	//allkeys=JSON.parse(allkeys);
@@ -348,17 +348,59 @@ function genrand(qt,min,max){
 	}
 	return res;
 }
-function randomize(idkey){
+function randomize(idkey,dbg=1){
 	// var idkey=keys.length-1;
 	var keysize=keys[idkey].length-1;
 	var sel=keys[idkey][keysize];
 	var kes=genrand(keysize,1,n);
-	console.log("ks"+kes.length+"kp"+keysize);
+	if(dbg)console.log("ks"+kes.length+"kp"+keysize);
 	kes.push(sel);
 	keys[idkey]=kes;
 	fillv(idkey);
-	test();
+	if(dbg)console.log("keyid",idkey,kes.length);
+	if(dbg)test(); //
 };
+function best(idkey){
+	for(let it=0;it<10000;it++){
+		randomize(idkey,0);
+
+		var qtkeys=keys[idkey].length-1;
+
+		var dif=[4];
+		for(var i=0;i<4;i++){ 
+		// for(var i=0;i<k+1;i++){ 
+			var sel=keys[idkey][keys[idkey].length-1];
+			var totalchavesper=(keysProbt[qtkeys][i]*100/keysProbt[0][0]);
+			var persaidas=(qtdisum[i]*100/histsize);
+			var diff=mathDiffPer(persaidas,totalchavesper,1);
+			if(diff==-2.0 || isNaN(diff))diff=0;
+			dif[i]=diff.toFixed(3);
+			// console.log("best",i,diff.toFixed(2));
+		}
+
+		// console.log("dif",it,dif);
+		let isgood=1;
+		// let isgood=(Math.abs(dif[0])<=0.01 && Math.abs(dif[3])<=0.01);
+
+		//good +-
+		isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04);
+
+
+		// isgood=(isgood && dif[1]<-0.14 && dif[2]>=0.03 && dif[2]<=0.08);
+
+		// isgood=(isgood && ( (dif[0]<=-0.15 && dif[3]>=0.1)  && Math.abs(dif[4])<=0.06));
+		// isgood=(isgood && ( (dif[0]<=-0.15 && dif[3]>=0.01) || dif[3]>=0.15));
+		// if( Math.abs(dif[0])<0.02 && Math.abs(dif[3])<0.02 
+		
+
+		if (isgood)console.log("dif",it,dif);
+		if (isgood)break;
+	}
+	test();
+}
+
+
+
 function gerarmax(idkey){
 	console.log(idkey);
 	var qtkeys=keys[idkey].length-1;
@@ -392,7 +434,7 @@ var count=0;
 	createStatTable(idkey,qtkeys);
 	fillv(idkey);
 	test();
-console.log("diffcount",count);	
+console.log("diffcount",count,idkey);	
 };
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -409,10 +451,11 @@ async function vote(){
 	var totalchavesper=(keysProbt[keysize][sel]*100/keysProbt[0][0]);
 	var kes;
 	// console.log("ks"+kes.length+"kp"+keysize);
-	for(let it=0;it<5000000*4;it++){  
-		if(it==2500000*4){
+	for(let it=0;it<50000*4;it++){  
+		if(it==2500*4){
 			console.log("it",it);
-			await sleep(30000);
+	console.log("votar",votar[0]);
+			// await sleep(30000);
 		}
 		kes=genrand(keysize,1,n);
 		kes.push(sel);
@@ -458,7 +501,7 @@ function testcomb(){
 
 function addonebt(){
 	var idkey=keys.length; //new 
-	var keysize=5; ///////////////////////////////////////////////////////////////////
+	var keysize=16; ///////////////////////////////////////////////////////////////////
 	var sel=1;
 	var kes=genrand(keysize,1,n);
 	// console.log("ks"+kes.length+"kp"+keysize);
@@ -571,7 +614,7 @@ function createStatTable(idkey,qtkeys){
 </script>
 
 
-<div id="placar" style="position: fixed;
+<div id="placar" style="
   top: 0;
   right: 0;
   width: 100%;
@@ -677,7 +720,8 @@ function init(){
 		// ht+=createStatTable(idkey);
 		ht+='<div id="tabstat'+idkey+'" ></div>';
 		ht+='<button onclick="randomize('+idkey+')" >Randomizar</button>';
-		ht+='<button onclick="gerarmax('+idkey+')" >Encontrar máxima<br> probabilidade</button>';
+		ht+='<button onclick="best('+idkey+')" >Best</button>';
+		// ht+='<button onclick="gerarmax('+idkey+')" >Máxima<br> probabilidade</button>';
 		ht+=tabbuttons(idkey);
 	}
 	// document.getElementById("tabstat").innerHTML=s;

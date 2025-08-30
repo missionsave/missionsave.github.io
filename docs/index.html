@@ -343,6 +343,34 @@
 				document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
 			});
 	}
+function loadPage_v2(url) {
+  fetch(url)
+    .then(r => r.text())
+    .then(html => {
+      const viewer = document.getElementById('viewer');
+      viewer.innerHTML = html;
+
+      viewer.querySelectorAll('script').forEach(oldScript => {
+        const script = document.createElement('script');
+
+        if (oldScript.src) {
+          script.src = oldScript.src;
+        } else {
+          script.textContent = oldScript.textContent;
+        }
+
+        // carry over attributes like type/integrity/etc. if you need them
+        Array.from(oldScript.attributes).forEach(({ name, value }) => {
+          script.setAttribute(name, value);
+        });
+
+        oldScript.parentNode.replaceChild(script, oldScript);
+      });
+    })
+    .catch(() => {
+      document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
+    });
+}
 
 async function loadPage_v1(url, addToHistory = true) {
   try {
@@ -363,9 +391,9 @@ async function loadPage_v1(url, addToHistory = true) {
     viewer.querySelectorAll("script").forEach(oldScript => {
       const newScript = document.createElement("script");
       if (oldScript.src) {
-        newScript.src = oldScript.src; // external script
+        // newScript.src = oldScript.src; // external script
       } else {
-        newScript.textContent = oldScript.textContent; // inline script
+        // newScript.textContent = oldScript.textContent; // inline script
       }
       document.body.appendChild(newScript);
       document.body.removeChild(newScript);
@@ -413,10 +441,13 @@ if (pValue){ //replace "%2F" from p to "/"
 	if (!pValue || pValue.trim() === "") {
 		// loadPage('gest/index.html');
 		// loadPage('https://missionsave.github.io/gest/index.html');
-		loadPage('https://missionsave.github.io/home.html');
+		loadPage_v2('https://missionsave.github.io/home.html');
+		// loadPage('https://missionsave.github.io/home.html');
 	} else {
 		// loadPage("pages/"+pValue);
-		loadPage("https://missionsave.github.io/pages/"+pValue);
+		// loadPage_v2("pages/"+pValue);
+		loadPage_v2("https://missionsave.github.io/pages/"+pValue);
+		// loadPage("https://missionsave.github.io/pages/"+pValue);
 	}
 </script>
 
