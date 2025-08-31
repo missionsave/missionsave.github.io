@@ -18,7 +18,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 450; i--) {
+    for (var i = arr.length - 1; i >= 1; i--) {
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -103,6 +103,16 @@ var keys=new Array();
 var keysqt=new Array();
 var keysde=new Array();
 var allkeys=new Array(0);
+
+var keysize=25; 
+
+var keys_selected=new Array(k+1);
+keys_selected[0]=0;
+keys_selected[1]=0;
+keys_selected[2]=1;
+keys_selected[3]=1;
+keys_selected[4]=1;
+keys_selected[5]=1;
 var loading=1;
 </script>
 
@@ -312,13 +322,16 @@ console.time('Function #1');
 		// if(keys[i]==0){ keys.splice(i,1); i--;}
 		// }
 				
-		var kes=createArray(keys.length,n+1);	
+		var kes=createArray(keys.length,n+1);
+		console.log("keys",keys);	
+		console.log("kes",kes);	
 		for(var v=0;v<keys.length;v++){ 
 			for(var xi=0;xi<n+1;xi++)kes[v][xi]=0;
 			for(var i=0;i<keys[v].length-1;i++){ 
 				kes[v][ keys[v][i] ]=1;
 			} 
-		}
+		}	
+		console.log("kes",kes);	
 	 
 		var add;
 		var ru=0;
@@ -326,6 +339,7 @@ console.time('Function #1');
 		var toFill =[1,2,3,4,5];
 		var v;
 		fillNcomb(50,5);
+		// for (var i = 0, len = 5; i < len; i++){
 		for (var i = 0, len = numCombin(n,k); i < len; i++){
 			// toFill=toComb(i,n,k); 
 			toFill=allkeys[i];
@@ -334,9 +348,16 @@ console.time('Function #1');
 			for(  v=0;v<keys.length;v++){
 				
 				ru=0;
-				for(var vi=0;vi<k;vi++)ru+=kes[v][ toFill[vi] ];
-				if(ru!=keys[v][keys[v].length - 1]){add=false; break;}
-				//console.log("yaya"+ru);
+				for(var vi=0;vi<k;vi++)
+					ru+=kes[v][ toFill[vi] ];
+				
+				
+				// console.log("bseletected",keys[v][keys[v].length - 1]);
+
+				if(keys_selected[ru]==0){
+					add=false; break;}
+				// if(ru!=keys[v][keys[v].length - 1]){add=false; break;}
+				// console.log("yaya"+ru);
 			}
 			if(add){
 				res.push(toFill); 
@@ -404,10 +425,30 @@ function randomize(idkey,dbg=1){
 	if(dbg)test(); //
 };
 function best(idkey){
-	for(let it=0;it<10000;it++){
-		randomize(idkey,0);
+
+		keys_selected=[0,1,1,1,0,0];
+		keys_selected=[0,0,0,1,1,1];
+
+
+	for(let it=0;it<100000;it++){
+		// randomize(idkey,0);
+
+		//randomize
+		var keysize=keys[idkey].length-1;
+		var sel=keys[idkey][keysize];
+		var kes=genrand(keysize,1,n); 
+		kes.push(sel);
+		keys[idkey]=kes;
+
+		//fillv
+		var selkey=keys[idkey][keys[idkey].length-1];
+		var qtkeys=keys[idkey].length-1;
+		seek(keys[idkey]);
 
 		var qtkeys=keys[idkey].length-1;
+
+
+
 
 		var dif=[4];
 		for(var i=0;i<k+1;i++){ 
@@ -431,8 +472,34 @@ function best(idkey){
 		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04  && dif[0]>0.02 && dif[3]<-0.02);
 
 		// isgood=dif[2]>0.15 && dif[3]<-0.15;
-		isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+		
+		
+		// isgood=dif[5]>0.18 && (dif[5]-dif[4]>0.4) && (dif[4]-dif[3]<0.15) && (dif[3]-dif[2]<0.07) && dif[2]>dif[1] && dif[1]>dif[0];
+
+		let b=-0.001;
+		let bmax=0.04;
+		// isgood=Math.abs(dif[1])>0.13;
+		// isgood= dif[1]<-0.05 && dif[0]<0; 
+
+		isgood=dif[0]>0.2 && Math.abs(dif[1])>0.08 && Math.abs(dif[2])<0.02 && dif[5]<-0.4;
+
+		// isgood= dif[1]>0.1; //k6
+		// isgood=Math.abs(dif[1])>0.08 && Math.abs(dif[2])>0.08;
+
+		// isgood=isgood && Math.abs(dif[1])<0.04 && Math.abs(dif[4])<0.04;
+
+		// isgood=dif[0]>b && dif[0]<bmax && dif[1]>b && dif[2]>b  && dif[4]<-0.06 && dif[3]>b && dif[5]>0.14;
+
+		// isgood=dif[0]>0.02 && dif[1]>0 && dif[2]>0  && dif[3]<-0.1 && dif[4]<=-0.04 && dif[5]>0.0 && dif[5]<0.05 && dif[0]<0.04 && dif[4]>-0.08;
+
+		// isgood=isgood && dif[5]>0.22 && dif[4]<-0.03 && dif[3]>0.055 && dif[2]>-0.01;
+		// isgood=isgood && dif[5]>0.12 && dif[4]>0.08 && dif[3]>0.04 && dif[2]>-0.01;
+
+		// isgood=isgood && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+
 		// isgood=dif[5]>0.20 && dif[5]>dif[4] && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+
+
 		// isgood=dif[1]<-0.13 && dif[4]>0.13 && dif[5]<-0.2;
 		// isgood=dif[0]<-0.4 && dif[5]>0.4;
 		// isgood=dif[2]<-0.15 && dif[3]>0.15;
@@ -447,6 +514,9 @@ function best(idkey){
 		if (isgood)console.log("dif",it,dif);
 		if (isgood)break;
 	}
+	fillSelected(idkey);
+		console.log("qtkeys",qtkeys);
+	createStatTable(idkey,qtkeys);
 	test();
 	// console.log(-0.048<-0.132);
 }
@@ -553,7 +623,7 @@ function testcomb(){
 
 function addonebt(){
 	var idkey=keys.length; //new 
-	var keysize=25; ///////////////////////////////////////////////////////////////////
+	// var keysize=12; ///////////////////////////////////////////////////////////////////
 	var sel=1;
 	var kes=genrand(keysize,1,n);
 	// console.log("ks"+kes.length+"kp"+keysize);
@@ -650,6 +720,7 @@ window.onload = function(e){
 function setkeykel(cs){
 	var idkey=cs.split(",")[0];
 	var nsel=cs.split(",")[1];
+	console.log("nsel",nsel);
 	var sel=keys[idkey][keys[idkey].length-1];
 	keys[idkey][keys[idkey].length-1]=nsel;
 	fillv(idkey);
@@ -665,7 +736,7 @@ function createStatTable(idkey,qtkeys){
 		var diff=mathDiffPer(persaidas,totalchavesper,1);
 		if(diff==-2.0 || isNaN(diff))diff=0;
 		var button='<button style="   " onclick="setkeykel(`'+idkey+','+i+'`)">'+i+'</button>';
-		if(i==sel)button=button.split("   ").join("background-color:#4CA; ");
+		// if(i==sel)button=button.split("   ").join("background-color:#4CA; ");
 		s+='<tr><td>'+button+'</td><td>'+keysProbt[qtkeys][i]+'</td><td>'+totalchavesper.toFixed(2)+'</td><td>'+qtdisum[i]+'</td><td>'+diff.toFixed(2)+'</td></tr>';
 	}
 	s+='</table><span style="font-size:10px"><span class="alinea">1</span>Quantos acerta nos selecionados de 1 a 50</span></div>';
