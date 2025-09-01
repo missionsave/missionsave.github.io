@@ -793,6 +793,10 @@ void update_placement_v1() {
 				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
 			}
 			// if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
+			if(!toclone->ExtractSolids(toclone->fshape).empty()){
+				this->shape = toclone->fshape;
+				return;
+			}
 			if (!toclone->shape.IsNull()) this->shape = toclone->shape;
 			this->vpoints = toclone->vpoints;
 		}
@@ -3814,7 +3818,7 @@ ld->visible_hardcoded=0;
 	fbm->setCallback([](void* data, int code, void* fbm_) { 
 
 		OCC_Viewer::luadraw* ld=(OCC_Viewer::luadraw*)data;
-        std::cout << "Callback fired! data_ptr=" 
+        std::cout << "Callback data_ptr=" 
                   << ld->name 
                   << ", code=" << code 
                   << std::endl;

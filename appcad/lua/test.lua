@@ -89,15 +89,16 @@ local crn_long=178
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
---Extrude(crn_long)
+Extrude(crn_long)
 --Movel(0,0,-crn_long)
+
 
 Part corner_clones
 Clone corner
-Extrude(crn_long) 
+--Extrude(crn_long) 
 Movel(0,0,-crn_long)
 Clone corner
-Extrude(crn_long) 
+--Extrude(crn_long) 
 Movel(container_width-crn_width,0,-crn_long)
 Clone corner
 Extrude(crn_long) 
