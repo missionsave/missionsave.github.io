@@ -42,7 +42,7 @@ body.no-hover .dropdownc:hover .dropdown-content {
 
 		elements.forEach(function(element) {
 			// Do something with each element, for example:
-			console.log(element.textContent); // Logs the text content of each 
+			// console.log(element.textContent); // Logs the text content of each 
 			element.classList.remove('show');
 		});
 		document.getElementById(arguments[0]).classList.toggle("show");
@@ -162,9 +162,9 @@ console.log("reloadCSS1");
   const href = link.getAttribute("href").split("?")[0]; // remove old cache buster
   link.setAttribute("href", href + "?v=" + new Date().getTime());
 }
-var menuisopened=0;
+// var menuisopened=0;
 	function myFunction() {
-		console.log(1);
+		// console.log(1);
 		var x = document.getElementById("myTopnav");
 		if (x.className === "topnav") {
 			x.className += " responsive"; 
@@ -173,26 +173,29 @@ var menuisopened=0;
 		}
 	}    
 	// Close the dropdown menu if the user clicks outside of it, nao funciona n sei porque
-		window.onclick = function (event) {
-			console.log(2);
-			// if(dropvisible){
-			// console.log("event",event);
-			// if (event.target.matches('topnav')) {
-			// 	myFunction();
-			// }
-			if (!event.target.matches('.dropbtn')) {
-			closedropdowns();
-			// myTopnav.className = "topnav";
-			}
-		}
+		// window.onclick = function (event) {
+		// 	// console.log(2);
+		// 	// if(dropvisible){
+		// 	// console.log("event",event);
+		// 	// if (event.target.matches('topnav')) {
+		// 	// 	myFunction();
+		// 	// }
+		// 	// if (!event.target.matches('.dropbtn')) {
+		// 	// closedropdowns(); 
+		// 	// }
+		// }
 
-		document.addEventListener('click', function (event) {
-				if (!myTopnav.contains(event.target)) {
-					console.log('Clicked outside the box!');
-					myTopnav.className = "topnav";
-					// You can trigger your logic here, like closing a modal or dropdown
-				}
-			});
+	document.addEventListener('click', function (event) {
+		// console.log(event.target);
+		if (!event.target.closest('.dropbtn')) {
+			closedropdowns();
+		}
+		if (!myTopnav.contains(event.target)) {
+			// console.log('Clicked outside the box!');
+			myTopnav.className = "topnav";
+			// You can trigger your logic here, like closing a modal or dropdown
+		}
+	});
 
 
 </script>
@@ -483,13 +486,8 @@ var lib;
       const newHref = base + '?' + searchParams.toString() + hash;
       a.setAttribute('href', newHref);
     });
-  }
-</script>
+  } 
 
-
-
-
-<script>
 	function menut(lng) {
 		 myTopnav.className = "topnav";
 		// myFunction();
@@ -506,10 +504,8 @@ var lib;
 		params.set('l', lng);
 		window.location.search = params.toString();
 		// location.reload();
-	}
-</script>
+	} 
 
-<script>
 	function loadPage(url) {
 
 		fetch(url)
