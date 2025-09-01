@@ -73,9 +73,43 @@ Movel(-285,170-7,-100)
 
 
 end
-robot1()
+--robot1()
+
+function struct()
+container_width=2438
+container_height=2591
+container_long=6058
+container_long=12000
+container_midle=container_width/2
 
 
+crn_width=162
+local crn_height=118
+local crn_long=178
+
+Part corner
+Pl 0,0 162,0 @0,118 @-162,0 0,0
+--Extrude(crn_long)
+--Movel(0,0,-crn_long)
+
+Part corner_clones
+Clone corner
+Extrude(crn_long) 
+Movel(0,0,-crn_long)
+Clone corner
+Extrude(crn_long) 
+Movel(container_width-crn_width,0,-crn_long)
+Clone corner
+Extrude(crn_long) 
+Movel(container_width-crn_width,0,-container_long)
+Clone corner
+Extrude(crn_long) 
+Movel(0,0,-container_long)
+
+
+
+end
+struct()
 
 function robot()
 Part sketch_body

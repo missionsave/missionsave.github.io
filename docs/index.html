@@ -16,21 +16,28 @@
 	
 	<meta property="og:description" content="This project aims to create innovative machines capable of preparing 40 fresh, healthy meals every single day.">
 
- 	<!-- <title translate="no" class="notranslate">Foundation Mission SAVE</title> -->
+ 	<title translate="no" class="notranslate">Foundation Mission SAVE</title>
 
  	<!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"> -->
  	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
  	<!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">  -->
 
+ 	<!-- <link  id="pagestyle"  rel="stylesheet" type="text/css" href="style.css?87656576"> -->
+ 	<!-- <link  id="pagestyle" rel="stylesheet" type="text/css" href="stylerefresh.css?0382"> -->
  	<link rel="stylesheet" type="text/css" href="https://missionsave.github.io/style.css?0">
 	
 	<link rel="icon" type="image/x-icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
 
-
+<style>/* disable hover whenever body.no-hover is present */
+body.no-hover .dropdownc:hover .dropdown-content {
+  display: none !important;
+}
+</style> 
 <script>
 	function dropdownFunction() {
+		
 		var elements = document.querySelectorAll('.dropdown-content');
 
 		elements.forEach(function(element) {
@@ -40,29 +47,154 @@
 		});
 		document.getElementById(arguments[0]).classList.toggle("show");
 	}
+	function resetOverrides() {
+  // dropdown-content may have inline style or override classes
+  document.querySelectorAll('.dropdown-content').forEach(el => {
+    el.style.display = '';
+    el.classList.remove('show', 'force-hide');
+  });
 
+  // If you altered the navbar class for responsive toggle
+  const nav = document.getElementById('myTopnav');
+  if (nav) nav.className = 'topnav';
+}
+//good
+function closedropdowns() {
+  // 1) Disable hover immediately
+  document.body.classList.add('no-hover');
+
+  // 2) Hide any open menus right now
+  document.querySelectorAll('.dropdown-content').forEach(function(el) {
+    el.classList.remove('show');  // mobile toggle
+    el.style.display = 'none';    // inline-hide for desktop
+  });
+
+  // 3) Prepare a restore function
+  function restore() {
+    // Remove our inline hides
+    document.querySelectorAll('.dropdown-content').forEach(function(el) {
+      el.style.display = '';
+    });
+    // Re-enable hover
+    document.body.classList.remove('no-hover');
+
+    // Cleanup listeners & timeout
+    window.removeEventListener('pointermove', restore);
+    window.removeEventListener('touchstart', restore);
+    clearTimeout(timeoutId);
+  }
+
+  // 4) Listen for the very next pointer/touch event
+  window.addEventListener('pointermove', restore);
+  window.addEventListener('touchstart', restore);
+
+  // 5) Fallback: if no movement within 300ms, restore anyway
+  var timeoutId = setTimeout(restore, 300);
+}
+function updateurl(arg){
+	console.log("updateurl",arg);
+	console.log("updateurl",arg.href);
+	myTopnav.className = "topnav"; //hides responsive menu
+}
+
+function closedropdowns_v2() {
+	console.log("minocente");
+	resetOverrides();
+	window.dispatchEvent(new Event('resize'));
+	// reloadCSS();
+return;
+  // Add force-hide to all dropdown containers
+  document.querySelectorAll('.dropdownc').forEach(function(container) {
+    container.classList.add('force-hide');
+  });
+
+  // Remove mobile .show class if present
+  document.querySelectorAll('.dropdown-content').forEach(function(el) {
+    el.classList.remove('show');
+  });
+}
+function reloadCSS_v1() {
+  const oldLink = document.getElementById("pagestyle");
+  const href = oldLink.getAttribute("href").split("?")[0];
+
+  // create a new <link> with a cache-busting query
+  const newLink = document.createElement("link");
+  newLink.rel = "stylesheet";
+  newLink.href = href + "?v=" + Date.now();
+  newLink.id = "pagestyle-new";
+
+  // insert new link right after the old one
+  oldLink.parentNode.insertBefore(newLink, oldLink.nextSibling);
+
+  // once the new CSS finishes loading, remove the old one
+  newLink.onload = () => {
+    oldLink.remove();
+    newLink.id = "pagestyle"; // keep consistent id
+  };
+}
+function reloadCSS() { 
+	{console.log("inocente");
+	const link = document.getElementById("pagestyle");
+  const href = link.getAttribute("href").split("?")[0]; // remove old cache buster
+  link.setAttribute("href", href + "?v=" + new Date().getTime());}
+  return;
+	// myDropdown3.classList.remove("show");
+	// myDropdown3.delete;
+	// return;
+	// window.dispatchEvent(new Event("resize"));
+	// return;
+  // remove inline styles
+//   document.querySelectorAll("[style]").forEach(el => el.removeAttribute("style"));
+  
+  // remove temporary classes you might have added
+//   document.querySelectorAll(".show, .active").forEach(el => el.classList.remove("show", "active"));
+//   {  const link = document.querySelector("link[href*='style.css']");
+//   const href = link.getAttribute("href").split("?")[0];
+//   link.setAttribute("href", href + "?v=" + Date.now());}
+console.log("reloadCSS1");
+// return;
+//   const dropdown = document.querySelector(".dropdown-content");
+//   dropdown.classList.toggle("show");
+//   return;
+
+
+  const link = document.getElementById("pagestyle");
+  const href = link.getAttribute("href").split("?")[0]; // remove old cache buster
+  link.setAttribute("href", href + "?v=" + new Date().getTime());
+}
+var menuisopened=0;
+	function myFunction() {
+		console.log(1);
+		var x = document.getElementById("myTopnav");
+		if (x.className === "topnav") {
+			x.className += " responsive"; 
+		} else {
+			x.className = "topnav"; 
+		}
+	}    
 	// Close the dropdown menu if the user clicks outside of it, nao funciona n sei porque
 		window.onclick = function (event) {
+			console.log(2);
+			// if(dropvisible){
+			// console.log("event",event);
+			// if (event.target.matches('topnav')) {
+			// 	myFunction();
+			// }
 			if (!event.target.matches('.dropbtn')) {
-				var dropdowns = document.getElementsByClassName("dropdown-content");
-				var i;
-				for (i = 0; i < dropdowns.length; i++) {
-					var openDropdown = dropdowns[i];
-					if (openDropdown.classList.contains('show')) {
-						openDropdown.classList.remove('show');
-					}
-				}
+			closedropdowns();
+			// myTopnav.className = "topnav";
 			}
 		}
 
-	function myFunction() {
-		var x = document.getElementById("myTopnav");
-		if (x.className === "topnav") {
-			x.className += " responsive";
-		} else {
-			x.className = "topnav";
-		}
-	}
+		document.addEventListener('click', function (event) {
+				if (!myTopnav.contains(event.target)) {
+					console.log('Clicked outside the box!');
+					myTopnav.className = "topnav";
+					// You can trigger your logic here, like closing a modal or dropdown
+				}
+			});
+
+
 </script>
 
 
@@ -73,7 +205,7 @@
  	<div class="topheader" id="topheaderid">
  		<div class="topnav" id="myTopnav">
  			<a href="?" class="active notranslate">Foundation Mission SAVE</a>
- 			<title class="active notranslate">Foundation Mission SAVE</title>
+ 			<!-- <title class="notranslate">Foundation Mission SAVE</title> -->
 
  			<!-- <div class="dropdownc">
 <button id="myDropdown1b"  onclick="dropdownFunction('myDropdown1')" class="dropbtn">Estufa com abrigo
@@ -112,10 +244,35 @@
 			<a  onclick='loadPage("pages/Nutrition.html"); return false;'>Nutrition</a>
 			<a  onclick='loadPage("pages/Technology-to-fight-hunger.html"); return false;'>Tec</a> -->
 
-			<a href="?p=Nutrition.html">Nutrition</a>
-			<a style="cursor:pointer;" href="?p=Technology-to-fight-hunger.html">Studys</a>
-			<a style="cursor:pointer;" href="?p=Self-sufficient_Greenhouse.html">Self-sufficient Greenhouse</a>
+			<a  href="?p=Nutrition.html" onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Nutrition.html"); return false;' >Nutrition</a>
+
+			<!-- <a style="cursor:pointer;" onclick='loadPage_v2("https://missionsave.github.io/pages/Nutrition.html")' >Nutrition</a> -->
+
+
+
+
+			<!-- <a onclick='loadPage_v2("https://missionsave.github.io/pages/Nutrition.html")' href="?p=Nutrition.html">Nutrition</a> -->
+			<!-- <a style="cursor:pointer;" href="?p=Technology-to-fight-hunger.html">Studys</a> -->
+			<!-- <a style="cursor:pointer;" href="?p=Self-sufficient_Greenhouse.html">Self-sufficient Greenhouse</a> -->
 			<!-- <a style="cursor:pointer;" href="?p=contact.html">Contact</a> -->
+
+
+
+
+			<div class="dropdownc">
+				<button onclick="dropdownFunction('myDropdownstdys')" class="dropbtn">Studys
+					<i class="fa fa-caret-down"></i>
+				</button>
+				<div id="myDropdownstdys" class="dropdown-content">
+			
+					<a href="?p=Technology-to-fight-hunger.html"
+						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Technology-to-fight-hunger.html"); return false;'>Technology	to fight hunger</a>
+			
+					<a href="?p=Self-sufficient_Greenhouse.html"
+						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Self-sufficient_Greenhouse.html"); return false;'>Self-sufficient Greenhouse</a>
+			
+				</div>
+			</div>
 
 
 
@@ -124,9 +281,19 @@
  					<i class="fa fa-caret-down"></i>
  				</button>
  				<div id="myDropdown3" class="dropdown-content">
+
+			<a style="cursor:pointer;" onclick='closedropdowns(); loadPage_v2("https://missionsave.github.io/pages/Nutrition.html"); ' >Nutrition1</a>
+			<a style="cursor:pointer;" onclick='loadPage_v2("https://missionsave.github.io/pages/Nutrition.html")' >Nutrition</a>
  					<a style="" href="?p=extras/Millions.html">Euromilions</a>
 					</div>
  			</div> -->
+
+
+
+
+
+
+
 
  			<!-- <div class="dropdownc">
  				<button   onclick="dropdownFunction('myDropdown3')" class="dropbtn">Estufa que produz sopa
@@ -221,9 +388,9 @@
 		langbr=lValue;
 	} 
 	console.log("langbr", langbr);
-
+var lib;
 	function gtElInit() {
-		var lib = new google.translate.TranslateService();
+		 lib = new google.translate.TranslateService();
 		lib.translatePage('', langbr, function() {
 			// div_loader.style.display="none"; 
 			// div_all.style.display="block"; 
@@ -262,7 +429,7 @@
 
 
 
- 			<a href="javascript:void(0);" style="font-size:15px;" class="icon" onclick="myFunction()"><b>&#9776;</b></a>
+ 			<a style="font-size:15px; cursor: pointer;" class="icon" onclick="myFunction();"><b>&#9776;</b></a>
  		</div>
  	</div>
 
@@ -324,6 +491,16 @@
 
 <script>
 	function menut(lng) {
+		 myTopnav.className = "topnav";
+		// myFunction();
+		lib.translatePage('', lng, function() {
+			// div_loader.style.display="none"; 
+			// div_all.style.display="block"; 
+		});
+
+		closedropdowns();
+		// reloadCSS();
+		return;
 		console.log("lng", lng);
 		// setCookieNeverExpires('lang', lng);
 		params.set('l', lng);
@@ -442,8 +619,8 @@ if (pValue){ //replace "%2F" from p to "/"
 	if (!pValue || pValue.trim() === "") {
 		// loadPage('gest/index.html');
 		// loadPage('https://missionsave.github.io/gest/index.html');
-		loadPage_v2('https://missionsave.github.io/home.html');
-		// loadPage('https://missionsave.github.io/home.html');
+		// loadPage_v2('https://missionsave.github.io/home.html');
+		loadPage('https://missionsave.github.io/home.html');
 	} else {
 		// loadPage("pages/"+pValue);
 		// loadPage_v2("pages/"+pValue);

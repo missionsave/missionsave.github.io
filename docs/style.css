@@ -81,7 +81,9 @@ p  { text-align: justify;}
 }
 
 
-
+/* .dropdown-content.show {
+  display: block;
+} */
 
 
 
@@ -329,4 +331,3 @@ body {
             border-color: grey;
             outline: 0;
             }
-
