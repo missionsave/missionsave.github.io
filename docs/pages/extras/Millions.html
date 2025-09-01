@@ -104,7 +104,7 @@ var keysqt=new Array();
 var keysde=new Array();
 var allkeys=new Array(0);
 
-var keysize=11; 
+var keysize=31; 
 
 var keys_selected=new Array(k+1);
 keys_selected[0]=0;
@@ -467,16 +467,21 @@ function best(idkey){
 		// let isgood=(Math.abs(dif[0])<=0.01 && Math.abs(dif[3])<=0.01);
 
 		//good +-
-		// keysize=5; 
-		keys_selected=[1,1,0,0,0,0];
-		isgood=(isgood && Math.abs(dif[0])>0.08 && dif[1]>0.08);
-		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04);
+		// // keysize=5; 
+		// keys_selected=[1,1,1,0,0,0]; //25
+		// isgood=(isgood && Math.abs(dif[0])>0.08 && dif[1]>0.08 && Math.abs(dif[2])>0.08 & Math.abs(dif[3])>0.04) ;
+		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04); //good
 
 		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04  && dif[0]>0.02 && dif[3]<-0.02);
 
 		// isgood=dif[2]>0.15 && dif[3]<-0.15;
 		
 		
+		
+		keys_selected=[0,0,0,1,1,1]; //25
+		// isgood=(isgood && Math.abs(dif[5])<0.02 && dif[4]>0.07 && Math.abs(dif[1])>0.02 && Math.abs(dif[0])>0.03 & Math.abs(dif[2])>0.05 && dif[3]<-0.06 && dif[4]<0.11);
+		isgood=isgood && Math.abs(dif[5])<0.02 && (dif[4])>0.07 && (dif[3])<-0.07 && Math.abs(dif[2])>0.03 && Math.abs(dif[2])<0.06;
+
 		// isgood=dif[5]>0.18 && (dif[5]-dif[4]>0.4) && (dif[4]-dif[3]<0.15) && (dif[3]-dif[2]<0.07) && dif[2]>dif[1] && dif[1]>dif[0];
 
 		let b=-0.001;
