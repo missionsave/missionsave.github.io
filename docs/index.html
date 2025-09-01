@@ -119,6 +119,11 @@ window.addEventListener('popstate', function (event) {
 console.log(params.get('p')); // "value"
 console.log(params.get('l'));  // "123"
 
+if(params.get('p')==null){
+	loadPage('https://missionsave.github.io/home.html');
+	return;
+}
+
 var gurl="https://missionsave.github.io/pages/"+params.get('p');
 console.log("gurl",gurl);
 
