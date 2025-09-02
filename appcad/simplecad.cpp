@@ -532,6 +532,54 @@ gp_Quaternion qrot;
 			ashape->Set(cshape);
 
 		}
+		void update_placement() { 
+			// if (needsplacementupdate == 0) return; 
+			// std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
+			// cotm(ext.size(),name);
+			// if(ext.size()>0){
+				shape=FuseAndRefineWithAPI(cshape);
+			// }//else if(cshape.size()==1) shape=c
+			ashape->Set(shape);
+			needsplacementupdate = 0; 
+		}
+		void update_placement_v0working() {
+			// cotm(name,needsplacementupdate);
+			if (needsplacementupdate == 0) return;
+			// BRepBuilderAPI_Transform transformer(shape,
+			// 									 trsf);	 // if part only last
+			// // cshape = TopoDS::Compound(transformer.Shape());
+			// shape = transformer.Shape();
+			if (!cshape.IsNull()) {
+				BRepCheck_Analyzer ana(cshape, Standard_True);
+				if (!ana.IsValid()) {
+					std::cout << "Compound has invalid geometry or topology\n";
+				}
+				BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
+				mesher.Perform();
+
+				// cotm(hasAnyTriangulation(cshape))
+					// shape=cshape;
+					ashape->Set(cshape);
+			} else {
+				ashape->Set(shape);
+			}
+
+
+
+			std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
+			// cotm(ext.size());
+			if(!editing){
+				fshape=FuseAndRefineWithAPI(cshape);
+			}else{
+				fshape=cshape;
+			}
+
+
+
+			// if (!cshape.IsNull()) ashape->Set(cshape);   
+			if (!shape.IsNull()) ashape->Set(fshape);  // if is part, show only the last
+			needsplacementupdate = 0;
+		}
 		void redisplay() {
 			update_placement();
 
@@ -677,8 +725,11 @@ static TopoDS_Shape CompoundInstead(const std::vector<TopoDS_Solid>& solids) {
 TopoDS_Shape FuseAndRefineWithAPI(const TopoDS_Shape& inputShape) {
     auto solids = ExtractSolids(inputShape);
     if (solids.empty()) {
-        std::cerr << "⚠️ No solids found in input shape\n";
-        return TopoDS_Shape();
+        // std::cerr << "⚠️ No solids found in input shape\n";
+		cotm(name,"⚠️ No solids found in input shape");
+		lua_error_with_line(L, "No solids found in input shape\n");
+        return shape;
+        // return TopoDS_Shape();
     }
     if (solids.size() == 1) {
         // Only one solid → just refine it
@@ -745,8 +796,115 @@ void update_placement_v1() {
     needsplacementupdate = 0;
 }
 
+void update_placement_v2() {
+    if (needsplacementupdate == 0) 
+        return;
 
-		void update_placement() {
+    // Decide which base shape to show immediately
+    TopoDS_Shape baseShape = !cshape.IsNull() ? cshape : shape;
+    ashape->Set(baseShape);
+
+    // Extract solids (or use baseShape if none)
+    std::vector<TopoDS_Solid> solids = ExtractSolids(cshape.IsNull() ? shape : cshape);
+
+    // Compute fshape
+    if (!editing) {
+        // Fuse all extracted solids into one shape
+        if (solids.empty()) {
+            fshape = baseShape;
+        }
+        else {
+            // Start from the first solid
+            TopoDS_Shape accumulator = solids[0];
+
+            for (size_t i = 1; i < solids.size(); ++i) {
+                BRepAlgoAPI_Fuse fuseOp(accumulator, solids[i]);
+                fuseOp.SetFuzzyValue(1e-6);      // tolerate small gaps
+                fuseOp.Build();
+
+                if (!fuseOp.IsDone()) {
+                    std::cerr << "Warning: Fuse failed at index " << i 
+                              << ", using last good shape\n";
+                    break;  // stop fusing; accumulator stays as-is
+                }
+
+                accumulator = fuseOp.Shape();
+            }
+
+            // Optional: refine/sew to clean up small cracks
+            BRepBuilderAPI_Sewing sewer(1e-6);
+            sewer.Add(accumulator);
+            sewer.Perform();
+            accumulator = sewer.SewedShape();
+
+            fshape = accumulator;
+			fshape=FuseAndRefineWithAPI(fshape);
+        }
+    }
+    else {
+        // In edit mode, skip fusion
+        fshape = cshape;
+    }
+
+    // Fallback if fusion/refinement still produced null
+    if (fshape.IsNull()) {
+        std::cerr << "Error: resulting fshape is null – falling back to baseShape\n";
+        fshape = baseShape;
+    }
+
+    // Final display: use the fused/refined shape
+    ashape->Set(fshape);
+
+    needsplacementupdate = 0;
+}
+
+		void update_placement_v3() {
+			// cotm(name,needsplacementupdate);
+			if (needsplacementupdate == 0) return;
+			// BRepBuilderAPI_Transform transformer(shape,
+			// 									 trsf);	 // if part only last
+			// // cshape = TopoDS::Compound(transformer.Shape());
+			// shape = transformer.Shape();
+			if (!cshape.IsNull()) {
+				BRepCheck_Analyzer ana(cshape, Standard_True);
+				if (!ana.IsValid()) {
+					std::cout << "Compound has invalid geometry or topology\n";
+				}
+				BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
+				mesher.Perform();
+
+				// cotm(hasAnyTriangulation(cshape))
+					// shape=cshape;
+					ashape->Set(cshape);
+			} else {
+				ashape->Set(shape);
+			}
+
+
+
+			std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
+			// cotm(ext.size());
+			if(!editing){
+				fshape=FuseAndRefineWithAPI(cshape);
+			}else{
+				fshape=cshape;
+			}
+
+
+
+			// if (!cshape.IsNull()) ashape->Set(cshape);   
+			if (!fshape.IsNull()){ 
+				ashape->Set(fshape);  // if is part, show only the last
+			}else{
+				ashape->Set(shape);
+			}
+			needsplacementupdate = 0;
+		}
+
+
+		void copy_placement(luadraw* tocopy) { trsf = tocopy->trsf; }
+		void exit() { throw std::runtime_error(lua_error_with_line(L, "exit")); }
+		void update_placement_v0() {
 			// cotm(name,needsplacementupdate);
 			if (needsplacementupdate == 0) return;
 			// BRepBuilderAPI_Transform transformer(shape,
@@ -786,18 +944,77 @@ void update_placement_v1() {
 		}
 
 
-		void copy_placement(luadraw* tocopy) { trsf = tocopy->trsf; }
-		void exit() { throw std::runtime_error(lua_error_with_line(L, "exit")); }
-		void clone(luadraw* toclone) {
+
+
+		void clone(luadraw* toclone,bool part=0) {
+			if (!toclone) {
+				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+			}
+			this->vpoints = toclone->vpoints;
+			if (!toclone->shape.IsNull()){
+				this->shape = toclone->shape;
+				mergeShape(cshape,toclone->shape);
+			}
+			return;
+			// if (cshape.IsNull()){ //this->cshape = toclone->cshape;
+			// if(part)
+			{
+			// if(ExtractSolids(cshape).empty()){
+				cotm(name,"cempty")
+				// shape=toclone->shape;
+			// toclone->update_placement();
+				mergeShape(cshape,toclone->shape);
+				// shape = FuseAndRefineWithAPI(cshape);
+			}
+			// if(!toclone->ExtractSolids(toclone->cshape).empty()){
+			// 	toclone->update_placement();
+			// 	this->shape = FuseAndRefineWithAPI(toclone->cshape);
+			// 	return;
+			// }
+		}
+
+		void clone_v2(luadraw* toclone) {
 			if (!toclone) {
 				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
 			}
 			// if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
-			if(!toclone->ExtractSolids(toclone->fshape).empty()){
-				this->shape = toclone->fshape;
-				return;
+			// if(!toclone->ExtractSolids(toclone->fshape).empty()){
+			// 	// this->shape = toclone->fshape;
+			// 	return;
+			// }
+			toclone->update_placement();
+			if(!toclone->ashape.IsNull()){
+				
+				this->shape= toclone->ashape->Shape();
 			}
-			if (!toclone->shape.IsNull()) this->shape = toclone->shape;
+			
+
+			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
+			if (!toclone->fshape.IsNull()){
+				 this->shape = toclone->fshape;
+				 mergeShape(cshape,shape);
+			}
+
+			this->vpoints = toclone->vpoints;
+		}
+		void clone_v1(luadraw* toclone) {
+			if (!toclone) {
+				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+			}
+			// if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
+			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
+			// if (!toclone->fshape.IsNull()) this->fshape = toclone->fshape;
+			// this->vpoints = toclone->vpoints;
+			// return;
+
+			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
+			// if(!toclone->ExtractSolids(toclone->cshape).empty()){
+			// 	if(toclone->needsplacementupdate==0)toclone->update_placement();
+			// 	this->shape = toclone->cshape;
+			// 	if(!toclone->fshape.IsNull()) this->shape = toclone->fshape;
+			// 	// return;
+			// }
+			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
 			this->vpoints = toclone->vpoints;
 		}
 		bool solidify_wire_to_face() {
@@ -818,6 +1035,7 @@ void update_placement_v1() {
 			return true;
 		}
 		void extrude(float qtd = 0) {
+			cotm("Extrude", name);
 			solidify_wire_to_face();
 			// 			gp_Dir dir = [](gp_Trsf trsf) {
 			// 	gp_Ax3 ax3;
@@ -888,7 +1106,7 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			this->shape = unify.Shape();
 		}
 
-		void mergeShape(TopoDS_Shape& target, const TopoDS_Shape& toAdd) {
+		void mergeShape(TopoDS_Shape& target, const TopoDS_Shape &toAdd) {
 		// void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
 			if (toAdd.IsNull()) {
 				std::cerr << "Warning: toAdd is null." << std::endl;
@@ -903,7 +1121,7 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
     for (TopExp_Explorer exp(target, TopAbs_SHAPE); exp.More(); exp.Next()) {
         ++count;
     }
-	// cotm(count);
+	cotm(count);
 			shape = toAdd;
 			return;
 			// try

@@ -73,7 +73,7 @@ Movel(-285,170-7,-100)
 
 
 end
---robot1()
+robot1()
 
 function struct()
 container_width=2438
@@ -90,27 +90,43 @@ local crn_long=178
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
 Extrude(crn_long)
---Movel(0,0,-crn_long)
+Movel(0,0,-crn_long)
 
 
 Part corner_clones
 Clone corner
 --Extrude(crn_long) 
-Movel(0,0,-crn_long)
-Clone corner
+--Movel(0,0,-crn_long)
+--Clone corner
 --Extrude(crn_long) 
 Movel(container_width-crn_width,0,-crn_long)
 Clone corner
-Extrude(crn_long) 
+--Extrude(crn_long) 
 Movel(container_width-crn_width,0,-container_long)
 Clone corner
-Extrude(crn_long) 
+--Extrude(crn_long) 
 Movel(0,0,-container_long)
 
 
 
 end
 struct()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function robot()
 Part sketch_body
@@ -131,7 +147,7 @@ Extrude -80
 --body_robot:translate(100,0)
 
 end
---robot()
+--robot() --old
 function inocent3()
 Part sketch
 Pl 0,0 200,0 @0,100 @-300,0 @0,-20 @100,-50 
