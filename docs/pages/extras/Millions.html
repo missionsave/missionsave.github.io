@@ -26,8 +26,8 @@ function fillkeysall() {
         arr[i].number_3,
         arr[i].number_4,
         arr[i].number_5,
-        arr[i].star_1,
-        arr[i].star_2
+        // arr[i].star_1,
+        // arr[i].star_2
       ]);
     }
   }
@@ -430,6 +430,7 @@ function best(idkey){
 		keys_selected=[0,0,0,1,1,1];
 
 
+	// for(let it=0;it<1;it++){
 	for(let it=0;it<100000;it++){
 		// randomize(idkey,0);
 
@@ -450,7 +451,8 @@ function best(idkey){
 
 
 
-		var dif=[4];
+		// var dif=[4];
+		var dif=[k+1];
 		for(var i=0;i<k+1;i++){ 
 		// for(var i=0;i<k+1;i++){ 
 			var sel=keys[idkey][keys[idkey].length-1];
@@ -478,9 +480,13 @@ function best(idkey){
 		
 		
 		
-		keys_selected=[0,0,0,1,1,1]; //25
+		keys_selected=[0,0,0,1,1,0]; //32
+		isgood= dif[4]<-0.07 && dif[3]>0.07 && Math.abs(dif[2])<0.04;
+
+
+
 		// isgood=(isgood && Math.abs(dif[5])<0.02 && dif[4]>0.07 && Math.abs(dif[1])>0.02 && Math.abs(dif[0])>0.03 & Math.abs(dif[2])>0.05 && dif[3]<-0.06 && dif[4]<0.11);
-		isgood=isgood && Math.abs(dif[5])<0.02 && (dif[4])>0.07 && (dif[3])<-0.07 && Math.abs(dif[2])>0.03 && Math.abs(dif[2])<0.06;
+		// isgood=isgood && (dif[5])<-0.1 && (dif[4])<-0.07 && (dif[3])<-0.07 && Math.abs(dif[2])>0.03 && Math.abs(dif[2])<0.06;
 
 		// isgood=dif[5]>0.18 && (dif[5]-dif[4]>0.4) && (dif[4]-dif[3]<0.15) && (dif[3]-dif[2]<0.07) && dif[2]>dif[1] && dif[1]>dif[0];
 

@@ -946,7 +946,7 @@ void update_placement_v2() {
 
 
 
-		void clone(luadraw* toclone,bool part=0) {
+		void clone(luadraw* toclone,bool copy_placement=0) {
 			if (!toclone) {
 				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
 			}
@@ -955,67 +955,6 @@ void update_placement_v2() {
 				this->shape = toclone->shape;
 				mergeShape(cshape,toclone->shape);
 			}
-			return;
-			// if (cshape.IsNull()){ //this->cshape = toclone->cshape;
-			// if(part)
-			{
-			// if(ExtractSolids(cshape).empty()){
-				cotm(name,"cempty")
-				// shape=toclone->shape;
-			// toclone->update_placement();
-				mergeShape(cshape,toclone->shape);
-				// shape = FuseAndRefineWithAPI(cshape);
-			}
-			// if(!toclone->ExtractSolids(toclone->cshape).empty()){
-			// 	toclone->update_placement();
-			// 	this->shape = FuseAndRefineWithAPI(toclone->cshape);
-			// 	return;
-			// }
-		}
-
-		void clone_v2(luadraw* toclone) {
-			if (!toclone) {
-				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
-			}
-			// if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
-			// if(!toclone->ExtractSolids(toclone->fshape).empty()){
-			// 	// this->shape = toclone->fshape;
-			// 	return;
-			// }
-			toclone->update_placement();
-			if(!toclone->ashape.IsNull()){
-				
-				this->shape= toclone->ashape->Shape();
-			}
-			
-
-			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
-			if (!toclone->fshape.IsNull()){
-				 this->shape = toclone->fshape;
-				 mergeShape(cshape,shape);
-			}
-
-			this->vpoints = toclone->vpoints;
-		}
-		void clone_v1(luadraw* toclone) {
-			if (!toclone) {
-				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
-			}
-			// if (!toclone->cshape.IsNull()) this->cshape = toclone->cshape;
-			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
-			// if (!toclone->fshape.IsNull()) this->fshape = toclone->fshape;
-			// this->vpoints = toclone->vpoints;
-			// return;
-
-			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
-			// if(!toclone->ExtractSolids(toclone->cshape).empty()){
-			// 	if(toclone->needsplacementupdate==0)toclone->update_placement();
-			// 	this->shape = toclone->cshape;
-			// 	if(!toclone->fshape.IsNull()) this->shape = toclone->fshape;
-			// 	// return;
-			// }
-			// if (!toclone->shape.IsNull()) this->shape = toclone->shape;
-			this->vpoints = toclone->vpoints;
 		}
 		bool solidify_wire_to_face() {
 			if (shape.IsNull() || shape.ShapeType() != TopAbs_WIRE) {
@@ -3933,7 +3872,7 @@ toggle_shaded_transp(currentMode);
 OCC_Viewer* occv = 0;
 
 #pragma region browser
-unordered_map<string,bool> msolo;
+unordered_map<string,bool> mhide;
 void fillbrowser(void*) {
 	perf();
 	static int binit=1;
@@ -3942,22 +3881,22 @@ void fillbrowser(void*) {
 		binit=0;
 		// lop(i,0,occv->vlua.size()){
 		// 	OCC_Viewer::luadraw* ld = occv->vlua[i];
-		// 	msolo[ld->name]=0;
+		// 	mhide[ld->name]=0;
 		// }
 	}
 
-for (const auto& [key, value] : msolo) {
+for (const auto& [key, value] : mhide) {
     std::cout << key << " => " << std::boolalpha << value << '\n';
 }
 
 bool allTrue = true;
-for (const auto& [key, value] : msolo) {
+for (const auto& [key, value] : mhide) {
     if (!value) { // value == false
         allTrue = false;		
         break; // no need to check further
     }
 }
-if(allTrue)msolo.clear();
+if(allTrue)mhide.clear();
 		
 
 	std::vector<std::vector<bool>> on_off=fbm->on_off;
@@ -3997,17 +3936,17 @@ if(allTrue)msolo.clear();
 			// ld->visible_hardcoded=0;
 			// fbm->on_off[i][1]=0;
 			// fbm->toggleon(fbm->size(),1,1);
-		if(msolo.size()>0 && msolo[ld->name]==1){
+		if(mhide.size()>0 && mhide[ld->name]==1){
 ld->visible_hardcoded=0;
 			// int line=fbm->size();
 			// fbm->toggleon(line,1,0);
 			// fbm->on_off[i][1]=1;
 		}
 		
-		if(msolo.size()>0 && msolo[ld->name]==0){
+		if(mhide.size()>0 && mhide[ld->name]==0){
 			// ld->visible_hardcoded=1;
 			int line=fbm->size();
-			if(msolo.size()>0 )fbm->toggleon(line,1,1);
+			if(mhide.size()>0 )fbm->toggleon(line,1,1);
 
 		}
 		//else fbm->toggleon(fbm->size(),1,1);
@@ -4022,7 +3961,7 @@ ld->visible_hardcoded=0;
 		// fbm->addnew({"H","S",ld->name});
         // fbm->data(fbm->size(), (void*)ld);
 
-// 		if(msolo[ld->name]==1){
+// 		if(mhide[ld->name]==1){
 // 			ld->visible_hardcoded=1;
 // 			fbm->on_off[i][1]=0;
 // 			cotm(ld->name,ld->visible_hardcoded)
@@ -4044,13 +3983,20 @@ ld->visible_hardcoded=0;
 		if(code==2){		  
 			gopart(ld->name);
 		}
+
+		//hide
+		if(code==0){
+
+		}
 		//solo
 		if(code==1){
 			bool flagempty=1;
 			lop(i,0,fbm->on_off.size()){
 				if(fbm->on_off[i][code]==1){
 					flagempty=0;
-					msolo[ld->name]=0;
+					// ldi->visible_hardcoded=0;
+					// ldi->redisplay();
+					mhide[ld->name]=0;
 					cotm("c1")
 					break;
 				}
@@ -4065,19 +4011,20 @@ ld->visible_hardcoded=0;
 
 
 
-					msolo[ld->name]=1;
+					mhide[ld->name]=1;
 					cotm("c2")
 				}
 				ld->occv->redraw();
 				return;
 			}
-
+			// return;
 			//at least one selected
+			if(0)
 			lop(i,0,occv->vlua.size()){
 
 				OCC_Viewer::luadraw* ldi=occv->vlua[i];
 				ldi->visible_hardcoded=1;
-				msolo[ldi->name]=0;
+				mhide[ldi->name]=0;
 				cotm("c3")
 				
 				// if(ldi==ld){
@@ -4089,7 +4036,7 @@ ld->visible_hardcoded=0;
 						TopoDS_Shape shape2d = ld->ExtractNonSolids(ld->cshape);
 						if (!shape2d.IsNull()) {
 							ldi->visible_hardcoded = 0;
-							msolo[ldi->name]=1;
+							mhide[ldi->name]=1;
 							ldi->redisplay();
 							ashape = new AIS_Shape(shape2d);
 							ld->occv->m_context->Display(ashape, false);
@@ -4102,7 +4049,7 @@ ld->visible_hardcoded=0;
 				// ldi->occv->m_context->
 
 				ldi->visible_hardcoded=0;
-				msolo[ldi->name]=1;
+				mhide[ldi->name]=1;
 				ldi->redisplay();
 			}
 			ld->occv->redraw();
