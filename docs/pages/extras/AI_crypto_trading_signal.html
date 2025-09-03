@@ -20,11 +20,12 @@
   </style>
 </head>
 <body>
+	<br><br>
   <h1>AI Trading Signal</h1>
   <div id="tables"></div>
 
-  <script>
-    const symbols = [
+  <script>{
+    const symbols_ = [
       { name: 'Bitcoin', pair: 'BTCUSDT' },
       { name: 'Ethereum', pair: 'ETHUSDT' },
       { name: 'BNB', pair: 'BNBUSDT' },
@@ -114,7 +115,7 @@
     async function main() {
       const container = document.getElementById('tables');
 
-      for (const coin of symbols) {
+      for (const coin of symbols_) {
         const rawData = await fetchData(coin.pair);
 
         const historicalData = rawData.slice(0, -1);
@@ -178,6 +179,7 @@
     }
 
     main();
+}
   </script>
 </body>
 </html>
