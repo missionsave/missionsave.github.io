@@ -3698,7 +3698,7 @@ if(allTrue)mhide.clear();
 	std::vector<std::vector<bool>> on_off=fbm->on_off;
 
 	fbm->clear_all();
-	fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"@B12@C7"}}; 
+	fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"@B12@C7","@B12@C7"}}; 
 	// fbm->color(fl_rgb_color(220, 235, 255)); 
 	fbm->init();
 	// }
@@ -3816,7 +3816,7 @@ ld->visible_hardcoded=0;
 			}
 			// return;
 			//at least one selected
-			if(0)
+			// if(0)
 			lop(i,0,occv->vlua.size()){
 
 				OCC_Viewer::luadraw* ldi=occv->vlua[i];
@@ -3829,7 +3829,7 @@ ld->visible_hardcoded=0;
 					static Handle(AIS_Shape) ashape;
 					if (ashape) ld->occv->m_context->Remove(ashape, false);
 
-					if (ld->fshape.IsNull()) {
+					if (ld->shape.IsNull()) {
 						TopoDS_Shape shape2d = ld->ExtractNonSolids(ld->cshape);
 						if (!shape2d.IsNull()) {
 							ldi->visible_hardcoded = 0;
