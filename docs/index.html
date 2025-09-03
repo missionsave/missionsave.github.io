@@ -238,7 +238,14 @@ console.log("reloadCSS1");
 		}
 	});
 
-
+function onresizeFunction() {
+    var topHeaderEl = document.getElementById("topheaderid");
+    if (topHeaderEl) {
+        var clientHeight = topHeaderEl.clientHeight;
+        document.getElementById('nexttotop').style.paddingTop = clientHeight + 'px';
+    }
+}
+onresizeFunction();
 </script>
 
 
@@ -314,6 +321,19 @@ console.log("reloadCSS1");
 			
 					<a href="?p=Self-sufficient_Greenhouse.html"
 						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Self-sufficient_Greenhouse.html"); window.scrollTo(0, 0); return false;'>Self-sufficient Greenhouse</a>
+			
+				</div>
+			</div>
+
+			<div class="dropdownc">
+				<button onclick="dropdownFunction('myDropdownstdys')" class="dropbtn">Extras
+					<i class="fa fa-caret-down"></i>
+				</button>
+				<div id="myDropdownstdys" class="dropdown-content">
+			
+					<a href="?p=extras/AI_crypto_trading_signal.html"
+						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/extras/AI_crypto_trading_signal.html"); window.scrollTo(0, 0); return false;'>AI crypto trading signal</a>
+			
 			
 				</div>
 			</div>
@@ -481,11 +501,11 @@ var lib;
  		<h2></h2> 	
 	</div>
  	<script type="text/javascript">
- 		function onresizeFunction() {
- 			var clientHeight = document.getElementById("topheaderid").clientHeight;
- 			document.getElementById('nexttotop').style.paddingTop = clientHeight + 'px';
- 		}
- 		onresizeFunction();
+ 		// function onresizeFunction() {
+ 		// 	var clientHeight = document.getElementById("topheaderid").clientHeight;
+ 		// 	document.getElementById('nexttotop').style.paddingTop = clientHeight + 'px';
+ 		// }
+ 		// onresizeFunction();
  	</script>
 
 

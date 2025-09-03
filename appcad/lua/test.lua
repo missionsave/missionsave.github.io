@@ -58,6 +58,7 @@ Offset 7
 Extrude (56) 
 Rotatexl(90)
 Movel(-285,170-7,-100)
+--Movel(-285,170-7,-100)
 
 --Pl 0,0 280,0 @0,6 @-280,0 0,0
 --Extrude 56
@@ -79,7 +80,7 @@ function struct()
 container_width=2438
 container_height=2591
 container_long=6058
-container_long=12000
+--container_long=12000
 container_midle=container_width/2
 
 

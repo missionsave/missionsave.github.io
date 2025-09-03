@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Crypto Prediction & Trading Signal (Normalized)</title>
+  <script src="https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #111; color: #eee; padding: 20px; }
+    table { border-collapse: collapse; margin-bottom: 30px; width: 100%; max-width: 900px; }
+    th, td { border: 1px solid #444; padding: 8px 12px; text-align: right; }
+    th { background: #222; }
+    caption { text-align: left; font-size: 1.2em; margin-bottom: 5px; }
+    .pred { font-weight: bold; color: #0f0; }
+    .pred.negative { color: #f33; }
+    .current { background: #333; font-weight: bold; }
+    .pos { color: #0f0; }
+    .neg { color: #f33; }
+    .signal-buy { color: #0f0; font-weight: bold; }
+    .signal-sell { color: #f33; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Crypto History, Current Candle & Trading Signal (Normalized)</h1>
+  <div id="tables"></div>
+
+  <script>
+    const symbols = [
+      { name: 'Bitcoin', pair: 'BTCUSDT' },
+      { name: 'Ethereum', pair: 'ETHUSDT' },
+      { name: 'BNB', pair: 'BNBUSDT' },
+      { name: 'XRP', pair: 'XRPUSDT' },
+      { name: 'Solana', pair: 'SOLUSDT' }
+    ];
+
+    const interval = '1d';
+    const historyLength = 10; // up to 1000 max from Binance
+
+    async function fetchData(symbol) {
+      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+      const res = await fetch(url);
+      return res.json();
+    }
+
+    function formatNum(num, decimals = 2) {
+      return parseFloat(num).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+
+    function normalizePerFeature(data) {
+      const features = data[0].length;
+      const mins = Array(features).fill(Infinity);
+      const maxs = Array(features).fill(-Infinity);
+
+      // find min/max per feature
+      data.forEach(row => {
+        row.forEach((v, i) => {
+          if (v < mins[i]) mins[i] = v;
+          if (v > maxs[i]) maxs[i] = v;
+        });
+      });
+
+      // normalize
+      const normalized = data.map(row =>
+        row.map((v, i) => (v - mins[i]) / (maxs[i] - mins[i] || 1))
+      );
+
+      return { normalized, mins, maxs };
+    }
+
+    function denormalizeRow(row, mins, maxs) {
+      return row.map((v, i) => v * (maxs[i] - mins[i]) + mins[i]);
+    }
+
+    function trainAndPredict(rows) {
+      const { normalized, mins, maxs } = normalizePerFeature(rows);
+
+      const net = new brain.recurrent.LSTMTimeStep({
+        inputSize: 4, // high, low, close, volume
+        hiddenLayers: [16],
+        outputSize: 4
+      });
+
+      net.train(normalized, { iterations: 400, learningRate: 0.01 });
+
+      const lastSeq = normalized.slice(-1);
+      const predictionNorm = net.run(lastSeq);
+      const prediction = denormalizeRow(predictionNorm, mins, maxs);
+      return prediction; // [high, low, close, volume]
+    }
+
+    function generateSignal(predClose, prevClose) {
+      const diffPct = ((predClose - prevClose) / prevClose) * 100;
+      let signal, entry, sl, tp;
+
+      if (diffPct > 0.5) {
+        signal = 'BUY';
+        entry = prevClose;
+        sl = prevClose * 0.98;
+        tp = prevClose * 1.03;
+      } else if (diffPct < -0.5) {
+        signal = 'SELL';
+        entry = prevClose;
+        sl = prevClose * 1.02;
+        tp = prevClose * 0.97;
+      } else {
+        signal = 'HOLD';
+        entry = prevClose;
+        sl = null;
+        tp = null;
+      }
+
+      return { signal, diffPct, entry, sl, tp };
+    }
+
+    async function main() {
+      const container = document.getElementById('tables');
+
+      for (const coin of symbols) {
+        const rawData = await fetchData(coin.pair);
+
+        const historicalData = rawData.slice(0, -1);
+        const currentCandle = rawData[rawData.length - 1];
+        const last7 = historicalData.slice(-7);
+
+        const rows = historicalData.map(c => [
+          parseFloat(c[2]), // high
+          parseFloat(c[3]), // low
+          parseFloat(c[4]), // close
+          parseFloat(c[5])  // volume
+        ]);
+
+        const prediction = trainAndPredict(rows);
+
+        const prevClose = parseFloat(historicalData[historicalData.length - 1][4]);
+        const currentClose = parseFloat(currentCandle[4]);
+        const changePctCurrent = ((currentClose - prevClose) / prevClose) * 100;
+
+        const { signal, diffPct, entry, sl, tp } = generateSignal(prediction[2], prevClose);
+
+        let html = `<table>
+          <caption>${coin.name} (${coin.pair})</caption>
+          <thead>
+            <tr><th>Date</th><th>High</th><th>Low</th><th>Close</th><th>% Change vs Prev</th></tr>
+          </thead>
+          <tbody>`;
+
+        last7.forEach((candle, idx) => {
+          const date = new Date(candle[0]).toISOString().split('T')[0];
+          const change = idx === 0 ? null : ((parseFloat(candle[4]) - parseFloat(last7[idx - 1][4])) / parseFloat(last7[idx - 1][4])) * 100;
+          html += `<tr>
+            <td style="text-align:left">${date}</td>
+            <td>${formatNum(candle[2])}</td>
+            <td>${formatNum(candle[3])}</td>
+            <td>${formatNum(candle[4])}</td>
+            <td>${change !== null ? `<span class="${change >= 0 ? 'pos' : 'neg'}">${formatNum(change)}%</span>` : '-'}</td>
+          </tr>`;
+        });
+
+        const currentDate = new Date(currentCandle[0]).toISOString().split('T')[0];
+        html += `<tr class="current">
+          <td style="text-align:left">${currentDate} (Current)</td>
+          <td>${formatNum(currentCandle[2])}</td>
+          <td>${formatNum(currentCandle[3])}</td>
+          <td>${formatNum(currentCandle[4])}</td>
+          <td><span class="${changePctCurrent >= 0 ? 'pos' : 'neg'}">${formatNum(changePctCurrent)}%</span></td>
+        </tr>`;
+
+        html += `</tbody>
+          <tfoot>
+            <tr><td colspan="5" class="${signal === 'BUY' ? 'signal-buy' : signal === 'SELL' ? 'signal-sell' : ''}">
+              Signal: ${signal} | Predicted Close: ${formatNum(prediction[2])} USDT (${diffPct >= 0 ? '+' : ''}${formatNum(diffPct)}%)<br>
+              ${signal !== 'HOLD' ? `Entry: ${formatNum(entry)} | Stop Loss: ${formatNum(sl)} | Take Profit: ${formatNum(tp)}` : 'No trade suggested'}
+            </td></tr>
+          </tfoot>
+        </table>`;
+
+        container.innerHTML += html;
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>

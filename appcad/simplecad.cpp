@@ -460,14 +460,10 @@ struct OCC_Viewer : public flwindow {
 	struct luadraw {
 		int type=0;
 		// vector<luadraw*> vnl;
-		bool editing=0;
-		bool protectedshape = 0;
-
-		string command = "";
+		bool editing=0; 
 
 		// build it using BRep_Builder
-		BRep_Builder builder;
-gp_Quaternion qrot; 
+		BRep_Builder builder; 
 		string name = "";
 		bool visible_hardcoded = 1;
 		// TopoDS_Shape cshape;
@@ -528,59 +524,40 @@ gp_Quaternion qrot;
 			occv->ulua[name] = this;
 			occv->vlua.push_back(this);
 		}
-		void display_sketch(){
-			ashape->Set(cshape);
+ 
 
+		TopoDS_Shape resetShapePlacement(const TopoDS_Shape& s) {
+			if (s.IsNull()) return s;
+
+			TopoDS_Shape working = s;
+			working.Location(TopLoc_Location()); // clear top-level
+
+			gp_Trsf trsf = working.Location().Transformation();
+			if (trsf.Form() != gp_Identity) {
+				working = BRepBuilderAPI_Transform(working, trsf, true).Shape();
+				working.Location(TopLoc_Location());
+			}
+
+			if (working.ShapeType() == TopAbs_COMPOUND) {
+				TopoDS_Compound newCompound;
+				BRep_Builder builder;
+				builder.MakeCompound(newCompound);
+				for (TopExp_Explorer exp(working, TopAbs_SHAPE); exp.More(); exp.Next()) {
+					builder.Add(newCompound, resetShapePlacement(exp.Current()));
+				}
+				return newCompound;
+			}
+
+			return working;
 		}
+			
 		void update_placement() { 
-			// if (needsplacementupdate == 0) return; 
-			// std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
-			// cotm(ext.size(),name);
-			// if(ext.size()>0){
-				shape=FuseAndRefineWithAPI(cshape);
-			// }//else if(cshape.size()==1) shape=c
+			if (needsplacementupdate == 0) return; 
+			shape=FuseAndRefineWithAPI(cshape); 
 			ashape->Set(shape);
 			needsplacementupdate = 0; 
 		}
-		void update_placement_v0working() {
-			// cotm(name,needsplacementupdate);
-			if (needsplacementupdate == 0) return;
-			// BRepBuilderAPI_Transform transformer(shape,
-			// 									 trsf);	 // if part only last
-			// // cshape = TopoDS::Compound(transformer.Shape());
-			// shape = transformer.Shape();
-			if (!cshape.IsNull()) {
-				BRepCheck_Analyzer ana(cshape, Standard_True);
-				if (!ana.IsValid()) {
-					std::cout << "Compound has invalid geometry or topology\n";
-				}
-				BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
-				mesher.Perform();
-
-				// cotm(hasAnyTriangulation(cshape))
-					// shape=cshape;
-					ashape->Set(cshape);
-			} else {
-				ashape->Set(shape);
-			}
-
-
-
-			std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
-			// cotm(ext.size());
-			if(!editing){
-				fshape=FuseAndRefineWithAPI(cshape);
-			}else{
-				fshape=cshape;
-			}
-
-
-
-			// if (!cshape.IsNull()) ashape->Set(cshape);   
-			if (!shape.IsNull()) ashape->Set(fshape);  // if is part, show only the last
-			needsplacementupdate = 0;
-		}
-		void redisplay() {
+	void redisplay() {
 			update_placement();
 
 				// cotm("notvisible",name,visible_hardcoded)
@@ -652,17 +629,7 @@ gp_Quaternion qrot;
 			}
 		}
 
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopoDS.hxx>
-#include <BRep_Builder.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopAbs_ShapeEnum.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Iterator.hxx>
-#include <TopoDS_Shape.hxx>
-#include <BRep_Builder.hxx>
-#include <TopAbs_ShapeEnum.hxx>
+  
 
 TopoDS_Shape ExtractNonSolids(const TopoDS_Shape& compound)
 {
@@ -757,205 +724,34 @@ TopoDS_Shape FuseAndRefineWithAPI(const TopoDS_Shape& inputShape) {
 
     return refined;
 }
-void update_placement_v1() {
-    cotm(name, needsplacementupdate);
-    if (needsplacementupdate == 0) return;
-
-    // Apply transformation to the base shape
-    BRepBuilderAPI_Transform transformer(shape, trsf);
-    shape = transformer.Shape();
-
-    // If cshape is the compound containing all parts, update it
-    if (!cshape.IsNull()) {
-        BRepCheck_Analyzer ana(cshape, Standard_True);
-        if (!ana.IsValid()) {
-            std::cout << "Compound has invalid geometry or topology\n";
-        }
-
-        // Re-mesh compound
-        BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
-        mesher.Perform();
-
-        // Work with solids inside the compound
-        std::vector<TopoDS_Solid> ext = ExtractSolids(cshape);
-        cotm(ext.size());
-
-        // Replace compound with fused version if not in editing mode
-        if (!editing) {
-            shape = FuseAndRefineWithAPI(cshape);
-        } else {
-            shape = cshape;
-        }
-    }
-
-    // Update displayed AIS shape once
-    if (!shape.IsNull()) {
-        ashape->Set(shape);
-    }
-
-    needsplacementupdate = 0;
-}
-
-void update_placement_v2() {
-    if (needsplacementupdate == 0) 
-        return;
-
-    // Decide which base shape to show immediately
-    TopoDS_Shape baseShape = !cshape.IsNull() ? cshape : shape;
-    ashape->Set(baseShape);
-
-    // Extract solids (or use baseShape if none)
-    std::vector<TopoDS_Solid> solids = ExtractSolids(cshape.IsNull() ? shape : cshape);
-
-    // Compute fshape
-    if (!editing) {
-        // Fuse all extracted solids into one shape
-        if (solids.empty()) {
-            fshape = baseShape;
-        }
-        else {
-            // Start from the first solid
-            TopoDS_Shape accumulator = solids[0];
-
-            for (size_t i = 1; i < solids.size(); ++i) {
-                BRepAlgoAPI_Fuse fuseOp(accumulator, solids[i]);
-                fuseOp.SetFuzzyValue(1e-6);      // tolerate small gaps
-                fuseOp.Build();
-
-                if (!fuseOp.IsDone()) {
-                    std::cerr << "Warning: Fuse failed at index " << i 
-                              << ", using last good shape\n";
-                    break;  // stop fusing; accumulator stays as-is
-                }
-
-                accumulator = fuseOp.Shape();
-            }
-
-            // Optional: refine/sew to clean up small cracks
-            BRepBuilderAPI_Sewing sewer(1e-6);
-            sewer.Add(accumulator);
-            sewer.Perform();
-            accumulator = sewer.SewedShape();
-
-            fshape = accumulator;
-			fshape=FuseAndRefineWithAPI(fshape);
-        }
-    }
-    else {
-        // In edit mode, skip fusion
-        fshape = cshape;
-    }
-
-    // Fallback if fusion/refinement still produced null
-    if (fshape.IsNull()) {
-        std::cerr << "Error: resulting fshape is null – falling back to baseShape\n";
-        fshape = baseShape;
-    }
-
-    // Final display: use the fused/refined shape
-    ashape->Set(fshape);
-
-    needsplacementupdate = 0;
-}
-
-		void update_placement_v3() {
-			// cotm(name,needsplacementupdate);
-			if (needsplacementupdate == 0) return;
-			// BRepBuilderAPI_Transform transformer(shape,
-			// 									 trsf);	 // if part only last
-			// // cshape = TopoDS::Compound(transformer.Shape());
-			// shape = transformer.Shape();
-			if (!cshape.IsNull()) {
-				BRepCheck_Analyzer ana(cshape, Standard_True);
-				if (!ana.IsValid()) {
-					std::cout << "Compound has invalid geometry or topology\n";
-				}
-				BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
-				mesher.Perform();
-
-				// cotm(hasAnyTriangulation(cshape))
-					// shape=cshape;
-					ashape->Set(cshape);
-			} else {
-				ashape->Set(shape);
-			}
-
-
-
-			std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
-			// cotm(ext.size());
-			if(!editing){
-				fshape=FuseAndRefineWithAPI(cshape);
-			}else{
-				fshape=cshape;
-			}
-
-
-
-			// if (!cshape.IsNull()) ashape->Set(cshape);   
-			if (!fshape.IsNull()){ 
-				ashape->Set(fshape);  // if is part, show only the last
-			}else{
-				ashape->Set(shape);
-			}
-			needsplacementupdate = 0;
-		}
-
-
+ 
+ 
+ 
 		void copy_placement(luadraw* tocopy) { trsf = tocopy->trsf; }
 		void exit() { throw std::runtime_error(lua_error_with_line(L, "exit")); }
-		void update_placement_v0() {
-			// cotm(name,needsplacementupdate);
-			if (needsplacementupdate == 0) return;
-			// BRepBuilderAPI_Transform transformer(shape,
-			// 									 trsf);	 // if part only last
-			// // cshape = TopoDS::Compound(transformer.Shape());
-			// shape = transformer.Shape();
-			if (!cshape.IsNull()) {
-				BRepCheck_Analyzer ana(cshape, Standard_True);
-				if (!ana.IsValid()) {
-					std::cout << "Compound has invalid geometry or topology\n";
-				}
-				BRepMesh_IncrementalMesh mesher(cshape, 0.5, true, 0.5, true);
-				mesher.Perform();
-
-				// cotm(hasAnyTriangulation(cshape))
-					// shape=cshape;
-					ashape->Set(cshape);
-			} else {
-				ashape->Set(shape);
-			}
+ 
 
 
+void clone(luadraw* toclone, bool copy_placement = false) {
+    if (!toclone) {
+        throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+    }
 
-			std::vector<TopoDS_Solid> ext=ExtractSolids(cshape);
-			// cotm(ext.size());
-			if(!editing){
-				fshape=FuseAndRefineWithAPI(cshape);
-			}else{
-				fshape=cshape;
-			}
+    this->vpoints = toclone->vpoints;
+
+    if (!toclone->shape.IsNull()) {
+        this->shape = toclone->shape;
+
+        if (!copy_placement) { 
+			// shape.Location(TopLoc_Location());
+            shape = resetShapePlacement(shape);
+        }
+
+        mergeShape(cshape, shape);
+    }
+}
 
 
-
-			// if (!cshape.IsNull()) ashape->Set(cshape);   
-			if (!shape.IsNull()) ashape->Set(fshape);  // if is part, show only the last
-			needsplacementupdate = 0;
-		}
-
-
-
-
-		void clone(luadraw* toclone,bool copy_placement=0) {
-			if (!toclone) {
-				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
-			}
-			this->vpoints = toclone->vpoints;
-			if (!toclone->shape.IsNull()){
-				this->shape = toclone->shape;
-				mergeShape(cshape,toclone->shape);
-			}
-		}
 		bool solidify_wire_to_face() {
 			if (shape.IsNull() || shape.ShapeType() != TopAbs_WIRE) {
 				return false;  // not a wire — nothing to do
@@ -3902,7 +3698,8 @@ if(allTrue)mhide.clear();
 	std::vector<std::vector<bool>> on_off=fbm->on_off;
 
 	fbm->clear_all();
-	fbm->vcols={{18,"@B1"},{18,"@B2","@B5"},{18,"@B48"}}; 
+	fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"@B12@C7"}}; 
+	// fbm->color(fl_rgb_color(220, 235, 255)); 
 	fbm->init();
 	// }
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen

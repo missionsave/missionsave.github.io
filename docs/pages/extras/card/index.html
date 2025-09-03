@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Image Rotation Example</title>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+    }
+    #image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        page-break-inside: avoid;
+    }
+    .row {
+        display: flex;
+        justify-content: center;
+        margin: 0; /* no space between rows */
+    }
+    img {
+        height: 224px;
+        width: auto;
+        display: block;
+        border: 1px solid #bbb; /* thin gray contour */
+    }
+    .rotate {
+        transform: rotate(180deg);
+    }
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
+</style>
+</head>
+<body>
+<div id="image-container"></div>
+
+<script>
+    const rand = Math.floor(Math.random() * 100000);
+    const imageSrc = `daniel.png?${rand}`;
+    const container = document.getElementById('image-container');
+
+    // Create 5 rows, each with 2 images (normal + rotated)
+    for (let i = 0; i < 5; i++) {
+        const row = document.createElement('div');
+        row.classList.add('row');
+
+        const img1 = document.createElement('img');
+        img1.src = imageSrc;
+
+        const img2 = document.createElement('img');
+        img2.src = imageSrc;
+        img2.classList.add('rotate');
+
+        row.appendChild(img1);
+        row.appendChild(img2);
+        container.appendChild(row);
+    }
+</script>
+</body>
+</html>
