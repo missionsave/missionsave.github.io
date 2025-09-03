@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Crypto Prediction & Trading Signal (Normalized)</title>
-  <script src="https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js" onload="main()"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js" onload="main()"></script> -->
   <style>
     body { font-family: Arial, sans-serif; background: #ffffff; color: #333131; padding: 20px; }
     table { border-collapse: collapse; margin-bottom: 30px; width: 100%; max-width: 900px; }
@@ -177,10 +177,12 @@
         container.innerHTML += html;
       }
     }
-//   window.onload = () => {
-//     main();
-//   };
-    // main();
+	const script = document.createElement('script');
+	script.src = 'https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js';
+	script.onload = () => {
+		main(); // only runs after Brain.js is fully loaded
+	};
+	document.head.appendChild(script);
 }
   </script>
 </body>
