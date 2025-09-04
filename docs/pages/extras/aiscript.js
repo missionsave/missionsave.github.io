@@ -11,11 +11,12 @@ const brainCode = fs.readFileSync(brainPath, 'utf8');
 vm.runInThisContext(brainCode);
 
 // Configurações para Binance
-const interval = '1h';
-const historyLength = 100;
+const interval = '1d';
+const historyLength = 6;
 
 async function fetchData(symbol) {
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+  console.log(url);
   const res = await fetch(url);
   return res.json();
 }

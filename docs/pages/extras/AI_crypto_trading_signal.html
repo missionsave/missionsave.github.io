@@ -61,6 +61,7 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
 
   async function fetchData(symbol) {
     const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+	console.log(url);
     const res = await fetch(url);
     return res.json();
   }
@@ -158,6 +159,7 @@ const portfolio = [];
 
     for (const coin of symbols_) {
       const rawData = await fetchData(coin.pair);
+	  console.log(rawData.length);
 
       const historicalData = rawData.slice(0, -1); // exclude current from training
       const currentCandle = rawData[rawData.length - 1];
