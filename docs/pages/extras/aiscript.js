@@ -16,7 +16,7 @@ const historyLength = 6;
 
 async function fetchData(symbol) {
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
-  console.log(url);
+  console.log("url",url);
   const res = await fetch(url);
   return res.json();
 }
@@ -27,7 +27,7 @@ async function fetchData(symbol) {
 
   // Teste de fetch
   const data = await fetchData('BTCUSDT');
-  console.log(`📊 Recebidas ${data.length} velas de BTCUSDT`);
+  console.log(`📊 Recebidas1 ${data.length} velas de BTCUSDT`);
 
   // Teste com Brain.js
   const net = new brain.NeuralNetwork();
