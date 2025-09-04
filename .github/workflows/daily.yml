@@ -1,0 +1,16 @@
+name: Correr aiscript.js diário
+
+on:
+  schedule:
+    - cron: "1 0 * * *" # todos os dias às 00:01h UTC (01h01m em Portugal no verão)
+  workflow_dispatch:
+
+jobs:
+  run-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node docs/pages/extras/aiscript.js

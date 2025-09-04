@@ -105,6 +105,8 @@
 
 !docs
 !docs/**/**
+!.github
+!.github/**/**
 
 *_v1*
 *_v2*
