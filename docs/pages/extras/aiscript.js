@@ -28,6 +28,11 @@ async function fetchData(symbol) {
   // Teste de fetch
   const data = await fetchData('BTCUSDT');
   console.log(`📊 Recebidas1 ${data.length} velas de BTCUSDT`);
+//   const data = await fetchData('BTCUSDT');
+console.log("📊 Tipo de dados recebidos:", Array.isArray(data) ? 'Array' : typeof data);
+console.log("📊 Conteúdo recebido:", data);
+console.log(`📊 Recebidas ${Array.isArray(data) ? data.length : 0} velas de BTCUSDT`);
+
 
   // Teste com Brain.js
   const net = new brain.NeuralNetwork();
