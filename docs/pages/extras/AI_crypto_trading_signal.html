@@ -1,8 +1,9 @@
 <!DOCTYPE html>
+<!-- https://copilot.microsoft.com/shares/VyL8W8WPxvm114ChXmb8E -->
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Crypto Prediction & Trading Signal (Normalized)</title>
+  <title>AI Prediction & Trading Signal</title>
   <!-- <script src="https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js" onload="main()"></script> -->
   <style>
     body { font-family: Arial, sans-serif; background: #ffffff; color: #333131; padding: 20px; }
@@ -20,170 +21,294 @@
   </style>
 </head>
 <body>
-	<br>
+  <br>
   <h1>AI Trading Signal</h1>
+  <div id="idtime"></div>
+  <br>
   <div id="tables"></div>
+ 
+<script>
+	const now = new Date(),
+	utcH = now.getUTCHours(),
+	utcM = now.getUTCMinutes(),
+	end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1),
+	diff = end - now,
+	hLeft = Math.floor(diff/36e5),
+	mLeft = Math.floor(diff%36e5/6e4);
+	document.getElementById("idtime").textContent =
+  `UTC: ${utcH.toString().padStart(2,'0')}:${utcM.toString().padStart(2,'0')} | Left: ${hLeft}h ${mLeft}m`;
 
-  <script>{
-    const symbols_ = [
-      { name: 'Bitcoin', pair: 'BTCUSDT' },
-      { name: 'Ethereum', pair: 'ETHUSDT' },
-      { name: 'BNB', pair: 'BNBUSDT' },
-      { name: 'XRP', pair: 'XRPUSDT' },
-      { name: 'Solana', pair: 'SOLUSDT' }
-    ];
 
-    const interval = '1d';
-    const historyLength = 10; // up to 1000 max from Binance
+{
 
-    async function fetchData(symbol) {
-      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
-      const res = await fetch(url);
-      return res.json();
+  const symbols_ = [
+    { name: 'Bitcoin', pair: 'BTCUSDT' },
+    { name: 'Ethereum', pair: 'ETHUSDT' },
+    { name: 'BNB', pair: 'BNBUSDT' },
+    { name: 'XRP', pair: 'XRPUSDT' },
+    { name: 'Solana', pair: 'SOLUSDT' }
+  ];
+
+  const interval = '1d';
+  const historyLength = 6; // up to 1000 max from Binance
+  const RERUNS = 10;        // number of independent trainings per symbol
+  const TRAIN_ITER = 400;   // iterations per training run
+
+  async function fetchData(symbol) {
+    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+    const res = await fetch(url);
+    return res.json();
+  }
+
+  function formatNum(num, decimals = 2) {
+    return parseFloat(num).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+
+  function normalizePerFeature(data) {
+    const features = data[0].length;
+    const mins = Array(features).fill(Infinity);
+    const maxs = Array(features).fill(-Infinity);
+
+    data.forEach(row => {
+      row.forEach((v, i) => {
+        if (v < mins[i]) mins[i] = v;
+        if (v > maxs[i]) maxs[i] = v;
+      });
+    });
+
+    const normalized = data.map(row =>
+      row.map((v, i) => (v - mins[i]) / (maxs[i] - mins[i] || 1))
+    );
+
+    return { normalized, mins, maxs };
+  }
+
+  function denormalizeRow(row, mins, maxs) {
+    return row.map((v, i) => v * (maxs[i] - mins[i]) + mins[i]);
+  }
+
+  function trainOnce(rows) {
+    const { normalized, mins, maxs } = normalizePerFeature(rows);
+
+    const net = new brain.recurrent.LSTMTimeStep({
+      inputSize: 4,  // high, low, close, volume
+      hiddenLayers: [16],
+      outputSize: 4
+    });
+
+    net.train(normalized, { iterations: TRAIN_ITER, learningRate: 0.01 });
+
+    const lastSeq = normalized.slice(-1);
+    const predictionNorm = net.run(lastSeq);
+    const prediction = denormalizeRow(predictionNorm, mins, maxs);
+    return prediction; // [high, low, close, volume]
+  }
+
+  function median(arr) {
+    const s = [...arr].sort((a,b)=>a-b);
+    const m = Math.floor(s.length/2);
+    return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+  }
+
+  function trainAndPredictMedian(rows, runs = RERUNS) {
+    const highs = [], lows = [], closes = [], vols = [];
+    for (let i = 0; i < runs; i++) {
+      const p = trainOnce(rows);
+      highs.push(p[0]);
+      lows.push(p[1]);
+      closes.push(p[2]);
+      vols.push(p[3]);
+    }
+    return [median(highs), median(lows), median(closes), median(vols)];
+  }
+
+  // Keeps thresholds, but allocation now uses SL/TP distances for risk/reward
+  function generateSignal(predClose, prevClose) {
+    const diffPct = ((predClose - prevClose) / prevClose) * 100;
+    let signal, entry, sl, tp;
+
+    if (diffPct > 0.5) {
+      signal = 'BUY';
+      entry = prevClose;
+      sl = prevClose * 0.98; // 2% SL
+      tp = prevClose * 1.03; // 3% TP
+    } else if (diffPct < -0.5) {
+      signal = 'SELL';
+      entry = prevClose;
+      sl = prevClose * 1.02; // 2% SL
+      tp = prevClose * 0.97; // 3% TP
+    } else {
+      signal = 'HOLD';
+      entry = prevClose;
+      sl = null;
+      tp = null;
     }
 
-    function formatNum(num, decimals = 2) {
-      return parseFloat(num).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-    }
+    return { signal, diffPct, entry, sl, tp };
+  }
+const portfolio = [];
+  async function main() {
+    const container = document.getElementById('tables');
+    
 
-    function normalizePerFeature(data) {
-      const features = data[0].length;
-      const mins = Array(features).fill(Infinity);
-      const maxs = Array(features).fill(-Infinity);
+    for (const coin of symbols_) {
+      const rawData = await fetchData(coin.pair);
 
-      // find min/max per feature
-      data.forEach(row => {
-        row.forEach((v, i) => {
-          if (v < mins[i]) mins[i] = v;
-          if (v > maxs[i]) maxs[i] = v;
-        });
+      const historicalData = rawData.slice(0, -1); // exclude current from training
+      const currentCandle = rawData[rawData.length - 1];
+      const last7 = historicalData.slice(-7);
+
+      const rows = historicalData.map(c => [
+        parseFloat(c[2]), // high
+        parseFloat(c[3]), // low
+        parseFloat(c[4]), // close
+        parseFloat(c[5])  // volume
+      ]);
+
+      // Median prediction over multiple independent trainings
+      const [predHigh, predLow, predClose] = trainAndPredictMedian(rows, RERUNS);
+
+      const prevClose = parseFloat(historicalData[historicalData.length - 1][4]);
+	  console.log("prevClose",prevClose);
+      const currentClose = parseFloat(currentCandle[4]);
+      const changePctCurrent = ((currentClose - prevClose) / prevClose) * 100;
+
+      const { signal, diffPct, entry, sl, tp } = generateSignal(predClose, prevClose);
+
+      // Risk/Reward based on the actual plan (SL/TP), not predicted extremes
+      const maxWinPct = (signal === 'BUY')
+        ? ((tp - entry) / entry) * 100
+        : (signal === 'SELL')
+          ? ((entry - tp) / entry) * 100
+          : 0;
+
+      const maxLossPct = (signal === 'BUY')
+        ? ((entry - sl) / entry) * 100
+        : (signal === 'SELL')
+          ? ((sl - entry) / entry) * 100
+          : 0;
+
+      // Expected win capped by TP and floored at 0
+      const expectedRaw = (signal === 'BUY')
+        ? ((predClose - entry) / entry) * 100
+        : (signal === 'SELL')
+          ? ((entry - predClose) / entry) * 100
+          : 0;
+
+      const expectedWinPct = Math.max(0, Math.min(expectedRaw, maxWinPct));
+
+      portfolio.push({
+        name: coin.name,
+        pair: coin.pair,
+        signal,
+        expectedWinPct,
+        maxWinPct,
+        maxLossPct
       });
 
-      // normalize
-      const normalized = data.map(row =>
-        row.map((v, i) => (v - mins[i]) / (maxs[i] - mins[i] || 1))
-      );
+      // Per-symbol table
+      let html = `<table>
+        <caption>${coin.name} (${coin.pair})</caption>
+        <thead>
+          <tr><th><span class="notranslate">Date</span></th><th><span class="notranslate">High</span></th><th><span class="notranslate">Low</span></th><th><span class="notranslate">Close</span></th><th>% Change vs Prev</th></tr>
+        </thead>
+        <tbody>`;
 
-      return { normalized, mins, maxs };
-    }
-
-    function denormalizeRow(row, mins, maxs) {
-      return row.map((v, i) => v * (maxs[i] - mins[i]) + mins[i]);
-    }
-
-    function trainAndPredict(rows) {
-      const { normalized, mins, maxs } = normalizePerFeature(rows);
-
-      const net = new brain.recurrent.LSTMTimeStep({
-        inputSize: 4, // high, low, close, volume
-        hiddenLayers: [16],
-        outputSize: 4
-      });
-
-      net.train(normalized, { iterations: 400, learningRate: 0.01 });
-
-      const lastSeq = normalized.slice(-1);
-      const predictionNorm = net.run(lastSeq);
-      const prediction = denormalizeRow(predictionNorm, mins, maxs);
-      return prediction; // [high, low, close, volume]
-    }
-
-    function generateSignal(predClose, prevClose) {
-      const diffPct = ((predClose - prevClose) / prevClose) * 100;
-      let signal, entry, sl, tp;
-
-      if (diffPct > 0.5) {
-        signal = 'BUY';
-        entry = prevClose;
-        sl = prevClose * 0.98;
-        tp = prevClose * 1.03;
-      } else if (diffPct < -0.5) {
-        signal = 'SELL';
-        entry = prevClose;
-        sl = prevClose * 1.02;
-        tp = prevClose * 0.97;
-      } else {
-        signal = 'HOLD';
-        entry = prevClose;
-        sl = null;
-        tp = null;
-      }
-
-      return { signal, diffPct, entry, sl, tp };
-    }
-
-    async function main() {
-      const container = document.getElementById('tables');
-
-      for (const coin of symbols_) {
-        const rawData = await fetchData(coin.pair);
-
-        const historicalData = rawData.slice(0, -1);
-        const currentCandle = rawData[rawData.length - 1];
-        const last7 = historicalData.slice(-7);
-
-        const rows = historicalData.map(c => [
-          parseFloat(c[2]), // high
-          parseFloat(c[3]), // low
-          parseFloat(c[4]), // close
-          parseFloat(c[5])  // volume
-        ]);
-
-        const prediction = trainAndPredict(rows);
-
-        const prevClose = parseFloat(historicalData[historicalData.length - 1][4]);
-        const currentClose = parseFloat(currentCandle[4]);
-        const changePctCurrent = ((currentClose - prevClose) / prevClose) * 100;
-
-        const { signal, diffPct, entry, sl, tp } = generateSignal(prediction[2], prevClose);
-
-        let html = `<table>
-          <caption>${coin.name} (${coin.pair})</caption>
-          <thead>
-            <tr><th><span class="notranslate">Date</span></th><th><span class="notranslate">High</span></th><th><span class="notranslate">Low</span></th><th><span class="notranslate">Close</span></th><th>% Change vs Prev</th></tr>
-          </thead>
-          <tbody>`;
-
-        last7.forEach((candle, idx) => {
-          const date = new Date(candle[0]).toISOString().split('T')[0];
-          const change = idx === 0 ? null : ((parseFloat(candle[4]) - parseFloat(last7[idx - 1][4])) / parseFloat(last7[idx - 1][4])) * 100;
-          html += `<tr>
-            <td style="text-align:left">${date}</td>
-            <td>${formatNum(candle[2])}</td>
-            <td>${formatNum(candle[3])}</td>
-            <td>${formatNum(candle[4])}</td>
-            <td>${change !== null ? `<span class="${change >= 0 ? 'pos' : 'neg'}">${formatNum(change)}%</span>` : '-'}</td>
-          </tr>`;
-        });
-
-        const currentDate = new Date(currentCandle[0]).toISOString().split('T')[0];
-        html += `<tr class="current">
-          <td style="text-align:left">${currentDate} (Current)</td>
-          <td>${formatNum(currentCandle[2])}</td>
-          <td>${formatNum(currentCandle[3])}</td>
-          <td>${formatNum(currentCandle[4])}</td>
-          <td><span class="${changePctCurrent >= 0 ? 'pos' : 'neg'}">${formatNum(changePctCurrent)}%</span></td>
+      last7.forEach((candle, idx) => {
+        const date = new Date(candle[0]).toISOString().split('T')[0];
+        const change = idx === 0 ? null : ((parseFloat(candle[4]) - parseFloat(last7[idx - 1][4])) / parseFloat(last7[idx - 1][4])) * 100;
+        html += `<tr>
+          <td style="text-align:left">${date}</td>
+          <td>${formatNum(candle[2])}</td>
+          <td>${formatNum(candle[3])}</td>
+          <td>${formatNum(candle[4])}</td>
+          <td>${change !== null ? `<span class="${change >= 0 ? 'pos' : 'neg'}">${formatNum(change)}%</span>` : '-'}</td>
         </tr>`;
+      });
 
-        html += `</tbody>
-          <tfoot>
-            <tr><td colspan="5" class="${signal === 'BUY' ? 'signal-buy' : signal === 'SELL' ? 'signal-sell' : ''}">
-              Signal: ${signal} | Predicted Close: ${formatNum(prediction[2])} USDT (${diffPct >= 0 ? '+' : ''}${formatNum(diffPct)}%)<br>
-              ${signal !== 'HOLD' ? `Entry: ${formatNum(entry)} | Stop Loss: ${formatNum(sl)} | Take Profit: ${formatNum(tp)}` : 'No trade suggested'}
-            </td></tr>
-          </tfoot>
-        </table>`;
+      const currentDate = new Date(currentCandle[0]).toISOString().split('T')[0];
+      html += `<tr class="current">
+        <td style="text-align:left">${currentDate} (Current)</td>
+        <td>${formatNum(currentCandle[2])}</td>
+        <td>${formatNum(currentCandle[3])}</td>
+        <td>${formatNum(currentCandle[4])}</td>
+        <td><span class="${changePctCurrent >= 0 ? 'pos' : 'neg'}">${formatNum(changePctCurrent)}%</span></td>
+      </tr>`;
 
-        container.innerHTML += html;
-      }
+      html += `</tbody>
+        <tfoot>
+          <tr><td colspan="5" class="${signal === 'BUY' ? 'signal-buy' : signal === 'SELL' ? 'signal-sell' : ''}">
+            Signal: ${signal} | Median Predicted Close: ${formatNum(predClose)} USDT (${diffPct >= 0 ? '+' : ''}${formatNum(diffPct)}%)<br>
+            ${signal !== 'HOLD'
+              ? `Entry: ${formatNum(entry)} | Stop Loss: ${sl ? formatNum(sl) : '-'} | Take Profit: ${tp ? formatNum(tp) : '-'}<br>
+                 Est. Max Win: ${formatNum(maxWinPct)}% | Est. Max Loss: ${formatNum(maxLossPct)}% | Est. Expected Win: ${formatNum(expectedWinPct)}%`
+              : 'No trade suggested'}
+          </td></tr>
+        </tfoot>
+      </table>`;
+
+      container.innerHTML += html;
     }
-	const script = document.createElement('script');
-	script.src = 'https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js';
-	script.onload = () => {
-		main(); // only runs after Brain.js is fully loaded
-	};
-	document.head.appendChild(script);
+  }
+    // Allocation summary (relative to a 100 budget), using Expected/Risk
+    const budget = 100;
+    const eps = 1e-9;
+
+    // Build after portfolio is filled
+    const alloc = () => {
+      const scores = portfolio.map(p => {
+        if ((p.signal === 'BUY' || p.signal === 'SELL') && p.expectedWinPct > 0 && p.maxLossPct > 0) {
+          return p.expectedWinPct / (p.maxLossPct + eps);
+        }
+        return 0;
+      });
+      const scoreSum = scores.reduce((a,b)=>a+b, 0);
+      const amounts = portfolio.map((p, i) => {
+        if (scoreSum <= 0) return 0;
+        return (scores[i] / scoreSum) * budget;
+      });
+
+      let allocHtml = `<table>
+        <caption>Model-weighted allocation (Budget: ${formatNum(budget, 2)})</caption>
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Signal</th>
+            <th>Expected % Win</th>
+            <th>Max % Win</th>
+            <th>Max % Loss</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      portfolio.forEach((p, i) => {
+        allocHtml += `<tr>
+          <td style="text-align:left">${p.name}</td>
+          <td>${p.signal}</td>
+          <td>${formatNum(p.expectedWinPct)}%</td>
+          <td>${formatNum(p.maxWinPct)}%</td>
+          <td>${formatNum(p.maxLossPct)}%</td>
+          <td>${formatNum(amounts[i])}</td>
+        </tr>`;
+      });
+
+      allocHtml += `</tbody></table>`;
+      document.getElementById('tables').innerHTML += allocHtml;
+    };
+
+    // Run allocation after main builds portfolio
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js';
+    script.onload = async () => {
+      await main();
+      alloc();
+    };
+    document.head.appendChild(script);
 }
   </script>
+
+
+
 </body>
 </html>
