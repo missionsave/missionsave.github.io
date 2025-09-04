@@ -83,10 +83,9 @@ container_long=6058
 --container_long=12000
 container_midle=container_width/2
 
-
 crn_width=162
-local crn_height=118
-local crn_long=178
+crn_height=118
+crn_long=178
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
