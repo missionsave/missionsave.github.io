@@ -15,7 +15,8 @@ const interval = '1d';
 const historyLength = 6;
 
 async function fetchData(symbol) {
-  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+  const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+//   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
   console.log("url",url);
   const res = await fetch(url);
   return res.json();
@@ -27,7 +28,7 @@ async function fetchData(symbol) {
 
   // Teste de fetch
   const data = await fetchData('BTCUSDT');
-  console.log(`📊 Recebidas1 ${data.length} velas de BTCUSDT`);
+  console.log(`📊 Recebidas2 ${data.length} velas de BTCUSDT`);
 //   const data = await fetchData('BTCUSDT');
 console.log("📊 Tipo de dados recebidos:", Array.isArray(data) ? 'Array' : typeof data);
 console.log("📊 Conteúdo recebido:", data);
