@@ -15,8 +15,9 @@ const interval = '1d';
 const historyLength = 6;
 
 async function fetchData(symbol) {
-  const url = `https://api.binance.com/`;
-//   const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+  const url = `https://api.mexc.com/api/v3/account`;
+//   const url = `https://api.binance.com/`;
+//   const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`; //works
 //   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
   console.log("url",url);
   const res = await fetch(url);

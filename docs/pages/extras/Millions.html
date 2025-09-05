@@ -18,7 +18,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 1; i--) {
+    for (var i = arr.length - 1; i >= 0; i--) {
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -450,8 +450,7 @@ function best(idkey){
 
 
 
-
-		// var dif=[4];
+ 
 		var dif=[k+1];
 		for(var i=0;i<k+1;i++){ 
 		// for(var i=0;i<k+1;i++){ 
@@ -461,6 +460,18 @@ function best(idkey){
 			var diff=mathDiffPer(persaidas,totalchavesper,1);
 			if(diff==-2.0 || isNaN(diff))diff=0;
 			dif[i]=Number(diff.toFixed(3));
+			// console.log("best",i,diff.toFixed(2));
+		}
+
+		var dif2=[k+1];
+		for(var i=0;i<k+1;i++){ 
+		// for(var i=0;i<k+1;i++){ 
+			var sel=keys[idkey][keys[idkey].length-1];
+			var totalchavesper=(keysProbt[qtkeys][i]*100/keysProbt[0][0]);
+			var persaidas=(qtdisum[i]*100/1500.0);
+			var diff=mathDiffPer(persaidas,totalchavesper,1);
+			if(diff==-2.0 || isNaN(diff))diff=0;
+			dif2[i]=Number(diff.toFixed(3));
 			// console.log("best",i,diff.toFixed(2));
 		}
 
@@ -480,7 +491,7 @@ function best(idkey){
 		
 		
 		
-		keys_selected=[0,0,1,1,0,0]; //32
+		// keys_selected=[0,0,1,1,0,0]; //32
 		// keys_selected=[0,0,0,1,1,1]; //32
 		// isgood= dif[4]<-0.07 && dif[3]>0.07 && Math.abs(dif[2])<0.04;
 
@@ -492,7 +503,7 @@ function best(idkey){
 		// isgood=dif[5]>0.18 && (dif[5]-dif[4]>0.4) && (dif[4]-dif[3]<0.15) && (dif[3]-dif[2]<0.07) && dif[2]>dif[1] && dif[1]>dif[0];
 
 		let b=-0.001;
-		let bmax=0.04;
+		let bmax=0.05;
 		// isgood=Math.abs(dif[1])>0.13;
 		// isgood= dif[1]<-0.05 && dif[0]<0; 
 
@@ -522,16 +533,38 @@ function best(idkey){
 		
 		// isgood=isgood && dif[5]<dif[4] && dif[4]<dif[3];
 		// isgood=isgood && dif[3]>0.05 && dif[2]>dif[1] && dif[1]>dif[0];
-isgood=isgood && dif[2]>0.09;
-isgood=isgood && dif[3]<-0.09;
+// isgood=isgood && dif[2]>0.09;
+// isgood=isgood && dif[3]<-0.09;
 
-let notless=0.03;
-isgood=isgood && Math.abs(dif[0])>notless;
-isgood=isgood && Math.abs(dif[1])>notless;
-isgood=isgood && Math.abs(dif[2])>notless;
-isgood=isgood && Math.abs(dif[3])>notless;
-isgood=isgood && Math.abs(dif[4])>notless;
-isgood=isgood && Math.abs(dif[5])>notless;
+// isgood=isgood && Math.abs(dif[4])>0.09;
+// isgood=isgood && Math.abs(dif[3])>0.09; 
+
+let notless=0.02;
+// isgood=isgood && Math.abs(dif[0])>notless;
+// isgood=isgood && Math.abs(dif[1])>notless;
+// isgood=isgood && Math.abs(dif[2])>notless;
+// isgood=isgood && Math.abs(dif[3])>notless;
+// isgood=isgood && Math.abs(dif[4])>notless;
+// isgood=isgood && Math.abs(dif[5])>notless;
+
+
+		// keys_selected=[1,1,0,0,0,0]; //25
+// isgood=isgood && (dif[0])>notless;
+// isgood=isgood && (dif[1])<-notless;
+// isgood=isgood && (dif[2])>notless;
+// isgood=isgood && (dif[3])>notless;
+// isgood=isgood && (dif[4])>notless;
+// isgood=isgood && (dif[5])>notless;
+
+		keys_selected=[0,0,1,1,0,0]; //25
+isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+
+// isgood=isgood && (dif2[0])>notless;
+// isgood=isgood && (dif2[1])>notless;
+// isgood=isgood && (dif2[2])>notless;
+// isgood=isgood && (dif2[3])<-notless;
+// isgood=isgood && (dif2[4])<-notless;
+// isgood=isgood && (dif2[5])<-notless;
 
 
 
@@ -550,7 +583,11 @@ isgood=isgood && Math.abs(dif[5])>notless;
 		// if( Math.abs(dif[0])<0.02 && Math.abs(dif[3])<0.02 
 		
 
-		if (isgood)console.log("dif",it,dif);
+		if (isgood)
+		{
+			console.log("dif",it,dif);
+			console.log("dif2",it,dif2);
+		}
 		if (isgood)break;
 	}
 	fillSelected(idkey);

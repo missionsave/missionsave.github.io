@@ -54,13 +54,14 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     { name: 'Solana', pair: 'SOLUSDT' }
   ];
 
-  const interval = '1d';
-  const historyLength = 6; // up to 1000 max from Binance
-  const RERUNS = 10;        // number of independent trainings per symbol
+  const interval = '12h';
+  const historyLength = 6*2; // up to 1000 max from Binance
+  const RERUNS = 16;        // number of independent trainings per symbol
   const TRAIN_ITER = 400;   // iterations per training run
 
   async function fetchData(symbol) {
-    const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+    const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
+    // const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
 	console.log(url);
     const res = await fetch(url);
     return res.json();
@@ -222,7 +223,9 @@ const portfolio = [];
         <tbody>`;
 
       last7.forEach((candle, idx) => {
-        const date = new Date(candle[0]).toISOString().split('T')[0];
+		const date = `${new Date(candle[0]).toISOString().split('T')[0]} ${String(new Date(candle[0]).getUTCHours()).padStart(2,'0')}`;
+        // const date = new Date(candle[0]).toISOString().split('T')[0];
+		
         const change = idx === 0 ? null : ((parseFloat(candle[4]) - parseFloat(last7[idx - 1][4])) / parseFloat(last7[idx - 1][4])) * 100;
         html += `<tr>
           <td style="text-align:left">${date}</td>
@@ -233,7 +236,9 @@ const portfolio = [];
         </tr>`;
       });
 
-      const currentDate = new Date(currentCandle[0]).toISOString().split('T')[0];
+	const currentDate = `${new Date(currentCandle[0]).toISOString().split('T')[0]} ${String(new Date(currentCandle[0]).getUTCHours()).padStart(2,'0')}`;
+    //   const currentDate = new Date(currentCandle[0]).toISOString().split('T')[0];
+
       html += `<tr class="current">
         <td style="text-align:left">${currentDate} (Current)</td>
         <td>${formatNum(currentCandle[2])}</td>
