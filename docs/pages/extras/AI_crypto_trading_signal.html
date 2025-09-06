@@ -50,13 +50,14 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     { name: 'Bitcoin', pair: 'BTCUSDT' },
     { name: 'Ethereum', pair: 'ETHUSDT' },
     { name: 'BNB', pair: 'BNBUSDT' },
+    // { name: 'Tron', pair: 'TRXUSDT' },
     { name: 'XRP', pair: 'XRPUSDT' },
     { name: 'Solana', pair: 'SOLUSDT' }
   ];
 
-  const interval = '12h';
-  const historyLength = 6*2; // up to 1000 max from Binance
-  const RERUNS = 16;        // number of independent trainings per symbol
+  const interval = '1d';
+  const historyLength = 7; // up to 1000 max from Binance
+  const RERUNS = 8*3;        // number of independent trainings per symbol
   const TRAIN_ITER = 400;   // iterations per training run
 
   async function fetchData(symbol) {

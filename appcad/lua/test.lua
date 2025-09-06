@@ -32,7 +32,7 @@ Pl 0,0, 220,0 @0,100 @-220,0 0,0
 Part robot_bucket
 --Visible(0)
 Clone sketch_bucket
-Offset 6
+Offset 5.2
 Extrude 170-50
 Rotatexl(90)
 Movel(0,170-50,1)

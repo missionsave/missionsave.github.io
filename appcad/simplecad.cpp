@@ -1,5 +1,50 @@
 #include "includes.hpp"
+#include <BRepBndLib.hxx>
+#include <Bnd_Box.hxx>
 
+#include <FL/Fl.H>
+
+#include <AIS_AnimationCamera.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+
+#include <SelectMgr_EntityOwner.hxx>
+#include <SelectMgr_SelectableObject.hxx>
+#include <SelectMgr_ViewerSelector.hxx>
+
+#include <V3d_View.hxx>
+#include <Aspect_Window.hxx>
+
+#include <Bnd_Box.hxx>
+#include <BRepBndLib.hxx>
+#include <BRepBndLib.hxx>
+
+#include <Graphic3d_Camera.hxx>
+
+#include <TopoDS_Shape.hxx>
+
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+
+#include <set>
+#include <vector>
+#include <cmath>
+
+// ----------------- assumed OCC_Viewer minimal interface -----------------
+// Keep these as comments; your real OCC_Viewer already has equivalents.
+//
+// struct OCC_Viewer {
+//   Handle(V3d_View) m_view;
+//   Handle(AIS_InteractiveContext) m_context;
+//   std::vector<TopoDS_Shape> vshapes; // optional for HLR display etc.
+//   gp_Vec end_proj_global, end_up_global;
+//   Handle(AIS_AnimationCamera) CurrentAnimation;
+//   void colorisebtn();
+//   void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& v);
+//   void redraw();
+// };
+ 
 #pragma region globals
 
 #include "fl_browser_msv.hpp"
@@ -97,6 +142,7 @@ struct shelpv{
 	string point="";
 	string error="";
 	string edge="";
+	string mass="";
 
 	void upd(){
 	std::string html = R"(
@@ -120,12 +166,23 @@ $pname $point $edge
 
 #pragma endregion help
 
-auto fmt = [](double v) {
-    if (std::fabs(v) < 1e-9) v = 0; // treat near-zero as zero
-    std::ostringstream oss;
-    oss << std::defaultfloat << v;
-    return oss.str();
-};
+// auto fmt = [](double v) {
+//     if (std::fabs(v) < 1e-9) v = 0; // treat near-zero as zero
+//     std::ostringstream oss;
+//     oss << std::defaultfloat << v;
+//     return oss.str();
+// };
+    auto fmt = [](double v,int precision=2) {
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(precision) << v;
+        std::string s = oss.str();
+        // strip trailing zeros and optional decimal point
+        if (s.find('.') != std::string::npos) {
+            while (!s.empty() && s.back() == '0') s.pop_back();
+            if (!s.empty() && s.back() == '.') s.pop_back();
+        }
+        return s;
+    };
 
 std::string lua_error_with_line(lua_State* L, const std::string& msg) {
 	lua_Debug ar;
@@ -2046,7 +2103,21 @@ void ev_highlight() {
     luadraw* ldd = lua_detected(anOwner);
     if (ldd) {
         std::string pname = "name: " + ldd->name;
-        if (pname != help.pname) { help.pname = pname; help.upd(); }
+        // if (pname != help.pname) //to optimize speed
+		{
+			help.pname = pname; 
+			GProp_GProps systemProps;
+			// Density is not directly handled here — mass is proportional to volume.
+			// If you want real mass, multiply by material density later.
+			BRepGProp::VolumeProperties(ldd->shape, systemProps);
+
+			// Get the mass (volume if density=1)
+			Standard_Real mass = systemProps.Mass();
+			double massa=mass/1000;
+			help.pname+=" Mass:"+ fmt(massa,0)+"cm³"+ " Petg50%:~"+fmt(massa*1.27*0.75,0)+"g";
+			std::cout << "Mass (assuming density=1): " << mass << std::endl;
+			help.upd(); 
+		}
     }
 
     Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(anOwner);
@@ -2062,6 +2133,11 @@ void ev_highlight() {
         redraw();
         return;
     }
+
+	// if(detected.ShapeType()==TopAbs_SOLID){
+	// 	cotm("TopAbs_SOLID")
+	// }
+
 
     switch (detected.ShapeType()) {
     case TopAbs_VERTEX: {
@@ -3518,11 +3594,297 @@ toggle_shaded_transp(currentMode);
 		}
 	}
 
-	gp_Vec end_proj_global;
-	gp_Vec end_up_global;
-	Handle(AIS_AnimationCamera) CurrentAnimation;
 
-	void start_animation(void* userdata) {
+// rotate_around_visible_shapes.cpp
+// Rotate around ONLY the shapes currently visible in the viewport.
+// Uses OCCT rectangular picking on the full viewport to find visible AIS_Shapes,
+// computes their bbox center, and pivots around that. Also keeps eye-to-center
+// distance consistent to avoid "flying away".
+
+#include <FL/Fl.H>
+
+#include <AIS_AnimationCamera.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+
+#include <Aspect_Window.hxx>
+
+#include <Bnd_Box.hxx>
+#include <BRepBndLib.hxx>
+
+#include <Graphic3d_Camera.hxx>
+
+#include <SelectMgr_EntityOwner.hxx>
+#include <SelectMgr_SelectableObject.hxx>
+#include <SelectMgr_ViewerSelector.hxx>
+
+#include <V3d_View.hxx>
+
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+
+// ---- your app types (assumed) ----
+// OCC_Viewer must expose at least:
+//   Handle(V3d_View) m_view;
+//   Handle(AIS_InteractiveContext) m_context;
+//   std::vector<TopoDS_Shape> vshapes;  // optional – not strictly required here
+//   gp_Vec end_proj_global, end_up_global;
+//   Handle(AIS_AnimationCamera) CurrentAnimation;
+//   void colorisebtn();
+//   void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>&);
+//   void redraw();
+// struct OCC_Viewer;
+
+// static void animation_update(void* userdata);
+
+// ---- Compute center of shapes actually visible in the viewport (without changing selection) ----
+#include <AIS_Shape.hxx>
+#include <AIS_ListOfInteractive.hxx>
+#include <AIS_DisplayStatus.hxx>
+#include <SelectMgr_ViewerSelector.hxx>
+#include <StdSelect_BRepOwner.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
+#include <BRepBndLib.hxx>
+#include <V3d_View.hxx>
+
+static gp_Pnt shapeCentroidWorld(const TopoDS_Shape& shp)
+{
+    GProp_GProps props;
+    BRepGProp::VolumeProperties(shp, props);
+    if (props.Mass() > 0.0) return props.CentreOfMass();
+
+    BRepGProp::SurfaceProperties(shp, props);
+    if (props.Mass() > 0.0) return props.CentreOfMass();
+
+    BRepGProp::LinearProperties(shp, props);
+    if (props.Mass() > 0.0) return props.CentreOfMass();
+
+    Bnd_Box b;
+    BRepBndLib::Add(shp, b);
+    gp_Pnt pmin = b.CornerMin(), pmax = b.CornerMax();
+    return gp_Pnt((pmin.X()+pmax.X())*0.5, (pmin.Y()+pmax.Y())*0.5, (pmin.Z()+pmax.Z())*0.5);
+}
+
+static gp_Pnt computeVisibleCenter(OCC_Viewer* occv)
+{
+    Handle(V3d_View) view = occv->m_view;
+    Handle(AIS_InteractiveContext) ctx = occv->m_context;
+    if (view.IsNull() || ctx.IsNull())
+        return view->Camera()->Center();
+
+    // Tamanho da viewport
+    Standard_Integer winW = 0, winH = 0;
+    if (!view->Window().IsNull()) {
+        view->Window()->Size(winW, winH);
+    } else {
+        winW = 1920; winH = 1080;
+    }
+    const Standard_Integer cx = winW / 2, cy = winH / 2;
+
+    // Pick no centro
+    Handle(SelectMgr_ViewerSelector) selector = ctx->MainSelector();
+    if (!selector.IsNull()) {
+        auto tryPickRect = [&](int half) -> Handle(SelectMgr_EntityOwner) {
+            const int x0 = std::max(0, cx - half);
+            const int y0 = std::max(0, cy - half);
+            const int x1 = std::min(winW - 1, cx + half);
+            const int y1 = std::min(winH - 1, cy + half);
+            selector->Pick(x0, y0, x1, y1, view);
+            if (selector->NbPicked() > 0) return selector->Picked(1);
+            return Handle(SelectMgr_EntityOwner)();
+        };
+
+        Handle(SelectMgr_EntityOwner) owner = tryPickRect(0);
+        if (owner.IsNull()) owner = tryPickRect(4);
+        if (owner.IsNull()) owner = tryPickRect(8);
+        if (owner.IsNull()) owner = tryPickRect(16);
+
+        if (!owner.IsNull()) {
+            Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(owner);
+            TopoDS_Shape shp;
+            if (!brepOwner.IsNull()) {
+                shp = brepOwner->Shape();
+            } else {
+                Handle(SelectMgr_SelectableObject) so = owner->Selectable();
+                Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(so);
+                if (!ais.IsNull()) shp = ais->Shape();
+            }
+            selector->Clear();
+
+            if (!shp.IsNull())
+                return shapeCentroidWorld(shp);
+        }
+    }
+
+    // Fallback: objeto exibido mais próximo do centro por projeção
+    AIS_ListOfInteractive disp;
+#if defined(OCC_VERSION_HEX) && (OCC_VERSION_HEX >= 0x070600)
+    ctx->DisplayedObjects(disp);
+#else
+    ctx->ObjectsByDisplayStatus(AIS_DS_Displayed, disp);
+#endif
+
+    double bestD2 = std::numeric_limits<double>::infinity();
+    gp_Pnt bestC;
+
+    for (AIS_ListOfInteractive::Iterator it(disp); it.More(); it.Next()) {
+        const Handle(AIS_InteractiveObject)& obj = it.Value();
+        Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(obj);
+        if (ais.IsNull()) continue;
+
+        const TopoDS_Shape& shp = ais->Shape();
+        if (shp.IsNull()) continue;
+
+        gp_Pnt c = shapeCentroidWorld(shp);
+
+        Standard_Real sx = 0, sy = 0;
+        view->Project(c.X(), c.Y(), c.Z(), sx, sy);
+
+        // Se a sua integração usa Y top-down, pode precisar: sy = winH - 1 - sy;
+        if (sx < 0 || sx >= winW || sy < 0 || sy >= winH) continue;
+
+        const double dx = sx - cx, dy = sy - cy;
+        const double d2 = dx*dx + dy*dy;
+        if (d2 < bestD2) {
+            bestD2 = d2;
+            bestC = c;
+        }
+    }
+
+    if (bestD2 < std::numeric_limits<double>::infinity())
+        return bestC;
+
+    return view->Camera()->Center();
+}
+
+
+gp_Vec end_proj_global;
+gp_Vec end_up_global;
+Handle(AIS_AnimationCamera) CurrentAnimation;
+ 
+// Rotate around ONLY the shapes currently visible in the viewport.
+// Uses OCCT rectangular picking on the full viewport to find visible AIS_Shapes,
+// computes their bbox center, and pivots around that. Also keeps eye-to-center
+// distance consistent to avoid "flying away".
+
+// ... (other functions remain the same)
+
+void start_animation(void* userdata)
+{
+    auto* occv = static_cast<OCC_Viewer*>(userdata);
+    Handle(V3d_View) m_view = occv->m_view;
+
+    // Stop any existing animation
+    if (!occv->CurrentAnimation.IsNull())
+    {
+        occv->CurrentAnimation->Stop();
+        occv->CurrentAnimation.Nullify();
+    }
+
+    // Current camera
+    Handle(Graphic3d_Camera) currentCamera = m_view->Camera();
+
+    // Pivot = center of currently visible shapes in viewport (robust)
+    gp_Pnt center = computeVisibleCenter(occv);
+cotm(center.X());
+// gp_Pnt center(2400,0,0);
+    // Keep same eye-to-center distance to avoid "flying away"
+    const gp_Pnt oldEye = currentCamera->Eye();
+    const double distance = oldEye.Distance(center);
+
+    // Start/End cameras
+    Handle(Graphic3d_Camera) cameraStart = new Graphic3d_Camera();
+    cameraStart->Copy(currentCamera);
+
+    Handle(Graphic3d_Camera) cameraEnd = new Graphic3d_Camera();
+    cameraEnd->Copy(currentCamera);
+
+    // Target direction (OpenCASCADE expects eye->center)
+    const gp_Dir targetDir(-occv->end_proj_global.X(),
+                           -occv->end_proj_global.Y(),
+                           -occv->end_proj_global.Z());
+
+    const gp_Pnt targetEye = center.XYZ() + targetDir.XYZ() * distance;
+
+    cameraEnd->SetEye(targetEye);
+    cameraEnd->SetCenter(center);
+    cameraEnd->SetDirection(targetDir);
+    cameraEnd->SetUp(gp_Dir(occv->end_up_global.X(),
+                            occv->end_up_global.Y(),
+                            occv->end_up_global.Z()));
+
+    // Animate
+    occv->CurrentAnimation = new AIS_AnimationCamera("ViewAnimation", m_view);
+    occv->CurrentAnimation->SetCameraStart(cameraStart);
+    occv->CurrentAnimation->SetCameraEnd(cameraEnd);
+    occv->CurrentAnimation->SetOwnDuration(0.6);
+
+    occv->CurrentAnimation->StartTimer(0.0, 1.0, Standard_True, Standard_False);
+
+    // Kick the update loop
+    Fl::add_timeout(1.0 / 12.0, animation_update, userdata);
+}
+
+static void animation_update(void* userdata)
+{
+    auto* occv = static_cast<OCC_Viewer*>(userdata);
+    Handle(V3d_View) m_view = occv->m_view;
+
+    if (occv->CurrentAnimation.IsNull())
+    {
+        Fl::remove_timeout(animation_update, userdata);
+        return;
+    }
+
+    if (occv->CurrentAnimation->IsStopped())
+    {
+        // Recompute pivot from *visible* shapes again (final snap)
+        // gp_Pnt center = computeVisibleCenter(occv);
+
+        // // Preserve distance
+        // const gp_Pnt oldEye = m_view->Camera()->Eye();
+        // const double distance = oldEye.Distance(center);
+
+        // const gp_Dir targetDir(-occv->end_proj_global.X(),
+        //                        -occv->end_proj_global.Y(),
+        //                        -occv->end_proj_global.Z());
+
+        // const gp_Pnt targetEye = center.XYZ() + targetDir.XYZ() * distance;
+
+        // m_view->Camera()->SetEye(targetEye);
+        // m_view->Camera()->SetCenter(center);
+        // m_view->Camera()->SetDirection(targetDir);
+        // m_view->Camera()->SetUp(gp_Dir(occv->end_up_global.X(),
+        //                                occv->end_up_global.Y(),
+        //                                occv->end_up_global.Z()));
+
+        occv->colorisebtn();
+        occv->projectAndDisplayWithHLR(occv->vshapes);
+        occv->redraw();
+
+        Fl::remove_timeout(animation_update, userdata);
+        return;
+    }
+
+    // Advance animation
+    occv->CurrentAnimation->UpdateTimer();
+    occv->projectAndDisplayWithHLR(occv->vshapes);
+    occv->redraw();
+
+    // 30 FPS
+    Fl::repeat_timeout(1.0 / 30.0, animation_update, userdata);
+}
+
+
+	
+	// gp_Vec end_proj_global;
+	// gp_Vec end_up_global;
+	// Handle(AIS_AnimationCamera) CurrentAnimation;
+
+
+	void start_animation_v1(void* userdata) {
 		auto* occv = static_cast<OCC_Viewer*>(userdata);
 		auto& m_view = occv->m_view;
 
@@ -3576,7 +3938,7 @@ toggle_shaded_transp(currentMode);
 		Fl::add_timeout(1.0 / 12, animation_update, userdata);
 	}
 
-	static void animation_update(void* userdata) {
+	static void animation_update_v1(void* userdata) {
 		auto* occv = static_cast<OCC_Viewer*>(userdata);
 		auto& m_view = occv->m_view;
 

@@ -127,7 +127,7 @@ std::string SerializeCompact(const std::string& partName,
                               const gp_Pnt& centroid,
                               double area)
 {
-    auto fmt = [](double v) {
+    auto fmt = [](double v,int precision=2) {
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(2) << v;
         std::string s = oss.str();
