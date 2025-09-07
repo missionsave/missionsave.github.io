@@ -522,7 +522,7 @@ var lib;
 
 
 
- 	<div id="viewer" class="htr" ></div>
+ 	<div id="viewer_v1" class="htr" ></div>
 
 
 
@@ -583,24 +583,24 @@ var lib;
 		fetch(url)
 			.then(response => response.text())
 			.then(html => {
-				document.getElementById('viewer').innerHTML = html;
+				document.getElementById('viewer_v1').innerHTML = html;
 			})
 			.catch(err => {
-				document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
+				document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
 			});
 	}
 	function loadPage_v2notw(url) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
-      const viewer = document.getElementById("viewer");
+      const viewer_v1 = document.getElementById("viewer_v1");
 
       // Wrap the loaded HTML in a container to keep it isolated
       const wrapper = document.createElement("div");
       wrapper.classList.add("embedded-app");
       wrapper.innerHTML = html;
-      viewer.innerHTML = "";
-      viewer.appendChild(wrapper);
+      viewer_v1.innerHTML = "";
+      viewer_v1.appendChild(wrapper);
 
       // Re-execute scripts inside the wrapper
       wrapper.querySelectorAll("script").forEach(oldScript => {
@@ -632,14 +632,14 @@ var lib;
     })
     .catch(err => {
       console.error(err);
-      document.getElementById("viewer").innerHTML = "<p>Error loading page.</p>";
+      document.getElementById("viewer_v1").innerHTML = "<p>Error loading page.</p>";
     });
 }
 function loadPage_v2_almostgood(url) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
-      const viewer = document.getElementById('viewer');
+      const viewer_v1 = document.getElementById('viewer_v1');
 
       // Create a temporary container to parse HTML
       const tmp = document.createElement('div');
@@ -651,8 +651,8 @@ function loadPage_v2_almostgood(url) {
       // Remove script tags from the HTML so they don’t appear twice
       scripts.forEach(s => s.remove());
 
-      // Put the cleaned HTML in the viewer
-      viewer.innerHTML = tmp.innerHTML;
+      // Put the cleaned HTML in the viewer_v1
+      viewer_v1.innerHTML = tmp.innerHTML;
 
       // Now re-inject scripts in order so they execute
       (function runScripts(i) {
@@ -682,7 +682,7 @@ function loadPage_v2_almostgood(url) {
     })
     .catch(err => {
       console.error(err);
-      document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
+      document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
     });
 }
 
@@ -690,10 +690,10 @@ function loadPage_v2(url) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
-      const viewer = document.getElementById('viewer');
-      viewer.innerHTML = html;
+      const viewer_v1 = document.getElementById('viewer_v1');
+      viewer_v1.innerHTML = html;
 
-      viewer.querySelectorAll('script').forEach(oldScript => {
+      viewer_v1.querySelectorAll('script').forEach(oldScript => {
         const script = document.createElement('script');
 
         if (oldScript.src) {
@@ -711,12 +711,12 @@ function loadPage_v2(url) {
       });
     })
     .catch(() => {
-      document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
+      document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
     });
 }
 function loadPage_v2_iframe(url) {
-  const viewer = document.getElementById("viewer");
-  viewer.innerHTML = ""; // clear previous
+  const viewer_v1 = document.getElementById("viewer_v1");
+  viewer_v1.innerHTML = ""; // clear previous
 
   const iframe = document.createElement("iframe");
   iframe.src = url;
@@ -732,7 +732,7 @@ function loadPage_v2_iframe(url) {
     // doc.body.style.background = "lightyellow";
   };
 
-  viewer.appendChild(iframe);
+  viewer_v1.appendChild(iframe);
 }
 
 async function loadPage_v1(url, addToHistory = true) {
@@ -746,12 +746,12 @@ async function loadPage_v1(url, addToHistory = true) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    // Replace viewer content
-    const viewer = document.getElementById("viewer");
-    viewer.innerHTML = doc.body.innerHTML;
+    // Replace viewer_v1 content
+    const viewer_v1 = document.getElementById("viewer_v1");
+    viewer_v1.innerHTML = doc.body.innerHTML;
 
     // Execute <script> tags
-    viewer.querySelectorAll("script").forEach(oldScript => {
+    viewer_v1.querySelectorAll("script").forEach(oldScript => {
       const newScript = document.createElement("script");
       if (oldScript.src) {
         // newScript.src = oldScript.src; // external script
@@ -767,7 +767,7 @@ async function loadPage_v1(url, addToHistory = true) {
     //   history.pushState({ url }, "", url);
     // }
   } catch (err) {
-    document.getElementById("viewer").innerHTML =
+    document.getElementById("viewer_v1").innerHTML =
       "<p>Error loading page: " + err.message + "</p>";
   }
 }
