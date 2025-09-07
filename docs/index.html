@@ -678,6 +678,7 @@ function loadPage_v2(url) {
           document.body.appendChild(newScript);
           runScripts(i + 1);
         }
+		onresizeFunction();
       })(0);
     })
     .catch(err => {
@@ -806,10 +807,12 @@ if (pValue){ //replace "%2F" from p to "/"
 		// loadPage('https://missionsave.github.io/gest/index.html');
 		// loadPage_v2('https://missionsave.github.io/home.html');
 		loadPage('https://missionsave.github.io/home.html');
+		onresizeFunction();
 	} else {
 		// loadPage("pages/"+pValue);
 		// loadPage_v2("pages/"+pValue);
 		loadPage_v2("https://missionsave.github.io/pages/"+pValue);
+		// onresizeFunction();
 		// loadPage("https://missionsave.github.io/pages/"+pValue);
 	}
 </script>
