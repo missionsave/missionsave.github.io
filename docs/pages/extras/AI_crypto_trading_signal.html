@@ -1,10 +1,8 @@
 <!DOCTYPE html>
-<!-- https://copilot.microsoft.com/shares/VyL8W8WPxvm114ChXmb8E -->
 <html>
 <head>
   <meta charset="UTF-8">
   <title>AI Prediction & Trading Signal</title>
-  <!-- <script src="https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js" onload="main()"></script> -->
   <style>
     body { font-family: Arial, sans-serif; background: #ffffff; color: #333131; padding: 20px; }
     table { border-collapse: collapse; margin-bottom: 30px; width: 100%; max-width: 900px; }
@@ -20,50 +18,43 @@
     .signal-sell { color: #f33; font-weight: bold; }
   </style>
 </head>
-<body>
-  <br>
-<div style="font-family: Arial, sans-serif; font-size:14px; line-height:1.5; color:#333; background:#f9f9f9; padding:12px; border-radius:8px; border:1px solid #ddd;">
+<body><div style="font-family: Arial, sans-serif; font-size:14px; line-height:1.5; color:#333; background:#f9f9f9; padding:12px; border-radius:8px; border:1px solid #ddd;">
 To raise the maximum funds to build our greenhouses and provide healthy meals to people with little or no access to food, Daniel Chanfana Santos, founder of Missionsave, developed this app using artificial intelligence to predict the movement of the five most consistent cryptocurrencies. An automated trading robot is under development and will be ready soon—then you can register and start earning too. Alternatively, visit this page at 00:00 UTC to manually make your trades for the day.
 </div>
-
-
-  <h1>AI Trading Signal</h1>
+<br>
   <div id="idtime"></div>
-  <br>
   <div id="tables"></div>
- 
+
 <script>
 {
-	const now = new Date(),
-	utcH = now.getUTCHours(),
-	utcM = now.getUTCMinutes(),
-	end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1),
-	diff = end - now,
-	hLeft = Math.floor(diff/36e5),
-	mLeft = Math.floor(diff%36e5/6e4);
-	document.getElementById("idtime").textContent =
-  `UTC: ${utcH.toString().padStart(2,'0')}:${utcM.toString().padStart(2,'0')} | Time until end of the day: ${hLeft}h ${mLeft}m`;
+  const urlParams = new URLSearchParams(window.location.search);
+  const isExport = urlParams.has("export");
 
-
+  const now = new Date(),
+    utcH = now.getUTCHours(),
+    utcM = now.getUTCMinutes(),
+    end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1),
+    diff = end - now,
+    hLeft = Math.floor(diff/36e5),
+    mLeft = Math.floor(diff%36e5/6e4);
+  document.getElementById("idtime").textContent =
+    `UTC: ${utcH.toString().padStart(2,'0')}:${utcM.toString().padStart(2,'0')} | Time until end of the day: ${hLeft}h ${mLeft}m`;
 
   const symbols_ = [
     { name: 'Bitcoin', pair: 'BTCUSDT' },
     { name: 'Ethereum', pair: 'ETHUSDT' },
     { name: 'BNB', pair: 'BNBUSDT' },
-    // { name: 'Tron', pair: 'TRXUSDT' },
     { name: 'XRP', pair: 'XRPUSDT' },
     { name: 'Solana', pair: 'SOLUSDT' }
   ];
 
   const interval = '1d';
-  const historyLength = 7; // up to 1000 max from Binance
-  const RERUNS = 8*3;        // number of independent trainings per symbol
-  const TRAIN_ITER = 400;   // iterations per training run
+  const historyLength = 7;
+  const RERUNS = 8*3;
+  const TRAIN_ITER = 400;
 
   async function fetchData(symbol) {
     const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
-    // const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
-	console.log(url);
     const res = await fetch(url);
     return res.json();
   }
@@ -76,18 +67,8 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     const features = data[0].length;
     const mins = Array(features).fill(Infinity);
     const maxs = Array(features).fill(-Infinity);
-
-    data.forEach(row => {
-      row.forEach((v, i) => {
-        if (v < mins[i]) mins[i] = v;
-        if (v > maxs[i]) maxs[i] = v;
-      });
-    });
-
-    const normalized = data.map(row =>
-      row.map((v, i) => (v - mins[i]) / (maxs[i] - mins[i] || 1))
-    );
-
+    data.forEach(row => row.forEach((v,i)=>{ if(v<mins[i]) mins[i]=v; if(v>maxs[i]) maxs[i]=v; }));
+    const normalized = data.map(row => row.map((v,i)=>(v-mins[i])/(maxs[i]-mins[i]||1)));
     return { normalized, mins, maxs };
   }
 
@@ -97,231 +78,191 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
 
   function trainOnce(rows) {
     const { normalized, mins, maxs } = normalizePerFeature(rows);
-
     const net = new brain.recurrent.LSTMTimeStep({
-      inputSize: 4,  // high, low, close, volume
+      inputSize: 4,
       hiddenLayers: [16],
       outputSize: 4
     });
-
     net.train(normalized, { iterations: TRAIN_ITER, learningRate: 0.01 });
-
     const lastSeq = normalized.slice(-1);
     const predictionNorm = net.run(lastSeq);
-    const prediction = denormalizeRow(predictionNorm, mins, maxs);
-    return prediction; // [high, low, close, volume]
+    return denormalizeRow(predictionNorm, mins, maxs);
   }
 
   function median(arr) {
     const s = [...arr].sort((a,b)=>a-b);
     const m = Math.floor(s.length/2);
-    return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+    return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
   }
 
-  function trainAndPredictMedian(rows, runs = RERUNS) {
-    const highs = [], lows = [], closes = [], vols = [];
-    for (let i = 0; i < runs; i++) {
-      const p = trainOnce(rows);
-      highs.push(p[0]);
-      lows.push(p[1]);
-      closes.push(p[2]);
-      vols.push(p[3]);
+  function trainAndPredictMedian(rows, runs=RERUNS) {
+    const highs=[], lows=[], closes=[], vols=[];
+    for(let i=0;i<runs;i++){
+      const p=trainOnce(rows);
+      highs.push(p[0]); lows.push(p[1]); closes.push(p[2]); vols.push(p[3]);
     }
     return [median(highs), median(lows), median(closes), median(vols)];
   }
 
-  // Keeps thresholds, but allocation now uses SL/TP distances for risk/reward
   function generateSignal(predClose, prevClose) {
     const diffPct = ((predClose - prevClose) / prevClose) * 100;
     let signal, entry, sl, tp;
-
     if (diffPct > 0.5) {
-      signal = 'BUY';
-      entry = prevClose;
-      sl = prevClose * 0.98; // 2% SL
-      tp = prevClose * 1.03; // 3% TP
+      signal = 'BUY'; entry = prevClose;
+      sl = prevClose*0.98; tp = prevClose*1.03;
     } else if (diffPct < -0.5) {
-      signal = 'SELL';
-      entry = prevClose;
-      sl = prevClose * 1.02; // 2% SL
-      tp = prevClose * 0.97; // 3% TP
+      signal = 'SELL'; entry = prevClose;
+      sl = prevClose*1.02; tp = prevClose*0.97;
     } else {
-      signal = 'HOLD';
-      entry = prevClose;
-      sl = null;
-      tp = null;
+      signal = 'HOLD'; entry = prevClose; sl = null; tp = null;
     }
-
     return { signal, diffPct, entry, sl, tp };
   }
-const portfolio = [];
+
+  const portfolio = [];
+
   async function main() {
     const container = document.getElementById('tables');
-    
+    const results = [];
 
     for (const coin of symbols_) {
       const rawData = await fetchData(coin.pair);
-	  console.log(rawData.length);
-
-      const historicalData = rawData.slice(0, -1); // exclude current from training
+      const historicalData = rawData.slice(0, -1);
       const currentCandle = rawData[rawData.length - 1];
       const last7 = historicalData.slice(-7);
 
       const rows = historicalData.map(c => [
-        parseFloat(c[2]), // high
-        parseFloat(c[3]), // low
-        parseFloat(c[4]), // close
-        parseFloat(c[5])  // volume
+        parseFloat(c[2]), parseFloat(c[3]), parseFloat(c[4]), parseFloat(c[5])
       ]);
 
-      // Median prediction over multiple independent trainings
       const [predHigh, predLow, predClose] = trainAndPredictMedian(rows, RERUNS);
-
       const prevClose = parseFloat(historicalData[historicalData.length - 1][4]);
-	  console.log("prevClose",prevClose);
       const currentClose = parseFloat(currentCandle[4]);
-      const changePctCurrent = ((currentClose - prevClose) / prevClose) * 100;
+      const changePctCurrent = ((currentClose - prevClose)/prevClose)*100;
 
       const { signal, diffPct, entry, sl, tp } = generateSignal(predClose, prevClose);
 
-      // Risk/Reward based on the actual plan (SL/TP), not predicted extremes
-      const maxWinPct = (signal === 'BUY')
-        ? ((tp - entry) / entry) * 100
-        : (signal === 'SELL')
-          ? ((entry - tp) / entry) * 100
-          : 0;
+      const maxWinPct = signal==='BUY'
+        ? ((tp-entry)/entry)*100
+        : signal==='SELL' ? ((entry-tp)/entry)*100 : 0;
 
-      const maxLossPct = (signal === 'BUY')
-        ? ((entry - sl) / entry) * 100
-        : (signal === 'SELL')
-          ? ((sl - entry) / entry) * 100
-          : 0;
+      const maxLossPct = signal==='BUY'
+        ? ((entry-sl)/entry)*100
+        : signal==='SELL' ? ((sl-entry)/entry)*100 : 0;
 
-      // Expected win capped by TP and floored at 0
-      const expectedRaw = (signal === 'BUY')
-        ? ((predClose - entry) / entry) * 100
-        : (signal === 'SELL')
-          ? ((entry - predClose) / entry) * 100
-          : 0;
+      const expectedRaw = signal==='BUY'
+        ? ((predClose-entry)/entry)*100
+        : signal==='SELL' ? ((entry-predClose)/entry)*100 : 0;
 
       const expectedWinPct = Math.max(0, Math.min(expectedRaw, maxWinPct));
 
-      portfolio.push({
+	  const prevDate = new Date(historicalData[historicalData.length - 1][0]).toISOString().split("T")[0];
+      const record = {
         name: coin.name,
         pair: coin.pair,
+        prevDate, 
         signal,
-        expectedWinPct,
+        prevClose,
+        predClose,
+        diffPct,
+        entry,
+        stopLoss: sl,
+        takeProfit: tp,
         maxWinPct,
-        maxLossPct
-      });
+        maxLossPct,
+        expectedWinPct
+      };
+      results.push(record);
+      portfolio.push(record);
 
-      // Per-symbol table
-      let html = `<table>
-        <caption>${coin.name} (${coin.pair})</caption>
-        <thead>
-          <tr><th><span class="notranslate">Date</span></th><th><span class="notranslate">High</span></th><th><span class="notranslate">Low</span></th><th><span class="notranslate">Close</span></th><th>% Change vs Prev</th></tr>
-        </thead>
-        <tbody>`;
-
-      last7.forEach((candle, idx) => {
-		const date = `${new Date(candle[0]).toISOString().split('T')[0]} ${String(new Date(candle[0]).getUTCHours()).padStart(2,'0')}`;
-        // const date = new Date(candle[0]).toISOString().split('T')[0];
-		
-        const change = idx === 0 ? null : ((parseFloat(candle[4]) - parseFloat(last7[idx - 1][4])) / parseFloat(last7[idx - 1][4])) * 100;
-        html += `<tr>
-          <td style="text-align:left">${date}</td>
-          <td>${formatNum(candle[2])}</td>
-          <td>${formatNum(candle[3])}</td>
-          <td>${formatNum(candle[4])}</td>
-          <td>${change !== null ? `<span class="${change >= 0 ? 'pos' : 'neg'}">${formatNum(change)}%</span>` : '-'}</td>
+      if (!isExport) {
+        // render tables as before
+        let html = `<table>
+          <caption>${coin.name} (${coin.pair})</caption>
+          <thead><tr><th>Date</th><th>High</th><th>Low</th><th>Close</th><th>% Change vs Prev</th></tr></thead><tbody>`;
+        last7.forEach((candle, idx) => {
+          const date = `${new Date(candle[0]).toISOString().split('T')[0]} ${String(new Date(candle[0]).getUTCHours()).padStart(2,'0')}`;
+          const change = idx===0?null:((parseFloat(candle[4])-parseFloat(last7[idx-1][4]))/parseFloat(last7[idx-1][4]))*100;
+          html += `<tr>
+            <td style="text-align:left">${date}</td>
+            <td>${formatNum(candle[2])}</td>
+            <td>${formatNum(candle[3])}</td>
+            <td>${formatNum(candle[4])}</td>
+            <td>${change!==null?`<span class="${change>=0?'pos':'neg'}">${formatNum(change)}%</span>`:'-'}</td>
+          </tr>`;
+        });
+        const currentDate = `${new Date(currentCandle[0]).toISOString().split('T')[0]} ${String(new Date(currentCandle[0]).getUTCHours()).padStart(2,'0')}`;
+        html += `<tr class="current">
+          <td style="text-align:left">${currentDate} (Current)</td>
+          <td>${formatNum(currentCandle[2])}</td>
+          <td>${formatNum(currentCandle[3])}</td>
+          <td>${formatNum(currentCandle[4])}</td>
+          <td><span class="${changePctCurrent>=0?'pos':'neg'}">${formatNum(changePctCurrent)}%</span></td>
         </tr>`;
-      });
+        html += `</tbody><tfoot><tr><td colspan="5" class="${signal==='BUY'?'signal-buy':signal==='SELL'?'signal-sell':''}">
+          Signal: ${signal} | Median Predicted Close: ${formatNum(predClose)} USDT (${diffPct>=0?'+':''}${formatNum(diffPct)}%)<br>
+          ${signal!=='HOLD'
+            ? `Entry: ${formatNum(entry)} | Stop Loss: ${sl?formatNum(sl):'-'} | Take Profit: ${tp?formatNum(tp):'-'}<br>
+               Est. Max Win: ${formatNum(maxWinPct)}% | Est. Max Loss: ${formatNum(maxLossPct)}% | Est. Expected Win: ${formatNum(expectedWinPct)}%`
+            : 'No trade suggested'}
+        </td></tr></tfoot></table>`;
+        container.innerHTML += html;
+      }
+    }
 
-	const currentDate = `${new Date(currentCandle[0]).toISOString().split('T')[0]} ${String(new Date(currentCandle[0]).getUTCHours()).padStart(2,'0')}`;
-    //   const currentDate = new Date(currentCandle[0]).toISOString().split('T')[0];
-
-      html += `<tr class="current">
-        <td style="text-align:left">${currentDate} (Current)</td>
-        <td>${formatNum(currentCandle[2])}</td>
-        <td>${formatNum(currentCandle[3])}</td>
-        <td>${formatNum(currentCandle[4])}</td>
-        <td><span class="${changePctCurrent >= 0 ? 'pos' : 'neg'}">${formatNum(changePctCurrent)}%</span></td>
-      </tr>`;
-
-      html += `</tbody>
-        <tfoot>
-          <tr><td colspan="5" class="${signal === 'BUY' ? 'signal-buy' : signal === 'SELL' ? 'signal-sell' : ''}">
-            Signal: ${signal} | Median Predicted Close: ${formatNum(predClose)} USDT (${diffPct >= 0 ? '+' : ''}${formatNum(diffPct)}%)<br>
-            ${signal !== 'HOLD'
-              ? `Entry: ${formatNum(entry)} | Stop Loss: ${sl ? formatNum(sl) : '-'} | Take Profit: ${tp ? formatNum(tp) : '-'}<br>
-                 Est. Max Win: ${formatNum(maxWinPct)}% | Est. Max Loss: ${formatNum(maxLossPct)}% | Est. Expected Win: ${formatNum(expectedWinPct)}%`
-              : 'No trade suggested'}
-          </td></tr>
-        </tfoot>
-      </table>`;
-
-      container.innerHTML += html;
+    if (isExport) {
+      const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "signals.json"; a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      alloc();
     }
   }
-    // Allocation summary (relative to a 100 budget), using Expected/Risk
-    const budget = 100;
-    const eps = 1e-9;
 
-    // Build after portfolio is filled
-    const alloc = () => {
-      const scores = portfolio.map(p => {
-        if ((p.signal === 'BUY' || p.signal === 'SELL') && p.expectedWinPct > 0 && p.maxLossPct > 0) {
-          return p.expectedWinPct / (p.maxLossPct + eps);
-        }
-        return 0;
-      });
-      const scoreSum = scores.reduce((a,b)=>a+b, 0);
-      const amounts = portfolio.map((p, i) => {
-        if (scoreSum <= 0) return 0;
-        return (scores[i] / scoreSum) * budget;
-      });
+  const budget = 100;
+  const eps = 1e-9;
+  function alloc() {
+    const scores = portfolio.map(p => {
+      if ((p.signal==='BUY'||p.signal==='SELL') && p.expectedWinPct>0 && p.maxLossPct>0) {
+        return p.expectedWinPct/(p.maxLossPct+eps);
+      }
+      return 0;
+    });
+    const scoreSum = scores.reduce((a,b)=>a+b,0);
+    const amounts = portfolio.map((p,i)=>scoreSum<=0?0:(scores[i]/scoreSum)*budget);
 
-      let allocHtml = `<table>
-        <caption>Model-weighted allocation (Budget: ${formatNum(budget, 2)})</caption>
-        <thead>
-          <tr>
-            <th>Symbol</th>
-            <th>Signal</th>
-            <th>Expected % Win</th>
-            <th>Max % Win</th>
-            <th>Max % Loss</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>`;
+    let allocHtml = `<table>
+      <caption>Model-weighted allocation (Budget: ${formatNum(budget, 2)})</caption>
+      <thead><tr>
+        <th>Symbol</th><th>Signal</th><th>Expected % Win</th><th>Max % Win</th><th>Max % Loss</th><th>Amount</th>
+      </tr></thead><tbody>`;
+    portfolio.forEach((p,i)=>{
+      allocHtml+=`<tr>
+        <td style="text-align:left">${p.name}</td>
+        <td>${p.signal}</td>
+        <td>${formatNum(p.expectedWinPct)}%</td>
+        <td>${formatNum(p.maxWinPct)}%</td>
+        <td>${formatNum(p.maxLossPct)}%</td>
+        <td>${formatNum(amounts[i])}</td>
+      </tr>`;
+    });
+    allocHtml+=`</tbody></table>`;
+    document.getElementById('tables').innerHTML += allocHtml;
+  }
 
-      portfolio.forEach((p, i) => {
-        allocHtml += `<tr>
-          <td style="text-align:left">${p.name}</td>
-          <td>${p.signal}</td>
-          <td>${formatNum(p.expectedWinPct)}%</td>
-          <td>${formatNum(p.maxWinPct)}%</td>
-          <td>${formatNum(p.maxLossPct)}%</td>
-          <td>${formatNum(amounts[i])}</td>
-        </tr>`;
-      });
-
-      allocHtml += `</tbody></table>`;
-      document.getElementById('tables').innerHTML += allocHtml;
-    };
-
-    // Run allocation after main builds portfolio
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js';
-    script.onload = async () => {
-      await main();
-      alloc();
-    };
-    document.head.appendChild(script);
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/brain.js@2.0.0-beta.24/dist/browser.min.js';
+  script.onload = async () => { await main(); };
+  document.head.appendChild(script);
 }
-  </script>
+</script>
+</body>
+</html>
 
 
+<!-- 
 <input id="apiKey"><br>
 <input id="apiSecret" type="password"><br>
 <button onclick="getData()">Get Data</button>
@@ -355,4 +296,4 @@ async function getData(){
 
 
 </body>
-</html>
+</html> -->
