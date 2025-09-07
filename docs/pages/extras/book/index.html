@@ -370,8 +370,12 @@
     // Tip: load a default sample by URL (comment out if not desired)
     // openBook('https://standardebooks.org/ebooks/jane-austen/pride-and-prejudice/epub3/standardebooks-pride-and-prejudice.epub');
     // openBook('https://www.gutenberg.org/cache/epub/9499/pg9499-images-3.epub');
-    openBook('https://superdb-api.superbem.workers.dev/epub?url=https://www.gutenberg.org/cache/epub/9499/pg9499-images-3.epub');
+    // openBook('https://superdb-api.superbem.workers.dev/epub?url=https://www.gutenberg.org/cache/epub/9499/pg9499-images-3.epub');
 
+const workerBase = "https://superdb-api.superbem.workers.dev/epub?url=";
+const gutenbergUrl = "https://www.gutenberg.org/cache/epub/9499/pg9499-images-3.epub";
+
+openBook(workerBase + encodeURIComponent(gutenbergUrl));
 
 
 //     async function getFinalURL(fileURL) {
