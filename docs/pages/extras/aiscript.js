@@ -1,6 +1,32 @@
 const fs = require('fs');
 const vm = require('vm');
 
+const puppeteer = require('puppeteer');
+// const fs = require('fs');
+
+(async () => {
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+
+  await page.goto('https://missionsave.github.io/pages/extras/AI_crypto_trading_signal.html?export', {
+    waitUntil: 'networkidle0'
+  });
+
+  // Extract the results variable from the page context
+  const results = await page.evaluate(() => {
+    return typeof results !== 'undefined' ? results : null;
+  });
+
+  if (results) {
+    fs.writeFileSync('signals.json', JSON.stringify(results, null, 2));
+    console.log("✅ signals.json saved");
+  } else {
+    console.error("⚠️ Could not find results");
+  }
+
+  await browser.close();
+})();
+
 const inicio = Date.now();
 
 // Carrega brain.min.js
