@@ -211,20 +211,22 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     }
 
     if (isExport) {
-    //   const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
-    //   const url = URL.createObjectURL(blob);
-    //   const a = document.createElement("a");
-    //   a.href = url; a.download = "signals.json"; a.click();
-    //   URL.revokeObjectURL(url);
+      const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "signals.json"; a.click();
+      URL.revokeObjectURL(url);
+
+
 	 // Clear the page
-		document.body.innerHTML = "";
+		// document.body.innerHTML = "";
 
-		// Show JSON in <pre> so PHP can read it
-		const pre = document.createElement("pre");
-		pre.textContent = JSON.stringify(results, null, 2);
-		document.body.appendChild(pre);
+		// // Show JSON in <pre> so PHP can read it
+		// const pre = document.createElement("pre");
+		// pre.textContent = JSON.stringify(results, null, 2);
+		// document.body.appendChild(pre);
 
-		return; // stop here
+		// return; // stop here
     } else {
       alloc();
     }
