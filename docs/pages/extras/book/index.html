@@ -76,7 +76,7 @@
   // --- AUTO-LOAD FROM ?b=NUMBER ---
   const params = new URLSearchParams(window.location.search);
   let b = params.get('b');
-  if (!b) b = "9499"; // default if not set
+  if (!b) b = 9499; // default if not set
   if (/^\d+$/.test(b)) {
     const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${b}/pg${b}-images-3.epub`;
     openMiniEpub(gutenbergUrl);
