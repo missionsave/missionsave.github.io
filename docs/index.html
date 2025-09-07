@@ -22,6 +22,9 @@
  	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
  	<!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">  -->
 
+  <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
  	<!-- <link  id="pagestyle"  rel="stylesheet" type="text/css" href="style.css?87656576"> -->
  	<!-- <link  id="pagestyle" rel="stylesheet" type="text/css" href="stylerefresh.css?0382"> -->
  	<link rel="stylesheet" type="text/css" href="https://missionsave.github.io/style.css?0">
@@ -332,6 +335,9 @@ onresizeFunction();
 				</button>
 				<div id="myDropdownextras" class="dropdown-content">
 			<!-- ⧸ -->
+					<a href="?p=extras/book/index.html"
+						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/extras/book/index.html"); window.scrollTo(0, 0); return false;'>Books</a>
+
 					<a href="?p=extras/AI_crypto_trading_signal.html"
 						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/extras/AI_crypto_trading_signal.html"); window.scrollTo(0, 0); return false;'>AI crypto trading signal</a>
 			
@@ -583,6 +589,103 @@ var lib;
 				document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
 			});
 	}
+	function loadPage_v2notw(url) {
+  fetch(url)
+    .then(r => r.text())
+    .then(html => {
+      const viewer = document.getElementById("viewer");
+
+      // Wrap the loaded HTML in a container to keep it isolated
+      const wrapper = document.createElement("div");
+      wrapper.classList.add("embedded-app");
+      wrapper.innerHTML = html;
+      viewer.innerHTML = "";
+      viewer.appendChild(wrapper);
+
+      // Re-execute scripts inside the wrapper
+      wrapper.querySelectorAll("script").forEach(oldScript => {
+        const newScript = document.createElement("script");
+
+        // Copy attributes (src, type, etc.)
+        Array.from(oldScript.attributes).forEach(attr => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+
+        if (oldScript.src) {
+          // Resolve relative paths against the loaded page's URL
+          newScript.src = new URL(oldScript.getAttribute("src"), url).href;
+        } else {
+          // Inline script content
+          newScript.textContent = oldScript.textContent;
+        }
+
+        // Replace with executable script
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
+
+      // Optional: scope CSS (replace body/html with .embedded-app)
+      wrapper.querySelectorAll("style").forEach(style => {
+        style.textContent = style.textContent
+          .replace(/\bhtml\b/g, ".embedded-app")
+          .replace(/\bbody\b/g, ".embedded-app");
+      });
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById("viewer").innerHTML = "<p>Error loading page.</p>";
+    });
+}
+function loadPage_v2_almost_good(url) {
+  fetch(url)
+    .then(r => r.text())
+    .then(html => {
+      const viewer = document.getElementById('viewer');
+
+      // Create a temporary container to parse HTML
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+
+      // Extract scripts in order
+      const scripts = Array.from(tmp.querySelectorAll('script'));
+
+      // Remove script tags from the HTML so they don’t appear twice
+      scripts.forEach(s => s.remove());
+
+      // Put the cleaned HTML in the viewer
+      viewer.innerHTML = tmp.innerHTML;
+
+      // Now re-inject scripts in order so they execute
+      (function runScripts(i) {
+        if (i >= scripts.length) return;
+
+        const oldScript = scripts[i];
+        const newScript = document.createElement('script');
+
+        // Copy attributes
+        Array.from(oldScript.attributes).forEach(attr => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+
+        if (oldScript.src) {
+          // Remote script
+          newScript.src = new URL(oldScript.getAttribute('src'), url).href;
+          newScript.onload = () => runScripts(i + 1);
+          newScript.onerror = () => runScripts(i + 1);
+          document.body.appendChild(newScript);
+        } else {
+          // Inline script
+          newScript.textContent = oldScript.textContent;
+          document.body.appendChild(newScript);
+          runScripts(i + 1);
+        }
+      })(0);
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
+    });
+}
+
 function loadPage_v2(url) {
   fetch(url)
     .then(r => r.text())
@@ -610,6 +713,26 @@ function loadPage_v2(url) {
     .catch(() => {
       document.getElementById('viewer').innerHTML = "<p>Error loading page.</p>";
     });
+}
+function loadPage_v2_iframe(url) {
+  const viewer = document.getElementById("viewer");
+  viewer.innerHTML = ""; // clear previous
+
+  const iframe = document.createElement("iframe");
+  iframe.src = url;
+  iframe.paddingTop=myTopnav.height;
+  iframe.width = "100%";
+  iframe.height = "1000";
+  iframe.style.border = "none";
+
+  iframe.onload = () => {
+    console.log("Iframe loaded:", url);
+    // you can access iframe content if same-origin:
+    // const doc = iframe.contentDocument;
+    // doc.body.style.background = "lightyellow";
+  };
+
+  viewer.appendChild(iframe);
 }
 
 async function loadPage_v1(url, addToHistory = true) {
