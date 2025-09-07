@@ -1,89 +1,85 @@
-<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://unpkg.com/epubjs/dist/epub.min.js"></script> -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
 
-<div class="epub-mini" style="position:relative;">
+<!-- Added position:relative so top works -->
+<div id="epub-mini" data-epub-url=""
+     style="position:relative; top: auto;">
   <div class="bar" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
-    <button data-role="prev" style="padding:6px 10px;">Prev</button>
-    <input data-role="prog" type="range" min="0" max="1000" value="0" style="flex:1;accent-color:#2563eb;">
-    <span data-role="pct" style="width:48px;text-align:right;color:#6b7280;">0%</span>
-    <button data-role="next" style="padding:6px 10px;">Next</button>
+    <button id="prev" style="padding:6px 10px;">Prev</button>
+    <input id="prog" type="range" min="0" max="1000" value="0" style="flex:1;accent-color:#2563eb;">
+    <span id="pct" style="width:48px;text-align:right;color:#6b7280;">0%</span>
+    <button id="next" style="padding:6px 10px;">Next</button>
   </div>
-  <div data-role="rend" style="width:100%;height:80vh;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;"></div>
+  <div id="rend" style="width:100%;height:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;"></div>
 </div>
 
 <script>
 (function(){
   console.log("started epub");
+  const root = document.getElementById('epub-mini');
+  const qs = (sel) => root.querySelector(sel);
 
-  function initEpubMini(container, url) {
-    const qs = (sel) => container.querySelector(sel);
+  let book, rendition, locationsReady = false;
 
-    let book, rendition, locationsReady = false;
-
-    function initControls() {
-      qs('[data-role=prev]').onclick = () => rendition && rendition.prev();
-      qs('[data-role=next]').onclick = () => rendition && rendition.next();
-      qs('[data-role=prog]').oninput = (e) => {
-        if (!book || !locationsReady) return;
-        const val = parseInt(e.target.value, 10) / 1000;
-        const cfi = book.locations.cfiFromPercentage(val);
-        if (cfi) rendition.display(cfi);
-      };
-
-      // keyboard navigation only when this container has focus
-      container.addEventListener('keydown', (e) => {
-        if (!rendition) return;
-        if (e.key === 'ArrowRight') rendition.next();
-        if (e.key === 'ArrowLeft') rendition.prev();
-      });
-    }
-
-    function openMini(url) {
-      book = ePub(url);
-      rendition = book.renderTo(qs('[data-role=rend]'), {
-        width: '100%',
-        height: '100%',
-        flow: 'paginated',
-        spread: 'none'
-      });
-      rendition.display();
-
-      book.ready
-        .then(() => book.locations.generate(1000))
-        .then(() => { locationsReady = true; })
-        .catch(() => { locationsReady = false; });
-
-      rendition.on('relocated', (loc) => {
-        let pct = 0;
-        if (locationsReady && loc?.start?.cfi) {
-          pct = book.locations.percentageFromCfi(loc.start.cfi) || 0;
-          qs('[data-role=prog]').value = Math.round(pct * 1000);
-        }
-        qs('[data-role=pct]').textContent = Math.round(pct * 100) + '%';
-      });
-
-      initControls();
-    }
-
-    // Expose global function for this container
-    window.openMiniEpub = function(rawUrlOrWorkerUrl, useWorker = true) {
-      const isAlreadyWorker = /^https?:\/\/.+\/epub\?url=/.test(rawUrlOrWorkerUrl);
-      const finalUrl = isAlreadyWorker || !useWorker
-        ? rawUrlOrWorkerUrl
-        : ('https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent(rawUrlOrWorkerUrl));
-      openMini(finalUrl);
+  function initControls() {
+    qs('#prev').onclick = () => rendition && rendition.prev();
+    qs('#next').onclick = () => rendition && rendition.next();
+    qs('#prog').oninput = (e) => {
+      if (!book || !locationsReady) return;
+      const val = parseInt(e.target.value, 10) / 1000;
+      const cfi = book.locations.cfiFromPercentage(val);
+      if (cfi) rendition.display(cfi);
     };
+    document.addEventListener('keydown', (e) => {
+      if (!rendition) return;
+      if (e.key === 'ArrowRight') rendition.next();
+      if (e.key === 'ArrowLeft') rendition.prev();
+    });
   }
 
-  // --- AUTO-LOAD EXAMPLE ---
-  const container = document.querySelector('.epub-mini');
-  if (container) {
-    const params = new URLSearchParams(window.location.search);
-    let b = params.get('b') || 9499;
-    const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${b}/pg${b}-images-3.epub`;
+  function openMini(url) {
+    book = ePub(url);
+    rendition = book.renderTo(qs('#rend'), {
+      width: '100%',
+      height: '100%',
+      flow: 'paginated',
+      spread: 'none'
+    });
+    rendition.display();
 
-    initEpubMini(container, gutenbergUrl);
-    window.openMiniEpub(gutenbergUrl); // auto open default
+    book.ready
+      .then(() => book.locations.generate(1000))
+      .then(() => { locationsReady = true; })
+      .catch(() => { locationsReady = false; });
+
+    rendition.on('relocated', (loc) => {
+      let pct = 0;
+      if (locationsReady && loc?.start?.cfi) {
+        pct = book.locations.percentageFromCfi(loc.start.cfi) || 0;
+        qs('#prog').value = Math.round(pct * 1000);
+      }
+      qs('#pct').textContent = Math.round(pct * 100) + '%';
+    });
+
+    initControls();
+  }
+
+  // Expose global function
+  window.openMiniEpub = function(rawUrlOrWorkerUrl, useWorker = true) {
+    const isAlreadyWorker = /^https?:\/\/.+\/epub\?url=/.test(rawUrlOrWorkerUrl);
+    const finalUrl = isAlreadyWorker || !useWorker
+      ? rawUrlOrWorkerUrl
+      : ('https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent(rawUrlOrWorkerUrl));
+    openMini(finalUrl);
+  };
+
+  // --- AUTO-LOAD FROM ?b=NUMBER ---
+  const params = new URLSearchParams(window.location.search);
+  let b = params.get('b');
+  if (!b) b = 9499; // default if not set
+  if (/^\d+$/.test(b)) {
+    const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${b}/pg${b}-images-3.epub`;
+    openMiniEpub(gutenbergUrl);
   }
 })();
 </script>
