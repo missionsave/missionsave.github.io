@@ -812,7 +812,9 @@ if (pValue){ //replace "%2F" from p to "/"
 		// loadPage("pages/"+pValue);
 		// loadPage_v2("pages/"+pValue);
 		loadPage_v2("https://missionsave.github.io/pages/"+pValue);
-		onresizeFunction();
+		setTimeout(function () {
+			onresizeFunction();
+		}, 600);
 		// loadPage("https://missionsave.github.io/pages/"+pValue);
 	}
 </script>
