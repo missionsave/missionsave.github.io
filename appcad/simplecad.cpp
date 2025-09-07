@@ -3427,31 +3427,31 @@ toggle_shaded_transp(currentMode);
 
 #pragma region view_rotate
 
-	void FitViewToShape(const Handle(V3d_View) & aView, const TopoDS_Shape& aShape, double margin = 1.0,
-						double zoomFactor = 1.0) {
-		if (aShape.IsNull()) return;
+void FitViewToShape(const Handle(V3d_View)& aView,
+                    const TopoDS_Shape& aShape,
+                    double margin = 1.0,
+                    double zoomFactor = 1.0){
+    if (aShape.IsNull() || aView.IsNull()) return;
 
-		// Compute the bounding box of the shape
-		Bnd_Box boundingBox;
-		BRepBndLib::Add(aShape, boundingBox);
+    // Compute bounding box
+    Bnd_Box bbox;
+    BRepBndLib::Add(aShape, bbox);
+    bbox.SetGap(margin);
 
-		if (boundingBox.IsVoid()) return;
+    if (bbox.IsVoid()) return;
 
-		// Add margin
-		boundingBox.Enlarge(margin);
+    // Fit to bounding box
+    aView->FitAll(bbox, 0.01, false);
 
-		// Get bounds
-		Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
-		boundingBox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+    // Apply zoom scaling
+    if (zoomFactor != 1.0)
+    {
+        aView->SetZoom(zoomFactor, false);  // no "Start" toggle; just set
+    }
 
-		// Calculate center
-		gp_Pnt center((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
+    aView->Redraw();
+}
 
-		// Adjust view
-		aView->SetProj(V3d_XposYnegZpos);  // Optional: set standard orientation
-		aView->Place(center.X(), center.Y(), center.Z());
-		aView->FitAll(zoomFactor);
-	}
 
 	void colorisebtn(int idx = -1) {
 		int idx2 = -1;
@@ -4139,8 +4139,11 @@ ld->visible_hardcoded=0;
                   << ", code=" << code 
                   << std::endl;
 
-		if(code==2){		  
+		if(code==2 && !fbm->isrightclick){		  
 			gopart(ld->name);
+		}
+		if(code==2 && fbm->isrightclick){		  
+			ld->occv->FitViewToShape(ld->occv->m_view, ld->shape);
 		}
 
 		//hide

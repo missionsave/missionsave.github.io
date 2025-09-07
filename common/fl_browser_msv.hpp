@@ -24,6 +24,7 @@ public:
 	std::vector<cols> vcols;
 	int line_height;
 	int tclicked=-1;
+	bool isrightclick=0;
     fl_browser_msv(int X, int Y, int W, int H, const char *L = 0)
         : Fl_Browser(X, Y, W, H, L) {has_scrollbar(Fl_Browser::VERTICAL);}
 
