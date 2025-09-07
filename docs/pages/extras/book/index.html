@@ -75,7 +75,7 @@
 
   // --- AUTO-LOAD FROM ?b=NUMBER ---
   const params = new URLSearchParams(window.location.search);
-  const b = params.get('b');
+  var b = params.get('b');
   if(!b)b="9999";
   if (b && /^\d+$/.test(b)) {
     const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${b}/pg${b}-images-3.epub`;
