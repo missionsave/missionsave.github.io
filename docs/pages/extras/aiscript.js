@@ -1,7 +1,8 @@
-// const fs = require('fs');
-// const vm = require('vm');
-
 const inicio = Date.now();
+
+// aiscript.js
+import crypto from 'crypto';
+import fetch from 'node-fetch'; // Node 20 has global fetch, but this works for older versions too
 
 const fs = require('fs');
 const vm = require('vm');
@@ -146,16 +147,72 @@ function generateSignal(predClose, prevClose) {
   console.log("📊 Sinais calculados:", results);
   // Aqui podes usar `results` para qualquer outra ação no workflow
 
+
+
+
+
+
+const key = process.env.MEXC_KEY;
+const secret = process.env.MEXC_SECRET;
+
+if (!key || !secret) {
+  console.error('Missing MEXC_KEY or MEXC_SECRET in environment variables');
+  process.exit(1);
+}
+
+// Helper to sign query
+function sign(query, secret) {
+  return crypto.createHmac('sha256', secret).update(query).digest('hex');
+}
+
+(async () => {
+  const ts = Date.now();
+  const query = `timestamp=${ts}`;
+  const sig = sign(query, secret);
+
+  // 1. Get open orders
+  const ordersRes = await fetch(`https://api.mexc.com/api/v3/openOrders?${query}&signature=${sig}`, {
+    headers: { 'X-MEXC-APIKEY': key }
+  });
+  const orders = await ordersRes.json();
+
+  // 2. Get account info
+  const accountRes = await fetch(`https://api.mexc.com/api/v3/account?${query}&signature=${sig}`, {
+    headers: { 'X-MEXC-APIKEY': key }
+  });
+  const account = await accountRes.json();
+
+  // 3. Calculate total equity
+  let equity = null;
+  if (Array.isArray(account.balances)) {
+    equity = account.balances.reduce((sum, b) =>
+      sum + parseFloat(b.free) + parseFloat(b.locked), 0
+    );
+  }
+
+  // 4. Output JSON
+  console.log(JSON.stringify({
+    openOrders: orders,
+    totalEquity: equity
+  }, null, 2));
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   const fim = Date.now();
   console.log(`⏱ Tempo total de execução: ${(fim - inicio) / 1000} segundos`);
   console.log("✅ Script concluído com sucesso");
-
-
-
-
-
-
-
 })();
 
 
