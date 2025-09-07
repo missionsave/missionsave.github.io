@@ -15,6 +15,7 @@
 
 <script>
 (function(){
+	console.log("started epub");
   const root = document.getElementById('epub-mini');
   const qs = (sel) => root.querySelector(sel);
 
@@ -78,6 +79,7 @@
   if (b && /^\d+$/.test(b)) {
     const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${b}/pg${b}-images-3.epub`;
     openMiniEpub(gutenbergUrl);
+
   }
 })();
 </script>
