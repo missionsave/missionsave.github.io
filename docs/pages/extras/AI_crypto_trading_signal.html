@@ -211,11 +211,11 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     }
 
     if (isExport) {
-      const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "signals.json"; a.click();
-      URL.revokeObjectURL(url);
+    //   const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
+    //   const url = URL.createObjectURL(blob);
+    //   const a = document.createElement("a");
+    //   a.href = url; a.download = "signals.json"; a.click();
+    //   URL.revokeObjectURL(url);
 
 
 	 // Clear the page
@@ -227,6 +227,12 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
 		// document.body.appendChild(pre);
 
 		// return; // stop here
+		
+  document.body.innerHTML = ""; // hide tables/divs
+  document.body.textContent = JSON.stringify(results, null, 2);
+  return; // stop further rendering
+
+
     } else {
       alloc();
     }
