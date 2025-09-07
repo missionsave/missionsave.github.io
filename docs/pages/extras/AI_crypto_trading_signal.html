@@ -322,6 +322,37 @@ const portfolio = [];
   </script>
 
 
+<input id="apiKey"><br>
+<input id="apiSecret" type="password"><br>
+<button onclick="getData()">Get Data</button>
+<pre id="out"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+<script>
+async function getData(){
+  const key = apiKey.value.trim(), secret = apiSecret.value.trim();
+  const sign = q => CryptoJS.HmacSHA256(q, secret).toString();
+
+  // Open Orders
+  let ts = Date.now(), q = `timestamp=${ts}`, sig = sign(q);
+  let orders = await fetch(`https://api.mexc.com/api/v3/openOrders?${q}&signature=${sig}`, {
+    headers: {'X-MEXC-APIKEY': key}
+  }).then(r=>r.json());
+
+  // Account Info
+  ts = Date.now(); q = `timestamp=${ts}`; sig = sign(q);
+  let account = await fetch(`https://api.mexc.com/api/v3/account?${q}&signature=${sig}`, {
+    headers: {'X-MEXC-APIKEY': key}
+  }).then(r=>r.json());
+
+  const equity = account.balances
+    ? account.balances.reduce((s,b)=>s+parseFloat(b.free)+parseFloat(b.locked),0)
+    : null;
+
+  out.textContent = JSON.stringify({openOrders: orders, totalEquity: equity}, null, 2);
+}
+</script>
+
 
 </body>
 </html>
