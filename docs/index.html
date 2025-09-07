@@ -635,7 +635,7 @@ var lib;
       document.getElementById("viewer").innerHTML = "<p>Error loading page.</p>";
     });
 }
-function loadPage_v2_almost_good(url) {
+function loadPage_v2(url) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
@@ -686,7 +686,7 @@ function loadPage_v2_almost_good(url) {
     });
 }
 
-function loadPage_v2(url) {
+function loadPage_v2good(url) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
