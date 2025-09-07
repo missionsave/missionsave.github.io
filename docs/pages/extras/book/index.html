@@ -3,8 +3,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
 
-<div id="epub-mini" data-epub-url="">
-  <div class="bar" style="display:flex;gap:8px;align-items:center;padding:120px 8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
+<div style="top: 120px;" id="epub-mini" data-epub-url="">
+  <div class="bar" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
     <button id="prev" style="padding:6px 10px;">Prev</button>
     <input id="prog" type="range" min="0" max="1000" value="0" style="flex:1;accent-color:#2563eb;">
     <span id="pct" style="width:48px;text-align:right;color:#6b7280;">0%</span>
@@ -76,7 +76,7 @@
   // --- AUTO-LOAD FROM ?b=NUMBER ---
   const params = new URLSearchParams(window.location.search);
   var b = params.get('b');
-  if(!b)b="9999";
+  if(!b)b="9499";
   if (b && /^\d+$/.test(b)) {
     const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${b}/pg${b}-images-3.epub`;
     openMiniEpub(gutenbergUrl);
