@@ -2,7 +2,7 @@ const inicio = Date.now();
 
 // aiscript.js
 import crypto from 'crypto';
-import fetch from 'node-fetch'; // Node 20 has global fetch, but this works for older versions too
+// import fetch from 'node-fetch'; // Node 20 has global fetch, but this works for older versions too
 
 const fs = require('fs');
 const vm = require('vm');
