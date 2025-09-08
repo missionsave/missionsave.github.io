@@ -681,6 +681,18 @@ function loadPage_v2(url) {
           document.body.appendChild(newScript);
           runScripts(i + 1);
         }
+
+// Suppose your container is:
+const container = document.getElementById('viewer_v1');
+
+// Change all images inside it
+container.querySelectorAll('img').forEach(img => {
+  img.style.width = '100%';
+  img.style.height = 'auto'; // keeps aspect ratio
+});
+
+
+
 		onresizeFunction();
       })(0);
     })
