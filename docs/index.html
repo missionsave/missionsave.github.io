@@ -656,6 +656,8 @@ function loadPage_v2(url) {
 
       // Put the cleaned HTML in the viewer_v1
       viewer_v1.innerHTML = tmp.innerHTML;
+	  const el = document.querySelector('viewer_v1'); el.querySelectorAll('img').forEach(i=>{i.removeAttribute('width');i.removeAttribute('height');i.style.setProperty('width','100%','important');i.style.setProperty('height','auto','important');const s=i.closest('span');if(s){s.style.removeProperty('width');s.style.removeProperty('height');s.style.setProperty('max-width','100%','important');s.style.setProperty('height','auto','important');s.style.setProperty('display','block','important');s.style.setProperty('border','0','important');s.style.setProperty('margin','0','important');}});
+
 
       // Now re-inject scripts in order so they execute
       (function runScripts(i) {
@@ -682,14 +684,7 @@ function loadPage_v2(url) {
           runScripts(i + 1);
         }
 
-const container = document.querySelector('viewer_v1'); // or your container
 
-container.querySelectorAll('img').forEach(img => {
-  img.removeAttribute('width');  // remove HTML width attr if present
-  img.removeAttribute('height'); // remove HTML height attr if present
-  img.style.width = '100%';       // force width
-  img.style.height = 'auto';      // keep aspect ratio
-});
 
 
 
