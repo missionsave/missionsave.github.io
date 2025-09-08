@@ -5,13 +5,15 @@
 #searchBox {position:relative;top:0px;left:50%;transform:translateX(-50%);
   background:#fff;padding:6px;border:1px solid #ccc;border-radius:6px;width:60%;}
 #results {position:absolute;top:40px;left:50%;transform:translateX(-50%);
-  background:#fff;border:1px solid #ccc;border-radius:6px;list-style:none;margin:0;padding:0;width:60%;max-height:200px;overflow:auto;z-index:1;}
+  background:#fff;border:1px solid #ccc;border-radius:6px;list-style:none;margin:0;padding:0;width:60%;max-height:200px;overflow:auto;z-index:9;}
 #results li {padding:6px;cursor:pointer;}
 #results li:hover {background:#f0f0f0;}
+#loading {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#fff;padding:10px 20px;border:1px solid #ccc;border-radius:8px;display:none;z-index:99;}
 </style>
 
 <div id="epub-mini" style="position:relative;">
-  <input id="searchBox" type="text" placeholder="Search books...">
+  <input id="searchBox" type="text" autocomplete="off" placeholder="Search books...">
   <ul id="results"></ul>
   <div class="bar" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
     <button id="prev">Prev</button>
@@ -20,6 +22,7 @@
     <button id="next">Next</button>
   </div>
   <div id="rend" style="width:100%;height:80vh;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;"></div>
+  <div id="loading">Loading ebook...</div>
 </div>
 
 <script>
@@ -27,32 +30,61 @@
   const root = document.getElementById('epub-mini'), qs = s => root.querySelector(s);
   let book, rendition, locationsReady = false;
 
+  function setUrlParam(key, val, replace=false) {
+    const url = new URL(window.location);
+    if (val === null) url.searchParams.delete(key);
+    else url.searchParams.set(key, val);
+    if (replace) history.replaceState({}, "", url);
+    else history.pushState({}, "", url);
+  }
+
   function initControls() {
     qs('#prev').onclick = () => rendition?.prev();
     qs('#next').onclick = () => rendition?.next();
     qs('#prog').oninput = e => {
       if (!book || !locationsReady) return;
-      const cfi = book.locations.cfiFromPercentage(e.target.value / 1000);
-      if (cfi) rendition.display(cfi);
+      const pct = e.target.value / 1000;
+      const cfi = book.locations.cfiFromPercentage(pct);
+      if (cfi) {
+        rendition.display(cfi);
+        setUrlParam("g", (pct*100).toFixed(1));
+      }
     };
   }
+  document.addEventListener('keydown', (e) => {
+    if (!rendition) return;
+    if (e.key === 'ArrowRight') rendition.next();
+    if (e.key === 'ArrowLeft') rendition.prev();
+  });
 
-  function openMini(url) {
+  function openMini(url, num, gotoPct) {
+    qs('#loading').style.display = "block";
     if (rendition) { rendition.destroy(); book.destroy(); } // cleanup
     book = ePub(url);
     rendition = book.renderTo(qs('#rend'), {width:'100%',height:'100%',flow:'paginated',spread:'none'});
-    rendition.display().then(() => book.ready.then(() => book.locations.generate(1000)).then(() => locationsReady = true));
+    rendition.display().then(() =>
+      book.ready.then(() => book.locations.generate(1000)).then(() => {
+        locationsReady = true;
+        qs('#loading').style.display = "none";
+        if (gotoPct) {
+          const cfi = book.locations.cfiFromPercentage(gotoPct);
+          if (cfi) rendition.display(cfi);
+        }
+      })
+    );
     rendition.on('relocated', loc => {
       let pct = locationsReady ? book.locations.percentageFromCfi(loc.start.cfi) || 0 : 0;
       qs('#prog').value = (pct * 1000).toFixed(0);
       qs('#pct').textContent = (pct * 100).toFixed(1) + '%';
+      setUrlParam("g", (pct*100).toFixed(1), true);
     });
+    if (num) setUrlParam("b", num);
     initControls();
   }
 
   window.openMiniEpub = num => {
     const url='https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent(`https://www.gutenberg.org/cache/epub/${num}/pg${num}-images-3.epub`);
-    openMini(url);
+    openMini(url, num);
   };
 
   // Search
@@ -75,14 +107,28 @@
   searchInput.oninput = () => renderResults(searchInput.value.toLowerCase());
 
   (async () => {
-	const url='https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent('https://www.gutenberg.org/dirs/GUTINDEX.zip');
+    const url='https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent('https://www.gutenberg.org/dirs/GUTINDEX.zip');
     const res = await fetch(url);
     const zip = await JSZip.loadAsync(await res.arrayBuffer());
     const text = await zip.files['GUTINDEX.ALL.new'].async('string');
     lines = text.split("\n").map(l => l.trim()).filter(l => /\d+$/.test(l));
   })();
 
-  // default load
-  openMiniEpub(9499);
+// default load from URL
+const params = new URLSearchParams(window.location.search);
+const num = params.get("b") || 9499;
+const g = parseFloat(params.get("g"));
+const pct = isNaN(g) ? null : g / 100;
+const url = 'https://superdb-api.superbem.workers.dev/epub?url=' +
+  encodeURIComponent(`https://www.gutenberg.org/cache/epub/${num}/pg${num}-images-3.epub`);
+openMini(url, num, pct);
+  if (pct) {
+    book?.ready.then(() => {
+      if (locationsReady) {
+        const cfi = book.locations.cfiFromPercentage(pct);
+        if (cfi) rendition.display(cfi);
+      }
+    });
+  }
 })();
 </script>
