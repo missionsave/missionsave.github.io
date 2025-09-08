@@ -1,11 +1,14 @@
 const inicio = Date.now();
 
 // aiscript.js
-import crypto from 'crypto';
-// import fetch from 'node-fetch'; // Node 20 has global fetch, but this works for older versions too
-
+// import crypto from 'crypto';
+const crypto = require('crypto');
 const fs = require('fs');
 const vm = require('vm');
+// import fetch from 'node-fetch'; // Node 20 has global fetch, but this works for older versions too
+
+// const fs = require('fs');
+// const vm = require('vm');
 
 // Carrega brain.min.js (tem de estar na mesma pasta)
 const brainPath = __dirname + '/brain.min.js';
