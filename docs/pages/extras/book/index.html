@@ -110,6 +110,10 @@ function openMini(url) {
 })();
 </script>
 
+
+
+
+
 <input type="text" id="search" placeholder="Search..." />
 <ul id="results"></ul>
 
@@ -131,7 +135,12 @@ function renderResults(query) {
     li.textContent = line;
     li.addEventListener("click", () => {
       const number = line.match(/(\d+)$/)?.[0];
-      alert("Selected number: " + number);
+    //   alert("Selected number: " + number);
+    //   alert("Selected number: " + number);
+const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${number}/pg${number}-images-3.epub`;
+    openMiniEpub(gutenbergUrl);
+
+
     });
     resultsList.appendChild(li);
   });
@@ -142,7 +151,7 @@ searchInput.addEventListener("input", () => {
 });
 
 async function loadAndStream() {
-  const url = 'https://www.gutenberg.org/dirs/GUTINDEX.zip';
+  const url = 'https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent('https://www.gutenberg.org/dirs/GUTINDEX.zip');
   const response = await fetch(url);
   const arrayBuffer = await response.arrayBuffer();
 
