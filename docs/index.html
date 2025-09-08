@@ -682,14 +682,15 @@ function loadPage_v2(url) {
           runScripts(i + 1);
         }
 
-// Suppose your container is:
-const container = document.getElementById('viewer_v1');
+const container = document.querySelector('viewer_v1'); // or your container
 
-// Change all images inside it
 container.querySelectorAll('img').forEach(img => {
-  img.style.width = '100%';
-  img.style.height = 'auto'; // keeps aspect ratio
+  img.removeAttribute('width');  // remove HTML width attr if present
+  img.removeAttribute('height'); // remove HTML height attr if present
+  img.style.width = '100%';       // force width
+  img.style.height = 'auto';      // keep aspect ratio
 });
+
 
 
 
