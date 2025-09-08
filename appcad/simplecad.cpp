@@ -2515,11 +2515,17 @@ if (event == FL_MOVE) {
 			OnMouseClick(mousex,mousey,m_context,m_view);
 		}
 
+		
+
+
+
+
 		switch (event) {
 			case FL_PUSH:
 				if (Fl::event_button() == FL_LEFT_MOUSE) {
 					// Check if click is in right 5% zone
 					if (Fl::event_x() > (this->w() - edge_zone)) {
+						isRotatingz=1;
 						start_y = Fl::event_y();
 						return 1;  // Capture mouse
 					}
@@ -2530,7 +2536,8 @@ if (event == FL_MOVE) {
 			case FL_DRAG:
 				if (Fl::event_state(FL_BUTTON1)) {
 					// Only rotate if drag started in right edge zone
-					if (Fl::event_x() > (this->w() - edge_zone)) {
+					if (isRotatingz) {
+					// if (Fl::event_x() > (this->w() - edge_zone)) {
 						int dy = Fl::event_y() - start_y;
 						start_y = Fl::event_y();
 
@@ -2600,8 +2607,7 @@ if (event == FL_MOVE) {
 			case FL_RELEASE:
 				if (Fl::event_button() == FL_LEFT_MOUSE) {
 					isRotating = false;
-					return 1;
-				} else if (Fl::event_button() == FL_RIGHT_MOUSE) {
+					isRotatingz=0;
 					isPanning = false;
 					return 1;
 				}
@@ -2635,6 +2641,7 @@ if (event == FL_MOVE) {
 	}
 
 	int lastX, lastY;
+	bool isRotatingz = false;
 	bool isRotating = false;
 	bool isPanning = false;
 

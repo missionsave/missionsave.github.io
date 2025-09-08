@@ -7,9 +7,6 @@ const fs = require('fs');
 const vm = require('vm');
 // import fetch from 'node-fetch'; // Node 20 has global fetch, but this works for older versions too
 
-// const fs = require('fs');
-// const vm = require('vm');
-
 // Carrega brain.min.js (tem de estar na mesma pasta)
 const brainPath = __dirname + '/brain.min.js';
 const brainCode = fs.readFileSync(brainPath, 'utf8');
@@ -150,6 +147,10 @@ function generateSignal(predClose, prevClose) {
   console.log("📊 Sinais calculados:", results);
   // Aqui podes usar `results` para qualquer outra ação no workflow
 
+  function formatNum(num, decimals = 2) {
+    return parseFloat(num).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+
 
 
 
@@ -168,37 +169,234 @@ function sign(query, secret) {
   return crypto.createHmac('sha256', secret).update(query).digest('hex');
 }
 
-(async () => {
-  const ts = Date.now();
-  const query = `timestamp=${ts}`;
-  const sig = sign(query, secret);
 
-  // 1. Get open orders
-  const ordersRes = await fetch(`https://api.mexc.com/api/v3/openOrders?${query}&signature=${sig}`, {
-    headers: { 'X-MEXC-APIKEY': key }
+
+
+	(async () => {
+	const ts = Date.now();
+	const query = `timestamp=${ts}`;
+	const sig = sign(query, secret);
+
+	// 1. Get open orders
+	const ordersRes = await fetch(`https://api.mexc.com/api/v3/openOrders?${query}&signature=${sig}`, {
+		headers: { 'X-MEXC-APIKEY': key }
+	});
+	const orders = await ordersRes.json();
+
+
+
+	//close inverted /////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+	// 2. Get account info
+	const accountRes = await fetch(`https://api.mexc.com/api/v3/account?${query}&signature=${sig}`, {
+		headers: { 'X-MEXC-APIKEY': key }
+	});
+	const account = await accountRes.json();
+
+	// 3. Calculate total equity
+	let equity = null;
+	if (Array.isArray(account.balances)) {
+		equity = account.balances.reduce((sum, b) =>
+		sum + parseFloat(b.free) + parseFloat(b.locked), 0
+		);
+	}
+
+	console.log(account);
+
+	// 4. Output JSON
+	console.log(JSON.stringify({
+		openOrders: orders,
+		totalEquity: equity
+	}, null, 2));
+
+
+
+	var budget=equity;
+	const eps = 1e-9;
+    const scores = results.map(p => {
+      if ((p.signal==='BUY'||p.signal==='SELL') && p.expectedWinPct>0 && p.maxLossPct>0) {
+        return p.expectedWinPct/(p.maxLossPct+eps);
+      }
+      return 0;
+    });
+    const scoreSum = scores.reduce((a,b)=>a+b,0);
+    const amounts = results.map((p,i)=>scoreSum<=0?0:(scores[i]/scoreSum)*budget);
+
+
+// results.forEach((p,i)=>{ 
+// 	// let 
+// 	console.log(p.name,p.signal, formatNum(amounts[i]) );
+//     });
+
+
+
+const API_BASE = 'https://api.mexc.com/api/v3';
+const feeMap = {};
+// (async () => {
+async function getfee(){
+  // Get account trade fee info (public endpoint for all symbols)
+  const feeRes = await fetch(`${API_BASE}/exchangeInfo`);
+  const feeData = await feeRes.json();
+//   const feeMap = {};
+  feeData.symbols.forEach(s => {
+    feeMap[s.symbol] = {
+      maker: s.makerCommission || 0.002, // fallback 0.2%
+      taker: s.takerCommission || 0.002
+    };
   });
-  const orders = await ordersRes.json();
 
-  // 2. Get account info
-  const accountRes = await fetch(`https://api.mexc.com/api/v3/account?${query}&signature=${sig}`, {
-    headers: { 'X-MEXC-APIKEY': key }
+  for (const { name, pair } of symbols_) {
+    const res = await fetch(`${API_BASE}/ticker/bookTicker?symbol=${pair}`);
+    const { bidPrice, askPrice } = await res.json();
+    const { maker, taker } = feeMap[pair] || {};
+
+    console.log(`${name} (${pair}) → Bid: ${bidPrice} | Ask: ${askPrice} | Maker fee: ${maker} | Taker fee: ${taker}`);
+  }
+};//)();
+
+await getfee();
+
+// return;
+
+//   // Get account trade fee info (public endpoint for all symbols)
+//   const feeRes = await fetch(`${API_BASE}/exchangeInfo`);
+//   const feeData = await feeRes.json();
+//   const feeMap = {};
+//   feeData.symbols.forEach(s => {
+//     feeMap[s.symbol] = {
+//       maker: s.makerCommission || 0.002, // fallback 0.2%
+//       taker: s.takerCommission || 0.002
+//     };
+//   });
+
+// for (let i = 0; i < results.length; i++) {
+//   const p = results[i];
+//  const { maker, taker } = feeMap[p.symbol];
+//  console.log(p.symbol,maker,taker);
+// }
+// return;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// maker/taker fee padrão MEXC Spot = 0.2% (0.002)
+const MAKER_FEE = 0.002;
+const TAKER_FEE = 0.002;
+
+async function open_order(symbol, side, entry, sl, tp, amountUSDT) {
+  // 1️⃣ Preço atual
+  const ticker = await fetch(`${API_BASE}/ticker/bookTicker?symbol=${symbol}`).then(r => r.json());
+  const price = parseFloat(side === 'BUY' ? ticker.askPrice : ticker.bidPrice);
+
+  // 2️⃣ Quantidade ajustada à comissão
+  const { maker, taker } = feeMap[symbol] || { maker: MAKER_FEE, taker: TAKER_FEE };
+  const feeRate = side === 'BUY' ? taker : maker;
+  const qty = (amountUSDT * (1.0 - feeRate) / price).toFixed(6);
+
+  console.log( qty,feeRate);
+//   console.log(price, qty,feeRate,amountUSDT,Number(amountUSDT)/Number(price));
+
+  // Helper p/ criar ordens assinadas
+  async function sendOrder(paramsObj) {
+    const params = new URLSearchParams({ ...paramsObj, timestamp: Date.now().toString() });
+    const signature = crypto.createHmac('sha256', secret).update(params.toString()).digest('hex');
+    const res = await fetch(`${API_BASE}/order?${params}&signature=${signature}`, {
+      method: 'POST',
+      headers: { 'X-MEXC-APIKEY': key }
+    });
+    return res.json();
+  }
+  return;
+  // 3️⃣ Ordem principal (entrada)
+  const mainOrder = await sendOrder({
+    symbol, side,
+    type: 'LIMIT',
+    price: entry.toString(),
+    quantity: qty,
+    timeInForce: 'GTC'
   });
-  const account = await accountRes.json();
+  console.log('Ordem principal enviada:', mainOrder);
 
-  // 3. Calculate total equity
-  let equity = null;
-  if (Array.isArray(account.balances)) {
-    equity = account.balances.reduce((sum, b) =>
-      sum + parseFloat(b.free) + parseFloat(b.locked), 0
-    );
+  // 4️⃣ Stop Loss
+  if (sl) {
+    const slOrder = await sendOrder({
+      symbol,
+      side: side === 'BUY' ? 'SELL' : 'BUY', // inverso p/ fechar posição
+      type: 'STOP_LIMIT',
+      stopPrice: sl.toString(),
+      price: sl.toString(),
+      quantity: qty,
+      timeInForce: 'GTC'
+    });
+    console.log('Stop Loss enviado:', slOrder);
   }
 
-  // 4. Output JSON
-  console.log(JSON.stringify({
-    openOrders: orders,
-    totalEquity: equity
-  }, null, 2));
-})();
+  // 5️⃣ Take Profit
+  if (tp) {
+    const tpOrder = await sendOrder({
+      symbol,
+      side: side === 'BUY' ? 'SELL' : 'BUY', // inverso p/ fechar posição
+      type: 'LIMIT',
+      price: tp.toString(),
+      quantity: qty,
+      timeInForce: 'GTC'
+    });
+    console.log('Take Profit enviado:', tpOrder);
+  }
+}
+
+
+// Exemplo de uso:
+// // open_order('ETHUSDT', 'BUY', 2300, 2200, 2500, 36);
+// for(let i=0;i<symbols_.length;i++){
+// 	formatNum(amounts[i]);
+// // console.log('ord', 'ETHUSDT', 'BUY', 2300, 2200, 2500, 36);
+// }
+
+
+for (let i = 0; i < results.length; i++) {
+  const p = results[i];
+  if (p.signal === "HOLD") continue;
+
+  const amt = formatNum(amounts[i]); // valor em USDT
+  await open_order(
+    p.pair,        // par ex: 'ETHUSDT'
+    p.signal,      // 'BUY' ou 'SELL'
+    p.entry,       // preço de entrada
+    p.stopLoss,    // stop loss
+    p.takeProfit,  // take profit
+    amounts[i]            // valor em USDT
+  );
+
+  console.log(p.pair, p.signal, p.entry, p.stopLoss, p.takeProfit, amt);
+}
+
+
+
+	
+
+
+
+
+	})();
 
 
 
