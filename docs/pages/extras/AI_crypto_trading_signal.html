@@ -252,7 +252,9 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
 
     let allocHtml = `<table>
       <caption>Model-weighted allocation (Budget: ${formatNum(budget, 2)})</caption>
-      <thead> <tr><th><span class="notranslate">Date</span></th><th><span class="notranslate">High</span></th><th><span class="notranslate">Low</span></th><th><span class="notranslate">Close</span></th><th>% Change vs Prev</th></tr>
+      <thead> <tr>tr>
+        <th>Symbol</th><th>Signal</th><th>Expected % Win</th><th>Max % Win</th><th>Max % Loss</th><th>Amount</th>
+      </tr></tr>
        </thead><tbody>`;
     portfolio.forEach((p,i)=>{
       allocHtml+=`<tr>
