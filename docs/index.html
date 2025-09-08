@@ -658,6 +658,28 @@ function loadPage_v2(url) {
       viewer_v1.innerHTML = tmp.innerHTML;
 
 
+      // 🔹 Force all images to 100% width
+      viewer_v1.querySelectorAll('img').forEach(img => {
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.setProperty('width', '100%', 'important');
+        img.style.setProperty('height', 'auto', 'important');
+
+        const span = img.closest('span');
+        if (span) {
+          span.style.removeProperty('width');
+          span.style.removeProperty('height');
+          span.style.setProperty('max-width', '100%', 'important');
+          span.style.setProperty('height', 'auto', 'important');
+          span.style.setProperty('display', 'block', 'important');
+          span.style.setProperty('border', '0', 'important');
+          span.style.setProperty('margin', '0', 'important');
+        }
+      });
+
+
+
+
 
       // Now re-inject scripts in order so they execute
       (function runScripts(i) {
