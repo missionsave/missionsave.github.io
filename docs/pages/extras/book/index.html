@@ -16,52 +16,78 @@
 <script>
 (function(){
   console.log("started epub");
-  const root = document.getElementById('epub-mini');
-  const qs = (sel) => root.querySelector(sel);
+const root = document.getElementById('epub-mini');
+const qs = (sel) => root.querySelector(sel);
 
-  let book, rendition, locationsReady = false;
+let book, rendition, locationsReady = false;
 
-  function initControls() {
-    qs('#prev').onclick = () => rendition && rendition.prev();
-    qs('#next').onclick = () => rendition && rendition.next();
-    qs('#prog').oninput = (e) => {
-      if (!book || !locationsReady) return;
-      const val = parseInt(e.target.value, 10) / 1000;
-      const cfi = book.locations.cfiFromPercentage(val);
-      if (cfi) rendition.display(cfi);
-    };
-    document.addEventListener('keydown', (e) => {
-      if (!rendition) return;
-      if (e.key === 'ArrowRight') rendition.next();
-      if (e.key === 'ArrowLeft') rendition.prev();
-    });
-  }
+function initControls() {
+  qs('#prev').onclick = () => rendition && rendition.prev();
+  qs('#next').onclick = () => rendition && rendition.next();
 
-  function openMini(url) {
-    book = ePub(url);
-    rendition = book.renderTo(qs('#rend'), {
-      width: '100%',
-      height: '100%',
-      flow: 'paginated',
-      spread: 'none'
-    });
-    rendition.display();
+  // Slider input: keep one decimal place precision
+  qs('#prog').oninput = (e) => {
+    if (!book || !locationsReady) return;
+    const val = parseFloat(e.target.value) / 1000; // match scale
+    const cfi = book.locations.cfiFromPercentage(val);
+    if (cfi) rendition.display(cfi);
+  };
 
+  document.addEventListener('keydown', (e) => {
+    if (!rendition) return;
+    if (e.key === 'ArrowRight') rendition.next();
+    if (e.key === 'ArrowLeft') rendition.prev();
+  });
+}
+
+function openMini(url) {
+  book = ePub(url);
+  rendition = book.renderTo(qs('#rend'), {
+    width: '100%',
+    height: '100%',
+    flow: 'paginated',
+    spread: 'none'
+  });
+
+  // Read "?g=xx.x" from URL
+  const params = new URLSearchParams(window.location.search);
+  const startPct = parseFloat(params.get('g'));
+
+  rendition.display().then(() => {
     book.ready
       .then(() => book.locations.generate(1000))
-      .then(() => { locationsReady = true; })
+      .then(() => {
+        locationsReady = true;
+        // Jump to percentage from URL if valid
+        if (!isNaN(startPct) && startPct >= 0 && startPct <= 100) {
+          const cfi = book.locations.cfiFromPercentage(startPct / 100);
+          if (cfi) rendition.display(cfi);
+        }
+      })
       .catch(() => { locationsReady = false; });
+  });
 
-    rendition.on('relocated', (loc) => {
-      let pct = 0;
-      if (locationsReady && loc?.start?.cfi) {
-        pct = book.locations.percentageFromCfi(loc.start.cfi) || 0;
-        qs('#prog').value = Math.round(pct * 1000);
-      }
-      qs('#pct').textContent = Math.round(pct * 100) + '%';
-    });
+  rendition.on('relocated', (loc) => {
+    let pct = 0;
+    if (locationsReady && loc?.start?.cfi) {
+      pct = book.locations.percentageFromCfi(loc.start.cfi) || 0;
+      // Slider value scaled to 1 decimal place
+      qs('#prog').value = (pct * 1000).toFixed(0);
+    }
 
-    initControls();
+    // One decimal place for display
+    const pctDisplay = (pct * 100).toFixed(1);
+    qs('#pct').textContent = pctDisplay + '%';
+
+    // Update URL without reload
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('g', pctDisplay);
+    window.history.replaceState({}, '', newUrl);
+	// history.pushState({  }, "", newUrl);
+  });
+
+  initControls();
+
   }
 
   // Expose global function
