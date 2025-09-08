@@ -109,3 +109,64 @@ function openMini(url) {
   }
 })();
 </script>
+
+<input type="text" id="search" placeholder="Search..." />
+<ul id="results"></ul>
+
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> -->
+<script>
+const searchInput = document.getElementById("search");
+const resultsList = document.getElementById("results");
+
+let lines = []; // will fill as data arrives
+
+function renderResults(query) {
+  const matches = lines
+    .filter(line => line.toLowerCase().includes(query))
+    .slice(0, 10);
+
+  resultsList.innerHTML = "";
+  matches.forEach(line => {
+    const li = document.createElement("li");
+    li.textContent = line;
+    li.addEventListener("click", () => {
+      const number = line.match(/(\d+)$/)?.[0];
+      alert("Selected number: " + number);
+    });
+    resultsList.appendChild(li);
+  });
+}
+
+searchInput.addEventListener("input", () => {
+  renderResults(searchInput.value.toLowerCase());
+});
+
+async function loadAndStream() {
+  const url = 'https://www.gutenberg.org/dirs/GUTINDEX.zip';
+  const response = await fetch(url);
+  const arrayBuffer = await response.arrayBuffer();
+
+  // Load ZIP fully into JSZip (streaming unzip in-browser is tricky)
+  const zip = await JSZip.loadAsync(arrayBuffer);
+
+  const fileName = 'GUTINDEX.ALL.new';
+  if (!zip.files[fileName]) {
+    console.error(`File ${fileName} not found in ZIP`);
+    return;
+  }
+
+  // Instead of waiting for the whole text, we can process in chunks
+  const text = await zip.files[fileName].async('string');
+
+  // Split into lines and keep only those ending with a number
+  lines = text.split("\n").map(l => l.trim()).filter(l => /\d+$/.test(l));
+
+  // Optional: trigger an initial render if user already typed something
+  if (searchInput.value) {
+    renderResults(searchInput.value.toLowerCase());
+  }
+}
+
+loadAndStream();
+</script>
+
