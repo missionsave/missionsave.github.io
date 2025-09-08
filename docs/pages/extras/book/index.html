@@ -1,181 +1,88 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script>
 
-<!-- Added position:relative so top works -->
-<div id="epub-mini" data-epub-url=""
-     style="position:relative; ">
+<style>
+#searchBox {position:relative;top:0px;left:50%;transform:translateX(-50%);
+  background:#fff;padding:6px;border:1px solid #ccc;border-radius:6px;z-index:10;width:60%;}
+#results {position:absolute;top:40px;left:50%;transform:translateX(-50%);
+  background:#fff;border:1px solid #ccc;border-radius:6px;list-style:none;margin:0;padding:0;width:60%;max-height:200px;overflow:auto;z-index:10;}
+#results li {padding:6px;cursor:pointer;}
+#results li:hover {background:#f0f0f0;}
+</style>
+
+<div id="epub-mini" style="position:relative;">
+  <input id="searchBox" type="text" placeholder="Search books...">
+  <ul id="results"></ul>
   <div class="bar" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px;">
-    <button id="prev" style="padding:6px 10px;">Prev</button>
-    <input id="prog" type="range" min="0" max="1000" value="0" style="flex:1;accent-color:#2563eb;">
-    <span id="pct" style="width:48px;text-align:right;color:#6b7280;">0%</span>
-    <button id="next" style="padding:6px 10px;">Next</button>
+    <button id="prev">Prev</button>
+    <input id="prog" type="range" min="0" max="1000" value="0" style="flex:1;">
+    <span id="pct" style="width:48px;text-align:right;">0%</span>
+    <button id="next">Next</button>
   </div>
   <div id="rend" style="width:100%;height:80vh;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;"></div>
 </div>
 
 <script>
-(function(){
-  console.log("started epub");
-const root = document.getElementById('epub-mini');
-const qs = (sel) => root.querySelector(sel);
+(() => {
+  const root = document.getElementById('epub-mini'), qs = s => root.querySelector(s);
+  let book, rendition, locationsReady = false;
 
-let book, rendition, locationsReady = false;
+  function initControls() {
+    qs('#prev').onclick = () => rendition?.prev();
+    qs('#next').onclick = () => rendition?.next();
+    qs('#prog').oninput = e => {
+      if (!book || !locationsReady) return;
+      const cfi = book.locations.cfiFromPercentage(e.target.value / 1000);
+      if (cfi) rendition.display(cfi);
+    };
+  }
 
-function initControls() {
-  qs('#prev').onclick = () => rendition && rendition.prev();
-  qs('#next').onclick = () => rendition && rendition.next();
-
-  // Slider input: keep one decimal place precision
-  qs('#prog').oninput = (e) => {
-    if (!book || !locationsReady) return;
-    const val = parseFloat(e.target.value) / 1000; // match scale
-    const cfi = book.locations.cfiFromPercentage(val);
-    if (cfi) rendition.display(cfi);
-  };
-
-  document.addEventListener('keydown', (e) => {
-    if (!rendition) return;
-    if (e.key === 'ArrowRight') rendition.next();
-    if (e.key === 'ArrowLeft') rendition.prev();
-  });
-}
-
-function openMini(url) {
-  book = ePub(url);
-  rendition = book.renderTo(qs('#rend'), {
-    width: '100%',
-    height: '100%',
-    flow: 'paginated',
-    spread: 'none'
-  });
-
-  // Read "?g=xx.x" from URL
-  const params = new URLSearchParams(window.location.search);
-  const startPct = parseFloat(params.get('g'));
-
-  rendition.display().then(() => {
-    book.ready
-      .then(() => book.locations.generate(1000))
-      .then(() => {
-        locationsReady = true;
-        // Jump to percentage from URL if valid
-        if (!isNaN(startPct) && startPct >= 0 && startPct <= 100) {
-          const cfi = book.locations.cfiFromPercentage(startPct / 100);
-          if (cfi) rendition.display(cfi);
-        }
-      })
-      .catch(() => { locationsReady = false; });
-  });
-
-  rendition.on('relocated', (loc) => {
-    let pct = 0;
-    if (locationsReady && loc?.start?.cfi) {
-      pct = book.locations.percentageFromCfi(loc.start.cfi) || 0;
-      // Slider value scaled to 1 decimal place
+  function openMini(url) {
+    if (rendition) { rendition.destroy(); book.destroy(); } // cleanup
+    book = ePub(url);
+    rendition = book.renderTo(qs('#rend'), {width:'100%',height:'100%',flow:'paginated',spread:'none'});
+    rendition.display().then(() => book.ready.then(() => book.locations.generate(1000)).then(() => locationsReady = true));
+    rendition.on('relocated', loc => {
+      let pct = locationsReady ? book.locations.percentageFromCfi(loc.start.cfi) || 0 : 0;
       qs('#prog').value = (pct * 1000).toFixed(0);
-    }
-
-    // One decimal place for display
-    const pctDisplay = (pct * 100).toFixed(1);
-    qs('#pct').textContent = pctDisplay + '%';
-
-    // Update URL without reload
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('g', pctDisplay);
-    window.history.replaceState({}, '', newUrl);
-	// history.pushState({  }, "", newUrl);
-  });
-
-  initControls();
-
+      qs('#pct').textContent = (pct * 100).toFixed(1) + '%';
+    });
+    initControls();
   }
 
-  // Expose global function
-  window.openMiniEpub = function(rawUrlOrWorkerUrl, useWorker = true) {
-    const isAlreadyWorker = /^https?:\/\/.+\/epub\?url=/.test(rawUrlOrWorkerUrl);
-    const finalUrl = isAlreadyWorker || !useWorker
-      ? rawUrlOrWorkerUrl
-      : ('https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent(rawUrlOrWorkerUrl));
-    openMini(finalUrl);
+  window.openMiniEpub = num => {
+    const url='https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent(`https://www.gutenberg.org/cache/epub/${num}/pg${num}-images-3.epub`);
+    openMini(url);
   };
 
-  // --- AUTO-LOAD FROM ?b=NUMBER ---
-  const params = new URLSearchParams(window.location.search);
-  let b = params.get('b');
-  if (!b) b = 9499; // default if not set
-  if (/^\d+$/.test(b)) {
-    const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${b}/pg${b}-images-3.epub`;
-    openMiniEpub(gutenbergUrl);
+  // Search
+  const searchInput = document.getElementById("searchBox"), resultsList = document.getElementById("results");
+  let lines = [];
+  function renderResults(q) {
+    resultsList.innerHTML = "";
+    if (!q) return;
+    lines.filter(l => l.toLowerCase().includes(q)).slice(0, 10).forEach(line => {
+      const li = document.createElement("li");
+      li.textContent = line;
+      li.onclick = () => {
+        const num = line.match(/(\d+)$/)?.[0];
+        if (num) openMiniEpub(num);
+        resultsList.innerHTML = "";
+      };
+      resultsList.appendChild(li);
+    });
   }
+  searchInput.oninput = () => renderResults(searchInput.value.toLowerCase());
+
+  (async () => {
+	const url='https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent('https://www.gutenberg.org/dirs/GUTINDEX.zip');
+    const res = await fetch(url);
+    const zip = await JSZip.loadAsync(await res.arrayBuffer());
+    const text = await zip.files['GUTINDEX.ALL.new'].async('string');
+    lines = text.split("\n").map(l => l.trim()).filter(l => /\d+$/.test(l));
+  })();
+
+  // default load
+  openMiniEpub(9499);
 })();
 </script>
-
-
-
-
-
-<input type="text" id="search" placeholder="Search..." />
-<ul id="results"></ul>
-
-<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> -->
-<script>
-const searchInput = document.getElementById("search");
-const resultsList = document.getElementById("results");
-
-let lines = []; // will fill as data arrives
-
-function renderResults(query) {
-  const matches = lines
-    .filter(line => line.toLowerCase().includes(query))
-    .slice(0, 10);
-
-  resultsList.innerHTML = "";
-  matches.forEach(line => {
-    const li = document.createElement("li");
-    li.textContent = line;
-    li.addEventListener("click", () => {
-      const number = line.match(/(\d+)$/)?.[0];
-    //   alert("Selected number: " + number);
-    //   alert("Selected number: " + number);
-const gutenbergUrl = `https://www.gutenberg.org/cache/epub/${number}/pg${number}-images-3.epub`;
-    openMiniEpub(gutenbergUrl);
-
-
-    });
-    resultsList.appendChild(li);
-  });
-}
-
-searchInput.addEventListener("input", () => {
-  renderResults(searchInput.value.toLowerCase());
-});
-
-async function loadAndStream() {
-  const url = 'https://superdb-api.superbem.workers.dev/epub?url=' + encodeURIComponent('https://www.gutenberg.org/dirs/GUTINDEX.zip');
-  const response = await fetch(url);
-  const arrayBuffer = await response.arrayBuffer();
-
-  // Load ZIP fully into JSZip (streaming unzip in-browser is tricky)
-  const zip = await JSZip.loadAsync(arrayBuffer);
-
-  const fileName = 'GUTINDEX.ALL.new';
-  if (!zip.files[fileName]) {
-    console.error(`File ${fileName} not found in ZIP`);
-    return;
-  }
-
-  // Instead of waiting for the whole text, we can process in chunks
-  const text = await zip.files[fileName].async('string');
-
-  // Split into lines and keep only those ending with a number
-  lines = text.split("\n").map(l => l.trim()).filter(l => /\d+$/.test(l));
-
-  // Optional: trigger an initial render if user already typed something
-  if (searchInput.value) {
-    renderResults(searchInput.value.toLowerCase());
-  }
-}
-
-loadAndStream();
-</script>
-
