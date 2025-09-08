@@ -9,12 +9,12 @@
     th, td { border: 1px solid #444; padding: 8px 12px; text-align: right; }
     th { background: #c96767; }
     caption { text-align: left; font-size: 1.2em; margin-bottom: 5px; }
-    .pred { font-weight: bold; color: #0f0; }
+    .pred { font-weight: bold; color: rgb(47, 235, 47); }
     .pred.negative { color: #f33; }
     .current { background: #eefffe; font-weight: bold; }
-    .pos { color: #0f0; }
+    .pos { color: rgb(47, 235, 47); }
     .neg { color: #f33; }
-    .signal-buy { color: #0f0; font-weight: bold; }
+    .signal-buy { color: rgb(47, 235, 47); font-weight: bold; }
     .signal-sell { color: #f33; font-weight: bold; }
   </style>
 </head>
@@ -251,10 +251,10 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     const amounts = portfolio.map((p,i)=>scoreSum<=0?0:(scores[i]/scoreSum)*budget);
 
     let allocHtml = `<table>
-      <caption>Model-weighted allocation (Budget: ${formatNum(budget, 2)})</caption>
-      <thead> <tr>tr>
-        <th>Symbol</th><th>Signal</th><th>Expected % Win</th><th>Max % Win</th><th>Max % Loss</th><th>Amount</th>
-      </tr></tr>
+      <caption>Model-weighted allocation (Amount: ${formatNum(budget, 2)}%)</caption>
+      <thead> <tr>
+        <th>Symbol</th><th>Signal</th><th>Expected % Win</th><th>Max % Win</th><th>Max % Loss</th><th>Amount %</th>
+      </tr>
        </thead><tbody>`;
     portfolio.forEach((p,i)=>{
       allocHtml+=`<tr>
