@@ -14,7 +14,7 @@ vm.runInThisContext(brainCode);
 
 // Configurações
 const symbols_ = [
-  { name: 'Bitcoin', pair: 'BTCUSDT' },
+  { name: 'Bitcoin', pair: 'BTCUSDC' },
   { name: 'Ethereum', pair: 'ETHUSDT' },
   { name: 'BNB', pair: 'BNBUSDT' },
   { name: 'XRP', pair: 'XRPUSDT' },
@@ -24,7 +24,7 @@ const symbols_ = [
 const interval = '1d';
 const historyLength = 7;
 const RERUNS = 8 * 3;
-const TRAIN_ITER = 400;
+const TRAIN_ITER = 40;
 
 // Funções utilitárias
 async function fetchData(symbol) {
@@ -147,6 +147,23 @@ function generateSignal(predClose, prevClose) {
   console.log("📊 Sinais calculados:", results);
   // Aqui podes usar `results` para qualquer outra ação no workflow
 
+
+async function kfetchData(symbol) {
+  const url = `https://futures.kraken.com/trade`;
+//   const url = `https://api.binance.com/`; 
+  console.log("url",url);
+  const res = await fetch(url);
+  return res;//.json();
+}
+const kdata = await kfetchData('BTCUSDT');
+console.log("📊 Conteúdo recebido:", kdata);
+
+
+
+
+
+return;
+
   function formatNum(num, decimals = 2) {
     return parseFloat(num).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   }
@@ -199,6 +216,16 @@ function sign(query, secret) {
 		headers: { 'X-MEXC-APIKEY': key }
 	});
 	const account = await accountRes.json();
+
+
+    const asset = "BNB";
+	    const free = parseFloat(account.balances.find(b => b.asset === asset)?.free || 0);
+    if (free <= 0) {
+      console.error(`❌ Saldo insuficiente para vender ${asset}`);
+      return;
+    }
+
+	return;
 
 	// 3. Calculate total equity
 	let equity = null;
@@ -291,29 +318,6 @@ await getfee();
 
 
 
-
-
-
-
-
-
-// maker/taker fee padrão MEXC Spot = 0.2% (0.002)
-const MAKER_FEE = 0.002;
-const TAKER_FEE = 0.002;
-
-async function open_order(symbol, side, entry, sl, tp, amountUSDT) {
-  // 1️⃣ Preço atual
-  const ticker = await fetch(`${API_BASE}/ticker/bookTicker?symbol=${symbol}`).then(r => r.json());
-  const price = parseFloat(side === 'BUY' ? ticker.askPrice : ticker.bidPrice);
-
-  // 2️⃣ Quantidade ajustada à comissão
-  const { maker, taker } = feeMap[symbol] || { maker: MAKER_FEE, taker: TAKER_FEE };
-  const feeRate = side === 'BUY' ? taker : maker;
-  const qty = (amountUSDT * (1.0 - feeRate) / price).toFixed(6);
-
-  console.log( qty,feeRate);
-//   console.log(price, qty,feeRate,amountUSDT,Number(amountUSDT)/Number(price));
-
   // Helper p/ criar ordens assinadas
   async function sendOrder(paramsObj) {
     const params = new URLSearchParams({ ...paramsObj, timestamp: Date.now().toString() });
@@ -324,17 +328,45 @@ async function open_order(symbol, side, entry, sl, tp, amountUSDT) {
     });
     return res.json();
   }
-  return;
-  // 3️⃣ Ordem principal (entrada)
-  const mainOrder = await sendOrder({
+
+
+const info = await fetch('https://api.mexc.com/api/v3/exchangeInfo').then(r => r.json());
+const sol = info.symbols.find(s => s.symbol === 'SOLUSDT');
+console.log(sol.quantityPrecision, sol.filters,sol.baseAssetPrecision);
+
+// return;
+
+// maker/taker fee padrão MEXC Spot = 0.2% (0.002)
+const MAKER_FEE = 0.002;
+const TAKER_FEE = 0.002;
+
+async function open_order(symbol, side, entry, sl, tp, amountUSDT) {
+  // 1️⃣ Preço atual
+  const ticker = await fetch(`${API_BASE}/ticker/bookTicker?symbol=${symbol}`).then(r => r.json());
+  const _price = parseFloat(side === 'BUY' ? ticker.askPrice : ticker.bidPrice);
+
+  // 2️⃣ Quantidade ajustada à comissão
+  const { maker, taker } = feeMap[symbol] || { maker: MAKER_FEE, taker: TAKER_FEE };
+  const feeRate = side === 'BUY' ? taker : maker;
+
+  const sol = info.symbols.find(s => s.symbol === symbol);
+  const qty = (amountUSDT * (1.0 - feeRate) / _price).toFixed(sol.baseAssetPrecision);
+
+//   console.log( qty,feeRate);
+//   console.log(price, qty,feeRate,amountUSDT,Number(amountUSDT)/Number(price));
+
+const amor={
     symbol, side,
-    type: 'LIMIT',
-    price: entry.toString(),
+    type: 'MARKET',
+    price: _price,
     quantity: qty,
     timeInForce: 'GTC'
-  });
-  console.log('Ordem principal enviada:', mainOrder);
+  };
+  // 3️⃣ Ordem principal (entrada)
+  const mainOrder = await sendOrder(amor);
+  console.log('Ordem principal enviada:', amor,mainOrder);
 
+  return;
   // 4️⃣ Stop Loss
   if (sl) {
     const slOrder = await sendOrder({
@@ -372,10 +404,26 @@ async function open_order(symbol, side, entry, sl, tp, amountUSDT) {
 // }
 
 
+// const info = await fetch(`${API_BASE}/selfSymbols`).then(r => r.json());
+// const validSymbols = info.symbols.map(s => s.symbol);
+// console.log(info);
+ 
+
+
 for (let i = 0; i < results.length; i++) {
   const p = results[i];
-  if (p.signal === "HOLD") continue;
+  if (p.signal === "HOLD"){ 
+	console.log(p.pair,"hold");
+	continue;
+  }
+	
+// if (!validSymbols.includes(p.pair)) {
+//   console.error(`Símbolo ${p.pair} não suportado pela API`);
+// //   return;
+// }
 
+
+//   continue;
   const amt = formatNum(amounts[i]); // valor em USDT
   await open_order(
     p.pair,        // par ex: 'ETHUSDT'

@@ -47,10 +47,21 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     { name: 'XRP', pair: 'XRPUSDT' },
     { name: 'Solana', pair: 'SOLUSDT' }
   ];
-
-  const interval = '1d';
-  const historyLength = 7;
-  const RERUNS = 8*3;
+// const symbols_ = [
+//   { name: 'Bitcoin', pair: 'BTCUSDT' },       // +147% YTD, huge daily volume
+//   { name: 'Ethereum', pair: 'ETHUSDT' },      // +87% YTD, strong DeFi/NFT demand
+//   { name: 'Solana', pair: 'SOLUSDT' },        // Major ecosystem growth, high liquidity
+//   { name: 'XRP', pair: 'XRPUSDT' },           // Regulatory clarity boosting adoption
+//   { name: 'Avalanche', pair: 'AVAXUSDT' },    // Rising DeFi & gaming activity
+//   { name: 'Cardano', pair: 'ADAUSDT' },       // Smart contract adoption uptick
+//   { name: 'Kaspa', pair: 'KASUSDT' },         // Fast-growing PoW chain, surging price
+//   { name: 'Sui', pair: 'SUIUSDT' },           // Layer 1 with strong dev traction
+//   { name: 'Celestia', pair: 'TIAUSDT' },      // Modular blockchain innovation
+//   { name: 'Kava', pair: 'KAVAUSDT' }          // Bridging TradFi & Web3, rising volumes
+// ];
+  const interval = '6h';
+  const historyLength = 7*4;
+  const RERUNS = 8*2;
   const TRAIN_ITER = 400;
 
   async function fetchData(symbol) {
