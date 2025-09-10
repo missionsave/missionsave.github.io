@@ -18,7 +18,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 0; i--) {
+    for (var i = arr.length - 1; i >= 1; i--) {
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -104,7 +104,8 @@ var keysqt=new Array();
 var keysde=new Array();
 var allkeys=new Array(0);
 
-var keysize=15; 
+var keysize=6; 
+// var keysize=15; 
 
 var keys_selected=new Array(k+1);
 keys_selected[0]=0;
@@ -556,10 +557,43 @@ let notless=0.05;
 // isgood=isgood && (dif[4])>notless;
 // isgood=isgood && (dif[5])>notless;
 
-		keys_selected=[0,1,1,0,0,0]; //25
+		keys_selected=[1,0,0,0,0,0]; //6
+		// keys_selected=[0,1,1,0,0,0]; //15
 // isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
 
-isgood=isgood && (dif[0])<0;
+if(qtkeys==6 ){	
+isgood=isgood && (dif[0])<-0.04;
+isgood=isgood && (dif[1])>0.01;//.05;// && (dif[1])<0.055;
+isgood=isgood && (dif[2])>0;
+isgood=isgood && (dif[3])>0;
+isgood=isgood && (dif[4])>0;
+isgood=isgood && (dif[5])>0;
+}
+
+if( qtkeys==7){	
+isgood=isgood && (dif[0])<-0.05;
+isgood=isgood && (dif[1])>0.03;// && (dif[1])<0.055;
+isgood=isgood && (dif[2])>0;
+isgood=isgood && (dif[3])>0;
+isgood=isgood && (dif[4])>0;
+isgood=isgood && (dif[5])>0;
+}
+
+
+if(qtkeys==8){	
+	isgood=isgood && (dif[0])<-0.04;
+	isgood=isgood && (dif[1])>0.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>0;
+	isgood=isgood && (dif[4])>0;
+	isgood=isgood && (dif[5])>0;
+}
+
+
+
+
+
+// isgood=isgood && (dif[2])>0.05;
 
 // isgood=isgood && (dif2[0])>notless;
 // isgood=isgood && (dif2[1])>notless;
