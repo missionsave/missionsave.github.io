@@ -2,30 +2,30 @@
 const https = require('https');
 const crypto = require('crypto');
 
-const API_KEY = process.env.WB_KEY;
-const API_SECRET = process.env.WB_SECRET; 
+// const API_KEY = process.env.WB_KEY;
+// const API_SECRET = process.env.WB_SECRET; 
 
-const bodyObj = {
-  request: '/api/v4/main-account/balance',
-  nonce: Date.now()
-};
+// const bodyObj = {
+//   request: '/api/v4/main-account/balance',
+//   nonce: Date.now()
+// };
 
-const bodyStr = JSON.stringify(bodyObj);
-const payload = Buffer.from(bodyStr).toString('base64');
-const signature = crypto.createHmac('sha512', API_SECRET).update(payload).digest('hex');
+// const bodyStr = JSON.stringify(bodyObj);
+// const payload = Buffer.from(bodyStr).toString('base64');
+// const signature = crypto.createHmac('sha512', API_SECRET).update(payload).digest('hex');
 
-const options = {
-  hostname: 'whitebit.com',
-  path: '/api/v4/main-account/balance',
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-TXC-APIKEY': API_KEY,
-    'X-TXC-PAYLOAD': payload,
-    'X-TXC-SIGNATURE': signature,
-    'Content-Length': Buffer.byteLength(bodyStr)
-  }
-};
+// const options = {
+//   hostname: 'whitebit.com',
+//   path: '/api/v4/main-account/balance',
+//   method: 'POST',
+//   headers: {
+//     'Content-Type': 'application/json',
+//     'X-TXC-APIKEY': API_KEY,
+//     'X-TXC-PAYLOAD': payload,
+//     'X-TXC-SIGNATURE': signature,
+//     'Content-Length': Buffer.byteLength(bodyStr)
+//   }
+// };
 
 // const req = https.request(options, res => {
 //   let data = '';
