@@ -17,3 +17,5 @@ jobs:
         env:
           MEXC_KEY: ${{ secrets.MEXC_KEY }}
           MEXC_SECRET: ${{ secrets.MEXC_SECRET }}
+          WB_KEY: ${{ secrets.WB_KEY }}
+          WB_SECRET: ${{ secrets.WB_SECRET }}
