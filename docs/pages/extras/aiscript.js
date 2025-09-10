@@ -2,48 +2,47 @@
 const https = require('https');
 const crypto = require('crypto');
 
-// const API_KEY = process.env.WB_KEY;
-// const API_SECRET = process.env.WB_SECRET; 
+const API_KEY = process.env.WB_KEY;
+const API_SECRET = process.env.WB_SECRET; 
 
-// const bodyObj = {
-//   request: '/api/v4/main-account/balance',
-//   nonce: Date.now()
-// };
+const bodyObj = {
+  request: '/api/v4/main-account/balance',
+  nonce: Date.now(),
+  ticker: 'USDT' // 🔹 Filtra apenas USDT
+};
 
-// const bodyStr = JSON.stringify(bodyObj);
-// const payload = Buffer.from(bodyStr).toString('base64');
-// const signature = crypto.createHmac('sha512', API_SECRET).update(payload).digest('hex');
+const bodyStr = JSON.stringify(bodyObj);
+const payload = Buffer.from(bodyStr).toString('base64');
+const signature = crypto.createHmac('sha512', API_SECRET).update(payload).digest('hex');
 
-// const options = {
-//   hostname: 'whitebit.com',
-//   path: '/api/v4/main-account/balance',
-//   method: 'POST',
-//   headers: {
-//     'Content-Type': 'application/json',
-//     'X-TXC-APIKEY': API_KEY,
-//     'X-TXC-PAYLOAD': payload,
-//     'X-TXC-SIGNATURE': signature,
-//     'Content-Length': Buffer.byteLength(bodyStr)
-//   }
-// };
+const options = {
+  hostname: 'whitebit.com',
+  path: '/api/v4/main-account/balance',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-TXC-APIKEY': API_KEY,
+    'X-TXC-PAYLOAD': payload,
+    'X-TXC-SIGNATURE': signature,
+    'Content-Length': Buffer.byteLength(bodyStr)
+  }
+};
 
-// const req = https.request(options, res => {
-//   let data = '';
-//   res.on('data', chunk => data += chunk);
-//   res.on('end', () => {
-//     try {
-//       console.log('💰 Saldo:', JSON.parse(data));
-//     } catch (err) {
-//       console.error('Erro ao parsear resposta:', err.message, data);
-//     }
-//   });
-// });
+const req = https.request(options, res => {
+  let data = '';
+  res.on('data', chunk => data += chunk);
+  res.on('end', () => {
+    try {
+      console.log('💰 Saldo filtrado:', JSON.parse(data));
+    } catch (err) {
+      console.error('Erro ao parsear resposta:', err.message, data);
+    }
+  });
+});
 
-// req.on('error', err => console.error('Erro na requisição:', err.message));
-
-// // Aqui enviamos o JSON cru, não o base64
-// req.write(bodyStr);
-// req.end();
+req.on('error', err => console.error('Erro na requisição:', err.message));
+req.write(bodyStr);
+req.end();
 
 
 function getOrderBook(market) {
