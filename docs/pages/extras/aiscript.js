@@ -45,84 +45,114 @@ req.write(bodyStr);
 req.end();
 
 
-function getOrderBook(market) {
-  const url = `/api/v4/public/orderbook/${market}?limit=1`;
+// function getOrderBook(market) {
+//   const url = `/api/v4/public/orderbook/${market}?limit=1`;
 
-  const options = {
-    hostname: 'whitebit.com',
-    path: url,
-    method: 'GET'
-  };
+//   const options = {
+//     hostname: 'whitebit.com',
+//     path: url,
+//     method: 'GET'
+//   };
 
-  const req = https.request(options, res => {
-    let data = '';
-    res.on('data', chunk => data += chunk);
-    res.on('end', () => {
-      try {
-		const json = JSON.parse(data);
-		// console.log(json);
+//   const req = https.request(options, res => {
+//     let data = '';
+//     res.on('data', chunk => data += chunk);
+//     res.on('end', () => {
+//       try {
+// 		const json = JSON.parse(data);
+// 		// console.log(json);
 
-		const bestAsk = json.asks[0]; // [price, quantity]
-		const bestBid = json.bids[0]; // [price, quantity]
+// 		const bestAsk = json.asks[0]; // [price, quantity]
+// 		const bestBid = json.bids[0]; // [price, quantity]
 
-		const askPrice = parseFloat(bestAsk[0]);
-		const bidPrice = parseFloat(bestBid[0]);
+// 		const askPrice = parseFloat(bestAsk[0]);
+// 		const bidPrice = parseFloat(bestBid[0]);
 
-		// % difference relative to ask
-		const spreadPct = ((askPrice - bidPrice) / askPrice) * 100;
+// 		// % difference relative to ask
+// 		const spreadPct = ((askPrice - bidPrice) / askPrice) * 100;
 
-		console.log(`📈  ${json.ticker_id} Best Ask: ${askPrice} (${bestAsk[1]} )`);
-		console.log(`📉  ${json.ticker_id} Best Bid: ${bidPrice} (${bestBid[1]} )`);
-		console.log(`📊  ${json.ticker_id} Spread: ${spreadPct.toFixed(5)}%`);
-      } catch (err) {
-        console.error('Erro ao parsear resposta:', err.message);
-      }
-    });
-  });
+// 		console.log(`📈  ${json.ticker_id} Best Ask: ${askPrice} (${bestAsk[1]} )`);
+// 		console.log(`📉  ${json.ticker_id} Best Bid: ${bidPrice} (${bestBid[1]} )`);
+// 		console.log(`📊  ${json.ticker_id} Spread: ${spreadPct.toFixed(5)}%`);
+//       } catch (err) {
+//         console.error('Erro ao parsear resposta:', err.message);
+//       }
+//     });
+//   });
 
-  req.on('error', err => console.error('Erro na requisição:', err.message));
-  req.end();
+//   req.on('error', err => console.error('Erro na requisição:', err.message));
+//   req.end();
+// }
+
+async function getOrderBook(symbol = 'BTC_PERP') {
+  try {
+    const res = await fetch(`https://whitebit.com/api/v4/public/orderbook/${symbol}?limit=1`);
+    const json = await res.json();
+
+    const [askPrice, askQty] = json.asks[0];
+    const [bidPrice, bidQty] = json.bids[0];
+    const spreadPct = ((askPrice - bidPrice) / askPrice) * 100;
+
+    console.log(`📈 ${symbol} Best Ask: ${askPrice} (${askQty} BTC)`);
+    console.log(`📉 ${symbol} Best Bid: ${bidPrice} (${bidQty} BTC)`);
+    console.log(`📊 Spread: ${spreadPct.toFixed(5)}%`);
+  } catch (err) {
+    console.error('Erro:', err.message);
+  }
 }
 
-getOrderBook('BTC_PERP');
-// getOrderBook('BTC_USDT');
-// getOrderBook('ETH_USDT');
-getOrderBook('ETH_PERP');
-// getOrderBook('SOL_USDT');
-getOrderBook('DOGE_PERP');
-getOrderBook('XRP_PERP');
-getOrderBook('SOL_PERP');
+// Sequential execution
+(async () => {
+  await getOrderBook('BTC_PERP');
+  // await getOrderBook('BTC_USDT');
+  // await getOrderBook('ETH_USDT');
+  await getOrderBook('ETH_PERP');
+  // await getOrderBook('SOL_USDT');
+  await getOrderBook('DOGE_PERP');
+  await getOrderBook('XRP_PERP');
+  await getOrderBook('SOL_PERP');
+})();
 
 
 
 
-
-
-function getKrakenFuturesBidAsk(symbol = 'pi_xbtusd') {
-  const path = `/derivatives/api/v3/orderbook?symbol=${symbol}`;
-
-  https.get({ hostname: 'futures.kraken.com', path, method: 'GET' }, res => {
-    let data = '';
-    res.on('data', chunk => data += chunk);
-    res.on('end', () => {
-      try {
-        const json = JSON.parse(data);
-        const ob = json.orderBook;
-        if (!ob || !ob.asks?.length || !ob.bids?.length) {
-          console.error('Livro de ordens vazio ou formato inesperado:', json);
-          return;
-        }
-        const [askPrice, askQty] = ob.asks[0];
-        const [bidPrice, bidQty] = ob.bids[0];
-        console.log(`📈 KBest Ask: ${askPrice} (${askQty})`);
-        console.log(`📉 KBest Bid: ${bidPrice} (${bidQty})`);
-      } catch (err) {
-        console.error('Erro ao parsear resposta:', err.message, data);
-      }
-    });
-  }).on('error', err => console.error('Erro na requisição:', err.message));
+const BASE = 'https://futures.kraken.com/derivatives/api/v3';
+async function getBidAsk(symbol = 'PI_XBTUSD') {
+  const res = await fetch(`${BASE}/tickers/${symbol}`);
+  const { ticker } = await res.json();
+  console.log({ bid: ticker.bid, ask: ticker.ask });
+//   console.log(ticker);
 }
+getBidAsk();
+
+// function getKrakenFuturesBidAsk(symbol = 'PI_XBTUSD') {
+//   const path = `/derivatives/api/v3/orderbook?symbol=${symbol}`;
+
+//   https.get({ hostname: 'futures.kraken.com', path, method: 'GET' }, res => {
+//     let data = '';
+//     res.on('data', chunk => data += chunk);
+//     res.on('end', () => {
+//       try {
+//         const json = JSON.parse(data);
+//         const ob = json.orderBook;
+//         if (!ob || !ob.asks?.length || !ob.bids?.length) {
+//           console.error('Livro de ordens vazio ou formato inesperado:', json);
+//           return;
+//         }
+//         const [askPrice, askQty] = ob.asks[0];
+//         const [bidPrice, bidQty] = ob.bids[0];
+//         console.log(`📈 KBest Ask: ${askPrice} (${askQty})`);
+//         console.log(`📉 KBest Bid: ${bidPrice} (${bidQty})`);
+//       } catch (err) {
+//         console.error('Erro ao parsear resposta:', err.message, data);
+//       }
+//     });
+//   }).on('error', err => console.error('Erro na requisição:', err.message));
+// }
 // getKrakenFuturesBidAsk();
+
+
+
 
 	return;
 }

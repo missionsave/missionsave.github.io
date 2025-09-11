@@ -44,9 +44,12 @@ function fillkeysall() {
   async function fillkeysall_v1() {
     try {
       const response = await fetch(API_URL, {
-        mode: "cors",
-        cache: "no-cache"
+        mode: "cors"
       });
+    //   const response = await fetch(API_URL, {
+    //     mode: "cors",
+    //     cache: "no-cache"
+    //   });
 
       if (!response.ok) {
         // non-2xx responses land here
@@ -69,7 +72,7 @@ function fillkeysall() {
       }
 
       histsize = varball.length;
-      console.log("Loaded draws:", histsize, varball);
+      //console.log("Loaded draws:", histsize, varball);
 
     } catch (err) {
       console.error("Failed to fetch draws:", err);
@@ -81,8 +84,8 @@ function fillkeysall() {
 
 // 	histsize=varball.length;
 //   // globals are ready here
-// //   console.log("vardate:", vardate);
-//   console.log("varball:", varball);
+// //   //console.log("vardate:", vardate);
+//   //console.log("varball:", varball);
 // //   test();
 // // init();
 //   // you can safely use vardate/varball in the rest of your script
@@ -104,16 +107,13 @@ var keysqt=new Array();
 var keysde=new Array();
 var allkeys=new Array(0);
 
-var keysize=6; 
+var ttchaves;
+
+var keysize=25; 
 // var keysize=15; 
 
 var keys_selected=new Array(k+1);
-keys_selected[0]=0;
-keys_selected[1]=0;
-keys_selected[2]=1;
-keys_selected[3]=1;
-keys_selected[4]=1;
-keys_selected[5]=1;
+keys_selected[0]=1; 
 var loading=1;
 </script>
 
@@ -212,11 +212,12 @@ function mathDiffPer(baseone,confront,ratio){
 }
 
 
-async function fillcache(){
+function fillcache(){
+// async function fillcache(){
 	//allkeys = JSON.parse(de(localStorage.getItem("allkeys")));
 	// allkeys=de(localStorage.getItem("allkeys"));
 	//allkeys=JSON.parse(allkeys);
-	// console.log("ak"+localStorage.getItem("allkeys"));
+	// //console.log("ak"+localStorage.getItem("allkeys"));
 	// return;
 	console.time("p");
 	var t0 = performance.now();
@@ -236,7 +237,7 @@ async function fillcache(){
 	}
 	var t1 = performance.now();
 	document.getElementById("dummy").innerHTML ="Call to <span style='font-size:10px;vertical-align: super;'>7</span> took " + (t1 - t0) + " milliseconds";
-	console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.");
+	//console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.");
 	console.timeEnd("p");
 	// var comp=en(JSON.stringify(allkeys));
 	// localStorage.setItem("allkeys", comp );
@@ -267,7 +268,7 @@ function seek(bet){
 	for(var i=0;i<histsize;i++)
         qtdi[i]=qtdmatchbool(histrb[i],betp);
 	
-	// console.log("qtdi.len"+qtdi.length+"histsize"+histsize);
+	// //console.log("qtdi.len"+qtdi.length+"histsize"+histsize);
 	
 	for(var ji=0;ji<qtdisum.length;ji++)qtdisum[ ji ]=0;
 	for(var ji=0;ji<histsize;ji++)
@@ -292,28 +293,29 @@ function mustMatchDirect(keys){
 		for (var i = 0, len = numCombin(n,k); i < len; i++){
 			// toFill=toComb(i,n,k); 
 			toFill=allkeys[i];
-			 // console.log(toFill);
+			 // //console.log(toFill);
 			add=true;
 			for(  v=0;v<keys.length;v++){
 				
 				ru=0;
 				for(var vi=0;vi<k;vi++)ru+=kes[v][ toFill[vi] ];
 				if(ru!=keys[v][keys[v].length - 1]){add=false; break;}
-				//console.log("yaya"+ru);
+				////console.log("yaya"+ru);
 			}
 			if(add){
 				res.push(toFill); 
 				// res.push(new Array(k)); 
 				// for(var ci=0;ci<k;ci++)res[res.length-1][ci] =toFill[ci];//toFill[ci];
-				// console.log(toFill[ci]);
+				// //console.log(toFill[ci]);
 			} 
 			// toFill=combNextFastest(toFill,n,k);
 		}	
 		return res;
 }
 
+// function mustMatch(keys,response){  
 async function mustMatch(keys,response){  
-	setTimeout(function(){
+	// setTimeout(function(){
 	
 console.time('Function #1');
 		if(allkeys.length==0)fillcache();
@@ -324,15 +326,15 @@ console.time('Function #1');
 		// }
 				
 		var kes=createArray(keys.length,n+1);
-		console.log("keys",keys);	
-		console.log("kes",kes);	
+		//console.log("keys",keys);	
+		//console.log("kes",kes);	
 		for(var v=0;v<keys.length;v++){ 
 			for(var xi=0;xi<n+1;xi++)kes[v][xi]=0;
 			for(var i=0;i<keys[v].length-1;i++){ 
 				kes[v][ keys[v][i] ]=1;
 			} 
 		}	
-		console.log("kes",kes);	
+		//console.log("kes",kes);	
 	 
 		var add;
 		var ru=0;
@@ -344,7 +346,7 @@ console.time('Function #1');
 		for (var i = 0, len = numCombin(n,k); i < len; i++){
 			// toFill=toComb(i,n,k); 
 			toFill=allkeys[i];
-			 // console.log(toFill);
+			 // //console.log(toFill);
 			add=true;
 			for(  v=0;v<keys.length;v++){
 				
@@ -353,26 +355,26 @@ console.time('Function #1');
 					ru+=kes[v][ toFill[vi] ];
 				
 				
-				// console.log("bseletected",keys[v][keys[v].length - 1]);
+				// //console.log("bseletected",keys[v][keys[v].length - 1]);
 
-				if(keys_selected[ru]==0){
-					add=false; break;}
-				// if(ru!=keys[v][keys[v].length - 1]){add=false; break;}
-				// console.log("yaya"+ru);
+				// if(keys_selected[ru]==0){
+				// 	add=false; break;}
+				if(ru!=keys[v][keys[v].length - 1]){add=false; break;}
+				// //console.log("yaya"+ru);
 			}
 			if(add){
 				res.push(toFill); 
 				// res.push(new Array(k)); 
 				// for(var ci=0;ci<k;ci++)res[res.length-1][ci] =toFill[ci];//toFill[ci];
-				// console.log(toFill[ci]);
+				// //console.log(toFill[ci]);
 			} 
 			// toFill=combNextFastest(toFill,n,k);
 		}
 		
 console.timeEnd('Function #1');
-// console.log(res);
+// //console.log(res);
 		response(res);
-	},30);
+	// },30);
 }
 
 
@@ -418,14 +420,14 @@ function randomize(idkey,dbg=1){
 	var keysize=keys[idkey].length-1;
 	var sel=keys[idkey][keysize];
 	var kes=genrand(keysize,1,n);
-	if(dbg)console.log("ks"+kes.length+"kp"+keysize);
+	if(dbg)//console.log("ks"+kes.length+"kp"+keysize);
 	kes.push(sel);
 	keys[idkey]=kes;
 	fillv(idkey);
-	if(dbg)console.log("keyid",idkey,kes.length);
+	if(dbg)//console.log("keyid",idkey,kes.length);
 	if(dbg)test(); //
 };
-function best(idkey){
+async function best(idkey){
 
 		keys_selected=[0,1,1,1,0,0];
 		keys_selected=[0,0,0,1,1,1];
@@ -461,7 +463,7 @@ function best(idkey){
 			var diff=mathDiffPer(persaidas,totalchavesper,1);
 			if(diff==-2.0 || isNaN(diff))diff=0;
 			dif[i]=Number(diff.toFixed(3));
-			// console.log("best",i,diff.toFixed(2));
+			// //console.log("best",i,diff.toFixed(2));
 		}
 
 		// var dif2=[k+1];
@@ -473,10 +475,10 @@ function best(idkey){
 		// 	var diff=mathDiffPer(persaidas,totalchavesper,1);
 		// 	if(diff==-2.0 || isNaN(diff))diff=0;
 		// 	dif2[i]=Number(diff.toFixed(3));
-		// 	// console.log("best",i,diff.toFixed(2));
+		// 	// //console.log("best",i,diff.toFixed(2));
 		// }
 
-		// console.log("dif",it,dif);
+		// //console.log("dif",it,dif);
 		let isgood=1;
 		// let isgood=(Math.abs(dif[0])<=0.01 && Math.abs(dif[3])<=0.01);
 
@@ -557,39 +559,202 @@ let notless=0.05;
 // isgood=isgood && (dif[4])>notless;
 // isgood=isgood && (dif[5])>notless;
 
-		keys_selected=[1,0,0,0,0,0]; //6
+		// keys_selected=[1,0,0,0,0,0]; //6
 		// keys_selected=[0,1,1,0,0,0]; //15
 // isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
 
-if(qtkeys==6 ){	
-isgood=isgood && (dif[0])<-0.04;
-isgood=isgood && (dif[1])>0.01;//.05;// && (dif[1])<0.055;
+
+if(0){
+	if(qtkeys==3 ){	 
+	isgood=isgood && (dif[0])>0.04; 
+	}
+	if(qtkeys==4 ){	 
+	isgood=isgood && (dif[0])>0.05; 
+	}
+	if(qtkeys==5 ){	 
+	isgood=isgood && (dif[0])>0.07; 
+	} 
+	if(qtkeys==6 ){	 
+	isgood=isgood && (dif[0])>0.08; 
+	} 
+	if( qtkeys==7){	 
+	isgood=isgood && (dif[0])>0.10; 
+	} 
+	if(qtkeys==8){	 
+		isgood=isgood && (dif[1])>0.11; 
+	}
+	if(qtkeys==9){	 
+		isgood=isgood && (dif[1])>0.11; 
+	}
+	if(qtkeys==10){	 
+		isgood=isgood && (dif[1])>0.11; 
+	}
+	if(qtkeys==26){	 
+		isgood=isgood && (dif[3])<-0.10; 
+	}
+	if(qtkeys==24){ 
+		isgood=isgood && (dif[2])<-0.10; 
+	} 
+
+}
+
+
+if(0){
+	if(qtkeys==3 ){	 
+	isgood=isgood && (dif[0])<-0.04; 
+	}
+	if(qtkeys==4 ){	 
+	isgood=isgood && (dif[0])<-0.05; 
+	}
+	if(qtkeys==5 ){	 
+	isgood=isgood && (dif[0])<-0.07; 
+	} 
+	if(qtkeys==6 ){	 
+	isgood=isgood && (dif[0])<-0.08; 
+	} 
+	if( qtkeys==7){	 
+	isgood=isgood && (dif[0])<-0.10; 
+	} 
+	if(qtkeys==8){	 
+		isgood=isgood && (dif[1])<-0.11; 
+	}
+	if(qtkeys==9){	 
+		isgood=isgood && (dif[1])<-0.11; 
+	}
+	if(qtkeys==10){	 
+		isgood=isgood && (dif[1])<-0.11; 
+	}
+	if(qtkeys==26){	 
+		isgood=isgood && (dif[3])<-0.10; 
+	}
+	if(qtkeys==24){ 
+		isgood=isgood && (dif[2])<-0.10; 
+	} 
+
+}
+
+
+
+if(1){
+if(qtkeys==2 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.01;
+// isgood=isgood && (dif[1])>0.04;// && (dif[1])<0.075;
+// isgood=isgood && (dif[2])>=0; 
+}
+if(qtkeys==3 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.035;
+isgood=isgood && (dif[1])>0.04;// && (dif[1])<0.075;
+isgood=isgood && (dif[2])>=0; 
+}
+if(qtkeys==4 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.05;
+isgood=isgood && (dif[1])>0;//.04 && (dif[1])<0.075;
 isgood=isgood && (dif[2])>0;
 isgood=isgood && (dif[3])>0;
-isgood=isgood && (dif[4])>0;
-isgood=isgood && (dif[5])>0;
+}
+if(qtkeys==5 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.06;
+isgood=isgood && (dif[1])>0;//.03 && (dif[1])<0.045;
+// isgood=isgood && (dif[0])<-0.05;
+// isgood=isgood && (dif[1])>0.03 && (dif[1])<0.045;
+isgood=isgood && (dif[2])>=0;
+isgood=isgood && (dif[3])>=0;
+isgood=isgood && (dif[4])>=0;
+}
+
+if(qtkeys==6 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.055;
+isgood=isgood && (dif[1])>0.06 && (dif[1])<0.085;
+isgood=isgood && (dif[2])>0;
+isgood=isgood && (dif[3])>=0;
+isgood=isgood && (dif[4])>=0;
+// isgood=isgood && (dif[5])>0;
 }
 
 if( qtkeys==7){	
-isgood=isgood && (dif[0])<-0.05;
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.09;
 isgood=isgood && (dif[1])>0.03;// && (dif[1])<0.055;
 isgood=isgood && (dif[2])>0;
 isgood=isgood && (dif[3])>0;
-isgood=isgood && (dif[4])>0;
-isgood=isgood && (dif[5])>0;
+isgood=isgood && (dif[4])>=0;
+isgood=isgood && (dif[5])>=0;
 }
 
 
 if(qtkeys==8){	
-	isgood=isgood && (dif[0])<-0.04;
-	isgood=isgood && (dif[1])>0.04;// && (dif[1])<0.055;
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.09;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==9){	
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.09;
+	isgood=isgood && (dif[0])>0.04;// && (dif[1])<0.055;
 	isgood=isgood && (dif[2])>0;
 	isgood=isgood && (dif[3])>0;
-	isgood=isgood && (dif[4])>0;
-	isgood=isgood && (dif[5])>0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
 }
+if(qtkeys==10){	
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.07;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==11){	
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.07;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==26){	
+	keys_selected=[0,0,0,1,0,0];
+	isgood=isgood && (dif[0])>=0;
+	isgood=isgood && (dif[1])>=0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])<-0.13;
+	// isgood=isgood && (dif[3])<-0.06 && (dif[3])>-0.08;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==24){	//tá bom
+	keys_selected=[0,0,1,0,0,0];
+	isgood=isgood && (dif[0])>=0;
+	isgood=isgood && (dif[1])>=0.01;//  && (dif[1])<0.03;
+	isgood=isgood && (dif[3])>0.05;
+	// isgood=isgood && (dif[2])<-0.13;
+	isgood=isgood && (dif[2])<-0.11;//&& (dif[2])>-0.07;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+// if(qtkeys==24){	
+// 	// keys_selected=[0,0,1,0,0,0];
+// 	isgood=isgood && (dif[0])<=-0.4;
+// 	isgood=isgood && (dif[1])>=0.01;//  && (dif[1])<0.03;
+// 	isgood=isgood && (dif[3])>0.05;
+// 	// isgood=isgood && (dif[2])<-0.13;
+// 	// isgood=isgood && (dif[2])<-0.1;//&& (dif[2])>-0.07;
+// 	isgood=isgood && (dif[4])>=0;
+// 	isgood=isgood && (dif[5])>=0;
+// }
 
-
+}
 
 
 
@@ -621,22 +786,23 @@ if(qtkeys==8){
 
 		if (isgood)
 		{
-			console.log("dif",it,dif);
-			// console.log("dif2",it,dif2);
+			//console.log("dif",it,dif);
+			// //console.log("dif2",it,dif2);
 		}
 		if (isgood)break;
 	}
 	fillSelected(idkey);
-		console.log("qtkeys",qtkeys);
+		//console.log("qtkeys",qtkeys);
 	createStatTable(idkey,qtkeys);
-	test();
-	// console.log(-0.048<-0.132);
+	await test();
+	console.log("tchaves",ttchaves);
+	// //console.log(-0.048<-0.132);
 }
 
 
 
 function gerarmax(idkey){
-	console.log(idkey);
+	//console.log(idkey);
 	var qtkeys=keys[idkey].length-1;
 var count=0;	
 	var mindiff=2;
@@ -660,7 +826,7 @@ var count=0;
 				mindiff=diff;
 				kesdiff=kes;
 				createStatTable(idkey,qtkeys);
-				console.log("mindiff",mindiff);
+				//console.log("mindiff",mindiff);
 			}
 		}
 	}
@@ -668,13 +834,13 @@ var count=0;
 	createStatTable(idkey,qtkeys);
 	fillv(idkey);
 	test();
-console.log("diffcount",count,idkey);	
+//console.log("diffcount",count,idkey);	
 };
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 async function vote(){
-	console.log("startvote");
+	//console.log("startvote");
 	fillhistbin();
 	var votar=new Array(keysProbt[0][0]);
 	for(let i=0;i<votar.length;i++)votar[i]=0;
@@ -684,11 +850,11 @@ async function vote(){
 	var sel=1;
 	var totalchavesper=(keysProbt[keysize][sel]*100/keysProbt[0][0]);
 	var kes;
-	// console.log("ks"+kes.length+"kp"+keysize);
+	// //console.log("ks"+kes.length+"kp"+keysize);
 	for(let it=0;it<50000*4;it++){  
 		if(it==2500*4){
-			console.log("it",it);
-	console.log("votar",votar[0]);
+			//console.log("it",it);
+	//console.log("votar",votar[0]);
 			// await sleep(30000);
 		}
 		kes=genrand(keysize,1,n);
@@ -706,7 +872,7 @@ async function vote(){
 			}
 		}
 	}
-	console.log("votar",votar[0]);
+	//console.log("votar",votar[0]);
 	var minv=0;
 	var idxv=0;
 	for(let i=0;i<votar.length;i++){
@@ -716,29 +882,29 @@ async function vote(){
 		}
 	}
 	var votecomb=toComb(idxv,n,k);
-	for(var i=0;i<votecomb.length;i++)	console.log("tocomb "+votecomb[i]);
-	console.log("votar",votar[idxv],idxv);
+	for(var i=0;i<votecomb.length;i++)	//console.log("tocomb "+votecomb[i]);
+	//console.log("votar",votar[idxv],idxv);
 	var counti=0;
 	for(let i=0;i<votar.length;i++){
 		if(minv==votar[i])counti++;
 	
 	}
-	console.log("counti",counti);
+	//console.log("counti",counti);
 }
 function testcomb(){
 	var a=[8,12,13,17,24];
 	var b= toCsn(a,1);
-	console.log("tocsn", b );
+	//console.log("tocsn", b );
 	var c=toComb(b,n,k);
-	for(var i=0;i<c.length;i++)	console.log("tocomb "+c[i]);
+	// for(var i=0;i<c.length;i++)	//console.log("tocomb "+c[i]);
 }
 
-function addonebt(){
+function addonebt(keysize=5,sel=0){
 	var idkey=keys.length; //new 
 	// var keysize=12; ///////////////////////////////////////////////////////////////////
-	var sel=1;
+	// var sel=0;
 	var kes=genrand(keysize,1,n);
-	// console.log("ks"+kes.length+"kp"+keysize);
+	// //console.log("ks"+kes.length+"kp"+keysize);
 	kes.push(sel);
 	keys[idkey]=kes;
 	init();
@@ -752,7 +918,7 @@ var  keysProbt=[[2118760,0,0,0,0,0],[1906884,211876,0,0,0,0],[1712304,389160,172
 
 // keys[3]=[0];
 
-function test(){
+async function test(){
 	if(loading==1)return;
 	document.getElementById("totais").innerHTML = "A calcular";
 	//var keys=new Array();//=[[1,2,5,6,20,3],[12,22,33,44,2]];
@@ -774,25 +940,38 @@ function test(){
 	
 	//keys[5]=[17,1];
 	
-	mustMatch(keys,function (x) {
-		var addone='<button onclick="addonebt()" >Add one</button>';
+	await mustMatch(keys,function (x) {
+		var addone='<button id="btn3" onclick="addonebt(3,0)" >Add 3</button>';
+		addone+='<button id="btn2" onclick="addonebt(2,0)" >Add 2</button>';
+		addone+='<button id="btn4" onclick="addonebt(4,0)" >Add 4</button>';
+		addone+='<button id="btn5" onclick="addonebt(5,0)" >Add 5</button>';
+		addone+='<button id="btn6" onclick="addonebt(6,0)" >Add 6</button>';
+		addone+='<button id="btn7" onclick="addonebt(7,0)" >Add 7</button>';
+		addone+='<button id="btn8" onclick="addonebt(8,1)" >Add 8</button>';
+		addone+='<button id="btn9" onclick="addonebt(9,1)" >Add 9</button>';
+		addone+='<button id="btn10" onclick="addonebt(10,1)" >Add 10</button>';
+		addone+='<button id="btn11" onclick="addonebt(11,1)" >Add 11</button>';
+		addone+='<button id="btn24" onclick="addonebt(24,2)" >Add 24</button>';
+		addone+='<button id="btn26" onclick="addonebt(26,3)" >Add 26</button>';
 		var xl=x.length;
 		var xlm="";
-		if(xl>100){
-			xl=100;
-			xlm='<br><div class="tooltip"><b>A mostrar 100.</b><span class="tooltiptext">Tente adicionar filtro ou escolha nos filtros que tem, outro valor de 0 a 5 bolas por conjunto que visualize ter melhor probabilidade.</span></div><br>';
+		if(xl>20){
+			xl=20;
+			xlm='<br><div class="tooltip"><b>A mostrar 20.</b><span class="tooltiptext">Tente adicionar filtro ou escolha nos filtros que tem, outro valor de 0 a 5 bolas por conjunto que visualize ter melhor probabilidade.</span></div><br>';
 		}
-		if(document.getElementById("shuffle").checked==true) shuffle(x);
+		// if(document.getElementById("shuffle").checked==true) shuffle(x);
 		
 		var inner=addone+"<br>"+x.length+xlm+"<br>As suas chaves prováveis<br>";//="<div> ";
 		for(var i=0;i<xl;i++){
 			inner+=String(x[i]).replaceAll(',',' ')+"<br>";
 		}
-		// console.log(x);
+		// //console.log(x);
 		
 		var ht=x.length+" chaves ";
+		ttchaves=x.length;
+		console.log(ttchaves);
 		ht+=(x.length/keysProbt[0][0]*100).toFixed(0)+"% do total.";
-		console.log("ht"+ht);
+		//console.log("ht"+ht);
 		document.getElementById("totais").innerHTML = ht;
 		
 		
@@ -801,7 +980,7 @@ function test(){
 }
 
 
-console.log(navigator.hardwareConcurrency);
+//console.log(navigator.hardwareConcurrency);
 
 window.onload = function(e){ 
 	document.getElementById("totais").innerHTML="Um momento por favor, a carregar a cache dos algoritmos.";
@@ -811,8 +990,8 @@ window.onload = function(e){
 
 	histsize=varball.length;
   // globals are ready here
-//   console.log("vardate:", vardate);
-  console.log("varball:", varball);
+//   //console.log("vardate:", vardate);
+  //console.log("varball:", varball);
 //   test();
 // init();
   // you can safely use vardate/varball in the rest of your script
@@ -823,6 +1002,157 @@ window.onload = function(e){
 		document.getElementById("totais").innerHTML="";
 	},30);
 }
+document.addEventListener('DOMContentLoaded', () => {
+	setTimeout(function(){
+		// addonebt(24,2);
+		// best(0);
+		// addonebt(26,3);
+		// best(1);
+		// //console.log(ttchaves);
+		// // btn3.click();
+		// // best.click();
+		
+},2000);
+
+});
+
+
+function waitForElement(id) {
+  return new Promise(resolve => {
+    const el = document.getElementById(id);
+    if (el) return resolve(el);
+
+    const observer = new MutationObserver(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        observer.disconnect();
+        resolve(el);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+}
+
+// async function gobtn(params) {
+//   (await waitForElement(params))?.click();
+//   await new Promise(r => setTimeout(r, 0));
+// }
+
+(async () => {
+	await waitForElement('btn3');
+//   (await waitForElement('btn3'))?.click();
+// 	await best(keys.length-1);
+//   await new Promise(r => setTimeout(r, 0));
+  		console.log("auto",ttchaves);
+// return;
+// var bts=["btn7","btn6","btn5","btn4","btn3"];
+// var bts=[["btn10",6],["btn9",6],["btn6",7],["btn5",6],["btn4",7]]; 
+// var bts=[["btn10",6],["btn9",6],["btn6",7],["btn4",7]]; //////
+var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5],["btn4",5]];//////////////
+// var bts=[["btn24",1],["btn11",8],["btn10",7],["btn9",6]]; 
+// var bts=[["btn24",1],["btn11",3],["btn10",5],["btn9",3],["btn5",4],["btn4",7]];
+// var bts=[["btn24",1],["btn11",4],["btn10",4],["btn9",4]];
+// var bts=[["btn24",1],["btn11",3],["btn10",3],["btn9",3],["btn8",2],["btn7",2],["btn6",4],["btn5",6],["btn4",6],["btn3",7],["btn2",8]];
+// var bts=["btn10","btn9","btn6","btn5","btn4","btn3","btn2"];
+// var bts=["btn10","btn9","btn8","btn7","btn6","btn5","btn4","btn3","btn2"];
+// var bts=["btn24","btn10","btn9","btn8","btn7","btn6","btn5","btn4","btn3"];
+// var bts=["btn26","btn24","btn10","btn9","btn8","btn7","btn6","btn5","btn4","btn3"];
+var tchavesprev=3000000;
+for(let bi=bts.length-1;bi>=0;bi--){
+// for(let bi=0;bi<bts.length;bi++){
+	var btn= document.getElementById(bts[bi][0]);
+	var to=bts[bi][1];
+	// var to=2;
+	// if(bi>1)to=5;
+	// to=5;
+	// if(bi==bts.length-1)to=7;
+	for(let i=0;i<to;i++){
+		const spr = ((tchavesprev - ttchaves) / tchavesprev) * 100;
+		tchavesprev=ttchaves;
+		// if(spr-)
+		btn.click();
+  		best(keys.length-1);
+  		await new Promise(r => setTimeout(r, 0));
+  		console.log("auto",ttchaves,keys.length,spr);
+		window.scrollTo(0, document.body.scrollHeight);
+		if(ttchaves<5)return;
+	}
+}
+// console.log("keys.length",keys.length);
+return;
+// await gobtn("btn26");
+//   await addonebt(24,2);
+//   (await waitForElement('best'))?.click();
+//   btn24.click();
+//   best(keys.length-1);
+var trys=5;
+for(let i=0;i<trys;i++){
+  btn3.click();
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<10)break;
+}
+for(let i=0;i<trys;i++){
+  btn4.click();
+  await new Promise(r => setTimeout(r, 0));
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<10)break;
+}
+for(let i=0;i<trys;i++){
+  btn5.click();
+  await new Promise(r => setTimeout(r, 0));
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<20)break;
+}
+for(let i=0;i<trys;i++){
+  btn6.click();
+  await new Promise(r => setTimeout(r, 0));
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<20)return;;
+  
+}
+for(let i=0;i<trys;i++){
+  btn7.click();
+  await new Promise(r => setTimeout(r, 0));
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<20)return;
+}
+for(let i=0;i<trys;i++){
+  btn8.click();
+  await new Promise(r => setTimeout(r, 0));
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<20)return;
+}
+for(let i=0;i<trys;i++){
+  btn9.click();
+  await new Promise(r => setTimeout(r, 0));
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<20)return;
+}
+for(let i=0;i<trys;i++){
+  btn10.click();
+  await new Promise(r => setTimeout(r, 0));
+  best(keys.length-1);
+  console.log("auto",ttchaves);
+  if(ttchaves<20)return;
+}
+window.scrollTo(0, document.body.scrollHeight);
+
+//   (await waitForElement('best'))?.click();
+//   await gobtn("btn26");
+//   (await waitForElement('btn24'))?.click();
+//   await addonebt(24,2);
+//   (await waitForElement('best'))?.click();
+//   //console.log("auto",ttchaves)
+})();
+
 </script>
 <style>
 .alinea { font-size:10px;vertical-align: super; }
@@ -832,12 +1162,12 @@ window.onload = function(e){
 function setkeykel(cs){
 	var idkey=cs.split(",")[0];
 	var nsel=cs.split(",")[1];
-	console.log("nsel",nsel);
+	//console.log("nsel",nsel);
 	var sel=keys[idkey][keys[idkey].length-1];
 	keys[idkey][keys[idkey].length-1]=nsel;
 	fillv(idkey);
 	test();
-	console.log("sel"+nsel);
+	//console.log("sel"+nsel);
 }
 function createStatTable(idkey,qtkeys){
 	var s='<div><table><tr><th>Escolha<span class="alinea">1</span></th><th>Total Chaves</th><th>% Chaves</th><th>Qtd Saídas</th><th>diff</th> ';
@@ -848,12 +1178,12 @@ function createStatTable(idkey,qtkeys){
 		var diff=mathDiffPer(persaidas,totalchavesper,1);
 		if(diff==-2.0 || isNaN(diff))diff=0;
 		var button='<button style="   " onclick="setkeykel(`'+idkey+','+i+'`)">'+i+'</button>';
-		// if(i==sel)button=button.split("   ").join("background-color:#4CA; ");
+		if(i==sel)button=button.split("   ").join("background-color:#4CA; "); /////////////////
 		s+='<tr><td>'+button+'</td><td>'+keysProbt[qtkeys][i]+'</td><td>'+totalchavesper.toFixed(2)+'</td><td>'+qtdisum[i]+'</td><td>'+diff.toFixed(2)+'</td></tr>';
 	}
 	s+='</table><span style="font-size:10px"><span class="alinea">1</span>Quantos acerta nos selecionados de 1 a 50</span></div>';
 	document.getElementById("tabstat"+idkey).innerHTML=s;
-	console.log("createStatTable");
+	//console.log("createStatTable");
 	return s;
 	
 }
@@ -889,9 +1219,9 @@ function strippxtonum(num){
 document.getElementsByTagName("BODY")[0].onresize = function(){  onresizeFunction(function(padd){
 	document.getElementById("placar").style.top=(padd-2)+'px'; 
 	var nttp=strippxtonum(document.getElementById('nexttotop').style.paddingTop);
-	console.log("am"+nttp);
+	//console.log("am"+nttp);
 	document.getElementById('nexttotop').style.paddingTop=(nttp+document.getElementById("placar").clientHeight)+"px";//document.getElementById("placar").clientHeight;
-	console.log("padd"+padd);
+	//console.log("padd"+padd);
 	})};
 document.getElementsByTagName("BODY")[0].onresize();
 
@@ -934,20 +1264,20 @@ function fillv(idkey){
 	seek(keys[idkey]);
 	createStatTable(idkey,qtkeys);
 	// test();
-	for(var i=0;i<keys.length;i++)	console.log("k"+keys[i]);
+	// for(var i=0;i<keys.length;i++)	//console.log("k"+keys[i]);
 	
 }
 function klikaj(cs) { 
-	// console.log("cs"+cs.split(",")[0]);
+	// //console.log("cs"+cs.split(",")[0]);
 	var i=cs.split(",")[1];
 	var idkey=cs.split(",")[0];
 	arrayAddOrRemoveIfExistsIl(keys[idkey],i);
-	// console.log("k"+keys[idkey]);
-	// console.log("qtdisum"+qtdisum);
+	// //console.log("k"+keys[idkey]);
+	// //console.log("qtdisum"+qtdisum);
 	fillv(idkey);
 	test();
-	// console.log("nv"+qtdi);
-	//console.log('kk'+qtkeys);
+	// //console.log("nv"+qtdi);
+	////console.log('kk'+qtkeys);
 	
     // document.getElementById("rad1").style.visibility='visible';
     // document.getElementById("rad1").innerHTML=i;
@@ -962,11 +1292,13 @@ function createsection(idkey){
 }
 function init(){
 	var ht="";
+	//console.log("keys.length",keys.length);
 	for(var idkey=0;idkey<keys.length;idkey++){
 		// ht+=createStatTable(idkey);
 		ht+='<div id="tabstat'+idkey+'" ></div>';
 		ht+='<button onclick="randomize('+idkey+')" >Randomizar</button>';
-		ht+='<button onclick="best('+idkey+')" >Best</button>';
+		ht+='<button id="best" onclick="best('+idkey+')" >Best</button>';
+		// ht+='<button onclick="keysize=3; test()" >3</button>';
 		// ht+='<button onclick="gerarmax('+idkey+')" >Máxima<br> probabilidade</button>';
 		ht+=tabbuttons(idkey);
 	}
@@ -987,7 +1319,7 @@ function addfilter(){
 // init();
 
 var arr=[0];
-console.log("arr"+arr.length);
+//console.log("arr"+arr.length);
 </script>
 
 <script>
@@ -1000,10 +1332,10 @@ function testt(){
 
 	for (var  timeout=Date.now()+2000;   Date.now()<timeout; ) {
 		//performance.now()<timeout;
-		// console.log("wait"+timeout+" "+Date.now());
+		// //console.log("wait"+timeout+" "+Date.now());
 		if(stop==1)break;
 	}
-	console.log("ok");
+	//console.log("ok");
 };
 </script>
 
@@ -1014,19 +1346,19 @@ function speedtest(){
 	var d = new Date();
 	var amount = 150000000;
 	var estprocessor = 1.7; //average processor speed, in GHZ
-	console.log("JSBenchmark by Aaron Becker, running loop " + amount + " times.     Estimated time (for " + estprocessor + "ghz processor) is " + (Math.round(((_speedconstant * amount) / estprocessor) * 100) / 100) + "s");
+	//console.log("JSBenchmark by Aaron Becker, running loop " + amount + " times.     Estimated time (for " + estprocessor + "ghz processor) is " + (Math.round(((_speedconstant * amount) / estprocessor) * 100) / 100) + "s");
 	for (var i = amount; i > 0; i--) {}
 	var newd = new Date();
 	var accnewd = Number(String(newd.getSeconds()) + "." + String(newd.getMilliseconds()));
 	var accd = Number(String(d.getSeconds()) + "." + String(d.getMilliseconds()));
 	var di = accnewd - accd;
-	//console.log(accnewd,accd,di);
+	////console.log(accnewd,accd,di);
 	if (d.getMinutes() != newd.getMinutes()) {
 	  di = (60 * (newd.getMinutes() - d.getMinutes())) + di
 	}
 	spd = ((_speedconstant * amount) / di);
 	var log=("Time: " + Math.round(di * 1000) / 1000 + "s, estimated speed: " + Math.round(spd * 1000) / 1000 + "GHZ");
-	 console.log(log);
+	 //console.log(log);
 	// document.getElementById("demo").innerHTML=log;
 } 
 </script> 
