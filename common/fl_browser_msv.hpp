@@ -38,6 +38,7 @@ public:
 
 	std::string msel = "@b@u";
 	void toggleon(int line,int code,bool on=1){
+		// if(code==2)return;
 		on_off[line-1][code]=on;
 		if (on) {
 			std::stringstream strm;

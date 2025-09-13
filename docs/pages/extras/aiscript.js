@@ -5,44 +5,45 @@ const crypto = require('crypto');
 const API_KEY = process.env.WB_KEY;
 const API_SECRET = process.env.WB_SECRET; 
 
-const bodyObj = {
-  request: '/api/v4/main-account/balance',
-  nonce: Date.now(),
-  ticker: 'USDT' // 🔹 Filtra apenas USDT
-};
 
-const bodyStr = JSON.stringify(bodyObj);
-const payload = Buffer.from(bodyStr).toString('base64');
-const signature = crypto.createHmac('sha512', API_SECRET).update(payload).digest('hex');
+async function rawCollateralBalance() {
+  const bodyObj = {
+    request: '/api/v4/collateral-account/balance',
+    nonce: Date.now()
+  };
 
-const options = {
-  hostname: 'whitebit.com',
-  path: '/api/v4/main-account/balance',
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-TXC-APIKEY': API_KEY,
-    'X-TXC-PAYLOAD': payload,
-    'X-TXC-SIGNATURE': signature,
-    'Content-Length': Buffer.byteLength(bodyStr)
-  }
-};
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = crypto.createHmac('sha512', API_SECRET)
+                          .update(payload)
+                          .digest('hex');
 
-const req = https.request(options, res => {
-  let data = '';
-  res.on('data', chunk => data += chunk);
-  res.on('end', () => {
-    try {
-      console.log('💰 Saldo filtrado:', JSON.parse(data));
-    } catch (err) {
-      console.error('Erro ao parsear resposta:', err.message, data);
-    }
+  const res = await fetch('https://whitebit.com/api/v4/collateral-account/balance', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
   });
-});
 
-req.on('error', err => console.error('Erro na requisição:', err.message));
-req.write(bodyStr);
-req.end();
+  const json = await res.json();
+//   console.log('RAW collateral:', json);
+  // Pega o valor de USDT e converte para número
+  const usdt = parseFloat(json.USDT || 0);
+  console.log(`💰 Total em USDT (colateral): ${usdt.toFixed(2)}`);
+}
+
+// rawCollateralBalance();
+// return;
+
+
+
+
+
+
 
 
 // function getOrderBook(market) {
@@ -83,7 +84,9 @@ req.end();
 //   req.on('error', err => console.error('Erro na requisição:', err.message));
 //   req.end();
 // }
-
+function getdiffper(val,val1){
+	return ((val - val1) / val) * 100;
+}
 async function getOrderBook(symbol = 'BTC_PERP') {
   try {
     const res = await fetch(`https://whitebit.com/api/v4/public/orderbook/${symbol}?limit=1`);
@@ -101,16 +104,377 @@ async function getOrderBook(symbol = 'BTC_PERP') {
   }
 }
 
+ 
+async function open_order_v1(symbol, side, entry, sl, tp, marginUSDT, leverage = 1) {
+  // qty = (margem * leverage) / preço
+  const qty = ((marginUSDT * leverage) / entry).toFixed(0);
+
+  const bodyObj = {
+    request: '/api/v4/order/collateral/limit',
+    nonce: Date.now(),
+    market: symbol,            // ex: 'BTC_USDT'
+    side: side.toLowerCase(),  // 'buy' ou 'sell'
+    amount: qty,
+    price: entry,
+    leverage: leverage,
+    stopLossPrice: sl || undefined,
+    takeProfitPrice: tp || undefined
+  };
+  console.log(bodyObj);
+//   return;
+
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = crypto.createHmac('sha512', API_SECRET).update(payload).digest('hex');
+
+  const res = await fetch('https://whitebit.com/api/v4/order/collateral/limit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
+  });
+
+  console.log('Order response:', await res.json());
+}
+
+
+// Exemplo:
+// open_order('BTC_PERP', 'buy', 115000, 114000, 116000, 50, 2);
+
+
+// Exemplo: usar 50 USDT de margem, alavancagem 10x, entrada 60000
+// open_order('BTC_USDT', 'buy', 60000, 59000, 61000, 50, 10);
+
+async function getFreeMargin() {
+  const bodyObj = {
+    request: '/api/v4/collateral-account/summary',
+    nonce: Date.now()
+  };
+
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = crypto.createHmac('sha512', API_SECRET)
+                          .update(payload)
+                          .digest('hex');
+
+  const res = await fetch('https://whitebit.com/api/v4/collateral-account/summary', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
+  });
+
+  const json = await res.json();
+  console.log('balance:', json);
+  console.log('Free margin:', json.freeMargin);
+}
+
+ 
+
+async function open_order(symbol, side, entry, sl, tp, riskUSDT) {
+  // 1️⃣ Buscar precisões do símbolo
+  const marketsRes = await fetch('https://whitebit.com/api/v4/public/markets');
+  const markets = await marketsRes.json();
+  const marketInfo = markets.find(m => m.name === symbol);
+  if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
+
+  const stockPrec = parseInt(marketInfo.stockPrec);
+  const moneyPrec = parseInt(marketInfo.moneyPrec);
+
+  // 2️⃣ Calcular qty com base no risco máximo
+  let priceDiff;
+  if (side.toLowerCase() === 'buy') {
+    priceDiff = entry - sl;
+  } else {
+    priceDiff = sl - entry;
+  }
+  if (priceDiff <= 0) throw new Error('Stop loss inválido para o lado da ordem');
+const qty = (riskUSDT / priceDiff).toFixed(stockPrec);
+const price = parseFloat(entry).toFixed(moneyPrec);
+
+// 1️⃣ Leverage implícita pelo stop (não depende da qty)
+const leverageRisk = (entry / priceDiff).toFixed(2);
+
+// 2️⃣ Leverage real da corretora (depende da posição)
+const positionValue = entry * qty; // valor total da posição em USDT
+const marginUsed = riskUSDT;       // aqui assumimos que arriscas "riskUSDT" como margem
+const leverageExchange = (positionValue / marginUsed).toFixed(2);
+
+console.log("Leverage risco (stop):", leverageRisk);
+console.log("Leverage corretora:", leverageExchange);
+
+
+  console.log(`📊 Qty: ${qty} | Entry: ${price} | SL: ${sl} | TP: ${tp || '—'} | Leverage estimada: ${leverageExchange}x`);
+
+  // 4️⃣ Montar corpo da ordem
+  const bodyObj = {
+    request: '/api/v4/order/collateral/limit',
+    nonce: Date.now(),
+    market: symbol,
+    side: side.toLowerCase(),
+    amount: qty,
+    price: price, 
+    stopLoss: sl ? parseFloat(sl).toFixed(moneyPrec) : undefined,
+    takeProfit: tp ? parseFloat(tp).toFixed(moneyPrec) : undefined
+  };
+
+  console.log(bodyObj);
+  return;
+
+  // 5️⃣ Assinar e enviar
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = crypto.createHmac('sha512', API_SECRET)
+                          .update(payload)
+                          .digest('hex');
+
+  const res = await fetch('https://whitebit.com/api/v4/order/collateral/limit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
+  });
+
+  console.log('Order response:', await res.json());
+}
+
+// Exemplo:
+// open_order('BTC_USDT', 'buy', 115000, 114000, 116000, 50);
+
+
+
+async function setLeverage(symbol, leverage) {
+  const bodyObj = {
+    request: '/api/v4/collateral-account/leverage',
+    nonce: Date.now(),
+    market: symbol,
+    leverage: leverage
+  };
+
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = crypto.createHmac('sha512', API_SECRET)
+                          .update(payload)
+                          .digest('hex');
+
+  const res = await fetch('https://whitebit.com/api/v4/collateral-account/leverage', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
+  });
+
+  console.log('Set leverage response:', await res.json());
+}
+ 
+
+async function getOpenOrders(market = null) {
+  const bodyObj = {
+    request: '/api/v4/orders',
+    nonce: Date.now()
+  };
+
+  // Optional: filter by market, e.g. "BTC_USDT"
+  if (market) bodyObj.market = market;
+
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = crypto.createHmac('sha512', API_SECRET)
+                          .update(payload)
+                          .digest('hex');
+
+  const res = await fetch('https://whitebit.com/api/v4/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
+  });
+
+  const json = await res.json();
+  return json;
+}
+
+async function getPositions(market = null) {
+  const bodyObj = {
+    request: '/api/v4/collateral-account/positions/open',
+    nonce: Date.now()
+  };
+
+  // Optional: filter by market, e.g. "ETH_PERP"
+  if (market) bodyObj.market = market;
+
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = crypto.createHmac('sha512', API_SECRET)
+                          .update(payload)
+                          .digest('hex');
+
+  const res = await fetch('https://whitebit.com/api/v4/collateral-account/positions/open', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
+  });
+
+  const json = await res.json();
+  return json;
+}
+
+
+
+function getHourlyHistory(symbol = 'BTC_USDT', limit = 5) {
+  return new Promise((resolve, reject) => {
+    const params = new URLSearchParams({
+      market: symbol,
+      interval: '1d',
+      limit: limit.toString()
+    });
+
+    const options = {
+      hostname: 'whitebit.com',
+      path: `/api/v1/public/kline?${params}`,
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    };
+
+    https.get(options, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const { success, result } = JSON.parse(data);
+          if (!success) return reject(new Error('API returned error'));
+
+          const candles = result.map(c => ({
+            time: new Date(c[0] * 1000).toISOString(),
+            // open: parseFloat(c[1]),
+			symb: symbol,
+            close: parseFloat(c[2]),
+            high: parseFloat(c[3]),
+            low: parseFloat(c[4]),
+            // volumeAsset: parseFloat(c[5]),
+            // volumeQuote: parseFloat(c[6])
+          }));
+
+          resolve(candles);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+// Example usage
+getHourlyHistory('BTC_USDT', 3)
+  .then(candles => console.table(candles))
+  .catch(console.error);
+getHourlyHistory('BTC_PERP', 3)
+  .then(candles => console.table(candles))
+  .catch(console.error);
+
+
+
+
+  
+
+async function getSymbolFee(symbol) {
+  const res = await fetch('https://whitebit.com/api/v4/public/markets');
+  const markets = await res.json();
+  const market = markets.find(m => m.name === symbol);
+  if (!market) return null;
+  return { maker: market.makerFee, taker: market.takerFee };
+}
+
+// Exemplo:
+getSymbolFee('AVAX_PERP').then(fee => {
+  if (fee) {
+    console.log(`Maker: ${fee.maker}% | Taker: ${fee.taker}%`);
+  } else {
+    console.log('Símbolo não encontrado');
+  }
+});
+// getOrderBook('AVAX_PERP');
+
+// return;
 // Sequential execution
 (async () => {
+//   await rawCollateralBalance();
+
   await getOrderBook('BTC_PERP');
-  // await getOrderBook('BTC_USDT');
-  // await getOrderBook('ETH_USDT');
-  await getOrderBook('ETH_PERP');
-  // await getOrderBook('SOL_USDT');
-  await getOrderBook('DOGE_PERP');
-  await getOrderBook('XRP_PERP');
-  await getOrderBook('SOL_PERP');
+  await getOrderBook('BTC_USDT');
+// //   await getSymbolFee('BTC_PERP');
+// //   await getSymbolFee('BTC_USDT');
+//   await getOrderBook('ETH_USDT');
+//   await getOrderBook('ETH_PERP');
+//   await getOrderBook('DOGE_PERP');
+//   await getOrderBook('XRP_PERP');
+//   await getOrderBook('SOL_PERP');
+//   await getOrderBook('SOL_USDT');
+//   await getOrderBook('TIA_PERP');
+//   await getOrderBook('TIA_USDT');
+//   await getOrderBook('ADA_PERP');
+//   await getOrderBook('ADA_USDT');
+//   await getOrderBook('SUI_PERP');
+//   await getOrderBook('SUI_USDT');
+
+ var diffper=getdiffper(115761,115603);
+//  var diffper=getdiffper(116000,115000);
+ console.log("diffper",diffper);
+
+// Example usage:
+// await getPositions() // or getPositions('ETH_PERP')
+//   .then(pos => console.log('Open positions:', pos))
+//   .catch(err => console.error('Error fetching positions:', err));
+
+
+
+// Example usage:
+// await getOpenOrders() // or getOpenOrders('ETH_PERP')
+//   .then(orders => {
+//     console.log('Opened orders:', orders);
+//   })
+//   .catch(err => console.error('Error fetching orders:', err));
+
+
+
+
+
+
+
+// await getFreeMargin();
+// await setLeverage('ETH_PERP', 100);
+
+//   await open_order('ETH_PERP', 'sell', 4645, 4705, 4474, 5);
+//   await open_order('BTC_PERP', 'sell', 115815, 118131, 112340, 10);
+  await open_order('BTC_PERP', 'sell', 116000, 116500, 115500, 4);
+//   await open_order('BTC_USDT', 'buy', 115000, 113000, 115700, 10);
+//   await open_order('BTC_USDT', 'buy', 115000, 80000, 115700, 115);
+//   await open_order('AVAX_PERP', 'buy', 28.25,  27.77 , 29.19, 15, 2);
 })();
 
 

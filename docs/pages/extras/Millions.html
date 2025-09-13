@@ -542,7 +542,8 @@ async function best(idkey){
 // isgood=isgood && Math.abs(dif[4])>0.09;
 // isgood=isgood && Math.abs(dif[3])>0.09; 
 
-let notless=0.05;
+let notless=0.066;
+let nles=0.005;
 // isgood=isgood && Math.abs(dif[0])>notless;
 // isgood=isgood && Math.abs(dif[1])>notless;
 // isgood=isgood && Math.abs(dif[2])>notless;
@@ -599,43 +600,114 @@ if(0){
 }
 
 
-if(0){
+if(1){
+	if(qtkeys==2 ){	 
+	isgood=isgood && (dif[0])<-0.01; 
+	isgood=isgood && (dif[1])>=0;
+	isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+	}
 	if(qtkeys==3 ){	 
-	isgood=isgood && (dif[0])<-0.04; 
+	// isgood=isgood && (dif[0])<-0.02; 
+	// isgood=isgood && (dif[1])<=-0.1;
+	isgood=isgood && (dif[0])>=0.05;
+	// isgood=isgood && (dif[2])>=0;
+	// isgood=isgood && (dif[3])>=0;
+	// isgood=isgood && (dif[4])>=0;
+	// isgood=isgood && (dif[5])>=0;
+	// isgood=isgood && (dif[0])<-notless; 
 	}
 	if(qtkeys==4 ){	 
-	isgood=isgood && (dif[0])<-0.05; 
+	isgood=isgood && (dif[0])<-notless && (dif[0])>-notless-nles; 
+	// isgood=isgood && (dif[1])>=0;
+	// isgood=isgood && (dif[2])>=0;
+	// isgood=isgood && (dif[3])>=0;
+	// isgood=isgood && (dif[4])>=0;
+	// isgood=isgood && (dif[5])>=0;
 	}
 	if(qtkeys==5 ){	 
 	isgood=isgood && (dif[0])<-0.07; 
 	} 
 	if(qtkeys==6 ){	 
 	isgood=isgood && (dif[0])<-0.08; 
+		isgood=isgood && (dif[1])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[3])<=0;
+		isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>=0;
 	} 
 	if( qtkeys==7){	 
 	isgood=isgood && (dif[0])<-0.10; 
 	} 
 	if(qtkeys==8){	 
-		isgood=isgood && (dif[1])<-0.11; 
+		// isgood=isgood && (dif[1])<-0.11; 
+		isgood=isgood && (dif[0])<-0.08; 
+		isgood=isgood && (dif[1])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>=0;
 	}
-	if(qtkeys==9){	 
-		isgood=isgood && (dif[1])<-0.11; 
+	if(qtkeys==9){	
+		notless=0.077;
+		nles=0.005;
+		isgood=isgood && (dif[1])<-notless  && (dif[1])>-notless-nles;	
+		isgood=isgood && (dif[0])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>=0; 
+		// isgood=isgood && (dif[1])>0.03; 
+		// isgood=isgood && (dif[0])<=0;
+		// isgood=isgood && (dif[2])<=0;
+		// isgood=isgood && (dif[3])<=0;
+		// isgood=isgood && (dif[4])<=0;
+		// isgood=isgood && (dif[5])>=0;
+		// isgood=isgood && (dif[1])>notless;// && (dif[1])>-notless-nles;	
+		// isgood=isgood && (dif[0])<=-0.04;
+		// isgood=isgood && (dif[2])>=0 && (dif[2])<=0.05;//.04 && (dif[2])<0.10;
+		// isgood=isgood && (dif[3])>=0;
+		// isgood=isgood && (dif[4])>=0.02;
+		// isgood=isgood && (dif[5])>=0;
 	}
 	if(qtkeys==10){	 
-		isgood=isgood && (dif[1])<-0.11; 
+		notless=0.05;
+		isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
+		isgood=isgood && (dif[0])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>=0;
+	}
+	if(qtkeys==11){	 
+		isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
+		isgood=isgood && (dif[0])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>=0;
 	}
 	if(qtkeys==26){	 
 		isgood=isgood && (dif[3])<-0.10; 
 	}
 	if(qtkeys==24){ 
-		isgood=isgood && (dif[2])<-0.10; 
+		isgood=isgood && (dif[4])<-notless && (dif[4])>-notless-nles; 
+		// isgood=isgood && (dif[2])<-notless && (dif[2])>-notless-nles; 
+		console.log("qtkeys",qtkeys);
+		isgood=isgood && (dif[0])>=0;
+		isgood=isgood && (dif[1])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[5])>=0;
 	} 
 
 }
 
 
 
-if(1){
+if(0){
 if(qtkeys==2 ){	
 	keys_selected=[1,0,0,0,0,0];
 isgood=isgood && (dif[0])<-0.01;
@@ -650,7 +722,7 @@ isgood=isgood && (dif[2])>=0;
 }
 if(qtkeys==4 ){	
 	keys_selected=[1,0,0,0,0,0];
-isgood=isgood && (dif[0])<-0.05;
+isgood=isgood && (dif[0])<-0.07;
 isgood=isgood && (dif[1])>0;//.04 && (dif[1])<0.075;
 isgood=isgood && (dif[2])>0;
 isgood=isgood && (dif[3])>0;
@@ -669,7 +741,7 @@ isgood=isgood && (dif[4])>=0;
 if(qtkeys==6 ){	
 	keys_selected=[1,0,0,0,0,0];
 isgood=isgood && (dif[0])<-0.055;
-isgood=isgood && (dif[1])>0.06 && (dif[1])<0.085;
+isgood=isgood && (dif[1])>0;//.06 && (dif[1])<0.085;
 isgood=isgood && (dif[2])>0;
 isgood=isgood && (dif[3])>=0;
 isgood=isgood && (dif[4])>=0;
@@ -678,7 +750,7 @@ isgood=isgood && (dif[4])>=0;
 
 if( qtkeys==7){	
 	keys_selected=[1,0,0,0,0,0];
-isgood=isgood && (dif[0])<-0.09;
+isgood=isgood && (dif[0])<-0.05;
 isgood=isgood && (dif[1])>0.03;// && (dif[1])<0.055;
 isgood=isgood && (dif[2])>0;
 isgood=isgood && (dif[3])>0;
@@ -689,7 +761,7 @@ isgood=isgood && (dif[5])>=0;
 
 if(qtkeys==8){	
 	keys_selected=[1,0,0,0,0,0];
-	isgood=isgood && (dif[1])<-0.09;
+	isgood=isgood && (dif[1])<-0.05;
 	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
 	isgood=isgood && (dif[2])>0;
 	isgood=isgood && (dif[3])>=0;
@@ -698,8 +770,8 @@ if(qtkeys==8){
 }
 if(qtkeys==9){	
 	keys_selected=[1,0,0,0,0,0];
-	isgood=isgood && (dif[1])<-0.09;
-	isgood=isgood && (dif[0])>0.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[1])<-0.07;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
 	isgood=isgood && (dif[2])>0;
 	isgood=isgood && (dif[3])>0;
 	isgood=isgood && (dif[4])>=0;
@@ -736,10 +808,10 @@ if(qtkeys==26){
 if(qtkeys==24){	//tá bom
 	keys_selected=[0,0,1,0,0,0];
 	isgood=isgood && (dif[0])>=0;
-	isgood=isgood && (dif[1])>=0.01;//  && (dif[1])<0.03;
-	isgood=isgood && (dif[3])>0.05;
+	// isgood=isgood && (dif[1])>=0.01;//  && (dif[1])<0.03;
+	// isgood=isgood && (dif[3])>0.05;
 	// isgood=isgood && (dif[2])<-0.13;
-	isgood=isgood && (dif[2])<-0.11;//&& (dif[2])>-0.07;
+	isgood=isgood && (dif[2])<-0.07;//&& (dif[2])>-0.07;
 	isgood=isgood && (dif[4])>=0;
 	isgood=isgood && (dif[5])>=0;
 }
@@ -951,7 +1023,7 @@ async function test(){
 		addone+='<button id="btn9" onclick="addonebt(9,1)" >Add 9</button>';
 		addone+='<button id="btn10" onclick="addonebt(10,1)" >Add 10</button>';
 		addone+='<button id="btn11" onclick="addonebt(11,1)" >Add 11</button>';
-		addone+='<button id="btn24" onclick="addonebt(24,2)" >Add 24</button>';
+		addone+='<button id="btn24" onclick="addonebt(24,4)" >Add 24</button>';
 		addone+='<button id="btn26" onclick="addonebt(26,3)" >Add 26</button>';
 		var xl=x.length;
 		var xlm="";
@@ -1046,10 +1118,16 @@ function waitForElement(id) {
 //   await new Promise(r => setTimeout(r, 0));
   		console.log("auto",ttchaves);
 // return;
+// var bts=[];
 // var bts=["btn7","btn6","btn5","btn4","btn3"];
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn5",6],["btn4",7]]; 
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn4",7]]; //////
-var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5],["btn4",5]];//////////////
+var bts=[["btn6",6]];///
+// var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4],["btn10",10],["btn2",6]];///
+// var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4]];//////////////////
+// var bts=[["btn9",5],["btn8",5],["btn9",5]];
+// var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5]];
+// var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5],["btn4",5]];//////////////
 // var bts=[["btn24",1],["btn11",8],["btn10",7],["btn9",6]]; 
 // var bts=[["btn24",1],["btn11",3],["btn10",5],["btn9",3],["btn5",4],["btn4",7]];
 // var bts=[["btn24",1],["btn11",4],["btn10",4],["btn9",4]];
@@ -1058,9 +1136,9 @@ var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5],["btn4",5]];////////////
 // var bts=["btn10","btn9","btn8","btn7","btn6","btn5","btn4","btn3","btn2"];
 // var bts=["btn24","btn10","btn9","btn8","btn7","btn6","btn5","btn4","btn3"];
 // var bts=["btn26","btn24","btn10","btn9","btn8","btn7","btn6","btn5","btn4","btn3"];
-var tchavesprev=3000000;
-for(let bi=bts.length-1;bi>=0;bi--){
-// for(let bi=0;bi<bts.length;bi++){
+var tchavesprev=ttchaves;
+// for(let bi=bts.length-1;bi>=0;bi--){
+for(let bi=0;bi<bts.length;bi++){
 	var btn= document.getElementById(bts[bi][0]);
 	var to=bts[bi][1];
 	// var to=2;
@@ -1297,7 +1375,8 @@ function init(){
 		// ht+=createStatTable(idkey);
 		ht+='<div id="tabstat'+idkey+'" ></div>';
 		ht+='<button onclick="randomize('+idkey+')" >Randomizar</button>';
-		ht+='<button id="best" onclick="best('+idkey+')" >Best</button>';
+		ht+='<button id="best" onclick="best('+idkey+')" >Best</button> ';
+		ht+=idkey+" "+(keys[idkey].length-1);
 		// ht+='<button onclick="keysize=3; test()" >3</button>';
 		// ht+='<button onclick="gerarmax('+idkey+')" >Máxima<br> probabilidade</button>';
 		ht+=tabbuttons(idkey);

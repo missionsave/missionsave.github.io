@@ -40,30 +40,32 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
   document.getElementById("idtime").textContent =
     `UTC: ${utcH.toString().padStart(2,'0')}:${utcM.toString().padStart(2,'0')} | Time until end of the day: ${hLeft}h ${mLeft}m`;
 
-  const symbols_ = [
-    { name: 'Bitcoin', pair: 'BTCUSDT' },
-    { name: 'Ethereum', pair: 'ETHUSDT' },
+//   const symbols_ = [
+//     { name: 'Bitcoin', pair: 'BTCUSDT' },
+//     { name: 'Ethereum', pair: 'ETHUSDT' },
+//     { name: 'Doge', pair: 'DOGEUSDT' },
+//     // { name: 'BNB', pair: 'BNBUSDT' },
+//     { name: 'XRP', pair: 'XRPUSDT' },
+//     { name: 'Solana', pair: 'SOLUSDT' }
+//   ];
+const symbols_ = [
+  { name: 'Bitcoin', pair: 'BTCUSDT' },       // +147% YTD, huge daily volume
+  { name: 'Ethereum', pair: 'ETHUSDT' },      // +87% YTD, strong DeFi/NFT demand
+  { name: 'Solana', pair: 'SOLUSDT' },        // Major ecosystem growth, high liquidity
+  { name: 'XRP', pair: 'XRPUSDT' },           // Regulatory clarity boosting adoption
+  { name: 'Avalanche', pair: 'AVAXUSDT' },    // Rising DeFi & gaming activity
+  { name: 'Cardano', pair: 'ADAUSDT' },       // Smart contract adoption uptick
     { name: 'Doge', pair: 'DOGEUSDT' },
-    // { name: 'BNB', pair: 'BNBUSDT' },
-    { name: 'XRP', pair: 'XRPUSDT' },
-    { name: 'Solana', pair: 'SOLUSDT' }
-  ];
-// const symbols_ = [
-//   { name: 'Bitcoin', pair: 'BTCUSDT' },       // +147% YTD, huge daily volume
-//   { name: 'Ethereum', pair: 'ETHUSDT' },      // +87% YTD, strong DeFi/NFT demand
-//   { name: 'Solana', pair: 'SOLUSDT' },        // Major ecosystem growth, high liquidity
-//   { name: 'XRP', pair: 'XRPUSDT' },           // Regulatory clarity boosting adoption
-//   { name: 'Avalanche', pair: 'AVAXUSDT' },    // Rising DeFi & gaming activity
-//   { name: 'Cardano', pair: 'ADAUSDT' },       // Smart contract adoption uptick
 //   { name: 'Kaspa', pair: 'KASUSDT' },         // Fast-growing PoW chain, surging price
-//   { name: 'Sui', pair: 'SUIUSDT' },           // Layer 1 with strong dev traction
-//   { name: 'Celestia', pair: 'TIAUSDT' },      // Modular blockchain innovation
-//   { name: 'Kava', pair: 'KAVAUSDT' }          // Bridging TradFi & Web3, rising volumes
-// ];
-  const interval = '8h';
-  const historyLength = 3*14;
-  const RERUNS = 8*2;
-  const TRAIN_ITER = 400;
+  { name: 'Sui', pair: 'SUIUSDT' },           // Layer 1 with strong dev traction
+  { name: 'Celestia', pair: 'TIAUSDT' },      // Modular blockchain innovation
+  { name: 'Kava', pair: 'KAVAUSDT' }          // Bridging TradFi & Web3, rising volumes
+];
+const lb=0;
+  const interval = '1h';
+  const historyLength = 10+lb;
+  const RERUNS = 8*1;
+  const TRAIN_ITER = 100*2;
 
   async function fetchData(symbol) {
     const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
@@ -138,8 +140,11 @@ To raise the maximum funds to build our greenhouses and provide healthy meals to
     const results = [];
 
     for (const coin of symbols_) {
-      const rawData = await fetchData(coin.pair);
+      var rawData = await fetchData(coin.pair);
+	  if(lb>0)rawData = rawData.slice(0, -lb);
+	  console.log(rawData);
       const historicalData = rawData.slice(0, -1);
+	//   console.log(historicalData);
       const currentCandle = rawData[rawData.length - 1];
       const last7 = historicalData.slice(-7);
 

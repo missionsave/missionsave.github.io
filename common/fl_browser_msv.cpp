@@ -96,6 +96,7 @@ int fl_browser_msv::handle(int event){
 				int idx = clicked_line - 1;
 				on_off[idx][code] = !on_off[idx][code];
 				int on = on_off[idx][code];
+				// if(on==2)on=-1;
 				if (on) {
 					stringstream strm;
 					lop(i, 0, cache[clicked_line - 1].size()) {

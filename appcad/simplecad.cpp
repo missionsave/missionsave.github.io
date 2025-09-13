@@ -4067,7 +4067,8 @@ if(allTrue)mhide.clear();
 	std::vector<std::vector<bool>> on_off=fbm->on_off;
 
 	fbm->clear_all();
-	fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"@B12@C7","@B12@C7"}}; 
+	fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"",""}}; 
+	// fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"","@B12@C7"}}; 
 	// fbm->color(fl_rgb_color(220, 235, 255)); 
 	fbm->init();
 	// }
