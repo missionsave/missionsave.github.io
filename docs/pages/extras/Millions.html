@@ -462,7 +462,7 @@ async function best(idkey){
 			var persaidas=(qtdisum[i]*100/histsize);
 			var diff=mathDiffPer(persaidas,totalchavesper,1);
 			if(diff==-2.0 || isNaN(diff))diff=0;
-			dif[i]=Number(diff.toFixed(3));
+			dif[i]=Number(diff.toFixed(2));
 			// //console.log("best",i,diff.toFixed(2));
 		}
 
@@ -631,12 +631,12 @@ if(1){
 	isgood=isgood && (dif[0])<-0.07; 
 	} 
 	if(qtkeys==6 ){	 
-	isgood=isgood && (dif[0])<-0.08; 
-		isgood=isgood && (dif[1])>=0;
-		isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[1])<-0.1; 
+		isgood=isgood && (dif[0])>=0.05;
+		isgood=isgood && (dif[2])<=0;
 		isgood=isgood && (dif[3])<=0;
-		isgood=isgood && (dif[4])>=0;
-		isgood=isgood && (dif[5])>=0;
+		isgood=isgood && (dif[4])<=0;
+		isgood=isgood && (dif[5])<=0;
 	} 
 	if( qtkeys==7){	 
 	isgood=isgood && (dif[0])<-0.10; 
@@ -673,13 +673,20 @@ if(1){
 		// isgood=isgood && (dif[5])>=0;
 	}
 	if(qtkeys==10){	 
-		notless=0.05;
-		isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
-		isgood=isgood && (dif[0])>=0;
-		isgood=isgood && (dif[2])>=0;
-		isgood=isgood && (dif[3])>=0;
-		isgood=isgood && (dif[4])>=0;
-		isgood=isgood && (dif[5])>=0;
+		// notless=0.05;
+		// isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
+		// isgood=isgood && (dif[1])<=-0.05;
+		// isgood=isgood && (dif[0])==0.05;
+		// isgood=isgood && (dif[2])>=0;
+		// isgood=isgood && (dif[3])>=0;
+		// isgood=isgood && (dif[4])>=0;
+		// isgood=isgood && (dif[5])>=0;
+		isgood=isgood && (dif[1])==-0.06;
+		isgood=isgood && (dif[0])==0.05;
+		isgood=isgood && (dif[2])==0.04;
+		isgood=isgood && (dif[3])<0.13;
+		// isgood=isgood && (dif[4])==0;
+		isgood=isgood && (dif[5])<=0;
 	}
 	if(qtkeys==11){	 
 		isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
@@ -1122,7 +1129,7 @@ function waitForElement(id) {
 // var bts=["btn7","btn6","btn5","btn4","btn3"];
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn5",6],["btn4",7]]; 
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn4",7]]; //////
-var bts=[["btn6",6]];///
+var bts=[["btn10",6]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4],["btn10",10],["btn2",6]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4]];//////////////////
 // var bts=[["btn9",5],["btn8",5],["btn9",5]];

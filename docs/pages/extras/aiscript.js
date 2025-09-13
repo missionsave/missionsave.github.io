@@ -350,7 +350,7 @@ function getHourlyHistory(symbol = 'BTC_USDT', limit = 5) {
   return new Promise((resolve, reject) => {
     const params = new URLSearchParams({
       market: symbol,
-      interval: '1d',
+      interval: '8h',
       limit: limit.toString()
     });
 
@@ -374,7 +374,7 @@ function getHourlyHistory(symbol = 'BTC_USDT', limit = 5) {
             // open: parseFloat(c[1]),
 			symb: symbol,
             close: parseFloat(c[2]),
-            high: parseFloat(c[3]),
+            // high: parseFloat(c[3]),
             low: parseFloat(c[4]),
             // volumeAsset: parseFloat(c[5]),
             // volumeQuote: parseFloat(c[6])
