@@ -809,7 +809,8 @@ async function loadPage_v1(url, addToHistory = true) {
 //   }
 // });
 
-
+const path = window.location.pathname.replace(/^\/+/, '');
+console.log(path);
 
 const pValue = params.get("p");
 if (pValue){ //replace "%2F" from p to "/"

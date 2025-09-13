@@ -92,7 +92,7 @@ function fillkeysall() {
 // })();
 </script>
 
-<button onclick="vote()" >Vote</button>
+<button onclick="findbestofthebest()" >Find best</button>
 
 <!-- variaveis -->
 <script>
@@ -681,12 +681,12 @@ if(1){
 		// isgood=isgood && (dif[3])>=0;
 		// isgood=isgood && (dif[4])>=0;
 		// isgood=isgood && (dif[5])>=0;
-		isgood=isgood && (dif[1])==-0.06;
-		isgood=isgood && (dif[0])==0.05;
-		isgood=isgood && (dif[2])==0.04;
-		isgood=isgood && (dif[3])<0.13;
-		// isgood=isgood && (dif[4])==0;
-		isgood=isgood && (dif[5])<=0;
+		// isgood=isgood && (dif[1])==-0.07;
+		// isgood=isgood && (dif[0])==0.06;
+		// isgood=isgood && (dif[2])>0.05;
+		// isgood=isgood && (dif[3])<0.13;
+		// isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>0;
 	}
 	if(qtkeys==11){	 
 		isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
@@ -1058,6 +1058,30 @@ async function test(){
 	});
 }
 
+
+async function findbestofthebest(){
+	var tchavesprev=ttchaves;
+// for(let bi=bts.length-1;bi>=0;bi--){
+for(let bi=0;bi<bts.length;bi++){
+	var btn= document.getElementById(bts[bi][0]);
+	var to=bts[bi][1];
+	// var to=2;
+	// if(bi>1)to=5;
+	// to=5;
+	// if(bi==bts.length-1)to=7;
+	for(let i=0;i<to;i++){
+		const spr = ((tchavesprev - ttchaves) / tchavesprev) * 100;
+		tchavesprev=ttchaves;
+		// if(spr-)
+		btn.click();
+  		best(keys.length-1);
+  		await new Promise(r => setTimeout(r, 0));
+  		console.log("auto",ttchaves,keys.length,spr);
+		window.scrollTo(0, document.body.scrollHeight);
+		if(ttchaves<5)return;
+	}
+}
+}
 
 //console.log(navigator.hardwareConcurrency);
 
