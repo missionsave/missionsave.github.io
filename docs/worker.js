@@ -86,7 +86,6 @@ export default {
     }
 
 
- 
 
     if (url.pathname === '/binancegethist') {
       const symbol = url.searchParams.get('symbol') || 'BTCUSDT';
@@ -106,15 +105,9 @@ export default {
     }
 
 
-
-
     if (url.pathname === "/epub") {
       return handleEpubProxy(request, env, ctx);
     }
-
-
-
-
 
 
 
@@ -137,6 +130,8 @@ export default {
 
 
 
+
+
     // --- Proxy everything else to GitHub Pages ---
     const targetUrl = "https://missionsave.github.io" + url.pathname + url.search;
 
@@ -153,6 +148,22 @@ export default {
       status: response.status,
       headers: response.headers
     });
+  },
+
+  // --- CRON trigger here ---
+ async scheduled(event, env, ctx) {
+    ctx.waitUntil(fetch(
+      "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/daily.yml/dispatches",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
+          "Accept": "application/vnd.github+json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ ref: "main" })
+      }
+    ));
   }
 };
 
@@ -162,18 +173,12 @@ async function handleEpubProxy(request, env, ctx) {
   const originHeader = request.headers.get("Origin") || "";
   const target = reqUrl.searchParams.get("url");
 
-  // Check allowed origins
-  const allowed = ALLOWED_ORIGINS.some(domain =>
-    originHeader === `https://${domain}` ||
-    originHeader.endsWith(`.${domain}`)
-  );
+  // Allow only missionsave.github.io or missionsave.org
+  const allowed = ALLOWED_ORIGINS.includes(originHeader);
 
-  if (!allowed) {
-    //return new Response("Origin not allowed", { status: 403 });
-  }
-
+  // Build CORS headers
   const corsHeaders = {
-    "Access-Control-Allow-Origin": originHeader,
+    "Access-Control-Allow-Origin": allowed ? originHeader : "null",
     "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
     "Access-Control-Allow-Headers": "*",
   };
@@ -193,9 +198,13 @@ async function handleEpubProxy(request, env, ctx) {
   // Try cache first
   let response = await cache.match(cacheKey);
   if (response) {
-    return new Response(response.body, {
-      headers: { ...Object.fromEntries(response.headers), ...corsHeaders }
-    });
+    // Ensure only our CORS headers are present
+    response = new Response(response.body, response);
+    response.headers.delete("Access-Control-Allow-Origin");
+    response.headers.delete("Access-Control-Allow-Methods");
+    response.headers.delete("Access-Control-Allow-Headers");
+    Object.entries(corsHeaders).forEach(([k, v]) => response.headers.set(k, v));
+    return response;
   }
 
   // Fetch from origin
@@ -208,8 +217,13 @@ async function handleEpubProxy(request, env, ctx) {
       });
     }
 
-    // Clone for caching
+    // Clone and strip upstream CORS headers
     response = new Response(originResp.body, originResp);
+    response.headers.delete("Access-Control-Allow-Origin");
+    response.headers.delete("Access-Control-Allow-Methods");
+    response.headers.delete("Access-Control-Allow-Headers");
+
+    // Set correct content type and our CORS headers
     response.headers.set("Content-Type", "application/epub+zip");
     Object.entries(corsHeaders).forEach(([k, v]) => response.headers.set(k, v));
 
@@ -224,6 +238,7 @@ async function handleEpubProxy(request, env, ctx) {
     });
   }
 }
+
 
 async function handleOtherRoutes(request) {
   return new Response("Default handler here");

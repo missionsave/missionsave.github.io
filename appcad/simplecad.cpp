@@ -2,6 +2,8 @@
 #include <BRepBndLib.hxx>
 #include <Bnd_Box.hxx>
 
+#include <BRepFilletAPI_MakeFillet.hxx>
+
 #include <FL/Fl.H>
 
 #include <AIS_AnimationCamera.hxx>
@@ -53,6 +55,18 @@
 // #define flwindow Fl_Double_Window
 // #endif
 
+TopoDS_Shape FixShape(const TopoDS_Shape& s) {
+    ShapeFix_Shape fixer(s);
+    fixer.Perform();
+    return fixer.Shape();
+}
+#include <ShapeUpgrade_UnifySameDomain.hxx>
+
+TopoDS_Shape CleanShape(const TopoDS_Shape& s) {
+    ShapeUpgrade_UnifySameDomain unify(s, true, true, true);
+    unify.Build();
+    return unify.Shape();
+}
 
 void gopart(const string& str);
 
@@ -66,6 +80,18 @@ std::string SerializeCompact(const std::string& partName,
                               const gp_Dir& normal,
                               const gp_Pnt& centroid,
                               double area);
+void GetAlignedCameraVectors(const Handle(V3d_View)& view,
+                             gp_Vec& end_proj_global,
+                             gp_Vec& end_up_global);
+
+
+TopoDS_Shape ApplyFilletToAllEdges(const TopoDS_Shape shape, Standard_Real radius);
+
+void ReplaceShapeInCompound(
+    TopoDS_Compound& compound,
+    TopoDS_Shape& targetShape,
+    const std::function<TopoDS_Shape(const TopoDS_Shape&)>& modifier
+);
 
 std::string SerializeFaceInvariant(const TopoDS_Face& face);
 gp_Ax3 get_face_local_cs(const TopoDS_Face& face);
@@ -518,6 +544,7 @@ struct OCC_Viewer : public flwindow {
 		int type=0;
 		// vector<luadraw*> vnl;
 		bool editing=0; 
+		bool ttfillet=0;
 
 		// build it using BRep_Builder
 		BRep_Builder builder; 
@@ -2439,6 +2466,32 @@ pickedFace.Location(origLoc);
 										   // highlight
 	}
 	int handle(int event) override {
+static auto last_event = std::chrono::steady_clock::now();
+auto now = std::chrono::steady_clock::now();
+auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_event);
+
+constexpr auto frame_interval = std::chrono::milliseconds(1000 / 10);
+
+if (event == FL_DRAG && isRotating && m_initialized) {
+    if (elapsed >= frame_interval) {
+        // perf(); 
+        m_view->Rotation(Fl::event_x(), Fl::event_y()); 
+        projectAndDisplayWithHLR(vshapes, 1);
+        // perf("vnormalr"); 
+        colorisebtn(); 
+        redraw();	
+        // cotm("in");
+        last_event = now;
+        return 1;
+    }
+    // cotm("out");
+    return 1;
+}
+
+
+
+
+
 		static int start_y;
 		const int edge_zone = this->w() * 0.05;	 // 5% right edge zone
 
@@ -2467,8 +2520,14 @@ if (event == FL_MOVE) {
     int x = Fl::event_x();
     int y = Fl::event_y();
 
+
+
+
+
     auto now = std::chrono::steady_clock::now();
     double elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTime).count();
+
+
 
     if ((abs(x - mousex) > 5 || abs(y - mousey) > 5) && elapsedMs > 50) {
         mousex = x;
@@ -2582,24 +2641,28 @@ if (event == FL_MOVE) {
 				break;
 
 			case FL_DRAG:
-				if (isRotating && m_initialized) {
-					funcfps(12, perf(); m_view->Rotation(Fl::event_x(), Fl::event_y());
-							// projectAndDisplayWithHLR(vaShape,1);
-							projectAndDisplayWithHLR(vshapes, 1); redraw();	 //  redraw(); // m_view->Update ();
-							perf("vnormalr");
+				// if (isRotating && m_initialized) {
+				// 	func_fps(12, perf(); m_view->Rotation(Fl::event_x(), Fl::event_y());
+				// 			// projectAndDisplayWithHLR(vaShape,1);
+				// 			projectAndDisplayWithHLR(vshapes, 1);
+				// 			redraw();	 //  redraw(); // m_view->Update ();
+				// 			perf("vnormalr");
 
-							colorisebtn();
-							// redraw();
-					);
-					return 1;
-				} else if (isPanning && m_initialized && Fl::event_button() == FL_RIGHT_MOUSE) {
+				// 			// colorisebtn();
+				// 			// redraw();
+				// 	);
+				// 	return 1;
+				// } else 
+				if (isPanning && m_initialized && Fl::event_button() == FL_RIGHT_MOUSE) {
 					int dx = Fl::event_x() - lastX;
 					int dy = Fl::event_y() - lastY;
 					// m_view->Pan(dx, -dy); // Note: -dy to match typical
 					// screen coordinates
-					funcfps(25, m_view->Pan(dx, -dy); redraw();	 //  redraw(); // m_view->Update ();
+					// func_fps(25, 
+						m_view->Pan(dx, -dy); redraw();	 //  redraw(); // m_view->Update ();
 
-							lastX = Fl::event_x(); lastY = Fl::event_y(););
+							lastX = Fl::event_x(); lastY = Fl::event_y();
+						// );
 					return 1;
 				}
 				break;
@@ -2614,7 +2677,8 @@ if (event == FL_MOVE) {
 				break;
 			case FL_MOUSEWHEEL:
 				if (m_initialized) {
-					funcfps(25, int mouseX = Fl::event_x(); int mouseY = Fl::event_y();
+					// func_fps(25, 
+						int mouseX = Fl::event_x(); int mouseY = Fl::event_y();
 							m_view->StartZoomAtPoint(mouseX, mouseY);
 							// Get wheel delta (normalized)
 							int wheelDelta = Fl::event_dy();
@@ -2632,7 +2696,7 @@ if (event == FL_MOVE) {
 							m_view->ZoomAtPoint(mouseX, mouseY, endX, endY);
 							redraw();  //  redraw(); // m_view->Update ();
 
-					);
+					// );
 					return 1;
 				}
 				break;
@@ -2809,7 +2873,8 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	Standard_Integer currentMode = AIS_WireFrame;
 	void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 		perf1();
-		cotm(vaShape.size()) for (std::size_t i = 0; i < vaShape.size(); ++i) {
+		cotm(vaShape.size()) 
+		for (std::size_t i = 0; i < vaShape.size(); ++i) {
 			Handle(AIS_Shape) aShape = vaShape[i];
 			if (aShape.IsNull()) continue;
 
@@ -2834,8 +2899,8 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 
 				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
-				aShape->SetColor(Quantity_NOC_GRAY70);
-				aShape->Attributes()->SetFaceBoundaryDraw(Standard_True);
+				aShape->SetColor(Quantity_NOC_GRAY70); 
+				aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
 				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
 				// aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
 				// opcional
@@ -2883,7 +2948,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	#define ENABLE_PARALLEL 0
 	void projectAndDisplayWithHLR_ntw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
-		perf1();
+		// perf1();
 
 		// 1. Preparar transformação da câmara
 		const Handle(Graphic3d_Camera) & camera = m_view->Camera();
@@ -2996,7 +3061,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 			visible_->SetInfiniteState(true);  // opcional
 			m_context->Display(visible_, false);
 		}
-		perf1("elapsed hlr1");
+		// perf1("elapsed hlr1");
 	}
 
 	// #define ENABLE_PARALLEL
@@ -3581,6 +3646,12 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 					 // Reverse the projection direction
 					 end_proj_global = gp_Vec(-dx, -dy, -dz);
 					 end_up_global = gp_Vec(ux, uy, uz);
+					 start_animation(this);
+				 }},
+
+			sbts{"Align",
+				 [this] { 
+					 GetAlignedCameraVectors(m_view,end_proj_global,end_up_global); 
 					 start_animation(this);
 				 }},
 
@@ -4499,6 +4570,42 @@ lua.set_function("Pl", [&, parse_coords](const std::string& coords) {
 lua.set_function("Offset", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->createOffset(val);
+});
+#include <BRepTools.hxx>
+#include <ShapeFix_Shape.hxx>
+
+
+
+lua.set_function("FilletToAllEdges", [&](double val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+	// current_part->update_placement();
+	// current_part->shape=ApplyFilletToAllEdges(current_part->cshape,val);
+	current_part->ttfillet=1;
+ReplaceShapeInCompound(
+    current_part->cshape,
+    current_part->shape,
+    [&](const TopoDS_Shape& s) {
+        auto clean = CleanShape(s);
+        BRepFilletAPI_MakeFillet fillet(clean);
+        for (TopExp_Explorer exp(clean, TopAbs_EDGE); exp.More(); exp.Next())
+            fillet.Add(TopoDS::Edge(exp.Current()));
+       
+
+for (int ic = 1; ic <= fillet.NbContours(); ++ic) {
+    int nbEdges = fillet.NbEdges(ic);
+    for (int ie = 1; ie <= nbEdges; ++ie) {
+        fillet.SetRadius(val, ic, ie);
+    }
+}
+
+
+
+        fillet.Build();
+        if (!fillet.IsDone()) return s;
+        return FixShape(fillet.Shape());
+    }
+);
+// current_part->ashape->Attributes()->SetFaceBoundaryDraw(false);
 });
 
 lua.set_function("Extrude", [&](double val) {
@@ -5699,7 +5806,7 @@ static Fl_Menu_Item items[] = {
 			 occv->draw_objs();
 		 }
 		 // occv-> m_view->Update ();
-		 occv->m_view->Redraw();
+		//  occv->m_view->Redraw();
 		 occv->redraw();  //  redraw(); //
 	 }),
 	 (void*)menu, FL_MENU_TOGGLE},

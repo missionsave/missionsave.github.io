@@ -91,6 +91,174 @@ void WriteBinarySTL(const TopoDS_Shape& shape, const std::string& filename) {
 #include <sstream>
 #include <iomanip>
 
+#include <V3d_View.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Dir.hxx>
+#include <gp.hxx>
+#include <cmath>
+
+static inline gp_Dir sgnDir(const gp_Dir& axis, Standard_Real dot) {
+    return (dot >= 0.0) ? axis : gp_Dir(-axis.X(), -axis.Y(), -axis.Z());
+}
+
+void GetAlignedCameraVectors(const Handle(V3d_View)& view,
+                             gp_Vec& end_proj_global,
+                             gp_Vec& end_up_global)
+{
+    // 1) Read camera forward (Proj) and Up
+    Standard_Real vx, vy, vz, ux, uy, uz;
+    view->Proj(vx, vy, vz);
+    view->Up(ux, uy, uz);
+
+    gp_Dir viewDir(vx, vy, vz);
+    gp_Dir upDir(ux, uy, uz);
+
+    const gp_Dir X(1,0,0), Y(0,1,0), Z(0,0,1);
+
+    // 2) Choose nearest axis-aligned plane normal (±X, ±Y, ±Z) by max |dot|,
+    //    but KEEP the sign for facing direction.
+    Standard_Real dx = viewDir.Dot(X);
+    Standard_Real dy = viewDir.Dot(Y);
+    Standard_Real dz = viewDir.Dot(Z);
+
+    Standard_Real ax = std::abs(dx), ay = std::abs(dy), az = std::abs(dz);
+
+    gp_Dir normal;
+    enum class Plane { YZ, ZX, XY } plane; // plane orthogonal to chosen normal
+
+    if (ax >= ay && ax >= az) {
+        normal = sgnDir(X, dx);
+        plane = Plane::YZ; // normal along X -> plane is YZ
+    } else if (ay >= ax && ay >= az) {
+        normal = sgnDir(Y, dy);
+        plane = Plane::ZX; // normal along Y -> plane is ZX
+    } else {
+        normal = sgnDir(Z, dz);
+        plane = Plane::XY; // normal along Z -> plane is XY
+    }
+
+    // 3) Project current up onto the snapped plane (minimize roll change)
+    gp_Vec upVec(upDir.X(), upDir.Y(), upDir.Z());
+    gp_Vec nVec(normal.X(), normal.Y(), normal.Z());
+    gp_Vec upOnPlane = upVec - (upVec.Dot(nVec)) * nVec;
+
+    // 4) If degenerate, fall back to the axis in the plane with strongest alignment to original up
+    bool degenerate = (upOnPlane.SquareMagnitude() < 1e-14);
+    gp_Dir bestUp;
+
+    auto chooseUpInPlane = [&](const gp_Dir& a, const gp_Dir& b, const gp_Vec& ref) -> gp_Dir {
+        // pick among ±a, ±b the one closest to ref (use sign of dot to set direction)
+        Standard_Real da = ref.Dot(gp_Vec(a.X(), a.Y(), a.Z()));
+        Standard_Real db = ref.Dot(gp_Vec(b.X(), b.Y(), b.Z()));
+        if (std::abs(da) >= std::abs(db)) {
+            return (da >= 0.0) ? a : gp_Dir(-a.X(), -a.Y(), -a.Z());
+        } else {
+            return (db >= 0.0) ? b : gp_Dir(-b.X(), -b.Y(), -b.Z());
+        }
+    };
+
+    if (plane == Plane::YZ) {
+        bestUp = chooseUpInPlane(Y, Z, degenerate ? upVec : upOnPlane);
+    } else if (plane == Plane::ZX) {
+        bestUp = chooseUpInPlane(Z, X, degenerate ? upVec : upOnPlane);
+    } else { // Plane::XY
+        bestUp = chooseUpInPlane(X, Y, degenerate ? upVec : upOnPlane);
+    }
+
+    // 5) Build a right-handed orthonormal basis and re-derive up to ensure exact orthogonality
+    gp_Vec right = nVec.Crossed(gp_Vec(bestUp.X(), bestUp.Y(), bestUp.Z()));
+    if (right.SquareMagnitude() < 1e-14) {
+        // Extremely rare: if bestUp accidentally parallel (numerical), pick the other axis in plane
+        if (plane == Plane::YZ) {
+            bestUp = (std::abs(bestUp.Dot(Y)) > 0.5) ? Z : Y;
+        } else if (plane == Plane::ZX) {
+            bestUp = (std::abs(bestUp.Dot(Z)) > 0.5) ? X : Z;
+        } else {
+            bestUp = (std::abs(bestUp.Dot(X)) > 0.5) ? Y : X;
+        }
+        right = nVec.Crossed(gp_Vec(bestUp.X(), bestUp.Y(), bestUp.Z()));
+    }
+
+    gp_Dir rightDir(right);
+    gp_Dir correctedUp((rightDir ^ normal)); // right x normal -> up (right-handed)
+
+    // 6) Output snapped vectors as gp_Vec
+    end_proj_global = gp_Vec(normal.X(),     normal.Y(),     normal.Z());
+    end_up_global   = gp_Vec(correctedUp.X(), correctedUp.Y(), correctedUp.Z());
+}
+
+
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopoDS_Iterator.hxx>
+#include <BRep_Builder.hxx>
+#include <functional>
+
+// Generic function: replaces one shape inside a compound with a modified version
+void ReplaceShapeInCompound(
+    TopoDS_Compound& compound,
+    TopoDS_Shape& targetShape,
+    const std::function<TopoDS_Shape(const TopoDS_Shape&)>& modifier
+) {
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(targetShape)) {
+            TopoDS_Shape newShape = modifier(currentShape);
+            if (!newShape.IsNull()) {
+                builder.Add(newCompound, newShape);
+                targetShape = newShape; // update reference
+            } else {
+                builder.Add(newCompound, currentShape); // fallback
+            }
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    compound = newCompound;
+}
+
+
+
+
+
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepFilletAPI_MakeFillet.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
+#include <Standard_Real.hxx>
+#include <iostream>
+
+TopoDS_Shape ApplyFilletToAllEdges(const TopoDS_Shape shape, Standard_Real radius) {
+    BRepFilletAPI_MakeFillet fillet(shape);
+
+    // Adicionar todas as arestas
+    for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next()) {
+        const TopoDS_Edge& edge = TopoDS::Edge(exp.Current());
+        fillet.Add(radius, edge);
+    }
+
+    // Construir o fillet
+    fillet.Build();
+
+    if (!fillet.IsDone()) {
+        std::cerr << "Fillet falhou!" << std::endl;
+        return shape; // devolve shape original
+    }
+
+    return fillet.Shape();
+}
+
+ 
+
+
+
 
 std::string SerializeFaceInvariant(const TopoDS_Face& face) {
     Standard_Real umin, umax, vmin, vmax;

@@ -390,12 +390,99 @@ function getHourlyHistory(symbol = 'BTC_USDT', limit = 5) {
 }
 
 // Example usage
-getHourlyHistory('BTC_USDT', 3)
-  .then(candles => console.table(candles))
-  .catch(console.error);
-getHourlyHistory('BTC_PERP', 3)
-  .then(candles => console.table(candles))
-  .catch(console.error);
+// getHourlyHistory('XRP_USDT', 3)
+//   .then(candles => console.table(candles))
+//   .catch(console.error);
+// getHourlyHistory('XRP_PERP', 3)
+//   .then(candles => console.table(candles))
+//   .catch(console.error);
+
+// whitebit_compare.js
+// whitebit_compare_last10.js
+// const https = require('https');
+// whitebit_compare_last10.js
+// const https = r  equire('https');
+
+function fetchCandles(symbol, interval = '8h', limit = 160) {
+  const url = `https://whitebit.com/api/v1/public/kline?market=${symbol}&interval=${interval}&limit=${limit}`;
+  return new Promise((resolve, reject) => {
+    https.get(url, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (!json.result || !Array.isArray(json.result)) {
+            return reject(new Error('Unexpected response format'));
+          }
+          resolve(json.result.map(c => ({
+            openTime: c[0] * 1000,
+            open: parseFloat(c[1]),
+            close: parseFloat(c[2]),
+            high: parseFloat(c[3]),
+            low: parseFloat(c[4]),
+            volume: parseFloat(c[5])
+          })));
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
+function pctDiff(a, b) {
+  return ((a - b) / b) * 100;
+}
+var vwin=[];
+(async () => {
+  try {
+    const [perp, spot] = await Promise.all([
+    //   fetchCandles('AVAX_PERP'),
+    //   fetchCandles('AVAX_USDT')
+    //   fetchCandles('DOGE_PERP'),
+    //   fetchCandles('DOGE_USDT')
+    //   fetchCandles('SOL_PERP'),
+    //   fetchCandles('SOL_USDT')
+    //   fetchCandles('XRP_PERP'),
+    //   fetchCandles('XRP_USDT')
+      fetchCandles('ETH_PERP'),
+      fetchCandles('ETH_USDT')
+    //   fetchCandles('BTC_PERP'),
+    //   fetchCandles('BTC_USDT')
+    ]);
+
+    // WhiteBIT returns newest first — reverse to oldest→newest
+    // perp.reverse();
+    // spot.reverse();
+	var sudprev=0;
+	var perprevious=0;
+    for (let i = 1; i < perp.length; i++) {
+      const p = perp[i];
+      const s = spot[i];
+      const pp = perp[i-1]; 
+	  var win=pctDiff(p.close, pp.close);
+	  var sum=((pctDiff(s.close, p.close)+pctDiff(s.high, p.high)+pctDiff(s.low, p.low))/3)*1000;
+	  sum=(sum+100).toFixed(0);
+	//   var prev=pctDiff(s.high, p.high)>pctDiff(s.low, p.low);
+	var sud=sum-perprevious;
+	var sudm=((sud+sudprev)/2).toFixed(0);
+	  console.log("win",win.toFixed(2),"sum",sum,"sud",sud,"sudm",sudm);
+	  vwin.push(Number(win.toFixed(2)));
+	  perprevious=sum;
+	  sudprev=sud;
+    //   console.log(
+    //     `${p.close} ${pctDiff(s.close, p.close).toFixed(3)}% |` +
+    //     `${p.high} ${pctDiff(s.high, p.high).toFixed(3)}% |` +
+    //     `${p.low} ${pctDiff(s.low, p.low).toFixed(3)}% |` +
+    //     ` ${new Date(p.openTime).toISOString()}`
+    //   );
+    }
+	console.log(vwin);
+  } catch (err) {
+    console.error('Error:', err.message);
+  }
+})();
 
 
 

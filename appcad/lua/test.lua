@@ -21,6 +21,7 @@ Extrude -89
 Rotatexl(-90)
 Rotatexl(45)
 Movel(220,170-50,0)
+--FilletToAllEdges(2)
 
 --Movel(50)
 
@@ -38,6 +39,7 @@ Rotatexl(90)
 Movel(0,170-50,1)
 Clone sketch_bucket
 Extrude -6
+
 Rotatexl(90)
 Movel(0,0,1)
 
@@ -47,15 +49,17 @@ Offset 6
 Extrude 70
 Rotatexl(90)
 Movel(-70,170,-70-15)
+--FilletToAllEdges(2)
 
 
 Part skech_arm_1
 Pl 0,0 280,0 @0,6 @-280,0 0,0
 
 Part robot_arm_1
-Pl 0,0 70,70 @70,-70 @70,70 @70,-70
+Pl 0,0 70,66 @70,-66 @70,66 @70,-66
 Offset 7
 Extrude (56) 
+--FilletToAllEdges(2)
 Rotatexl(90)
 Movel(-285,170-7,-100)
 --Movel(-285,170-7,-100)
@@ -64,10 +68,12 @@ Movel(-285,170-7,-100)
 --Extrude 56
 Clone skech_arm_1
 Extrude 56
+--FilletToAllEdges(2)
 Rotatexl(90)
 Movel(-285,170-7,-100)
 Clone skech_arm_1
 Extrude 56
+--FilletToAllEdges(2)
 Movel(0,70)
 Rotatexl(90)
 Movel(-285,170-7,-100)

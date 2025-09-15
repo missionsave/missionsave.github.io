@@ -19,7 +19,7 @@
   </style>
 </head>
 <body><div style="font-family: Arial, sans-serif; font-size:14px; line-height:1.5; color:#333; background:#f9f9f9; padding:12px; border-radius:8px; border:1px solid #ddd;">
-To raise the maximum funds to build our greenhouses and provide healthy meals to people with little or no access to food, Daniel Chanfana Santos, founder of Missionsave, developed this app using artificial intelligence to predict the movement of the five most consistent cryptocurrencies. An automated trading robot is under development and will be ready soon—then you can register and start earning too. Alternatively, visit this page at 00:00 UTC to manually make your trades for the day.
+To raise the maximum funds to build our greenhouses and provide healthy meals to people with little or no access to food, Daniel Chanfana Santos, founder of Missionsave, developed this app using artificial intelligence to predict the movement of the four most consistent cryptocurrencies. An automated trading robot is under development and will be ready soon—then you can register and start earning too. Alternatively, visit this page at 00:00 UTC to manually make your trades for the day.
 </div>
 <br>
   <div id="idtime"></div>
@@ -53,19 +53,19 @@ const symbols_ = [
   { name: 'Ethereum', pair: 'ETHUSDT' },      // +87% YTD, strong DeFi/NFT demand
   { name: 'Solana', pair: 'SOLUSDT' },        // Major ecosystem growth, high liquidity
   { name: 'XRP', pair: 'XRPUSDT' },           // Regulatory clarity boosting adoption
-  { name: 'Avalanche', pair: 'AVAXUSDT' },    // Rising DeFi & gaming activity
-  { name: 'Cardano', pair: 'ADAUSDT' },       // Smart contract adoption uptick
-    { name: 'Doge', pair: 'DOGEUSDT' },
-//   { name: 'Kaspa', pair: 'KASUSDT' },         // Fast-growing PoW chain, surging price
-  { name: 'Sui', pair: 'SUIUSDT' },           // Layer 1 with strong dev traction
-  { name: 'Celestia', pair: 'TIAUSDT' },      // Modular blockchain innovation
-  { name: 'Kava', pair: 'KAVAUSDT' }          // Bridging TradFi & Web3, rising volumes
+//   { name: 'Avalanche', pair: 'AVAXUSDT' },    // Rising DeFi & gaming activity
+//   { name: 'Cardano', pair: 'ADAUSDT' },       // Smart contract adoption uptick
+//     { name: 'Doge', pair: 'DOGEUSDT' },
+// //   { name: 'Kaspa', pair: 'KASUSDT' },         // Fast-growing PoW chain, surging price
+//   { name: 'Sui', pair: 'SUIUSDT' },           // Layer 1 with strong dev traction
+//   { name: 'Celestia', pair: 'TIAUSDT' },      // Modular blockchain innovation
+//   { name: 'Kava', pair: 'KAVAUSDT' }          // Bridging TradFi & Web3, rising volumes
 ];
 const lb=0;
-  const interval = '1h';
+  const interval = '1d';
   const historyLength = 10+lb;
-  const RERUNS = 8*1;
-  const TRAIN_ITER = 100*2;
+  const RERUNS = 8*2;
+  const TRAIN_ITER = 100*4;
 
   async function fetchData(symbol) {
     const url = `https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${historyLength}`;
@@ -117,14 +117,14 @@ const lb=0;
     }
     return [median(highs), median(lows), median(closes), median(vols)];
   }
-
+  const atleast=0.2;
   function generateSignal(predClose, prevClose) {
     const diffPct = ((predClose - prevClose) / prevClose) * 100;
     let signal, entry, sl, tp;
-    if (diffPct > 0.5) {
+    if (diffPct > atleast) {
       signal = 'BUY'; entry = prevClose;
       sl = prevClose*0.98; tp = prevClose*1.03;
-    } else if (diffPct < -0.5) {
+    } else if (diffPct < -atleast) {
       signal = 'SELL'; entry = prevClose;
       sl = prevClose*1.02; tp = prevClose*0.97;
     } else {

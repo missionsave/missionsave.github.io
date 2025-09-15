@@ -681,12 +681,22 @@ if(1){
 		// isgood=isgood && (dif[3])>=0;
 		// isgood=isgood && (dif[4])>=0;
 		// isgood=isgood && (dif[5])>=0;
-		// isgood=isgood && (dif[1])==-0.07;
-		// isgood=isgood && (dif[0])==0.06;
-		// isgood=isgood && (dif[2])>0.05;
-		// isgood=isgood && (dif[3])<0.13;
-		// isgood=isgood && (dif[4])>=0;
-		isgood=isgood && (dif[5])>0;
+
+		// isgood=isgood && (dif[1])==-0.08;
+		// // isgood=isgood && (dif[0])==0.06;
+		// isgood=isgood && (dif[2])>0.06;
+		// isgood=isgood && (dif[3])>0;
+		// // isgood=isgood && (dif[4])>=0;
+		// isgood=isgood && (dif[5])>0;
+
+		isgood=isgood && (dif[0])==0.09;
+		// isgood=isgood && (dif[1])==-0.06;
+		isgood=isgood && (dif[1])<-0.05;
+		// isgood=isgood && (dif[1])<=-0.02;
+		isgood=isgood && Math.abs(dif[2])<=0.02;
+		isgood=isgood && Math.abs(dif[3])<=0.02;
+		// isgood=isgood && Math.abs(dif[4])<=0.02;
+		// isgood=isgood && Math.abs(dif[5])<=0.02; 
 	}
 	if(qtkeys==11){	 
 		isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 

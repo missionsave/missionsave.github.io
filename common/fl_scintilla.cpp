@@ -292,7 +292,9 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 
 	floaded = Fl::get_font(FL_HELVETICA_BOLD);
 	cotm(floaded)
-	floaded = Fl::get_font_name(FL_HELVETICA_BOLD);
+	floaded = Fl::get_font_name(FL_HELVETICA);
+	floaded = Fl::get_font_name(FL_COURIER_BOLD);
+	// floaded = Fl::get_font_name(FL_HELVETICA_BOLD);
 	cotm(floaded)
 	// string fstd=load_app_font("DejaVuSans-Bold.ttf");
 	// string fstd=load_app_font("DejaVuSans.ttf");
