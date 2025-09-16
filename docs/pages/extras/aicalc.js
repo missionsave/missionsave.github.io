@@ -18,7 +18,7 @@ const symbols = [
   { name: "XRP", pair: "XRPUSDT", nc: "XRP_PERP" }
 ];
 
-const lb=0, interval="1d", historyLength=10+lb, RERUNS=8*2, TRAIN_ITER=200*2, atleast=0.01, budget=100, eps=1e-9;
+const lb=0, interval="1d", historyLength=9+lb, RERUNS=8*6, TRAIN_ITER=100*1, atleast=0.01, budget=100, eps=1e-9;
 const portfolio=[];
 
 async function fetchData(sym){
@@ -65,7 +65,7 @@ function signal(pred,prev){
     const maxLoss=s==="buy"?((entry-sl)/entry)*100:s==="sell"?((sl-entry)/entry)*100:0;
     const expRaw=s==="buy"?((pc-entry)/entry)*100:s==="sell"?((entry-pc)/entry)*100:0;
     const expWin=Math.max(0,Math.min(expRaw,maxWin));
-    const rec={name:coin.name,pair:coin.pair,nc:coin.nc,signal:s,prevClose,pc,diff,entry,sl,tp,maxWin,maxLoss,expWin,pc,ph,pl,curClose};
+    const rec={name:coin.name,pair:coin.pair,nc:coin.nc,signal:s,sdiff:diff,prevClose,pc,diff,entry,sl,tp,maxWin,maxLoss,expWin,pc,ph,pl,curClose};
     portfolio.push(rec);
     // console.log(rec);
   }
@@ -172,9 +172,9 @@ console.log(marketInfo);
 
  
 (async()=>{
-	await console.log(p.name,p.nc,p.signal,p.entry,p.sl,p.tp);
+	await console.log(p.name,p.nc,p.signal,p.entry,p.sl,p.tp,p.sdiff.toFixed(2));
 	await getmarkets();
-	await open_order(p.nc,p.signal,p.entry,2.1,3.1,3);
+	// await open_order(p.nc,p.signal,p.entry,2.1,3.1,3);
 })();
 
 
