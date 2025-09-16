@@ -98,7 +98,7 @@ async function run(symbol, histsize) {
 (async () => {
   lb = 0;
   const symbols = ['BTC_USDT','ETH_USDT','SOL_USDT','XRP_USDT'];
-  var symbol = symbols[2];
+  var symbol = symbols[3];
   
   vsum = 0;
   for (let i = 0; i < LIMIT.length; i++) {
