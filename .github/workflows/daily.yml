@@ -1,4 +1,4 @@
-name: Correr aicalc.js workflow
+name: Correr ainode.js workflow
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node docs/pages/extras/aicalc.js
+      - run: node docs/pages/extras/ainode.js
         env:
           MEXC_KEY: ${{ secrets.MEXC_KEY }}
           MEXC_SECRET: ${{ secrets.MEXC_SECRET }}
