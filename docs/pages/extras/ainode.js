@@ -16,6 +16,7 @@ const INPUT_SIZES = [7];
 // ───────────────────────────────────────────────────────────────────────────────
 var lb = 0;
 var vsum = 0;
+var next=0;
 
 // safe normalization (avoid div/0 + keep numbers inside [0,1])
 function makeNormalizer(arr) {
@@ -34,8 +35,12 @@ async function run(symbol, histsize) {
   const json = await res.json();
   var closes = json.result.map(c => +c[2]);
 
-  if (lb > 0) closes = closes.slice(0, -lb);
-//   console.log(closes);
+  if (lb > 0){
+	next=closes[closes.length-1-lb];
+	 closes = closes.slice(0, -lb);
+  console.log(closes,next);
+  
+  }
 
   // normalization
   const { normalize, denormalize } = makeNormalizer(closes);
@@ -182,32 +187,33 @@ console.log(marketInfo);
   console.log('Order response:', await res.json());
 }
 
-(async () => {
-	await getmarkets();
-	lb = 0;
-	const symbols = ['BTC_USDT', 'ETH_USDT', 'SOL_USDT', 'XRP_USDT'];
-	const symbolsf = ['BTC_PERP', 'ETH_PERP', 'SOL_PERP', 'XRP_PERP'];
+// (async () => {
+// 	await getmarkets();
+// 	lb = 0;
+// 	const symbols = ['BTC_USDT', 'ETH_USDT', 'SOL_USDT', 'XRP_USDT'];
+// 	const symbolsf = ['BTC_PERP', 'ETH_PERP', 'SOL_PERP', 'XRP_PERP'];
 
-	for (let si = 0; si < symbolsf.length; si++) {
-		var symbol = symbolsf[si];
-		vsum = 0;
-		var entry=await run(symbol, LIMIT[0]);
-		console.log("run", symbol, vsum); 
-		await open_order(symbolsf[si],vsum>0?"buy":"sell",entry,2.1,3.1,3);
-	} 
-})();
-
-
-// (async () => { 
-//   lb = 0;
-//   const symbols = ['BTC_USDT','ETH_USDT','SOL_USDT','XRP_USDT'];
-//   var symbol = symbols[3];
-  
-//   vsum = 0;
-//   for (let i = 0; i < LIMIT.length; i++) {
-//     var res = await run(symbol, LIMIT[i]);
-//     console.log("run", symbol, res, vsum);
-//     if (vsum >= 3 || vsum <= -3) break;
-//   }
-//   console.log("run",lb, symbol, vsum);
+// 	for (let si = 0; si < symbolsf.length; si++) {
+// 		var symbol = symbolsf[si];
+// 		vsum = 0;
+// 		var entry=await run(symbol, LIMIT[0]);
+// 		console.log("run", symbol, vsum); 
+// 		await open_order(symbolsf[si],vsum>0?"buy":"sell",entry,2.1,3.1,3);
+// 	} 
 // })();
+
+
+(async () => { 
+  lb = 0;
+  const symbols = ['BTC_USDT','ETH_USDT','SOL_USDT','XRP_USDT'];
+  var symbol = symbols[1];
+  
+  vsum = 0;
+  for (let i = 0; i < LIMIT.length; i++) {
+    var res = await run(symbol, LIMIT[i]);
+    console.log("run", symbol, res,next, vsum);
+	break;
+    if (vsum >= 1 || vsum <= -1) break;
+  }
+  console.log("run",lb, symbol, vsum);
+})();
