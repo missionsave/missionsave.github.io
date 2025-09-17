@@ -9,9 +9,10 @@ vm.runInThisContext(
 const { LSTMTimeStep } = brain.recurrent;
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────────
-const LIMIT       = [70];                  // total candles to fetch
+const LIMIT       = [66];                  // total candles to fetch
 const INTERVAL    = '1d';                        // candle interval
-const INPUT_SIZES = [7]; 
+const INPUT_SIZES = [3,3,3,3]; 
+// const INPUT_SIZES = [7,6,7]; 
 // const INPUT_SIZES = [2,2,3,3,4,4,5,5,5,6,6,7,7,8,8]; 
 // ───────────────────────────────────────────────────────────────────────────────
 var lb = 0;
@@ -27,18 +28,19 @@ function makeNormalizer(arr) {
   const denormalize = y => (y * range) + min;
   return { normalize, denormalize };
 }
-
+// var net=0;
 async function run(symbol, histsize) {
   // fetch and extract closes
-  const url  = `https://whitebit.com/api/v1/public/kline?market=${symbol}&interval=${INTERVAL}&limit=${histsize}`;
+  const url  = `https://whitebit.com/api/v1/public/kline?market=${symbol}&interval=${INTERVAL}&limit=${(histsize+lb)}`;
   const res  = await fetch(url);
   const json = await res.json();
   var closes = json.result.map(c => +c[2]);
 
   if (lb > 0){
-	next=closes[closes.length-1-lb];
+	next=closes[(closes.length)-lb];
 	 closes = closes.slice(0, -lb);
-  console.log(closes,next);
+//   console.log(closes,next);
+//   return;
   
   }
 
@@ -47,8 +49,15 @@ async function run(symbol, histsize) {
   const closesN = closes.map(normalize);
 
   // run through each window size
-  for (const windowSize of INPUT_SIZES) {
-    const splitIdx = Math.floor(closesN.length * 0.6);
+//   let wi=0; 
+let vmethod3=0;
+for(let method=1;method<3+1;method++){
+//   for (const windowSize of INPUT_SIZES) {
+  for(let wi=0;wi<INPUT_SIZES.length;wi++){
+		const windowSize=INPUT_SIZES[wi];
+	// wi++;
+    var splitIdx = Math.floor(closesN.length * 0.9);
+	if((splitIdx - windowSize)%2==0)splitIdx++;
     const train = closesN.slice(0, splitIdx);
     const test  = closesN.slice(splitIdx - windowSize);
 
@@ -60,14 +69,18 @@ async function run(symbol, histsize) {
     }
 
     const net = new LSTMTimeStep({
+	// if(net==0)
+    // net = new LSTMTimeStep({
       inputSize: 1,
-      hiddenLayers: [8],
+      hiddenLayers: [4],
       outputSize: 1
     });
     net.train(dataset, {
-      learningRate: 0.001,
+      learningRate: 0.03,
+    //   learningRate: 0.001,
       errorThresh: 0.0003,
-      iterations: 8000
+      iterations: 400*2
+    //   iterations: 8000
     });
 
     let wins = 0, total = 0;
@@ -87,19 +100,56 @@ async function run(symbol, histsize) {
     const lastClose = closes[closes.length - 1];
     const pctChange = ((predNext - lastClose) / lastClose) * 100;
 
-    console.log(
+
+    console.log(method,
       `inputSize=${windowSize} → Wins: ${wins}/${total} ` +
       `Rate: ${(wins / total * 100).toFixed(2)}%  ` +
       `pred -> ${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(2)}%`
     );
 
-    if ((wins / total * 100) >= 50) {
-      if (pctChange >= 0) vsum++; else vsum--;
-    } else {
-      if (pctChange < 0) vsum++; else vsum--;
-    }
-	return closes[closes.length-1];
+	var rate=wins / total * 100;
+	// rate=100;
+	// if(rate==50){continue;}
+
+	//M1
+	  if (method == 1) {
+		  // if(rate<50){continue;}
+
+		  if (pctChange >= 0) {
+			  vsum += 1;
+		  } else vsum += -1;
+		  break;
+	  }
+
+	//M2
+		if (method == 2) {
+			const valid = Math.abs(pctChange) >= 0;
+			if (valid && rate >= 50) {
+				vsum += (pctChange >= 0) ? 1 : -1;
+				break;
+			}
+			if (valid && rate < 50) {
+				vsum += (pctChange <= 0) ? 1 : -1;
+				break;
+			}
+		}
+
+	//M3
+		if (method == 3) {
+			if (rate > 50) {
+				if (pctChange >= 0) vmethod3++; else vmethod3--;
+			} else {
+				if (pctChange < 0) vmethod3++; else vmethod3--;
+			}
+			if (Math.abs(vmethod3) > 1){
+				vsum+=vmethod3>0?1:-1;
+				// if(Math.abs(vsum)>1 || wi>2)
+				break;
+			}
+		}
   }
+}
+  return closes[closes.length-1];
 }
 
 ///Whitebit
@@ -187,33 +237,43 @@ console.log(marketInfo);
   console.log('Order response:', await res.json());
 }
 
-// (async () => {
-// 	await getmarkets();
-// 	lb = 0;
-// 	const symbols = ['BTC_USDT', 'ETH_USDT', 'SOL_USDT', 'XRP_USDT'];
-// 	const symbolsf = ['BTC_PERP', 'ETH_PERP', 'SOL_PERP', 'XRP_PERP'];
+(async () => {
+	// await getmarkets();
+	lb = 12;
 
-// 	for (let si = 0; si < symbolsf.length; si++) {
-// 		var symbol = symbolsf[si];
-// 		vsum = 0;
-// 		var entry=await run(symbol, LIMIT[0]);
-// 		console.log("run", symbol, vsum); 
-// 		await open_order(symbolsf[si],vsum>0?"buy":"sell",entry,2.1,3.1,3);
-// 	} 
-// })();
-
-
-(async () => { 
-  lb = 0;
-  const symbols = ['BTC_USDT','ETH_USDT','SOL_USDT','XRP_USDT'];
-  var symbol = symbols[1];
-  
-  vsum = 0;
-  for (let i = 0; i < LIMIT.length; i++) {
-    var res = await run(symbol, LIMIT[i]);
-    console.log("run", symbol, res,next, vsum);
-	break;
-    if (vsum >= 1 || vsum <= -1) break;
-  }
-  console.log("run",lb, symbol, vsum);
+	const symbols = ['ETH_USDT'];
+	// const symbols = ['BTC_USDT', 'ETH_USDT'];
+	// const symbols = ['BTC_USDT', 'ETH_USDT', 'SOL_USDT', 'XRP_USDT'];
+	const symbolsf = ['BTC_PERP', 'ETH_PERP', 'SOL_PERP', 'XRP_PERP'];
+	var wins=0;
+	for(lb=61;lb<71;lb++){
+		for (let si = 0; si < symbols.length; si++) {
+			var symbol = symbols[si];
+			vsum = 0;
+			var entry=await run(symbol, LIMIT[0]);
+			var dir=next>entry?1:-1;
+			if(vsum==0)continue;
+			vsum=vsum>0?1:-1;
+			wins+=dir==vsum?1:-1;
+			console.log(wins,"run",lb, symbol,entry,next,  dir, vsum); 
+			// await open_order(symbolsf[si],vsum>0?"buy":"sell",entry,2.1,3.1,3);
+		} 
+	}
 })();
+
+
+// (async () => { 
+//   lb = 1;
+//   const symbols = ['BTC_USDT','ETH_USDT','SOL_USDT','XRP_USDT'];
+// 	const symbolsf = ['BTC_PERP', 'ETH_PERP', 'SOL_PERP', 'XRP_PERP'];
+//   var symbol = symbols[3];
+  
+//   vsum = 0;
+//   for (let i = 0; i < LIMIT.length; i++) {
+//     var res = await run(symbol, LIMIT[i]);
+//     console.log("run", symbol, res,next, vsum);
+// 	break;
+//     if (vsum >= 1 || vsum <= -1) break;
+//   }
+//   console.log("run",lb, symbol, vsum);
+// })();
