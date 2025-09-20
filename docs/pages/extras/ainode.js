@@ -241,12 +241,15 @@ console.log(marketInfo);
 	// await getmarkets();
 	lb = 12;
 
+	// const symbols = ['ETH_PERP'];
+	// const symbols = ['BTC_USDT'];
 	const symbols = ['ETH_USDT'];
 	// const symbols = ['BTC_USDT', 'ETH_USDT'];
 	// const symbols = ['BTC_USDT', 'ETH_USDT', 'SOL_USDT', 'XRP_USDT'];
 	const symbolsf = ['BTC_PERP', 'ETH_PERP', 'SOL_PERP', 'XRP_PERP'];
 	var wins=0;
-	for(lb=61;lb<71;lb++){
+	var winper=0;
+	for(lb=30;lb>20;lb--){ 
 		for (let si = 0; si < symbols.length; si++) {
 			var symbol = symbols[si];
 			vsum = 0;
@@ -255,8 +258,11 @@ console.log(marketInfo);
 			if(vsum==0)continue;
 			vsum=vsum>0?1:-1;
 			wins+=dir==vsum?1:-1;
-			console.log(wins,"run",lb, symbol,entry,next,  dir, vsum); 
-			// await open_order(symbolsf[si],vsum>0?"buy":"sell",entry,2.1,3.1,3);
+			// % win/loss accumulator
+			const pct = ((next - entry) / entry) * 100 * vsum;
+			winper += pct;
+			console.log(wins,"run",lb, symbol,entry,next,  dir, vsum, winper.toFixed(1)); 
+			// await open_order(symbols[si],vsum>0?"buy":"sell",entry,2.1,3.1,7);
 		} 
 	}
 })();
