@@ -11,15 +11,25 @@ const { LSTMTimeStep } = brain.recurrent;
 // const symbols = [{ name: "Ethereum", pair: "ETHUSDT", nc: "ETH_PERP" },
 				//  { name: "Ethereum", pair: "BTCUSDT", nc: "ETH_PERP" }
 // ];
+// const symbols = [{ name: "Ethereum", pair: "SUIUSDT", nc: "ETH_PERP" }];
+// const symbols = [{ name: "Ethereum", pair: "TIAUSDT", nc: "ETH_PERP" }];
 // const symbols = [{ name: "Ethereum", pair: "BTCUSDT", nc: "ETH_PERP" }];
 const symbols = [{ name: "Ethereum", pair: "ETHUSDT", nc: "ETH_PERP" }];
 let nextc = 0, nexth = 0, nextl= 0, interval = "1d", lb = 0;
-const historyLength = 1000 + lb, RERUNS = 9, TRAIN_ITER = 400*4, atleast = 0.01, budget = 100, eps = 1e-9;
+const historyLength = 901 + lb, RERUNS = 9, TRAIN_ITER = 400*4, atleast = 0.01, budget = 100, eps = 1e-9;
 const portfolio = [];
 
 async function fetchData(sym) {
   const url = `https://data-api.binance.vision/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${historyLength}`;
-  return (await fetch(url)).json();
+  return await (await fetch(url)).json();
+}
+async function fetchData_v1save(sym, outFile = "data_v1.json") {
+  const url = `https://data-api.binance.vision/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${historyLength}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  fs.writeFileSync(outFile, JSON.stringify(data));
+  console.log(`Saved ${data.length} records for ${sym} → ${outFile}`);
+  return data;
 }
 
 function normalize(rows) {
@@ -121,6 +131,8 @@ async function simulate(raw) {
 
   // take first (1000 - 200) for base training
   const baseRows = rowsAll.slice(-800, -200);
+  console.log(baseRows.length);
+//   return;
   const { norm: baseNorm, mins: baseMins, maxs: baseMaxs } = safeNormalize(baseRows);
 
   const net = new LSTMTimeStep({ inputSize: 4, hiddenLayers: [8], outputSize: 4 });
@@ -137,7 +149,7 @@ async function simulate(raw) {
   }
 
   console.log(`\n📈 Simulation on last 200 candles:\n`);
-  let equity = 100;
+  let equity = 1000;
   const riskFrac = 0.25; // 25% of equity risked per trade
 
   for (let i = 200; i > 0; i--) {
@@ -345,11 +357,35 @@ async function simulate_v1(raw) {
   }
 }
 
-(async () => {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// (async () => {
+async function test(){
   for (let coin of symbols) {
     let raw = await fetchData(coin.pair);
 console.log(raw.length);
 await simulate(raw);
+
 return;
 
 
@@ -415,7 +451,8 @@ Predict Low:  ${p.pl}
 `);
 
   }
-})();
+}
+// })();
 
 
 
@@ -429,14 +466,23 @@ Predict Low:  ${p.pl}
 
 
 
+
+// #region Logging Helpers
+
+ 
+(async()=>{
+	// await console.log(p.name,p.nc,p.signal,p.entry,p.sl,p.tp,p.sdiff.toFixed(2));
+	// await getmarkets();
+	// await open_order(p.nc,p.signal,p.entry,2.1,3.1,3);
 
 
 
 
 ///Whitebit
 const API_KEY = process.env.WB_KEY;
-const API_SECRET = process.env.WB_SECRET; 
-
+const API_SECRET = process.env.WB_SECRET;  
+ 
+var markets=0;
 async function getmarkets(){
 if(markets==0){
 	const marketsRes = await fetch('https://whitebit.com/api/v4/public/markets');
@@ -495,7 +541,7 @@ console.log(marketInfo);
   };
 
   console.log(bodyObj);
-//   return;
+  return;
 
   // 6️⃣ Sign & send (unchanged)
   const bodyStr = JSON.stringify(bodyObj);
@@ -518,11 +564,67 @@ console.log(marketInfo);
   console.log('Order response:', await res.json());
 }
 
- 
-(async()=>{
-	// await console.log(p.name,p.nc,p.signal,p.entry,p.sl,p.tp,p.sdiff.toFixed(2));
-	// await getmarkets();
-	// await open_order(p.nc,p.signal,p.entry,2.1,3.1,3);
+  
+
+function sign(payload) {
+  return crypto.createHmac('sha512', API_SECRET).update(payload).digest('hex');
+}
+
+async function getCollateralSummary() {
+  const bodyObj = {
+    request: '/api/v4/collateral-account/summary',
+    nonce: Date.now().toString()
+  };
+
+  const bodyStr = JSON.stringify(bodyObj);
+  const payload = Buffer.from(bodyStr).toString('base64');
+  const signature = sign(payload);
+
+  const res = await fetch(`https://whitebit.com/api/v4/collateral-account/summary`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-TXC-APIKEY': API_KEY,
+      'X-TXC-PAYLOAD': payload,
+      'X-TXC-SIGNATURE': signature
+    },
+    body: bodyStr
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`[HTTP ${res.status}] ${text}`);
+  }
+
+  return res.json();
+}
+
+// const API = "https://whitebit.com/api/v4/public/ticker/ETH_USDT";
+
+// async function ethBy25pct(total=100) {
+//   let { last_price } = await (await fetch(API)).json();
+//   return (total*0.25 / parseFloat(last_price)).toFixed(6);
+// }
+
+// ethBy25pct().then(console.log);
+await getmarkets();
+await open_order(symbols[0].nc,"buy",4480,1.0,4.0,28*0.25);
+
+// Example usage
+(async () => {
+  try {
+    const summary = await getCollateralSummary();
+    console.log('[Collateral Summary]', summary);
+  } catch (err) {
+    console.error('[Error]', err.message);
+  }
+})();
+
+
+
+
+
+// test();
 })();
 
 

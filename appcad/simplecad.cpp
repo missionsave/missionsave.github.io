@@ -2141,7 +2141,7 @@ void ev_highlight() {
 			// Get the mass (volume if density=1)
 			Standard_Real mass = systemProps.Mass();
 			double massa=mass/1000;
-			help.pname+=" Mass:"+ fmt(massa,0)+"cm³"+ " Petg50%:~"+fmt(massa*1.27*0.75,0)+"g";
+			help.pname+=" Mass:"+ fmt(massa,0)+"cm³"+ " Petg50%:~"+fmt(massa*1.27*0.75,0)+"g"+ " Steel:~"+fmt(massa*0.007850,2)+"kg";
 			std::cout << "Mass (assuming density=1): " << mass << std::endl;
 			help.upd(); 
 		}

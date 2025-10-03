@@ -249,7 +249,8 @@ console.log(marketInfo);
 	const symbolsf = ['BTC_PERP', 'ETH_PERP', 'SOL_PERP', 'XRP_PERP'];
 	var wins=0;
 	var winper=0;
-	for(lb=30;lb>20;lb--){ 
+	for(lb=200;lb>0;lb--){ 
+	// for(lb=30;lb>20;lb--){ 
 		for (let si = 0; si < symbols.length; si++) {
 			var symbol = symbols[si];
 			vsum = 0;

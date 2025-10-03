@@ -100,13 +100,18 @@
 *.hpp.gch
 
 
-!site
-!site/index.html
+!crbot
+!crbot/crobot.js
+!crbot/*6h_1000.json
 
 !docs
 !docs/**/**
 !.github
-!.github/**/**
+!.github/workflows
+!.github/workflows/daily*.*
+# !.github/workflows/crobot.js
+# !.github/workflows/crobot.js
+# !.github/**/**
 
 *_v1*
 *_v2*
