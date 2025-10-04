@@ -357,25 +357,29 @@ function genbuttons(id){
 }
 
 function genlink(field,vals){
-	if(field=="link"){ 
-		var val=vals.split("\n").join(" ");
-		val=val.split(" ");
-		var html="";
-		for(var i=0;i<val.length;i++){
-			var matches = val[i].match(/^https?\:\/\/([^\/?#]+)(?:[\/?#]|$)/i);
-			// console.log(matches);
-			var h = matches && matches[1];
-			// h=val[i];
-			if(h){ 
-				h=h.split("www.").join("");
-				h=h.split(".");
-				if(h.length==3)h=h[0]+h[1]; else h=h[0];
-				html+= "<a href="+val[i]+" target='_blank'>"+h+"</a> ";
-			}
-		}
-		if(html=="")return vals;
-		return html;
-	}
+if (field === "link") {
+    // normalize to real newlines
+    // vals = vals.replace(/\/n/g, "\n");   // case 1
+    vals = vals.replace(/\\n/g, "\n"); // case 2
+
+    console.log(JSON.stringify(vals)); // sanity check
+
+    var val = vals.split("\n");
+    var html = "";
+
+    for (var i = 0; i < val.length; i++) {
+        var matches = val[i].match(/^https?\:\/\/([^\/?#]+)(?:[\/?#]|$)/i);
+        var h = matches && matches[1];
+        if (h) {
+            h = h.replace(/^www\./, "");
+            var parts = h.split(".");
+            h = (parts.length === 3) ? parts[0] + parts[1] : parts[0];
+            html += `<a href="${val[i]}" target="_blank">${h}</a> `;
+        }
+    }
+    return html || vals;
+}
+
 	if(field=="data"){
 		var date = new Date(vals); 
 		if(date!="Invalid Date"){

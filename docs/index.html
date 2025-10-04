@@ -477,6 +477,8 @@ var lib;
 </script>
 <script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;hl=pt-PT&amp;client=wt" type="text/javascript"></script>
 <style>
+	/* --- Google Translate UI Hiding (Existing Code) --- */
+
 	/* Hide top banner */
 	.goog-te-banner-frame.skiptranslate {
 		display: none !important;
@@ -493,16 +495,68 @@ var lib;
 		display: none !important;
 	}
 
-	.goog-text-highlight {
-		background: none !important;
-		box-shadow: none !important;
-	}
-
 	/* Sometimes the widget injects a fixed bottom-right card */
 	#goog-gt-vt,
 	.goog-te-gadget-icon {
 		display: none !important;
 	}
+
+	/* --- Highlight Removal (Updated) --- */
+
+	/* Ensure no visual transitions cause a flash */
+	.goog-text-highlight,
+	.goog-text-highlight:hover,
+	font,
+	font:hover {
+		transition: none !important;
+		-webkit-transition: none !important;
+		transition-delay: 0s !important;
+	}
+
+	/* Removes permanent highlight */
+	.goog-text-highlight {
+		background: none !important;
+		box-shadow: none !important;
+		border: none !important;
+	}
+    
+    /* Removes highlight when a user hovers over the highlighted text */
+	.goog-text-highlight:hover {
+		background-color: transparent !important;
+		box-shadow: none !important;
+		border: none !important;
+	}
+    
+    /* Targets the <font> tag element which also causes a hover highlight */
+    font:hover {
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+	/* Aggressively disable all highlighting, hover effects, and transitions on all related elements */
+.goog-text-highlight, 
+.goog-text-highlight:hover, 
+.goog-tooltip, 
+.goog-tooltip:hover, 
+font, 
+font:hover,
+span.google-src-text,
+span.google-src-text:hover {
+    background: none !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    outline: none !important;
+    
+    /* Crucial: Zero out any possible delay or animation */
+    transition: none !important;
+    -webkit-transition: none !important;
+    transition-delay: 0s !important;
+    animation: none !important;
+    
+    /* This rule often appears in Google Translate's style for the source text */
+    cursor: default !important;
+}
 </style>
 
 

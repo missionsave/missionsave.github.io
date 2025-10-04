@@ -2332,10 +2332,10 @@ async function test3_v8goodess12_v4() {
 }
 
 async function backtestSymbols(symbols, {
-  tf = "4h",
-  wsize = 3,
+  tf = "6h",
+  wsize = 4,
   histminus = 4 * 7 * 1,
-  tol = 2.8,
+  tol = 1.8,
   slSalt = 0.2,
   tpSalt = -0.18,
   atleast = 0.2,
@@ -2368,7 +2368,8 @@ async function backtestSymbols(symbols, {
   // --- Load raw data ---
   for (const coin of symbols) {
     if (!coin.raw) {
-      coin.raw = await fetchData_(coin.pair, tf, wsize + histminus + 1);
+      coin.raw = await fetchData_(coin.pair, tf, 1000);
+    //   coin.raw = await fetchData_(coin.pair, tf, wsize + histminus + 1);
     }
     coin.equity = startingEquity;   // per‑coin equity
     coin.trades = [];               // trade history
@@ -3344,6 +3345,8 @@ async function trade(){
 //#endregion
 
 (async()=>{
+	// backtestSymbols(symbols);
+
 	// for(let ei=4;ei<symbols.length;ei++){
 	// // for(let i=0;i<symbols.length;i++)symbols[i].trade=0;
 	// symbols[ei].trade=1;
