@@ -3386,7 +3386,74 @@ async function cancelAllOrders(symbol = null) {
     const res = await signandsend(body);
     // console.log('Cancel result:', res);
 }
+async function open_order_v4(symbol, side, entry, slPerc, tpPerc, riskUSDT) {
+	// await sleep(2000);
+	// console.log("symb",symbol);return;
+  // 1️⃣ Get market precisions
+  const marketInfo = markets.find(m => m.name === symbol);
+  if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
+  console.log(marketInfo);
+  const stockPrec = parseInt(marketInfo.stockPrec);
+  const moneyPrec = parseInt(marketInfo.moneyPrec);
 
+  // 2️⃣ Calculate SL and TP prices from percentages
+  let sl, tp;
+  if (side.toLowerCase() === 'buy') {
+	sl = entry * (1 - slPerc / 100);
+	tp = tpPerc ? entry * (1 + tpPerc / 100) : undefined;
+  } else {
+	sl = entry * (1 + slPerc / 100);
+	tp = tpPerc ? entry * (1 - tpPerc / 100) : undefined;
+  }
+
+  // 3️⃣ Calculate qty based on max risk
+  const priceDiff = Math.abs(entry - sl);
+  if (priceDiff <= 0) throw new Error('Stop loss inválido para o lado da ordem');
+
+  let qty = (riskUSDT / priceDiff).toFixed(stockPrec);
+  const price = parseFloat(entry).toFixed(moneyPrec);
+
+  // 4️⃣ Leverage calculations
+  const leverageRisk = (entry / priceDiff).toFixed(2);
+  const positionValue = entry * qty;
+  const marginUsed = riskUSDT;
+  const leverageExchange = (positionValue / marginUsed).toFixed(2);
+
+  console.log("Leverage risco (stop):", leverageRisk);
+  console.log("Leverage corretora:", leverageExchange);
+
+  console.log(`📊 Qty: ${qty} | Entry: ${price} | SL: ${sl.toFixed(moneyPrec)} | TP: ${tp ? tp.toFixed(moneyPrec) : '—'} | Lev: ${leverageExchange}x`);
+
+  //debug
+//   qty=0.01;
+  
+//   if(side=="buy"){
+// 	qty=Math.abs(oqty-qty).toFixed(stockPrec);
+// 	console.log("qty",qty);
+//   }
+//   if(side=="sell"){
+// 	qty=Math.abs(-qty-oqty).toFixed(stockPrec);
+// 	console.log("qty",qty);
+//   }
+
+
+  // 5️⃣ Build order body
+  const bodyObj = {
+	request: '/api/v4/order/collateral/limit',
+	nonce: Date.now(),
+	market: symbol,
+	side: side.toLowerCase(),
+	amount: qty,
+	price: price,
+	stopLoss: parseFloat(sl).toFixed(moneyPrec),
+	takeProfit: tp ? parseFloat(tp).toFixed(moneyPrec) : undefined
+  };
+
+  console.log(bodyObj);
+
+  await signandsend(bodyObj);
+
+}
 async function trade(){
 
 	await getmarkets();
@@ -3402,8 +3469,26 @@ async function trade(){
 	// console.log("gp",gp);
 	console.log("oqty",oqty);
 
+	// // 1️⃣ Get market precisions
+	// const marketInfo = markets.find(m => m.name === symbol);
+	// if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
+	// console.log(marketInfo);
+	// const stockPrec = parseInt(marketInfo.stockPrec);
+	// const moneyPrec = parseInt(marketInfo.moneyPrec);
+
+	// // 2️⃣ Calculate SL and TP prices from percentages
+	// let sl, tp;
+	// if (side.toLowerCase() === 'buy') {
+	// 	sl = entry * (1 - slPerc / 100);
+	// 	tp = tpPerc ? entry * (1 + tpPerc / 100) : undefined;
+	// } else {
+	// 	sl = entry * (1 + slPerc / 100);
+	// 	tp = tpPerc ? entry * (1 - tpPerc / 100) : undefined;
+	// }
+
+
 	if(oqty==0 && symbol.entry != undefined) {
-		// await open_order_v1(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
+		await open_order_v1(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
 		console.log(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
 		return;
 	}
@@ -3412,11 +3497,11 @@ async function trade(){
 	}
 
 
-	const marketInfo = markets.find(m => m.name === symbol);
-	if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
-	console.log("marketInfo",marketInfo);
-	const stockPrec = parseInt(marketInfo.stockPrec);
-	const moneyPrec = parseInt(marketInfo.moneyPrec);
+	// const marketInfo = markets.find(m => m.name === symbol);
+	// if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
+	// console.log("marketInfo",marketInfo);
+	// const stockPrec = parseInt(marketInfo.stockPrec);
+	// const moneyPrec = parseInt(marketInfo.moneyPrec);
 	
 
 
