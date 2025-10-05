@@ -1,4 +1,5 @@
 
+let trade_enabled=0;
 
 let symbols = [
 	{ name: "Bitcoin", pair: "BTCUSDT", nc: "BTC_PERP", trade:0 },
@@ -3063,7 +3064,7 @@ async function get_equity() {
 
  
 async function signandsend(bodyObj,endpoint='/api/v4/order/collateral/limit') {  
-//   return;
+  if(!trade_enabled) return;
   // 6️⃣ Sign & send (unchanged)
   const bodyStr = JSON.stringify(bodyObj);
   const payload = Buffer.from(bodyStr).toString('base64');
@@ -3276,7 +3277,8 @@ async function open_order(symbol, side, entry, slPerc, tpPerc, riskUSDT, oqty) {
 
   // --- Always upsert TP/SL to final target (create if missing, update if exists) ---
   if (absT > 0) {
-	await upsertTPSL(symbol, side, absT, sl, tp, moneyPrec);
+	await upsertTPSL_v1(symbol, isBuy, absT, sl, tp, moneyPrec, stockPrec);
+	// await upsertTPSL(symbol, side, absT, sl, tp, moneyPrec);
   } else {
 	console.log('ℹ️ Final target is flat; no TP/SL set.');
   }
@@ -3292,7 +3294,7 @@ async function sendOrder(symbol, side, qty, price) {
 	market: symbol,
 	side: side.toLowerCase(),
 	amount: qty,
-	price
+	price: price
   };
   console.log(`➡️ Order | ${symbol} | ${side} ${qty} @ ${price}`);
   await signandsend(body);
@@ -3457,38 +3459,77 @@ async function open_order_v4(symbol, side, entry, slPerc, tpPerc, riskUSDT) {
 async function trade(){
 
 	await getmarkets();
-	const equity= await get_equity();
+	let equity= await get_equity();
 	console.log("equity", equity);
-
+	// equity=1;
 	await cancelAllOrders();
 
 	let symbol=symbols[1];
+	oqty=0;
+	await getPositions(symbol.nc); 
+	console.log("oqty",oqty);
+	await open_order(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac, oqty);
+	return;
+
+
+	if(symbol.entry == undefined){
+		//do close order
+		return;
+	}
+
+
+	// 1️⃣ Get market precisions
+	const marketInfo = markets.find(m => m.name === symbol.nc);
+	if (!marketInfo) throw new Error(`Mercado ${symbol.nc} não encontrado`);
+	console.log(marketInfo);
+	const stockPrec = parseInt(marketInfo.stockPrec);
+	const moneyPrec = parseInt(marketInfo.moneyPrec);
+
+	// 2️⃣ Calculate SL and TP prices from percentages
+	let sl, tp;
+	if (symbol.side.toLowerCase() === 'buy') {
+		sl = symbol.entry * (1 - symbol.sli / 100);
+		tp = symbol.tpi ? symbol.entry * (1 + symbol.tpi / 100) : undefined;
+	} else {
+		sl = symbol.entry * (1 + symbol.sli / 100);
+		tp = symbol.tpi ? symbol.entry * (1 - symbol.tpi / 100) : undefined;
+	}
+
+	// 3️⃣ Calculate qty based on max risk
+	const priceDiff = Math.abs(symbol.entry - sl);
+	if (priceDiff <= 0) throw new Error('Stop loss inválido para o lado da ordem');
+
+
+
+
+	const riskUSDT=equity*riskFrac
+
+	let qty = (riskUSDT / priceDiff).toFixed(stockPrec);
+	const price = parseFloat(entry).toFixed(moneyPrec);
+
 
 	oqty=0;
 	const gp=await getPositions(symbol.nc);
 	// console.log("gp",gp);
-	console.log("oqty",oqty);
+	console.log("oqty",oqty,"qty",qty);
 
-	// // 1️⃣ Get market precisions
-	// const marketInfo = markets.find(m => m.name === symbol);
-	// if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
-	// console.log(marketInfo);
-	// const stockPrec = parseInt(marketInfo.stockPrec);
-	// const moneyPrec = parseInt(marketInfo.moneyPrec);
+	if(oqty==0) {
+		// 5️⃣ Build order body
+		const bodyObj = {
+			request: '/api/v4/order/collateral/limit',
+			nonce: Date.now(),
+			market: symbol.nc,
+			side: side.toLowerCase(),
+			amount: qty,
+			price: price,
+			stopLoss: parseFloat(sl).toFixed(moneyPrec),
+			takeProfit: tp ? parseFloat(tp).toFixed(moneyPrec) : undefined
+		};
 
-	// // 2️⃣ Calculate SL and TP prices from percentages
-	// let sl, tp;
-	// if (side.toLowerCase() === 'buy') {
-	// 	sl = entry * (1 - slPerc / 100);
-	// 	tp = tpPerc ? entry * (1 + tpPerc / 100) : undefined;
-	// } else {
-	// 	sl = entry * (1 + slPerc / 100);
-	// 	tp = tpPerc ? entry * (1 - tpPerc / 100) : undefined;
-	// }
+		console.log(bodyObj);
 
-
-	if(oqty==0 && symbol.entry != undefined) {
-		await open_order_v1(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
+		await signandsend(bodyObj);
+		// await open_order_v1(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
 		console.log(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
 		return;
 	}
@@ -3551,5 +3592,6 @@ async function trade(){
 	// }
 
 	await test3_v8goodess12();
+	trade_enabled=1;
 	await trade();
 })();
