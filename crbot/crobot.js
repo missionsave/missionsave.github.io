@@ -3052,7 +3052,7 @@ async function get_equity() {
 // get_equity().then(total => console.log(total));
 
  
-async function signandsend(bodyObj) {  
+async function signandsend(bodyObj,endpoint='/api/v4/order/collateral/limit') {  
 //   return;
   // 6️⃣ Sign & send (unchanged)
   const bodyStr = JSON.stringify(bodyObj);
@@ -3061,7 +3061,8 @@ async function signandsend(bodyObj) {
 						  .update(payload)
 						  .digest('hex');
 
-  const res = await fetch('https://whitebit.com/api/v4/order/collateral/limit', {
+  const res = await fetch('https://whitebit.com'+bodyObj.request, {
+//   const res = await fetch('https://whitebit.com/api/v4/order/collateral/limit', {
 	method: 'POST',
 	headers: {
 	  'Content-Type': 'application/json',
@@ -3301,12 +3302,79 @@ async function upsertTPSL(symbol, side, qty, sl, tp, moneyPrec) {
   await signandsend(body);
 }
 
+async function upsertTPSL_v1(symbol, isBuy, targetQty, sl, tp, moneyPrec, stockPrec) {
+    const closeSide = isBuy ? 'sell' : 'buy';
+
+    // --- STOP LOSS ---
+    if (sl) {
+        const slBody = {
+            request: '/api/v4/order/collateral/trigger-market',
+            nonce: Date.now() + 1,
+            market: symbol,
+            side: closeSide,
+            amount: parseFloat(targetQty).toFixed(stockPrec),
+            activation_price: sl.toFixed(moneyPrec),
+            trigger_type: 'stop_loss',           // ✅ correct
+            trigger_price_type: 'last',          // ✅ 'mark' or 'last' (try 'last' first)
+            reduce_only: true                    // ✅ optional but safe
+        };
+        console.log(`➡️ SL Order | ${symbol} | ${closeSide} ${targetQty} @ SL=${slBody.activation_price}`);
+        await signandsend(slBody);
+    }
+
+    // --- TAKE PROFIT ---
+    if (tp) {
+        const tpBody = {
+            request: '/api/v4/order/collateral/trigger-market',
+            nonce: Date.now() + 2,
+            market: symbol,
+            side: closeSide,
+            amount: parseFloat(targetQty).toFixed(stockPrec),
+            activation_price: tp.toFixed(moneyPrec),
+            trigger_type: 'take_profit',         // ✅ correct
+            trigger_price_type: 'last',          // ✅ required
+            reduce_only: true
+        };
+        console.log(`➡️ TP Order | ${symbol} | ${closeSide} ${targetQty} @ TP=${tpBody.activation_price}`);
+        await signandsend(tpBody);
+    }
+}
+
+
+
+// ----------------------------------------------------------------------
+// HOW TO CALL THIS FUNCTION IN YOUR main logic:
+// ----------------------------------------------------------------------
+/*
+if (absT > 0) {
+    // You only need to pass the symbol, sl, tp, and precision
+    await upsertTPSL(symbol, sl, tp, moneyPrec);
+} else {
+    console.log('ℹ️ Final target is flat; no TP/SL set.');
+}
+*/
+
 async function logAction(type, reason, meta) {
   const base = `📝 ${type.toUpperCase()} | ${reason}`;
   const details = Object.entries(meta || {})
 	.map(([k, v]) => `${k}=${v}`)
 	.join(' | ');
   console.log(details ? `${base} | ${details}` : base);
+}
+
+async function cancelAllOrders(symbol = null) {
+    const body = {
+        request: '/api/v4/order/cancel/all',
+        nonce: Date.now(),
+    };
+    if (symbol) body.market = symbol;
+
+    console.log(symbol ? 
+        `🧹 Canceling all open orders on ${symbol}` :
+        `🧹 Canceling ALL open orders across all markets`);
+    
+    const res = await signandsend(body);
+    // console.log('Cancel result:', res);
 }
 
 async function trade(){
@@ -3319,6 +3387,18 @@ async function trade(){
 	const gp=await getPositions(symbols[1].nc);
 	console.log("gp",gp);
 	console.log("oqty",oqty);
+
+	let symbol=symbols[1].nc;
+
+	const marketInfo = markets.find(m => m.name === symbol);
+	if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
+	console.log(marketInfo);
+	const stockPrec = parseInt(marketInfo.stockPrec);
+	const moneyPrec = parseInt(marketInfo.moneyPrec);
+	
+	// await upsertTPSL(symbol,'buy',oqty,4513.41,4702.23,moneyPrec,stockPrec);
+	// await upsertTPSL_v1(symbol,1,oqty,4523.41,4692.23,moneyPrec,stockPrec);
+	// return;
 
 	// oqty=-0.02;
 	// // oqty=0;
@@ -3337,7 +3417,10 @@ async function trade(){
 // await open_order_v1(symbols[1].nc,side,entry,sli,tpi,equity*riskFrac);
 
 	if (entry != 0) {
-		await open_order(symbols[1].nc, side, entry, sli, tpi, equity * riskFrac, oqty);
+		await cancelAllOrders();
+
+		await open_order_v1(symbols[1].nc, side, entry, sli, tpi, equity * riskFrac);
+		// await open_order(symbols[1].nc, side, entry, sli, tpi, equity * riskFrac, oqty);
 	}
 	console.log(symbols[1].nc,side,entry,sli,tpi,equity*riskFrac);
 }
@@ -3355,7 +3438,6 @@ async function trade(){
 	// console.log(symbols[ei].name,equitytt); 
 	// break;
 	// }
-
 
 	await test3_v8goodess12();
 	await trade();
