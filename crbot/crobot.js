@@ -1326,24 +1326,27 @@ async function test3_v8goodess12() {
 	// for(lb=1;lb<histminus;lb++){
 	for (lb = histminus; lb >= 0; lb--) {
 
-	let flagbreak=0;
-		pnlr=0;
+		let flagbreak = 0;
+		pnlr = 0;
 
-		for (let coin of symbols) {
-			if(coin.trade==0)continue;
+		for (let syi = 0; syi < symbols.length; syi++) {
+			let coin = symbols[syi];
+			symbols[syi].test=8;
+			// for (let coin of symbols) {
+			if (coin.trade == 0) continue;
 			const res = await matchLast(coin);
 			if (!res) continue;
 
 			let cw = -1;
 
-if (res.count==1){
-	flagbreak=1; continue;
-	// if(Math.abs(Math.abs(res.output.high)-Math.abs(res.output.low))<0.029)continue;
-}
-if (Math.abs(res.output.close)<0.01){
-	flagbreak=1; continue;
-	// if(Math.abs(Math.abs(res.output.high)-Math.abs(res.output.low))<0.029)continue;
-}
+			if (res.count == 1) {
+				flagbreak = 1; continue;
+				// if(Math.abs(Math.abs(res.output.high)-Math.abs(res.output.low))<0.029)continue;
+			}
+			if (Math.abs(res.output.close) < 0.01) {
+				flagbreak = 1; continue;
+				// if(Math.abs(Math.abs(res.output.high)-Math.abs(res.output.low))<0.029)continue;
+			}
 
 
 			if (res.output.close >= atleast) {
@@ -1374,22 +1377,24 @@ if (Math.abs(res.output.close)<0.01){
 			let pnl = 0;
 
 			if (lb >= 0) {
-				dt=`${new Date(res.ndate).toISOString().split('T')[0]} ${String(new Date(res.ndate).getUTCHours()).padStart(2, '0')}`;
+				dt = `${new Date(res.ndate).toISOString().split('T')[0]} ${String(new Date(res.ndate).getUTCHours()).padStart(2, '0')}`;
 
-				if (coin.trade == 1) 
-					{
-				pnlr = simulate_order(100, res.nopen, res.nhigh, res.nlow, res.nclose, cw);
-				pnl = simulate_order(equity, res.nopen, res.nhigh, res.nlow, res.nclose, cw);
+				if (coin.trade == 1) {
+					pnlr = simulate_order(100, res.nopen, res.nhigh, res.nlow, res.nclose, cw);
+					pnl = simulate_order(equity, res.nopen, res.nhigh, res.nlow, res.nclose, cw);
 					pnltt += pnlr;
 					equity += pnl;
 
-					if(dt=="2025-09-18 06") console.log("Match result:", res);
-					if(lb==0 && cw>=0){
-						side=cw==1?"buy":"sell";
-						entry=res.nopen;
+					// if (dt == "2025-09-18 06") console.log("Match result:", res);
+					if (lb == 0 && cw >= 0) {
+						coin.cw=cw;
+						coin.side = cw == 1 ? "buy" : "sell";
+						coin.entry = res.nopen;
 						// entry=res.nclose;
-						 console.log("Match result:", res);
-						 console.log("cw:", cw,side);
+						coin.sli = sli;
+						coin.tpi = tpi;
+						console.log("Match result:", res);
+						console.log("cw:", cw, side);
 
 					}
 				}
@@ -1398,8 +1403,8 @@ if (Math.abs(res.output.close)<0.01){
 			// console.log("pnlr:",pnl);
 
 		}
-		if(flagbreak==1) continue;
-		console.log(dt,"pnltt:", Math_Round(pnltt,0),"pnlr:", Math_Round(pnlr,0), "equity:", Math_Round(equity,0));
+		if (flagbreak == 1) continue;
+		console.log(dt, "pnltt:", Math_Round(pnltt, 0), "pnlr:", Math_Round(pnlr, 0), "equity:", Math_Round(equity, 0));
 	}
 }
 
@@ -3023,6 +3028,11 @@ async function getmarkets() {
 	}
 }
 
+async function getaskbid() {
+	const res = await fetch('https://whitebit.com/api/v4/public/orderbook/ETH_PERP?limit=1&level=0');
+	return await res.json();
+}
+
 async function get_equity() {
   const bodyObj = {
 	request: '/api/v4/collateral-account/summary',
@@ -3383,22 +3393,38 @@ async function trade(){
 	const equity= await get_equity();
 	console.log("equity", equity);
 
+	await cancelAllOrders();
+
+	let symbol=symbols[1];
+
 	oqty=0;
-	const gp=await getPositions(symbols[1].nc);
-	console.log("gp",gp);
+	const gp=await getPositions(symbol.nc);
+	// console.log("gp",gp);
 	console.log("oqty",oqty);
 
-	let symbol=symbols[1].nc;
+	if(oqty==0 && symbol.entry != undefined) {
+		// await open_order_v1(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
+		console.log(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac);
+		return;
+	}
+	if(oqty!=0){
+
+	}
+
 
 	const marketInfo = markets.find(m => m.name === symbol);
 	if (!marketInfo) throw new Error(`Mercado ${symbol} não encontrado`);
-	console.log(marketInfo);
+	console.log("marketInfo",marketInfo);
 	const stockPrec = parseInt(marketInfo.stockPrec);
 	const moneyPrec = parseInt(marketInfo.moneyPrec);
 	
+
+
+
+
 	// await upsertTPSL(symbol,'buy',oqty,4513.41,4702.23,moneyPrec,stockPrec);
 	// await upsertTPSL_v1(symbol,1,oqty,4523.41,4692.23,moneyPrec,stockPrec);
-	// return;
+	return;
 
 	// oqty=-0.02;
 	// // oqty=0;
@@ -3416,8 +3442,8 @@ async function trade(){
 	// await open_order_v1(symbols[1].nc,"buy",4384,sli,tpi,equity*riskFrac);
 // await open_order_v1(symbols[1].nc,side,entry,sli,tpi,equity*riskFrac);
 
+	await cancelAllOrders();
 	if (entry != 0) {
-		await cancelAllOrders();
 
 		await open_order_v1(symbols[1].nc, side, entry, sli, tpi, equity * riskFrac);
 		// await open_order(symbols[1].nc, side, entry, sli, tpi, equity * riskFrac, oqty);
