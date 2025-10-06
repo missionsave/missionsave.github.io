@@ -12,14 +12,14 @@ Extrude -6
 Pl 0,0 50,0 @0,50 @-50,0 0,0
 Offset 6
 
---Rotatexl(-90)
---Rotatexl(45)
+--Rotatelx(-90)
+--Rotatelx(45)
 --Movel(220,170-50,0)
 
 Extrude -89
 
-Rotatexl(-90)
-Rotatexl(45)
+Rotatelx(-90)
+Rotatelx(45)
 Movel(220,170-50,0)
 --FilletToAllEdges(2)
 
@@ -35,19 +35,19 @@ Part robot_bucket
 Clone sketch_bucket
 Offset 5.2
 Extrude 170-50
-Rotatexl(90)
+Rotatelx(90)
 Movel(0,170-50,1)
 Clone sketch_bucket
 Extrude -6
 
-Rotatexl(90)
+Rotatelx(90)
 Movel(0,0,1)
 
 Part robot_arm
 Pl 0,0 70,0 @0,70 @-70,0
 Offset 6
 Extrude 70
-Rotatexl(90)
+Rotatelx(90)
 Movel(-70,170,-70-15)
 --FilletToAllEdges(2)
 
@@ -60,7 +60,7 @@ Pl 0,0 70,66 @70,-66 @70,66 @70,-66
 Offset 7
 Extrude (56) 
 --FilletToAllEdges(2)
-Rotatexl(90)
+Rotatelx(90)
 Movel(-285,170-7,-100)
 --Movel(-285,170-7,-100)
 
@@ -69,13 +69,13 @@ Movel(-285,170-7,-100)
 Clone skech_arm_1
 Extrude 56
 --FilletToAllEdges(2)
-Rotatexl(90)
+Rotatelx(90)
 Movel(-285,170-7,-100)
 Clone skech_arm_1
 Extrude 56
 --FilletToAllEdges(2)
 Movel(0,70)
-Rotatexl(90)
+Rotatelx(90)
 Movel(-285,170-7,-100)
 
 
@@ -98,26 +98,46 @@ Pl 0,0 162,0 @0,118 @-162,0 0,0
 Extrude(crn_long)
 Movel(0,0,-crn_long)
 
-
 Part corner_clones
-Clone corner
---Extrude(crn_long) 
---Movel(0,0,-crn_long)
---Clone corner
---Extrude(crn_long) 
+Clone corner 
 Movel(container_width-crn_width,0,-crn_long)
-Clone corner
---Extrude(crn_long) 
-Movel(container_width-crn_width,0,-container_long)
-Clone corner
---Extrude(crn_long) 
+Clone corner 
 Movel(0,0,-container_long)
+Clone corner
+Movel(container_width-crn_width,0,-container_long)
+
+Part corner_clones_up
+Clone(corner_clones,1)
+Movel(0,container_height-crn_height,0)
+Clone(corner,1)
+Movel(0,container_height-crn_height,0)
+
+
+
+
 
 Part sketch_profile
 Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
 Offset -2
-Extrude 6000
 
+Part frame
+Clone sketch_profile
+Extrude(-(container_long-crn_long*2))
+Movel(0,0,-crn_long)
+
+Part frame_top
+Clone(frame,1) 
+Movel(0,container_height-crn_height)
+
+Part frame_right
+Clone frame
+Rotately(180)
+Movel(container_width,0,-(container_long-crn_long*1))
+
+Part frame_right_top
+Clone (frame_right,1)
+--copy_placement(frame_right)
+Movel(0,container_height-crn_height)
 
 end
 struct()

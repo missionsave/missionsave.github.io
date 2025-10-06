@@ -642,6 +642,7 @@ struct OCC_Viewer : public flwindow {
 			needsplacementupdate = 0; 
 		}
 	void redisplay() {
+		// needsplacementupdate=1;
 			update_placement();
 
 				// cotm("notvisible",name,visible_hardcoded)
@@ -824,6 +825,9 @@ void clone(luadraw* toclone, bool copy_placement = false) {
     this->vpoints = toclone->vpoints;
 
     if (!toclone->shape.IsNull()) {
+		toclone->needsplacementupdate=1; //verify better why this is needed
+		toclone->redisplay(); //verify better why this is needed
+
         this->shape = toclone->shape;
 
         if (!copy_placement) { 
@@ -4612,9 +4616,9 @@ lua.set_function("Extrude", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->extrude(val);
 });
-lua.set_function("Clone", [&](OCC_Viewer::luadraw* val) {
+lua.set_function("Clone", [&](OCC_Viewer::luadraw* val,int copy_placement=0) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
-    current_part->clone(val);
+    current_part->clone(val,copy_placement);
 });
 lua.set_function("Visible", [&](int val=1) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
@@ -5022,7 +5026,7 @@ lua.set_function("Rotatexl_almost", [&](float angleDegrees = 0.0f) {
     // current_part->needsplacementupdate = 0;
 });
 
-lua.set_function("Rotatexl", [&](float angleDegrees = 0.0f) {
+lua.set_function("Rotatel", [&](float angleDegrees = 0.0f,int x=0,int y=0,int z=0) {
     TopoDS_Compound& compound = current_part->cshape;
     TopoDS_Shape& shapeToRotate = current_part->shape;
     
@@ -5031,7 +5035,7 @@ lua.set_function("Rotatexl", [&](float angleDegrees = 0.0f) {
     builder.MakeCompound(newCompound);
 
     // Define the rotation
-    gp_Ax1 xAxis(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0));
+    gp_Ax1 xAxis(gp_Pnt(0, 0, 0), gp_Dir(x, y, z));
     gp_Trsf rotation;
     rotation.SetRotation(xAxis, angleDegrees * (M_PI / 180.0));
 
@@ -5066,6 +5070,22 @@ lua.set_function("Rotatexl", [&](float angleDegrees = 0.0f) {
     current_part->cshape = newCompound;
     current_part->shape = shapeToRotate;
     // current_part->needsplacementupdate = 0;
+});
+lua.set_function("Rotatelx", [&](float angleDegrees = 0.0f) {
+  // 1. Get the function from the global Lua table (using the sol::state object 'lua')
+  sol::protected_function Rotatel = lua["Rotatel"];
+
+  // 2. Call the function with the desired arguments
+  // sol::protected_function::operator() returns a sol::protected_function_result
+  Rotatel(angleDegrees, 1);
+});
+lua.set_function("Rotately", [&](float angleDegrees = 0.0f) { 
+  sol::protected_function Rotatel = lua["Rotatel"]; 
+  Rotatel(angleDegrees, 0,1);
+});
+lua.set_function("Rotatelz", [&](float angleDegrees = 0.0f) { 
+  sol::protected_function Rotatel = lua["Rotatel"]; 
+  Rotatel(angleDegrees, 0,0,1);
 });
 // Lua binding
 lua.set_function("Connect_v1", [&](const std::string& s) {
@@ -6014,7 +6034,7 @@ int main(int argc, char** argv) {
 	woccbtn->flush(); 
 	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
-	// win->maximize();
+	win->maximize();
 	// int x, y, _w, _h;
 	// Fl::screen_work_area(x, y, _w, _h);
 	// win->resize(x, y+22, _w, _h-22);   

@@ -3184,7 +3184,7 @@ async function getPositions(market = null) {
 
   const json = await res.json();
   for(let i=0;i<json.length;i++){
-  oqty+=json[i].amount;
+  oqty+=Number(json[i].amount);
   }
   return json;
 }
@@ -3204,6 +3204,7 @@ async function getPositions(market = null) {
 async function open_order(symbol, side, entry, slPerc, tpPerc, riskUSDT, oqty) {
   const m = markets.find(m => m.name === symbol);
   if (!m) throw new Error(`Mercado ${symbol} não encontrado`);
+    // console.log(m);
   const stockPrec = +m.stockPrec, moneyPrec = +m.moneyPrec;
 
   // --- Price targets from percentages ---
@@ -3229,7 +3230,8 @@ async function open_order(symbol, side, entry, slPerc, tpPerc, riskUSDT, oqty) {
   if (oqty === 0) {
 	// Flat → open new
 	await logAction('open', `flat → ${targetDir}`, { from: 0, to: absT, side });
-	await sendOrder(symbol, side, absT, price);
+	await sendOrder(symbol, side, absT, price,sl,tp);
+	return;
 
   } else if ((oqty > 0 && isBuy) || (oqty < 0 && !isBuy)) {
 	// Same direction (already aligned with targetDir)
@@ -3286,9 +3288,9 @@ async function open_order(symbol, side, entry, slPerc, tpPerc, riskUSDT, oqty) {
 
 // --- Helpers ---
 
-async function sendOrder(symbol, side, qty, price) {
+async function sendOrder(symbol, side, qty, price,sl,tp) {
   if (qty <= 0) return;
-  const body = {
+  let body = {
 	request: '/api/v4/order/collateral/limit',
 	nonce: Date.now(),
 	market: symbol,
@@ -3296,6 +3298,8 @@ async function sendOrder(symbol, side, qty, price) {
 	amount: qty,
 	price: price
   };
+  if(sl)body.stopLoss=sl;
+  if(tp)body.takeProfit=tp;
   console.log(`➡️ Order | ${symbol} | ${side} ${qty} @ ${price}`);
   await signandsend(body);
 }
@@ -3466,8 +3470,10 @@ async function trade(){
 
 	let symbol=symbols[1];
 	oqty=0;
-	await getPositions(symbol.nc); 
+	const gpos=await getPositions(symbol.nc); 
+	// console.log("gpos",gpos);
 	console.log("oqty",oqty);
+	// riskFrac=0.2;
 	await open_order(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac, oqty);
 	return;
 
