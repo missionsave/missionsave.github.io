@@ -3258,8 +3258,8 @@ async function open_order(symbol, side, entry, slPerc, tpPerc, riskUSDT, oqty) {
 	  const closeSide = oqty > 0 ? 'sell' : 'buy';
 
 	  await logAction('reverse', `${currentDir} → ${targetDir}`, { close: closeQty, open: openQty, closeSide, openSide: side });
-	  if (closeQty > 0) await sendOrder(symbol, closeSide, closeQty, price);
-	  if (openQty > 0)  await sendOrder(symbol, side, openQty, price);
+	  if (closeQty > 0) await sendOrder(symbol, closeSide, closeQty, price,sl,tp);
+	  if (openQty > 0)  await sendOrder(symbol, side, openQty, price,sl,tp);
 
 	} else if (absT < absO) {
 	  // Partial close only
