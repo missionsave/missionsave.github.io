@@ -115,8 +115,8 @@ Movel(0,0,-container_long)
 
 Part sketch_profile
 Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
-Offset -3
-Extrude 12000
+Offset -2
+Extrude 6000
 
 
 end
