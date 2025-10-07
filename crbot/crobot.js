@@ -3474,15 +3474,22 @@ async function trade(){
 	// console.log("gpos",gpos);
 	console.log("oqty",oqty);
 	// riskFrac=0.2;
-	await open_order(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac, oqty);
-	return;
+	// await open_order(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac, oqty);
+	// return;
 
+	const ab=getaskbid();//symbol.nc
+	const ask=ab.asks[0];
+	const bid=ab.bids[0];
+	console.log(symbol.nc,"ask",ask,"bid",bid);
 
 	if(symbol.entry == undefined){
 		//do close order
+		if(oqty>0){
+
+		}
 		return;
 	}
-
+	return;
 
 	// 1️⃣ Get market precisions
 	const marketInfo = markets.find(m => m.name === symbol.nc);
@@ -3598,6 +3605,6 @@ async function trade(){
 	// }
 
 	await test3_v8goodess12();
-	trade_enabled=1;
+	// trade_enabled=1;
 	await trade();
 })();
