@@ -114,6 +114,13 @@ Movel(0,container_height-crn_height,0)
 
 
 
+Part sketch_upn40x20
+Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
+
+
+Part upn
+Clone sketch_upn40x20
+Extrude 100
 
 
 Part sketch_profile
@@ -136,9 +143,74 @@ Movel(container_width,0,-(container_long-crn_long*1))
 
 Part frame_right_top
 Clone (frame_right,1)
---copy_placement(frame_right)
 Movel(0,container_height-crn_height)
 
+
+Part framev
+Clone sketch_profile
+Extrude((container_height-crn_height*2))
+Rotatelx(-90)
+Movel(0,crn_height)
+
+Part framev_back
+Clone(framev,1)
+Movel(0,0,-container_long+120)
+
+Part framev_right
+Clone(framev,1)
+Rotately(180)
+Movel(container_width,0,-120)
+
+Part framev_right_back
+Clone(framev_right,1)
+Movel(0,0,-container_long+120)
+
+
+Part framet
+Clone sketch_profile
+Extrude((container_width-crn_width*2))
+Rotately(90)
+Movel(crn_width)
+
+Part framet_top
+Clone(framet,1)
+Movel(0,container_height-120)
+
+Part framet_back
+Clone(framet,1)
+Rotately(-180)
+Movel(container_width,0,-container_long)
+
+Part framet_back_top
+Clone(framet_back,1)
+Movel(0,container_height-120)
+
+Part longitudinal
+Clone sketch_profile
+Extrude(-container_long+120*2)
+Movel(0,120,-120)
+
+Part longitudinal_clones
+Clone(longitudinal,1)
+Movel(0,120)
+Clone(longitudinal,1)
+Movel(0,container_height-120*3)
+
+
+Part trans_back
+Clone sketch_profile
+Extrude(container_width-50*2)
+Rotately(-90)
+Movel(container_width-50,600,-container_long)
+
+
+--...
+
+Part rail
+Clone sketch_profile
+Extrude(container_long-1000)
+Rotatelz(-90)
+Movel(container_width/2 , 600,-container_long)
 end
 struct()
 

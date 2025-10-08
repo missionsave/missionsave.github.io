@@ -3466,7 +3466,7 @@ async function trade(){
 	let equity= await get_equity();
 	console.log("equity", equity);
 	// equity=1;
-	await cancelAllOrders();
+	// await cancelAllOrders();
 
 	let symbol=symbols[1];
 	oqty=0;
@@ -3477,19 +3477,22 @@ async function trade(){
 	// await open_order(symbol.nc, symbol.side, symbol.entry, symbol.sli, symbol.tpi, equity * riskFrac, oqty);
 	// return;
 
-	const ab=getaskbid();//symbol.nc
-	const ask=ab.asks[0];
-	const bid=ab.bids[0];
-	console.log(symbol.nc,"ask",ask,"bid",bid);
+	const ab=await getaskbid();//symbol.nc
+	const ask=ab.asks[0][0];
+	const bid=ab.bids[0][0];
 
 	if(symbol.entry == undefined){
 		//do close order
 		if(oqty>0){
-
+			sendOrder(symbol.nc,"sell",oqty,bid);
 		}
+		if(oqty<0){
+			sendOrder(symbol.nc,"buy",Math.abs(oqty),ask);
+		}
+		console.log(symbol.nc,"ask",ask,"bid",bid);
 		return;
+		
 	}
-	return;
 
 	// 1️⃣ Get market precisions
 	const marketInfo = markets.find(m => m.name === symbol.nc);
@@ -3512,19 +3515,16 @@ async function trade(){
 	const priceDiff = Math.abs(symbol.entry - sl);
 	if (priceDiff <= 0) throw new Error('Stop loss inválido para o lado da ordem');
 
-
-
-
 	const riskUSDT=equity*riskFrac
 
 	let qty = (riskUSDT / priceDiff).toFixed(stockPrec);
-	const price = parseFloat(entry).toFixed(moneyPrec);
+	const price = parseFloat(symbol.entry).toFixed(moneyPrec);
 
 
-	oqty=0;
-	const gp=await getPositions(symbol.nc);
-	// console.log("gp",gp);
-	console.log("oqty",oqty,"qty",qty);
+	// oqty=0;
+	// const gp=await getPositions(symbol.nc);
+	// // console.log("gp",gp);
+	// console.log("oqty",oqty,"qty",qty);
 
 	if(oqty==0) {
 		// 5️⃣ Build order body
@@ -3532,7 +3532,7 @@ async function trade(){
 			request: '/api/v4/order/collateral/limit',
 			nonce: Date.now(),
 			market: symbol.nc,
-			side: side.toLowerCase(),
+			side: symbol.side.toLowerCase(),
 			amount: qty,
 			price: price,
 			stopLoss: parseFloat(sl).toFixed(moneyPrec),
@@ -3605,6 +3605,6 @@ async function trade(){
 	// }
 
 	await test3_v8goodess12();
-	// trade_enabled=1;
+	trade_enabled=1;
 	await trade();
 })();
