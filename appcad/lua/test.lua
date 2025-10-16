@@ -74,24 +74,27 @@ Movel(-285,170-7,-100)
 Clone skech_arm_1
 Extrude 56
 --FilletToAllEdges(2)
-Movel(0,70)
 Rotatelx(90)
+Movel(0,0,70)
 Movel(-285,170-7,-100)
 
 
 end
-robot1()
+--robot1()
 
 function struct()
 container_width=2438
 container_height=2591
+--container_height=2895 --hc
 container_long=6058
---container_long=12000
+--container_long=12192
 container_midle=container_width/2
 
 crn_width=162
 crn_height=118
 crn_long=178
+
+tunel_height=(container_height-120*3)/4
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
@@ -118,9 +121,6 @@ Part sketch_upn40x20
 Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
 
 
-Part upn
-Clone sketch_upn40x20
-Extrude 100
 
 
 Part sketch_profile
@@ -178,12 +178,28 @@ Movel(0,container_height-120)
 
 Part framet_back
 Clone(framet,1)
+Movel(container_width-crn_width*2,0,-container_long)
 Rotately(-180)
-Movel(container_width,0,-container_long)
 
 Part framet_back_top
 Clone(framet_back,1)
 Movel(0,container_height-120)
+
+
+Part upn_ref
+Clone sketch_upn40x20
+Extrude -200
+Copy_placement(framev_back)
+Movel(40-40+2,container_height-crn_height*2,-40)
+
+Part upn_ref_lat
+Clone(upn_ref,1)
+Rotately(-90)
+Movel(0,0,-120+40+2)
+
+Part upn_ref_right
+Clone(upn_ref,0)
+Copy_placement(framev_right_back)
 
 Part longitudinal
 Clone sketch_profile
@@ -192,25 +208,89 @@ Movel(0,120,-120)
 
 Part longitudinal_clones
 Clone(longitudinal,1)
-Movel(0,120)
+Movel(0,120*1) 
 Clone(longitudinal,1)
-Movel(0,container_height-120*3)
+Movel(0,tunel_height+120*1)
+Clone(longitudinal,1)
+Movel(0,tunel_height*2+120*1)
+Clone(longitudinal,1)
+Movel(0,tunel_height*3+120*1)
 
 
-Part trans_back
+Part transversal
 Clone sketch_profile
 Extrude(container_width-50*2)
-Rotately(-90)
-Movel(container_width-50,600,-container_long)
+Rotately(90)
+Movel(50,120,0)
 
+Part transversal_back
+Clone(transversal,1)
+Rotately(180)
+Movel(container_width-50*2,0,-container_long)
+
+
+Part trans_back_clones
+Clone(transversal_back,1)
+Movel(0,120*1)
+Clone(transversal_back,1)
+Movel(0,tunel_height+120*1)
+Clone(transversal_back,1)
+Movel(0,tunel_height*2+120*1)
+Clone(transversal_back,1)
+Movel(0,tunel_height*3+120*1)
+
+
+--Clone sketch_profile
+--Extrude(container_width-50*2)
+--Rotately(-90)
+--Movel(container_width-50,tunel_height+120*2,-container_long)
+
+
+Part pillar
+Clone sketch_profile
+Extrude(tunel_height-120)
+Copy_placement(framev)
+Rotately(90)
+Movel(50+120)
+
+Part pillar_right
+Clone(pillar,1)
+Movel(container_width-120-50*2)
+
+Part pillar_back
+Clone(pillar,1)
+Rotately(180)
+Movel(-120,0,-container_long)
 
 --...
+
 
 Part rail
 Clone sketch_profile
 Extrude(container_long-1000)
 Rotatelz(-90)
-Movel(container_width/2 , 600,-container_long)
+Movel(container_width/3 , tunel_height+120*2,-container_long)
+
+Part rail_right
+Clone(rail,1)
+Movel(container_width/3)
+
+Part rail_clones
+Clone(rail,1)
+Movel(0,tunel_height)
+Clone(rail_right,1)
+Movel(0,tunel_height)
+
+Part rail_clones_up
+Clone(rail_clones,1)
+Movel(0,tunel_height)
+Clone(rail_clones,1)
+Movel(0,tunel_height*2)
+
+
+
+
+
 end
 struct()
 

@@ -102,7 +102,9 @@
 
 !crbot
 !crbot/crobot.js
-!crbot/*6h_1000.json
+!crbot/crbot.cpp
+crbot/crbot
+crbot/*6h_1000.json
 
 !docs
 !docs/**/**

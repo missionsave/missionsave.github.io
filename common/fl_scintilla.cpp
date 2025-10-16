@@ -467,6 +467,16 @@ string fl_scintilla::getSelected(){
     //     // Fl_Window::resize(x, y, w, h);
     // }
 	int fl_scintilla::handle(int e)  { 
+		// if(e==FL_MOUSEWHEEL) {
+        //         int dy = Fl::event_dy();  // positive = scroll down
+		// 		cotm(dy)
+        //         // offset += dy * 10;        // adjust scroll speed
+        //         // redraw();
+        //         return 1; // event handled
+        //     }
+
+
+
 		if (e == FL_KEYDOWN && Fl::event_key() == FL_Shift_L) {
 			printf("Shift pressionado\n");
 

@@ -822,7 +822,8 @@ void bound_box(){
 
 void loadstl(Group* group){
 	
-    maquete = osgDB::readRefNodeFile("stl/maquete.stl");
+    maquete = osgDB::readRefNodeFile("stl/test.stl");
+    // maquete = osgDB::readRefNodeFile("stl/maquete.stl");
 	settranparency(maquete.get(),1);
 	group->addChild(maquete.get());
 	

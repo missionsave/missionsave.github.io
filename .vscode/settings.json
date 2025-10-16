@@ -152,7 +152,8 @@
 		"variant": "cpp",
 		"plane": "cpp",
 		"polytopeintersector": "cpp",
-		"serializer": "cpp"
+		"serializer": "cpp",
+		"readfile": "cpp"
 	},
     "explorer.excludeGitIgnore": true,
     // "files.exclude": {

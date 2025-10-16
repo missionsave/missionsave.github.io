@@ -408,7 +408,8 @@ int Fl_Scintilla::handle(int event)
 			return 1;
 		}
 
-		if ( !hasFocus ) return 0;
+		if ( !hasFocus ) return 1;
+		// if ( !hasFocus ) return 0;
 
 		// Don't handle datazoom.
 		// (A good idea for datazoom would be to "fold" or "unfold" details.

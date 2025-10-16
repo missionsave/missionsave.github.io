@@ -3605,6 +3605,6 @@ async function trade(){
 	// }
 
 	await test3_v8goodess12();
-	trade_enabled=1;
+	// trade_enabled=1;
 	await trade();
 })();

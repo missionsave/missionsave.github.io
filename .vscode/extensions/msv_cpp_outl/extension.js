@@ -10,6 +10,29 @@ class EnhancedOutlineProvider {
         this._currentItems = [];
         this._context = context;
         this._outputChannel = vscode.window.createOutputChannel('Enhanced Outline Debug');
+
+        // 🧠 Store folding state
+        this._foldState = this._context.globalState.get('enhancedOutline.foldState', {});
+    }
+
+    _saveFoldState() {
+        this._context.globalState.update('enhancedOutline.foldState', this._foldState);
+    }
+
+    _getFileKey(document) {
+        return document?.uri?.toString() || 'unknown';
+    }
+
+    _getCollapseState(document, id) {
+        const fileKey = this._getFileKey(document);
+        return this._foldState[fileKey]?.[id];
+    }
+
+    _setCollapseState(document, id, collapsed) {
+        const fileKey = this._getFileKey(document);
+        if (!this._foldState[fileKey]) this._foldState[fileKey] = {};
+        this._foldState[fileKey][id] = collapsed;
+        this._saveFoldState();
     }
 
     showExtensionInfo() {
@@ -167,9 +190,9 @@ class EnhancedOutlineProvider {
 
                 let treeItem;
                 if (item.type === 'symbol') {
-                    treeItem = this.createSymbolItem(item.data);
+                    treeItem = this.createSymbolItem(item.data, document);
                 } else {
-                    treeItem = this.createRegionItem(item.data);
+                    treeItem = this.createRegionItem(item.data, document);
                 }
 
                 if (stack.length === 0) {
@@ -196,13 +219,18 @@ class EnhancedOutlineProvider {
         return [];
     }
 
-    createSymbolItem(symbol) {
+    createSymbolItem(symbol, document) {
+        const id = `symbol:${symbol.name}:${symbol.range.start.line}`;
+        const savedState = this._getCollapseState(document, id);
         const hasChildren = symbol.children && symbol.children.length > 0;
         const collapsibleState = hasChildren
-            ? vscode.TreeItemCollapsibleState.Collapsed
+            ? (savedState === false
+                ? vscode.TreeItemCollapsibleState.Expanded
+                : vscode.TreeItemCollapsibleState.Collapsed)
             : vscode.TreeItemCollapsibleState.None;
 
         const item = new vscode.TreeItem(symbol.name, collapsibleState);
+        item.id = id;
         item.iconPath = this.getSymbolIcon(symbol.kind);
         item.contextValue = 'symbol';
         item.range = symbol.range;
@@ -215,11 +243,15 @@ class EnhancedOutlineProvider {
         return item;
     }
 
-    createRegionItem(region) {
-        const item = new vscode.TreeItem(
-            region.name, 
-            vscode.TreeItemCollapsibleState.Collapsed
-        );
+    createRegionItem(region, document) {
+        const id = `region:${region.name}:${region.range.start.line}`;
+        const savedState = this._getCollapseState(document, id);
+        const collapsibleState = (savedState === false)
+            ? vscode.TreeItemCollapsibleState.Expanded
+            : vscode.TreeItemCollapsibleState.Collapsed;
+
+        const item = new vscode.TreeItem(region.name, collapsibleState);
+        item.id = id;
         item.iconPath = new vscode.ThemeIcon('folder');
         item.contextValue = 'region';
         item.range = region.range;
@@ -283,7 +315,6 @@ class EnhancedOutlineProvider {
 
 function activate(context) {
     const provider = new EnhancedOutlineProvider(context);
-    
     provider.showExtensionInfo();
 
     const reloadButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -297,6 +328,16 @@ function activate(context) {
         showCollapseAll: true
     });
 
+    // 🧩 Capture expand/collapse events
+    treeView.onDidCollapseElement(e => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) provider._setCollapseState(editor.document, e.element.id, true);
+    });
+    treeView.onDidExpandElement(e => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) provider._setCollapseState(editor.document, e.element.id, false);
+    });
+
     context.subscriptions.push(
         reloadButton,
         treeView,
@@ -304,9 +345,7 @@ function activate(context) {
             vscode.window.showInformationMessage('Reloading extension...');
             provider.forceReload();
         }),
-        vscode.commands.registerCommand('enhancedOutline.showInfo', () => {
-            provider.showExtensionInfo();
-        }),
+        vscode.commands.registerCommand('enhancedOutline.showInfo', () => provider.showExtensionInfo()),
         vscode.commands.registerCommand('enhancedOutline.refresh', () => provider.refresh()),
         vscode.commands.registerCommand('enhancedOutline.revealRange', async (range) => {
             const editor = vscode.window.activeTextEditor;
@@ -324,14 +363,9 @@ function activate(context) {
         vscode.window.onDidChangeActiveTextEditor(() => provider.refresh())
     );
 
-    setTimeout(() => {
-        provider._outputChannel.show(true);
-    }, 1000);
+    setTimeout(() => provider._outputChannel.show(true), 1000);
 }
 
 function deactivate() {}
 
-module.exports = {
-    activate,
-    deactivate
-};
+module.exports = { activate, deactivate };

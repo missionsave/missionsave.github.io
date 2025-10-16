@@ -6,6 +6,8 @@
 
 #include <FL/Fl.H>
 
+#include <AIS_ColoredDrawer.hxx>
+
 #include <AIS_AnimationCamera.hxx>
 #include <AIS_InteractiveContext.hxx>
 #include <AIS_Shape.hxx>
@@ -32,7 +34,8 @@
 #include <set>
 #include <vector>
 #include <cmath>
-
+#include <AIS_Shape.hxx>
+#include <SelectMgr_EntityOwner.hxx>
 // ----------------- assumed OCC_Viewer minimal interface -----------------
 // Keep these as comments; your real OCC_Viewer already has equivalents.
 //
@@ -51,6 +54,7 @@
 
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
+#define cotm(...)
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
 // #endif
@@ -221,12 +225,19 @@ std::string lua_error_with_line(lua_State* L, const std::string& msg) {
 	return msg;
 }
 class AIS_NonSelectableShape : public AIS_Shape {
-   public:
-	AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {}
 
-	void ComputeSelection(const Handle(SelectMgr_Selection) &, const Standard_Integer) override {
-		// Do nothing -> no selectable entities created
+   public:
+	AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {
+		//  SetSelectionPriority(0);
+        // SetAutoHilight(false); //terminate called after throwing an instance of 'Standard_NotImplemented'
+
 	}
+
+	// void ComputeSelection(const Handle(SelectMgr_Selection)& sel,
+    //                       const Standard_Integer mode) override {
+	// 	// Do nothing -> no selectable entities created
+
+	// }
 };
 
 void open_cb() {
@@ -256,8 +267,8 @@ struct OCC_Viewer : public flwindow {
 
 	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
 	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
-	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 5.0);
-	Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
+	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_GREEN, Aspect_TOL_SOLID, 5.0);
+	Handle(Prs3d_Drawer) customDrawerp = new Prs3d_Drawer();
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
 		Fl::add_timeout(10, idle_refresh_cb, 0);
@@ -309,6 +320,7 @@ struct OCC_Viewer : public flwindow {
 		// m_context->SetSelectionSensitivity(0.05);
 
 		SetupHighlightLineType(m_context);
+
 		// SetupDashedHighlight(m_context);
 
 		aCtx = m_graphic_driver->GetSharedContext();
@@ -343,12 +355,19 @@ struct OCC_Viewer : public flwindow {
 		m_context->DefaultDrawer()->SetFreeBoundaryAspect(edgeAspect);
 		m_context->DefaultDrawer()->SetFaceBoundaryAspect(edgeAspect);
 
+
+
+
+
+
 		m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
 		setbar5per();
+
 
 		m_view->MustBeResized();
 		m_view->FitAll();
 
+		SetupHighlightLineType(m_context);
 		m_initialized = true;
 
 		redraw();
@@ -476,6 +495,67 @@ struct OCC_Viewer : public flwindow {
 
 	/// Configure dashed highlight lines without conversion errors
 	void SetupHighlightLineType(const Handle(AIS_InteractiveContext) & ctx) {
+
+
+		{
+// 1. Create the Drawer object
+Handle(Prs3d_Drawer) hl = new Prs3d_Drawer();
+
+// 2. Set the highlight color (which you said is working)
+hl->SetColor(Quantity_NOC_RED);
+
+// 3. Create a Prs3d_LineAspect specifically for the *width* and *style*
+//    Make sure the color here is also the highlight color for consistency.
+Handle(Prs3d_LineAspect) thickGreenAspect =
+    new Prs3d_LineAspect(Quantity_NOC_GREEN, Aspect_TOL_SOLID, 5.0);
+
+// 4. ***Crucially, set the Line Aspect for the highlight presentation***
+//    This tells the Drawer what line properties to use when drawing the highlighted shape.
+hl->SetLineAspect(thickGreenAspect);
+
+// 5. Ensure the shape is highlighted in a *Wireframe* mode, 
+//    as shaded highlighting (the default) might only show the face color.
+hl->SetDisplayMode(0); // Display mode 0 typically refers to Wireframe/Edges
+
+// 6. Apply the style
+ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic, hl);
+ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected, hl);
+ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, hl);
+
+// 7. Update the viewer
+ctx->UpdateCurrentViewer();
+
+			return;
+		}
+
+Handle(Prs3d_Drawer) selDrawer = new Prs3d_Drawer();
+
+// Explicitly set edge/wire aspects
+Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(
+    Quantity_NOC_RED,   // highlight color
+    Aspect_TOL_SOLID,   // line type
+    5.0                 // width in pixels
+);
+
+selDrawer->SetWireAspect(edgeAspect);
+selDrawer->SetLineAspect(edgeAspect);       // fallback
+selDrawer->SetSeenLineAspect(edgeAspect);   // for visible edges
+selDrawer->SetColor(Quantity_NOC_GREEN);
+// Apply to context
+ctx->SetSelectionStyle(selDrawer);
+
+		ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, selDrawer);
+		// cotm(5)
+			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic, selDrawer);
+			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected, selDrawer);
+
+// Force viewer update
+ctx->UpdateCurrentViewer();
+return;
+
+
+
+
 		// 1. Create a drawer for highlights
 		// Handle(Prs3d_Drawer) customDrawer = new Prs3d_Drawer();
 		// customDrawer->SetDisplayMode(1);  // wireframe only
@@ -503,24 +583,80 @@ struct OCC_Viewer : public flwindow {
 		// customDrawer->SetFreeBoundaryAspect(lineAspect);
 		// customDrawer->SetFaceBoundaryAspect(lineAspect);
 
-		customDrawer->SetLineAspect(highlightaspect);
-		customDrawer->SetSeenLineAspect(highlightaspect);
-		customDrawer->SetWireAspect(highlightaspect);
-		customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
-		customDrawer->SetFreeBoundaryAspect(highlightaspect);
-		customDrawer->SetFaceBoundaryAspect(highlightaspect);
+		Handle(AIS_ColoredDrawer) customDrawer=new AIS_ColoredDrawer(customDrawerp);
 
-		customDrawer->SetColor(Quantity_NOC_RED);
-		customDrawer->SetTransparency(0.3f);
+		// customDrawer->SetLineAspect(highlightaspect);
+		// customDrawer->SetSeenLineAspect(highlightaspect);
+		// customDrawer->SetWireAspect(highlightaspect);
+		// customDrawer->SetUnFreeBoundaryAspect(highlightaspect);
+		// customDrawer->SetFreeBoundaryAspect(highlightaspect);
+		// customDrawer->SetFaceBoundaryAspect(highlightaspect);
+
+
+Handle(Prs3d_LineAspect) highlightAsp =
+    new Prs3d_LineAspect(Quantity_Color(Quantity_NOC_GREEN),
+                         Aspect_TOL_SOLID,
+                         3.0);
+
+// assign it to various roles
+customDrawer->SetLineAspect(highlightAsp);
+customDrawer->SetWireAspect(highlightAsp);
+customDrawer->SetFreeBoundaryAspect(highlightAsp);
+customDrawer->SetUnFreeBoundaryAspect(highlightAsp);
+customDrawer->SetFaceBoundaryAspect(highlightAsp);
+customDrawer->SetHiddenLineAspect(highlightAsp);
+customDrawer->SetVectorAspect(highlightAsp);
+customDrawer->SetSectionAspect(highlightAsp);
+customDrawer->SetSeenLineAspect(highlightAsp);
+
+// customDrawer->SetDimensionAspect(highlightAsp);
+// customDrawer->SetArrowAspect(highlightAsp);
+// customDrawer->SetDatumAspect(highlightAsp);
+
+// 2. Make sure those edges actually are drawn
+customDrawer->SetFreeBoundaryDraw(true);
+customDrawer->SetUnFreeBoundaryDraw(true);
+customDrawer->SetFaceBoundaryDraw(true);
+
+// 3. Use better tessellation / curve smoothing if needed
+customDrawer->SetTypeOfDeflection(Aspect_TOD_RELATIVE);
+customDrawer->SetMaximalChordialDeviation(0.25);  // e.g. 0.25 units tolerance
+
+// 4. Hidden-line, HLR settings
+// customDrawer->SetTypeOfHLR(Prs3d_TOH_PREFERRED);  // or whichever you prefer
+
+// 5. Draw highlight on top
+customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
+
+
+
+
+
+
+
+
+
+
+
+		// ctx->SetSelectionStyle(highlightaspect);
+
+		// customDrawer->SetColor(Quantity_NOC_RED);
+		// customDrawer->SetOwnWidth(8);
+		// customDrawer->SetTransparency(0.3f);
 
 		// 5. Assign to all highlight modes
 		// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic,
 		// customDrawer);
 		ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalSelected, customDrawer);
 		// cotm(5)
-			// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic,
-			// customDrawer);
+			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Dynamic, customDrawer);
 			ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_Selected, customDrawer);
+
+
+// 				Handle(Prs3d_Drawer) selDrawer = ctx->SelectionStyle();
+// selDrawer->SetColor(Quantity_NOC_GREEN);    // green color
+// // selDrawer->SetWidth(3.0);                   // 3 px thick
+// ctx->SetSelectionStyle(selDrawer);
 	}
 
 #pragma endregion initialization
@@ -1953,7 +2089,11 @@ bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
 			Handle(AIS_InteractiveObject) obj = Handle(AIS_InteractiveObject)::DownCast(owner->Selectable());
 
 			// Skip the HLR shape
-			if (obj == hidden_) continue;
+			if (obj == visible_){
+				cotm("Skipped");
+				continue;
+			} 
+			// if (obj == hidden_) continue;
 
 			foundOwner = owner;	 // First valid non-HLR owner
 			break;
@@ -2131,6 +2271,7 @@ void ev_highlight() {
         return;
     }
 
+
     luadraw* ldd = lua_detected(anOwner);
     if (ldd) {
         std::string pname = "name: " + ldd->name;
@@ -2164,6 +2305,11 @@ void ev_highlight() {
         redraw();
         return;
     }
+					// Skip the HLR shape
+			// if (detected == visible_){
+			// 	cotm("Skipped");
+			// 	return;
+			// } 
 
 	// if(detected.ShapeType()==TopAbs_SOLID){
 	// 	cotm("TopAbs_SOLID")
@@ -2469,15 +2615,20 @@ pickedFace.Location(origLoc);
 		m_context->UpdateCurrentViewer();  // Update the viewer to show/hide
 										   // highlight
 	}
+	
+	
+	
 	int handle(int event) override {
 static auto last_event = std::chrono::steady_clock::now();
 auto now = std::chrono::steady_clock::now();
 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_event);
 
-constexpr auto frame_interval = std::chrono::milliseconds(1000 / 10);
+constexpr auto frame_interval = std::chrono::milliseconds( 1000/30);
+// constexpr auto frame_interval = std::chrono::milliseconds(((int)(1000 / 8.0)));
 
 if (event == FL_DRAG && isRotating && m_initialized) {
-    if (elapsed >= frame_interval) {
+	// cotm(elapsed);
+    if (elapsed > frame_interval) {
         // perf(); 
         m_view->Rotation(Fl::event_x(), Fl::event_y()); 
         projectAndDisplayWithHLR(vshapes, 1);
@@ -2485,11 +2636,11 @@ if (event == FL_DRAG && isRotating && m_initialized) {
         colorisebtn(); 
         redraw();	
         // cotm("in");
-        last_event = now;
-        return 1;
+        last_event = std::chrono::steady_clock::now();
+        return 0;
     }
     // cotm("out");
-    return 1;
+    return 0;
 }
 
 
@@ -2574,7 +2725,7 @@ if (event == FL_MOVE) {
 			// return 1;
 		}
 		if(event==FL_PUSH){
-			cotm("")
+			// cotm("")
 			OnMouseClick(mousex,mousey,m_context,m_view);
 		}
 
@@ -2877,7 +3028,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	Standard_Integer currentMode = AIS_WireFrame;
 	void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 		perf1();
-		cotm(vaShape.size()) 
+		// cotm(vaShape.size()) 
 		for (std::size_t i = 0; i < vaShape.size(); ++i) {
 			Handle(AIS_Shape) aShape = vaShape[i];
 			if (aShape.IsNull()) continue;
@@ -2945,9 +3096,11 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	}
 	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
 		if (!hlr_on)return;
-		// projectAndDisplayWithHLR_P(shapes,isDragonly);
-		// projectAnqdDisplayWithHLR_lp(shapes,isDragonly);
-		projectAndDisplayWithHLR_ntw(shapes,isDragonly);
+		// perf1();
+		projectAndDisplayWithHLR_P(shapes,isDragonly);
+		// projectAndDisplayWithHLR_lp(shapes,isDragonly);
+		// projectAndDisplayWithHLR_ntw(shapes,isDragonly);
+		// perf1("hlr");
 	}
 	#define ENABLE_PARALLEL 0
 	void projectAndDisplayWithHLR_ntw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
@@ -3072,7 +3225,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	// less precision
 	void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
-		perf1();
+		// perf1();
 
 		// 1. Preparar transformação da câmara
 		const Handle(Graphic3d_Camera) & camera = m_view->Camera();
@@ -3157,9 +3310,9 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		// perf("hlrload");
 
 		algo->Projector(projector);
-		perf();
+		// perf();
 		algo->Update();
-		perf("hlrupdate");
+		// perf("hlrupdate");
 
 		// 5. Converter para shape visível
 		HLRBRep_PolyHLRToShape hlrToShape;
@@ -3184,13 +3337,13 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 			visible_->SetInfiniteState(true);  // opcional
 			m_context->Display(visible_, false);
 		}
-		perf1("elapsed hlr1");
+		// perf1("elapsed hlr1");
 	}
 
 	// precision
 	void projectAndDisplayWithHLR_P(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on) return;
-		perf();
+		// perf();
 		// cotm("hlr")
 		// m_view->SetImmediateUpdate(Standard_False);
 		if (m_context.IsNull() || m_view.IsNull()) {
@@ -3206,7 +3359,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 			// }
 
 			if (visible_) m_context->Remove(visible_, 0);
-			if (hidden_) m_context->Remove(hidden_, 0);
+			// if (hidden_) m_context->Remove(hidden_, 0);
 		}
 
 		const Handle(Graphic3d_Camera) & theProjector = m_view->Camera();
@@ -3246,9 +3399,11 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		TopoDS_Shape transformedShape = transformer.Shape();
 
 		visible_ = new AIS_NonSelectableShape(transformedShape);
+
+        m_context->Deactivate(visible_);
 		// visible_ = new AIS_Shape(transformedShape);
 		visible_->SetColor(Quantity_NOC_BLACK);
-		visible_->SetWidth(1.5);
+		visible_->SetWidth(3);
 		m_context->Display(visible_, false);
 
 		// Handle(Prs3d_LineAspect) lineAspect = new
@@ -3269,7 +3424,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		// m_context->Display(hidden_, 0);
 
 		//  setbar5per();
-		perf("hlr slower");
+		// perf("hlr slower");
 	}
 
 #pragma endregion projection
@@ -4231,6 +4386,17 @@ ld->visible_hardcoded=0;
 
 		//hide
 		if(code==0){
+			// if(fbm->on_off[i][code]==1){
+			// 	mhide[ld->name]=1;
+
+			// }else{
+			// 	mhide[ld->name]=0;
+			// }
+			ld->visible_hardcoded=!ld->visible_hardcoded;
+			ld->redisplay();
+			ld->occv->redraw();
+			return;
+		
 
 		}
 		//solo
@@ -4307,7 +4473,7 @@ ld->visible_hardcoded=0;
 	// perf1("bench fillvectopo");
 	occv->toggle_shaded_transp(occv->currentMode);
 	occv->redraw();
-	// perf("fillbrowser");
+	perf("fillbrowser");
 }
 
 #pragma endregion browser
@@ -4625,10 +4791,101 @@ lua.set_function("Visible", [&](int val=1) {
     current_part->visible_hardcoded=val;
 });
 
-lua.set_function("Add_placement", [&](OCC_Viewer::luadraw* val) {
+lua.set_function("Copy_placement", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToSet = current_part->shape;
+
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(shapeToSet)) {
+            // Copy Location directly from val
+            TopLoc_Location newLoc = val->shape.Location();
+            TopoDS_Shape placedShape = currentShape;
+            placedShape.Location(newLoc);
+
+            builder.Add(newCompound, placedShape);
+            shapeToSet = placedShape;
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToSet;
+});
+
+// COPY_PLACEMENT (replace location exactly with val->shape.Location())
+lua.set_function("Copy_placement_v1new", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToSet = current_part->shape;
+
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    TopLoc_Location sourceLoc = val->shape.Location();
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(shapeToSet)) {
+            // Replace placement exactly (no composition)
+            TopoDS_Shape placedShape = currentShape;
+            placedShape.Location(sourceLoc);
+
+            builder.Add(newCompound, placedShape);
+            shapeToSet = placedShape;
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToSet;
+});
+
+
+lua.set_function("Copy_placement_baked", [&](OCC_Viewer::luadraw* val) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    // Obter transformação absoluta do objeto de origem
+    gp_Trsf sourceTrsf = val->shape.Location().Transformation();
+
+    // Obter transformação atual do destino
+    gp_Trsf targetTrsf = current_part->shape.Location().Transformation();
+
+    // Queremos substituir o placement, não multiplicar cumulativamente
+    TopoDS_Shape baseShape = current_part->shape;
+    baseShape.Location(TopLoc_Location()); // remove transformação existente
+
+    // Aplicar a transformação do objeto de origem
+    BRepBuilderAPI_Transform transformer(baseShape, sourceTrsf, true);
+    current_part->shape = transformer.Shape();
+
+    // Atualizar localização para refletir corretamente no modelo
+    current_part->shape.Location(TopLoc_Location(sourceTrsf));
+});
+
+lua.set_function("Copy_placement_v1nw", [&](OCC_Viewer::luadraw* val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     // current_part->trsf*=val->trsf;//.Inverted();
-    current_part->trsf*=val->trsf;
+    // current_part->trsf*=val->trsf;
+	gp_Trsf trsf = val->shape.Location().Transformation();
+	BRepBuilderAPI_Transform transformer(current_part->shape, trsf, true);
+	current_part->shape = transformer.Shape();
+
 });
 lua.set_function("Placeg", [&](OCC_Viewer::luadraw* val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
@@ -4847,8 +5104,45 @@ lua.set_function("Movel_v1", [&](float x = 0, float y = 0, float z = 0) {
 	current_part->shape = transformer.Shape();
 });
 
-
+// MOVE (location-only, pre-multiply -> translate in global coords)
 lua.set_function("Movel", [&](float x = 0, float y = 0, float z = 0) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToMove = current_part->shape;
+
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    gp_Trsf translation;
+    translation.SetTranslation(gp_Vec(x, y, z));
+    TopLoc_Location transLoc(translation);
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(shapeToMove)) {
+            cotm("Movel");
+            // PRE-multiply: translate in global coords
+            TopLoc_Location newLoc = transLoc * currentShape.Location();
+            TopoDS_Shape movedShape = currentShape;
+            movedShape.Location(newLoc);
+
+            builder.Add(newCompound, movedShape);
+            shapeToMove = movedShape;
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToMove;
+});
+
+
+lua.set_function("Movel_brep", [&](float x = 0, float y = 0, float z = 0) {
     // Get reference to the current part's compound
     TopoDS_Compound& compound = current_part->cshape;
     TopoDS_Shape& shapeToMove = current_part->shape;
@@ -5025,8 +5319,53 @@ lua.set_function("Rotatexl_almost", [&](float angleDegrees = 0.0f) {
     
     // current_part->needsplacementupdate = 0;
 });
+lua.set_function("Rotatel_baked_new", [&](float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 0) {
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToRotate = current_part->shape;
 
-lua.set_function("Rotatel", [&](float angleDegrees = 0.0f,int x=0,int y=0,int z=0) {
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    // Get the current location (transformation) of the part
+    gp_Trsf partTrsf = shapeToRotate.Location().Transformation();
+
+    // Compute the local origin (0,0,0) of the part in global coordinates
+    gp_Pnt localOrigin = gp_Pnt(0, 0, 0).Transformed(partTrsf);
+
+    // Define the rotation axis around that local origin
+    gp_Ax1 axis(localOrigin, gp_Dir(x, y, z));
+
+    // Define the rotation transformation
+    gp_Trsf rotation;
+    rotation.SetRotation(axis, angleDegrees * (M_PI / 180.0));
+
+    TopoDS_Shape rshape;
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(shapeToRotate)) {
+            cotm("Rotatexl");
+            // Apply rotation relative to local origin
+            BRepBuilderAPI_Transform transformer(currentShape, rotation, true); // true = copy location context
+            if (transformer.IsDone()) {
+                TopoDS_Shape rotatedShape = transformer.Shape();
+                builder.Add(newCompound, rotatedShape);
+                shapeToRotate = rotatedShape; // Update reference
+            } else {
+                builder.Add(newCompound, currentShape);
+            }
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToRotate;
+});
+
+lua.set_function("Rotatel_v1working", [&](float angleDegrees = 0.0f,int x=0,int y=0,int z=0) {
     TopoDS_Compound& compound = current_part->cshape;
     TopoDS_Shape& shapeToRotate = current_part->shape;
     
@@ -5034,7 +5373,7 @@ lua.set_function("Rotatel", [&](float angleDegrees = 0.0f,int x=0,int y=0,int z=
     TopoDS_Compound newCompound;
     builder.MakeCompound(newCompound);
 
-    // Define the rotation
+    // Define the rotation -> make the gp_Pnt(0, 0, 0) be relative to original  0,0,0 of the part
     gp_Ax1 xAxis(gp_Pnt(0, 0, 0), gp_Dir(x, y, z));
     gp_Trsf rotation;
     rotation.SetRotation(xAxis, angleDegrees * (M_PI / 180.0));
@@ -5071,6 +5410,93 @@ lua.set_function("Rotatel", [&](float angleDegrees = 0.0f,int x=0,int y=0,int z=
     current_part->shape = shapeToRotate;
     // current_part->needsplacementupdate = 0;
 });
+// ROTATE (location-only, pre-multiply -> same effect as BRepBuilderAPI_Transform)
+lua.set_function("Rotatew", [&](float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 0) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToRotate = current_part->shape;
+
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    gp_Ax1 axis(gp_Pnt(0, 0, 0), gp_Dir(x, y, z));
+    gp_Trsf rotation;
+    rotation.SetRotation(axis, angleDegrees * (M_PI / 180.0));
+    TopLoc_Location rotLoc(rotation);
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(shapeToRotate)) {
+            cotm("Rotatexl");
+            // PRE-multiply: apply rotation in global coordinates
+            TopLoc_Location newLoc = rotLoc * currentShape.Location();
+            TopoDS_Shape rotatedShape = currentShape;
+            rotatedShape.Location(newLoc);
+
+            builder.Add(newCompound, rotatedShape);
+            shapeToRotate = rotatedShape;
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToRotate;
+});
+lua.set_function("Rotatel", [&](float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 0) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    TopoDS_Shape& shapeToRotate = current_part->shape;
+
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    // --- Make rotation relative to the part’s local origin ---
+    // Get the current transformation of the part
+    gp_Trsf partTrsf = shapeToRotate.Location().Transformation();
+
+    // Compute the global position of the part's local (0,0,0)
+    gp_Pnt localOrigin = gp_Pnt(0, 0, 0).Transformed(partTrsf);
+
+    // Define the axis using that origin
+    gp_Ax1 axis(localOrigin, gp_Dir(x, y, z));
+
+    // Create the rotation transformation
+    gp_Trsf rotation;
+    rotation.SetRotation(axis, angleDegrees * (M_PI / 180.0));
+    TopLoc_Location rotLoc(rotation);
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(shapeToRotate)) {
+            // cotm("Rotatexl");
+
+            // Apply rotation relative to the *local origin* (not world)
+            TopLoc_Location newLoc = rotLoc * currentShape.Location();
+
+            TopoDS_Shape rotatedShape = currentShape;
+            rotatedShape.Location(newLoc);
+
+            builder.Add(newCompound, rotatedShape);
+            shapeToRotate = rotatedShape;
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    current_part->cshape = newCompound;
+    current_part->shape = shapeToRotate;
+});
+
+
 lua.set_function("Rotatelx", [&](float angleDegrees = 0.0f) {
   // 1. Get the function from the global Lua table (using the sol::state object 'lua')
   sol::protected_function Rotatel = lua["Rotatel"];
@@ -5455,7 +5881,7 @@ void lua_str(const string &str, bool isfile) {
         // occv->vaShape.clear();
         // occv->ulua.clear();
         // occv->vlua.clear();
-
+		
         int status;
         std::string code;
         if (isfile) {
@@ -5906,6 +6332,7 @@ static Fl_Menu_Item items[] = {
 
 	{"&test", 0, ([](Fl_Widget*, void* v) {
 		 cotm("test")
+		 WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test.stl");
 		 // // lua_init();
 		 // // getallsqlitefuncs();
 		 // string val=getfunctionhelp();
