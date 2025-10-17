@@ -757,7 +757,7 @@ struct ProjectionResult {
  *   - Bearish (close <  open): assume open -> high -> low (high touched first).
  *   - Equal close==open: fall back to magnitude.
  */
-ProjectionResult analyze_rsi_pattern_and_project(
+ProjectionResult analyze_rsi_pattern_and_project_v1(
     const std::vector<int>& vrsi, 
     const std::vector<Kline>& klines, 
     int wsize = 10, 
@@ -876,6 +876,133 @@ ProjectionResult analyze_rsi_pattern_and_project(
     // no pattern found
     return result;
 }
+
+
+ProjectionResult analyze_rsi_pattern_and_project(
+    const std::vector<int>& vrsi,
+    const std::vector<Kline>& klines,
+    int wsize = 10,
+    int fsize = 6,
+    int tolerance = 0 // max allowed difference per RSI point
+)
+{
+    ProjectionResult result;
+    const size_t data_size = vrsi.size();
+
+    if (klines.size() != data_size || data_size < static_cast<size_t>(wsize + fsize + 1)) {
+        std::cerr << "Error: invalid data sizes.\n";
+        return result;
+    }
+
+    // --- Target pattern (the latest known RSI window)
+    const std::vector<int> target_pattern(vrsi.end() - wsize - 1, vrsi.end() - 1);
+
+    double best_similarity = 1e9;
+    int best_match_index = -1;
+
+    // --- Search backwards for similar RSI sequences
+    for (int i = static_cast<int>(data_size) - wsize - fsize - 2; i >= 14; --i) {
+        double total_diff = 0.0;
+        for (int j = 0; j < wsize; ++j)
+            total_diff += std::abs(vrsi[i + j] - target_pattern[j]);
+
+        const double avg_diff = total_diff / wsize;
+        if (avg_diff <= tolerance && avg_diff < best_similarity) {
+            best_similarity = avg_diff;
+            best_match_index = i;
+        }
+    }
+
+    if (best_match_index == -1)
+        return result; // no match found
+
+    // --- Define projection window: fsize bars *after* the pattern
+    const size_t future_start = static_cast<size_t>(best_match_index + wsize);
+    const size_t future_end   = std::min(future_start + static_cast<size_t>(fsize), klines.size());
+
+    if (future_start >= klines.size() - 1)
+        return result; // nothing ahead to project
+
+    result.pattern_found = true;
+    result.pattern_start_index = best_match_index;
+
+    // --- Baseline = open of the first *future* bar
+    const double open_price = klines[future_start].open_price;
+    const double close_price = klines[future_end - 1].close_price;
+
+    double max_high = open_price;
+    double min_low  = open_price;
+
+    result.first_hit_label = "NONE";
+    result.outcome_score = -1;
+    int first_hit_bar_offset = -1;
+
+    const double reference_price = open_price;
+    const double eps = 1e-6;
+
+    // --- Scan *future* fsize bars only
+    for (size_t k = future_start; k < future_end; ++k) {
+        const double o = klines[k].open_price;
+        const double h = klines[k].high_price;
+        const double l = klines[k].low_price;
+        const double c = klines[k].close_price;
+
+        if (h > max_high) max_high = h;
+        if (l < min_low) min_low = l;
+
+        if (result.first_hit_label == "NONE") {
+            const bool crossed_high = (h > reference_price + eps);
+            const bool crossed_low  = (l < reference_price - eps);
+
+            if (crossed_high && !crossed_low) {
+                result.first_hit_label = "HIGH";
+                result.outcome_score = 1;
+                first_hit_bar_offset = static_cast<int>(k - future_start);
+            } 
+            else if (crossed_low && !crossed_high) {
+                result.first_hit_label = "LOW";
+                result.outcome_score = 0;
+                first_hit_bar_offset = static_cast<int>(k - future_start);
+            } 
+            else if (crossed_high && crossed_low) {
+                // both crossed in same bar
+                if (c > o + eps) {
+                    result.first_hit_label = "LOW"; // low came first
+                    result.outcome_score = 0;
+                } else if (c < o - eps) {
+                    result.first_hit_label = "HIGH"; // high came first
+                    result.outcome_score = 1;
+                } else {
+                    const double high_diff = h - reference_price;
+                    const double low_diff  = reference_price - l;
+                    if (high_diff > low_diff) {
+                        result.first_hit_label = "HIGH (Indet.)";
+                        result.outcome_score = 1;
+                    } else {
+                        result.first_hit_label = "LOW (Indet.)";
+                        result.outcome_score = 0;
+                    }
+                }
+                first_hit_bar_offset = static_cast<int>(k - future_start);
+            }
+        }
+    }
+
+    // --- Fill final results
+    result.high_extreme = max_high;
+    result.low_extreme  = min_low;
+    result.open_price_match = open_price;
+    result.percentage_from_open_to_high = pctDiff(static_cast<float>(open_price), static_cast<float>(max_high));
+    result.percentage_from_open_to_low  = pctDiff(static_cast<float>(open_price), static_cast<float>(min_low));
+    result.percentage_from_open_to_close  = pctDiff(static_cast<float>(open_price), static_cast<float>(close_price));
+    result.first_hit_offset = first_hit_bar_offset;
+
+    return result;
+}
+
+
+
+
 /**
  * @brief Calculates the percentage difference from Open price to High and Low prices 
  * for a given kline index and returns them in a vector.
@@ -1223,6 +1350,27 @@ std::vector<std::vector<int>> macdTrusted = {
     // F=5, S=10...13, M=9
     {5, 10, 9}, {5, 11, 9}, {5, 12, 9}, {5, 13, 9}, {5, 14, 9}, {5, 15, 9}, {5, 16, 9}, {5, 17, 9}, {5, 18, 9}, {5, 19, 9}, {5, 20, 9}, {5, 21, 9}, // Total 110 entries
 };
+std::vector<int> rsi_periods = {
+    14,  // clássico, equilíbrio
+    21,  // mais suave, robusto
+    10,  // curto mas estável
+    7,   // mais reativo
+    5,   // muito sensível
+    2,   // extremamente volátil
+    9,
+    12,
+    18,
+    20,
+    25,
+    28,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55,
+    60,
+    70};
 int main() {
     std::cout << "Starting Crypto Data Retrieval (Functional C++)\n";
 
@@ -1238,13 +1386,13 @@ int main() {
         // --- 2. Binance Klines Data Fetch ---
         std::string symbol = "BTCUSDT";
         symbol = "XRPUSDT";
-        // symbol = "ETHUSDT";
+        symbol = "ETHUSDT";
         // symbol = "SOLUSDT";
         // symbol = "SUIUSDT";
         // symbol = "DOGEUSDT";
         // symbol = "TIAUSDT";
         // symbol = "AVAXUSDT";
-        std::string interval = "4h";
+        std::string interval = "8h";
         int limit = 1000; // Fetch 5 data points for easy display
 
         std::cout << "\nFetching Binance Klines (" << symbol << ", " << interval << ", limit: " << limit << ")...";
@@ -1253,11 +1401,13 @@ int main() {
  
         // --- 3. Parse and Store Data ---
         std::vector<Kline> vklines = parse_klines(klines_json);
-		// vklines.pop_back();
-		// vklines.pop_back();
-		// vklines.pop_back();
-		// vklines.pop_back();
-		// vklines.pop_back();
+		vklines.pop_back();
+		vklines.pop_back();
+		vklines.pop_back();
+		vklines.pop_back();
+		vklines.pop_back();
+		vklines.pop_back();
+		vklines.pop_back();
 
         std::cout << "\n✅ Successfully parsed " << vklines.size() << " Klines into a vector struct.\n";
         std::cout << "----------------------------------------\n";
@@ -1293,9 +1443,11 @@ vint vmacd;
 bool flagbreak = 0;
 for (int wsize = 8; wsize > 3; wsize--) {
 	for (float rscale = 80; rscale >= 20; rscale -= 5) {
-		for(int i=26;i>2;i--){
+		for(int i=0;i<6;i++){ //more trust
+		// for(int i=0;i<rsi_periods.size();i++){
+		// for(int i=26;i>2;i--){
 		// lop(i, 3, 17) {
-			vrsi = fill_rsi_cache(vklines, i, rscale);
+			vrsi = fill_rsi_cache(vklines, rsi_periods[i], rscale);
 			// Add this loop right after you call fill_rsi
 
 			// int wsize = 4;

@@ -181,8 +181,8 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+=  -l:libstdc++.a
 
 # 	LDFLAGS+= -ljsoncpp -lcpp-httplib -l:libcrypto.a -l:libssl.a
-	LDFLAGS+= -ljsoncpp -lcpp-httplib -lcrypto -l:libssl.a
-# 	LDFLAGS+= -ljsoncpp -lcpp-httplib -lcrypto -lssl
+# 	LDFLAGS+= -ljsoncpp -lcpp-httplib -lcrypto -l:libssl.a
+	LDFLAGS+= -ljsoncpp -lcpp-httplib -lcrypto -lssl
 
 endif
 ifeq ($(OS_NAME), Arm)
