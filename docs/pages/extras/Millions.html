@@ -19,7 +19,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 0; i--) {
+    for (var i = arr.length - 1; i >= 1; i--) {
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -602,6 +602,26 @@ if(0){
 // 6 15 25 27 45
 
 if(1){
+	if(qtkeys==47 ){
+	isgood=isgood && (Math.abs(dif[5])>=0.05 || Math.abs(dif[5])==0.0);
+	// isgood=isgood && Math.abs(dif[5])>0.04;
+	}
+	if(qtkeys==46 ){
+	isgood=isgood && (dif[3])<=0;
+	isgood=isgood && (dif[5])<=-0.07;
+	isgood=isgood && (dif[4])>=0.05;
+	isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[1])>=0;
+	isgood=isgood && (dif[0])>=0;
+	}
+	if(qtkeys==43 ){
+	isgood=isgood && (dif[3])<=0;
+	isgood=isgood && (dif[5])<=-0.07;
+	isgood=isgood && (dif[4])>=0.05;
+	isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[1])>=0;
+	isgood=isgood && (dif[0])>=0;
+	}
 	if(qtkeys==40 ){
 	isgood=isgood && (dif[3])<=0;
 	isgood=isgood && (dif[5])<=-0.07;
@@ -1109,6 +1129,8 @@ async function test(){
 		addone+='<button id="btn30" onclick="addonebt(30,4)" >Add 30</button>';
 		addone+='<button id="btn35" onclick="addonebt(35,4)" >Add 35</button>';
 		addone+='<button id="btn40" onclick="addonebt(40,5)" >Add 40</button>';
+		addone+='<button id="btn43" onclick="addonebt(43,5)" >Add 43</button>';
+		addone+='<button id="btn45" onclick="addonebt(47,5)" >Add 45</button>';
 		var xl=x.length;
 		var xlm="";
 		if(xl>20){
@@ -1230,7 +1252,9 @@ function waitForElement(id) {
 // var bts=["btn7","btn6","btn5","btn4","btn3"];
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn5",6],["btn4",7]]; 
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn4",7]]; //////
-var bts=[["btn40",10]];///
+var bts=[["btn45",70]];///
+// var bts=[["btn43",25]];///
+// var bts=[["btn43",13],["btn40",5]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4],["btn10",10],["btn2",6]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4]];//////////////////
 // var bts=[["btn9",5],["btn8",5],["btn9",5]];

@@ -458,6 +458,143 @@ collectlibs(){
 ldd build64/*|grep -iv system32|grep -vi windows|grep -v :$  | cut -f2 -d\> | cut -f1 -d\( | tr \\ / |while read a; do ! [ -e "build64/`basename $a`" ] && cp -v "$a" build64/; done
 }
 
+win8() {
+  local SHARE_DIR="$HOME/qemu-share"
+  local SOCKET_PATH="/run/user/$(id -u)/vfs0.sock"
+  local VIRTIOFSD_BIN="/usr/lib/qemu/virtiofsd"
+
+  mkdir -p "$SHARE_DIR"
+  chmod 700 "$SHARE_DIR"
+  
+  # Certifique-se de que o diretório para o socket existe e tem permissões adequadas
+  mkdir -p "$(dirname "$SOCKET_PATH")"
+
+  # 🚀 Inicie virtiofsd com SUDO no background.
+  # Use 'sudo sh -c ...' para garantir que os comandos sejam interpretados com privilégios.
+  sudo "$VIRTIOFSD_BIN" \
+    --socket-path="$SOCKET_PATH" \
+    -o source="$SHARE_DIR" &
+    # Remova --sandbox=namespace, pois não é necessário com sudo
+
+  # IMPORTANTE: A virtiofsd deve ser terminada após o QEMU fechar.
+  # Salve o PID para que você possa terminá-lo (kill) no final ou em caso de erro.
+  VIRTIOFSD_PID=$!
+  trap "sudo kill $VIRTIOFSD_PID; wait $VIRTIOFSD_PID 2>/dev/null" EXIT
+
+  sleep 1 # Dê tempo para a inicialização e criação do socket.
+  
+  # Verificação de erro (Opcional, mas útil)
+  if ! ls "$SOCKET_PATH" &>/dev/null; then
+      echo "Erro: O socket $SOCKET_PATH não foi criado. Abortando." >&2
+      exit 1
+  fi
+  
+  # Mude o proprietário do socket para o seu usuário (super) para que o QEMU possa usá-lo
+  sudo chown "$(id -u):$(id -g)" "$SOCKET_PATH"
+
+  # Launch QEMU VM (código QEMU inalterado)
+  qemu-system-x86_64 \
+    -m 1024 \
+    -smp 2 \
+    -cpu host \
+    -machine q35,accel=kvm \
+    -drive file=win8.1.qcow2,format=qcow2 \
+    -vga virtio \
+    -display sdl,gl=off \
+    -rtc base=localtime,clock=host \
+    -net nic,model=virtio \
+    -net user \
+    -usb -device usb-tablet \
+    -enable-kvm \
+  -cdrom virtio-win-0.1.285.iso \
+    -chardev socket,id=char0,path="$SOCKET_PATH" \
+    -device vhost-user-fs-pci,chardev=char0,tag=shared0 \
+    -object memory-backend-memfd,id=mem,size=1G,share=on \
+    -numa node,memdev=mem
+
+  # O 'trap' acima garantirá que o virtiofsd seja encerrado quando o QEMU fechar.
+}
+win1032() {
+  local SHARE_DIR="$HOME/qemu-share"
+  local SOCKET_PATH="/run/user/$(id -u)/vfs0.sock"
+  local VIRTIOFSD_BIN="/usr/lib/qemu/virtiofsd"
+
+  mkdir -p "$SHARE_DIR"
+  chmod 700 "$SHARE_DIR"
+  
+  # Certifique-se de que o diretório para o socket existe e tem permissões adequadas
+  mkdir -p "$(dirname "$SOCKET_PATH")"
+
+  # 🚀 Inicie virtiofsd com SUDO no background.
+  # Use 'sudo sh -c ...' para garantir que os comandos sejam interpretados com privilégios.
+  sudo "$VIRTIOFSD_BIN" \
+    --socket-path="$SOCKET_PATH" \
+    -o source="$SHARE_DIR" &
+    # Remova --sandbox=namespace, pois não é necessário com sudo
+
+  # IMPORTANTE: A virtiofsd deve ser terminada após o QEMU fechar.
+  # Salve o PID para que você possa terminá-lo (kill) no final ou em caso de erro.
+  VIRTIOFSD_PID=$!
+  trap "sudo kill $VIRTIOFSD_PID; wait $VIRTIOFSD_PID 2>/dev/null" EXIT
+
+  sleep 1 # Dê tempo para a inicialização e criação do socket.
+  
+  # Verificação de erro (Opcional, mas útil)
+  if ! ls "$SOCKET_PATH" &>/dev/null; then
+      echo "Erro: O socket $SOCKET_PATH não foi criado. Abortando." >&2
+      exit 1
+  fi
+  
+  # Mude o proprietário do socket para o seu usuário (super) para que o QEMU possa usá-lo
+  sudo chown "$(id -u):$(id -g)" "$SOCKET_PATH"
+
+  # Launch QEMU VM (código QEMU inalterado)
+  qemu-system-i386 \
+    -m 1024 \
+    -smp 1 \
+    -cpu host \
+    -machine q35,accel=kvm \
+    -drive file=win10-32bit.qcow2,format=qcow2 \
+    -vga virtio \
+    -display sdl,gl=off \
+    -rtc base=localtime,clock=host \
+    -net nic,model=virtio \
+    -net user \
+    -usb -device usb-tablet \
+    -enable-kvm \
+    -chardev socket,id=char0,path="$SOCKET_PATH" \
+    -device vhost-user-fs-pci,chardev=char0,tag=shared0 \
+    -object memory-backend-memfd,id=mem,size=1G,share=on \
+    -numa node,memdev=mem
+
+  # O 'trap' acima garantirá que o virtiofsd seja encerrado quando o QEMU fechar.
+}
+win1032_v1(){
+	qemu-system-i386 \
+  -m 1024 \
+  -smp 2 \
+  -cpu host \
+  -machine q35,accel=kvm \
+  -drive file=win10-32bit.qcow2,format=qcow2 \
+  -vga virtio \
+  -display sdl,gl=off \
+  -rtc base=localtime,clock=host \
+  -net nic,model=virtio \
+  -net user \
+  -usb -device usb-tablet \
+  -enable-kvm
+#   \
+#   -cdrom ../Downloads/Win10x32Lite-SasNet.iso \
+#   -drive file=virtio-win-0.1.248.iso,media=cdrom
+
+
+
+#   -device qemu-xhci,id=xhci \
+#   -device usb-host,bus=xhci.0,vendorid=0x0781,productid=0x5591
+
+}
+
+
 launchwin8(){
 # https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso
 
@@ -594,7 +731,8 @@ qemu-system-x86_64 \
   -net user \
   -usb -device usb-tablet \
   -enable-kvm \
-  -cdrom virtio-win-0.1.189.iso
+  -device qemu-xhci,id=xhci \
+  -device usb-host,bus=xhci.0,vendorid=0x0781,productid=0x5591
 
 
 

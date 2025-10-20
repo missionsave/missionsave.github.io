@@ -507,6 +507,61 @@ bool highFirst(const std::string& symbol, const Kline& candle) {
 
     return (tHigh < tLow);
 }
+/**
+ * @brief Determines whether the high was reached before the low within a range of candles.
+ * @param symbol The trading pair symbol (e.g., "BTCUSDT").
+ * @param candles The full vector of candles (e.g., 4h candles).
+ * @param fromindex Starting index (inclusive).
+ * @param toindex Ending index (inclusive).
+ * @return true if the high was reached before the low, false otherwise.
+ * @throws std::runtime_error if the order cannot be determined.
+ */
+bool highFirst(const std::string& symbol, const std::vector<Kline>& candles, int fromindex, int toindex) {
+    if (candles.empty() || fromindex < 0 || toindex >= (int)candles.size() || fromindex > toindex) {
+        throw std::invalid_argument("Invalid candle range for highFirst()");
+    }
+
+    // Determine the overall time window
+    const long long start_time = candles[fromindex].open_time;
+    const long long end_time   = candles[toindex].close_time;
+
+    // Compute target high/low across the selected candles
+    double targetHigh = candles[fromindex].high_price;
+    double targetLow  = candles[fromindex].low_price;
+    for (int i = fromindex + 1; i <= toindex; ++i) {
+        targetHigh = std::max(targetHigh, candles[i].high_price);
+        targetLow  = std::min(targetLow, candles[i].low_price);
+    }
+
+    // Fetch 1m klines covering that full range
+    Json::Value data = get_binance_klines_range(symbol, "1m", start_time, end_time);
+
+    long long tHigh = -1;
+    long long tLow  = -1;
+
+    // Iterate through 1m candles to find when highs/lows were reached
+    for (const auto& k : data) {
+        long long t = k[0].asInt64();  // open time
+        double high = std::stod(k[2].asString());
+        double low  = std::stod(k[3].asString());
+
+        if (tHigh == -1 && high >= targetHigh)
+            tHigh = t;
+
+        if (tLow == -1 && low <= targetLow)
+            tLow = t;
+
+        if (tHigh != -1 && tLow != -1)
+            break;  // stop early when both found
+    }
+
+    if (tHigh == -1 || tLow == -1) {
+        throw std::runtime_error("Não foi possível determinar ordem high/low para " + symbol);
+    }
+
+    // true = high hit first, false = low hit first
+    return (tHigh < tLow);
+}
 
 
 // ... [Existing Helper Functions] ...
@@ -1385,15 +1440,15 @@ int main() {
         
         // --- 2. Binance Klines Data Fetch ---
         std::string symbol = "BTCUSDT";
-        symbol = "XRPUSDT";
         symbol = "ETHUSDT";
+        // symbol = "XRPUSDT";
         // symbol = "SOLUSDT";
         // symbol = "SUIUSDT";
         // symbol = "DOGEUSDT";
         // symbol = "TIAUSDT";
         // symbol = "AVAXUSDT";
-        std::string interval = "8h";
-        int limit = 1000; // Fetch 5 data points for easy display
+        std::string interval = "1d";
+        int limit = 999; 
 
         std::cout << "\nFetching Binance Klines (" << symbol << ", " << interval << ", limit: " << limit << ")...";
         std::string klines_json = get_binance_klines(symbol, interval, limit);
@@ -1401,13 +1456,13 @@ int main() {
  
         // --- 3. Parse and Store Data ---
         std::vector<Kline> vklines = parse_klines(klines_json);
-		vklines.pop_back();
-		vklines.pop_back();
-		vklines.pop_back();
-		vklines.pop_back();
-		vklines.pop_back();
-		vklines.pop_back();
-		vklines.pop_back();
+		// vklines.pop_back();
+		// vklines.pop_back();
+		// vklines.pop_back();
+		// vklines.pop_back();
+		// vklines.pop_back();
+		// vklines.pop_back();
+		// vklines.pop_back();
 
         std::cout << "\n✅ Successfully parsed " << vklines.size() << " Klines into a vector struct.\n";
         std::cout << "----------------------------------------\n";
@@ -1443,8 +1498,8 @@ vint vmacd;
 bool flagbreak = 0;
 for (int wsize = 8; wsize > 3; wsize--) {
 	for (float rscale = 80; rscale >= 20; rscale -= 5) {
-		for(int i=0;i<6;i++){ //more trust
-		// for(int i=0;i<rsi_periods.size();i++){
+		// for(int i=0;i<6;i++){ //more trust
+		for(int i=0;i<rsi_periods.size();i++){
 		// for(int i=26;i>2;i--){
 		// lop(i, 3, 17) {
 			vrsi = fill_rsi_cache(vklines, rsi_periods[i], rscale);
@@ -1459,9 +1514,15 @@ for (int wsize = 8; wsize > 3; wsize--) {
 			ProjectionResult projection = analyze_rsi_pattern_and_project(vrsi, vklines, wsize, fsize);
 
 			if (projection.pattern_found) {
+				if(abs(projection.percentage_from_open_to_high)<0.5 && abs(projection.percentage_from_open_to_low)<0.5)continue;
+				bool isg1=abs(projection.percentage_from_open_to_high)>0.8 && abs(projection.percentage_from_open_to_low)<0.8;
+				bool isg2=abs(projection.percentage_from_open_to_high)<0.8 && abs(projection.percentage_from_open_to_low)>0.8;
+				// if(isg1 || isg2){}else continue;
+				
 				// if(projection.pattern_start_index==545)continue;
 				// if(projection.pattern_start_index==552)continue;
 				// if(projection.pattern_start_index==556)continue;
+				// lop(macdi, 0, 50) {
 				lop(macdi, 0, macdTrusted.size()) {
 					for(int mcdinterval=100;mcdinterval>=20;mcdinterval-=5){
 					// lop(mslowperiod, 6, 40) {
@@ -1490,6 +1551,7 @@ for (int wsize = 8; wsize > 3; wsize--) {
 					}
 				// 	if (flagbreak) break;
 				}
+				// flagbreak=0;
 				if (!flagbreak) continue;
 				vint vrsiactual = vint(vrsi.end() - wsize - 1, vrsi.end() - 1);
 				cotm(vrsiactual, rscale, wsize, i);
@@ -1526,6 +1588,7 @@ for (int wsize = 8; wsize > 3; wsize--) {
 						Kline &toseek=vklines[projection.pattern_start_index+wsize];
 						
 
+        // bool result = highFirst(symbol, vklines,projection.pattern_start_index+wsize,projection.pattern_start_index+wsize+fsize);
         bool result = highFirst(symbol, toseek);
         std::cout << (result ? "High primeiro" : "Low primeiro") << std::endl;
 		cotm(toseek.high_price,toseek.low_price);

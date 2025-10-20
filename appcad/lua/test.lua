@@ -1,3 +1,25 @@
+--global variables
+container_width=2438
+container_height=2591
+--container_height=2895 --hc
+container_long=6058
+--container_long=12192
+container_midle=container_width/2
+
+crn_width=162
+crn_height=118
+crn_long=178
+
+tunel_height=(container_height-120*3)/4
+
+compartments=2
+
+function c40()
+container_long=12192
+compartments=4
+end
+--c4 0()
+
 function robot1()
 
 Part sketch_body
@@ -82,19 +104,10 @@ Movel(-285,170-7,-100)
 end
 --robot1()
 
+ 
+
+
 function struct()
-container_width=2438
-container_height=2591
---container_height=2895 --hc
-container_long=6058
---container_long=12192
-container_midle=container_width/2
-
-crn_width=162
-crn_height=118
-crn_long=178
-
-tunel_height=(container_height-120*3)/4
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
@@ -216,6 +229,15 @@ Movel(0,tunel_height*2+120*1)
 Clone(longitudinal,1)
 Movel(0,tunel_height*3+120*1)
 
+Part longi_right_clones
+Clone(longitudinal_clones,1)
+Rotately(180)
+Movel(container_width,0.01,-container_long)
+Clone(longitudinal,0)
+Rotately(180)
+Movel(container_width,120,-container_long+120)
+
+
 
 Part transversal
 Clone sketch_profile
@@ -248,10 +270,10 @@ Movel(0,tunel_height*3+120*1)
 
 Part pillar
 Clone sketch_profile
-Extrude(tunel_height-120)
+Extrude(tunel_height-120-90)
 Copy_placement(framev)
 Rotately(90)
-Movel(50+120)
+Movel(50+120,120*2)
 
 Part pillar_right
 Clone(pillar,1)
@@ -267,9 +289,9 @@ Movel(-120,0,-container_long)
 
 Part rail
 Clone sketch_profile
-Extrude(container_long-1000)
+Extrude(container_long-1000-50)
 Rotatelz(-90)
-Movel(container_width/3 , tunel_height+120*2,-container_long)
+Movel(container_width/3 , tunel_height+120*2+20,-container_long+50)
 
 Part rail_right
 Clone(rail,1)

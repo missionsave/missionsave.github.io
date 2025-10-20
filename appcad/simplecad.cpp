@@ -54,7 +54,7 @@
 
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
-#define cotm(...)
+// #define cotm(...)
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
 // #endif
@@ -178,16 +178,16 @@ struct shelpv{
 	std::string html = R"(
 <html>
 <body marginwidth=0 marginheight=0 topmargin=0 leftmargin=0><font face=Arial > 
-<b><font color="Red">texto</font>
-$pname $point $edge
+<b><font color="Red">Part</font> 
+$pname<br> $point $edge <br>$mass
 </font>
 </body>
 </html>
 )";
-	point="<br>"+point;
 	replace_All(html,"$point",point);
 	replace_All(html,"$pname",pname);
 	replace_All(html,"$edge",edge);
+	replace_All(html,"$mass",mass);
 
 	helpv->value(html.c_str());
 }
@@ -2274,7 +2274,7 @@ void ev_highlight() {
 
     luadraw* ldd = lua_detected(anOwner);
     if (ldd) {
-        std::string pname = "name: " + ldd->name;
+        std::string pname =   ldd->name;
         // if (pname != help.pname) //to optimize speed
 		{
 			help.pname = pname; 
@@ -2286,8 +2286,8 @@ void ev_highlight() {
 			// Get the mass (volume if density=1)
 			Standard_Real mass = systemProps.Mass();
 			double massa=mass/1000;
-			help.pname+=" Mass:"+ fmt(massa,0)+"cm³"+ " Petg50%:~"+fmt(massa*1.27*0.75,0)+"g"+ " Steel:~"+fmt(massa*0.007850,2)+"kg";
-			std::cout << "Mass (assuming density=1): " << mass << std::endl;
+			help.mass=" Mass:"+ fmt(massa,0)+"cm³"+ " Petg50%:~"+fmt(massa*1.27*0.75,0)+"g"+ " Steel:~"+fmt(massa*0.007850,2)+"kg";
+			// std::cout << "Mass (assuming density=1): " << mass << std::endl;
 			help.upd(); 
 		}
     }
@@ -2425,7 +2425,7 @@ void ev_highlight() {
 		if (!anOwner.IsNull()) {
 			ldd = lua_detected(anOwner);
 			if (ldd) {
-				string pname="name: "+ldd->name;
+				string pname=ldd->name;
 				if(pname!=help.pname){help.pname=pname;help.upd();}
 				// cotm(ldd->name);
 			}
@@ -2643,7 +2643,14 @@ if (event == FL_DRAG && isRotating && m_initialized) {
     return 0;
 }
 
-
+if(event== FL_PUSH && (Fl::event_state() & FL_CTRL)){
+	if(help.pname!=""){
+		cotm(help.pname)
+		gopart(help.pname);
+		// ld->occv->FitViewToShape(ld->occv->m_view, ld->shape);
+		return 1;
+	}
+}
 
 
 
