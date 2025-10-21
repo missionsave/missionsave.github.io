@@ -18,7 +18,11 @@ function c40()
 container_long=12192
 compartments=4
 end
---c4 0()
+compart_len=container_long/compartments
+
+
+
+--c40()
 
 function robot1()
 
@@ -164,6 +168,16 @@ Clone sketch_profile
 Extrude((container_height-crn_height*2))
 Rotatelx(-90)
 Movel(0,crn_height)
+
+if compartments > 1 then
+for i = 1, compartments - 1 do
+	Part frameva
+	Clone(framev,1)
+	Movel(0,0,compart_len*-i)
+
+end
+end
+
 
 Part framev_back
 Clone(framev,1)
