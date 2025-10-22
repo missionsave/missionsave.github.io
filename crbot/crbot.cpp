@@ -280,13 +280,14 @@ std::string get_binance_klines(const std::string& symbol, const std::string& int
  * Uses double for prices and long long for timestamps to ensure precision.
  */
 struct Kline {
-    long long open_time;
-    double open_price;
-    double high_price;
-    double low_price;
-    double close_price;
-    double volume;
-    long long close_time;
+    long long open_time{};
+    double open_price{};
+    double high_price{};
+    double low_price{};
+    double close_price{};
+    double volume{};
+    long long close_time{};
+	vector<int> reached;
     // We omit the rest of the fields for simplicity, but they can be added if needed.
 
     // A simple method for debugging/printing
@@ -1426,7 +1427,150 @@ std::vector<int> rsi_periods = {
     55,
     60,
     70};
+
+
+
+#pragma region reached
+#include <bits/stdc++.h>
+using namespace std;
+ 
+
+struct Minute {
+    long long open_time{};
+    double open{}, high{}, low{}, close{}, volume{};
+    long long close_time{};
+};
+
+long long parseTime(const string& s) {
+    tm tm{}; istringstream ss(s);
+    ss >> get_time(&tm, "%Y-%m-%d %H:%M:%S");
+    if (ss.fail()) return 0;
+    return timegm(&tm);
+}
+
+vector<Minute> loadCSV(const string& filename) {
+    ifstream f(filename);
+    string line; getline(f, line); // skip header
+    vector<Minute> v; string tok;
+    while (getline(f, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        Minute m; string opentime, closetime;
+        getline(ss, opentime, ',');  m.open_time = parseTime(opentime);
+        getline(ss, tok, ','); if(tok.empty()) continue; m.open = stod(tok);
+        getline(ss, tok, ','); if(tok.empty()) continue; m.high = stod(tok);
+        getline(ss, tok, ','); if(tok.empty()) continue; m.low  = stod(tok);
+        getline(ss, tok, ','); if(tok.empty()) continue; m.close= stod(tok);
+        getline(ss, tok, ','); if(tok.empty()) continue; m.volume=stod(tok);
+        getline(ss, closetime, ','); m.close_time = parseTime(closetime);
+        v.push_back(m);
+    }
+    return v;
+}
+
+vector<Kline> aggregate4h(const vector<Minute>& mins) {
+    const long long FOUR_H = 4LL * 60 * 60; // seconds
+    vector<Kline> v;
+    if (mins.empty()) return v;
+
+    Kline cur{};
+    long long curStart = (mins.front().open_time / FOUR_H) * FOUR_H;
+
+    cur.open_time = curStart;
+    cur.open_price = mins.front().open;
+    cur.high_price = mins.front().high;
+    cur.low_price = mins.front().low;
+    cur.volume = 0.0;
+
+    for (size_t i = 0; i < mins.size(); ++i) {
+        long long slot = (mins[i].open_time / FOUR_H) * FOUR_H;
+        if (slot != curStart) {
+            cur.close_time = mins[i - 1].close_time;
+            cur.close_price = mins[i - 1].close;
+            v.push_back(cur);
+
+            // start new candle
+            cur = {};
+            curStart = slot;
+            cur.open_time = slot;
+            cur.open_price = mins[i].open;
+            cur.high_price = mins[i].high;
+            cur.low_price = mins[i].low;
+            cur.volume = mins[i].volume;
+        } else {
+            cur.high_price = max(cur.high_price, mins[i].high);
+            cur.low_price  = min(cur.low_price, mins[i].low);
+            cur.volume += mins[i].volume;
+        }
+    }
+
+    // push last candle
+    cur.close_time = mins.back().close_time;
+    cur.close_price = mins.back().close;
+    v.push_back(cur);
+
+    return v;
+}
+
+void computeReached(vector<Kline>& vmlines, const vector<Minute>& mins) {
+    const long long FOUR_H = 4LL * 60 * 60;
+    size_t idx = 0;
+
+    for (auto& kl : vmlines) {
+        long long start = (kl.open_time / FOUR_H) * FOUR_H;
+        long long end   = start + FOUR_H;
+        double base = kl.open_price;
+        int maxStep = 0, minStep = 0;
+
+        // Process minutes safely
+        while (idx < mins.size() && mins[idx].open_time < end) {
+            if (mins[idx].open_time >= start) {
+                double upPct = (mins[idx].high - base) / base;
+                double dnPct = (mins[idx].low  - base) / base;
+
+                int newMax = static_cast<int>(floor(upPct * 100.0));
+                int newMin = static_cast<int>(floor(dnPct * 100.0));
+
+                while (newMax > maxStep) { maxStep++; kl.reached.push_back(maxStep); }
+                while (newMin < minStep) { minStep--; kl.reached.push_back(minStep); }
+            }
+            idx++;
+        }
+    }
+}
+
+int reached() {
+    vector<Minute> mins = loadCSV("BTCUSD_1m_Binance.csv");
+    if (mins.empty()) {
+        cerr << "No data loaded.\n";
+        return 1;
+    }
+
+    auto vmlines = aggregate4h(mins);
+    computeReached(vmlines, mins);
+
+    cout << "Loaded " << vmlines.size() << " 4h candles.\n";
+    for (size_t i = 0; i < min<size_t>(5, vmlines.size()); ++i) {
+        cout << "Candle " << i << " (" << vmlines[i].open_time << ") reached: ";
+        for (int r : vmlines[i].reached) cout << r << " ";
+        cout << "\n";
+    }
+	for(int i=vmlines.size()-6;i<vmlines.size();i++){
+		vmlines[i].print();
+        cout << "Candle " << i << " (" << vmlines[i].open_time << ") reached: ";
+        for (int r : vmlines[i].reached) cout << r << " ";
+        cout << "\n";
+	}
+	return 0;
+}
+
+
+#pragma endregion
 int main() {
+	reached();
+	return 0;
+
+
     std::cout << "Starting Crypto Data Retrieval (Functional C++)\n";
 
     try {
