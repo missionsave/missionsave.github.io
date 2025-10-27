@@ -13,16 +13,17 @@ crn_long=178
 tunel_height=(container_height-120*3)/4
 
 compartments=2
+floors=4
 
 function c40()
 container_long=12192
 compartments=4
-end
-compart_len=container_long/compartments
-
-
-
+end 
 --c40()
+compart_len=(container_long-120*(compartments+1))/compartments
+
+
+
 
 function robot1()
 
@@ -106,7 +107,7 @@ Movel(-285,170-7,-100)
 
 
 end
---robot1()
+robot1()
 
  
 
@@ -168,15 +169,44 @@ Clone sketch_profile
 Extrude((container_height-crn_height*2))
 Rotatelx(-90)
 Movel(0,crn_height)
+ 
+Part longitudinal
+Clone sketch_profile
+Extrude(-compart_len)
+Movel(0,120,-120)
 
-if compartments > 1 then
-for i = 1, compartments - 1 do
+for i = 0, compartments - 1 do
 	Part frameva
 	Clone(framev,1)
-	Movel(0,0,compart_len*-i)
+	Movel(0,0,(-compart_len-120)*i)
+	
+	Part longc
+	Clone(longitudinal,1)
+	Movel(0,0,(-compart_len-120)*i)
 
-end
-end
+	Part longi_clones
+	for j = 0, floors - 1 do
+	Clone(longitudinal,1)
+	Movel(0,120*1,(-compart_len-120)*i)
+	Clone(longitudinal,1)
+	Rotately(180)
+	Movel(container_width,120*1,((-compart_len-120)*-i)-container_long+120*2) 
+	end
+--Clone(longitudinal,1)
+--Movel(0,tunel_height+120*1)
+--Clone(longitudinal,1)
+--Movel(0,tunel_height*2+120*1)
+--Clone(longitudinal,1)
+--Movel(0,tunel_height*3+120*1)
+
+--Part longi_right_clones
+--Clone(longitudinal_clones,1)
+--Rotately(180)
+--Movel(container_width,0.01,-container_long)
+--Clone(longitudinal,0)
+--Rotately(180)
+--Movel(container_width,120,-container_long+120)
+end 
 
 
 Part framev_back
@@ -228,28 +258,28 @@ Part upn_ref_right
 Clone(upn_ref,0)
 Copy_placement(framev_right_back)
 
-Part longitudinal
-Clone sketch_profile
-Extrude(-container_long+120*2)
-Movel(0,120,-120)
+--Part longitudinal
+--Clone sketch_profile
+--Extrude(-container_long+120*2)
+--Movel(0,120,-120)
 
-Part longitudinal_clones
-Clone(longitudinal,1)
-Movel(0,120*1) 
-Clone(longitudinal,1)
-Movel(0,tunel_height+120*1)
-Clone(longitudinal,1)
-Movel(0,tunel_height*2+120*1)
-Clone(longitudinal,1)
-Movel(0,tunel_height*3+120*1)
+--Part longitudinal_clones
+--Clone(longitudinal,1)
+--Movel(0,120*1) 
+--Clone(longitudinal,1)
+--Movel(0,tunel_height+120*1)
+--Clone(longitudinal,1)
+--Movel(0,tunel_height*2+120*1)
+--Clone(longitudinal,1)
+--Movel(0,tunel_height*3+120*1)
 
-Part longi_right_clones
-Clone(longitudinal_clones,1)
-Rotately(180)
-Movel(container_width,0.01,-container_long)
-Clone(longitudinal,0)
-Rotately(180)
-Movel(container_width,120,-container_long+120)
+--Part longi_right_clones
+--Clone(longitudinal_clones,1)
+--Rotately(180)
+--Movel(container_width,0.01,-container_long)
+--Clone(longitudinal,0)
+--Rotately(180)
+--Movel(container_width,120,-container_long+120)
 
 
 

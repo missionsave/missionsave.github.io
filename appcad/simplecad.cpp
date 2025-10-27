@@ -26,6 +26,8 @@
 #include <Graphic3d_Camera.hxx>
 
 #include <TopoDS_Shape.hxx>
+#include <BOPAlgo_BOP.hxx>
+#include <BOPAlgo_Options.hxx>
 
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
@@ -54,7 +56,7 @@
 
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
-// #define cotm(...)
+#define cotm(...)
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
 // #endif
@@ -715,7 +717,7 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 			builder.MakeCompound(TopoDS::Compound( cshape) );
 
 			auto it = occv->ulua.find(name);
-			int counter = 0;
+			int counter = 1;
 			std::string new_name = name;
 			while (it != occv->ulua.end()) {
 				new_name = name + std::to_string(counter);
@@ -910,7 +912,112 @@ static TopoDS_Shape CompoundInstead(const std::vector<TopoDS_Solid>& solids) {
     for (auto& s : solids) builder.Add(comp, s);
     return comp;
 }
-TopoDS_Shape FuseAndRefineWithAPI(const TopoDS_Shape& inputShape) {
+#include <BRepAlgoAPI_Fuse.hxx>
+#include <BRepAlgoAPI_BuilderAlgo.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <vector>
+#include <BOPAlgo_BOP.hxx>
+#include <BOPAlgo_Options.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
+
+TopoDS_Shape FuseAndRefineWithAPI_v2gpt(const TopoDS_Shape& inputShape) {
+    auto solids = ExtractSolids(inputShape);
+    if (solids.empty()) {
+        lua_error_with_line(L, "No solids found in input shape\n");
+        return shape;
+    }
+
+    if (solids.size() == 1) {
+        ShapeUpgrade_UnifySameDomain unify(solids[0], true, true, true);
+        unify.Build();
+        return unify.Shape();
+    }
+
+    // ✅ Use BOPAlgo_BOP for parallel multi-fuse
+    BOPAlgo_BOP bop;
+    for (const auto& s : solids)
+        bop.AddArgument(s);
+
+    bop.SetOperation(BOPAlgo_FUSE);
+    bop.SetRunParallel(Standard_True);
+    bop.SetNonDestructive(Standard_True);
+    bop.SetFuzzyValue(1.0e-6);
+    bop.Perform();
+
+    if (bop.HasErrors()) {
+        std::cerr << "❌ BOPAlgo_BOP fusion failed with errors:\n";
+        bop.DumpErrors(std::cerr);
+        return inputShape; // fallback
+    }
+
+    TopoDS_Shape fused = bop.Shape();
+return fused;
+    // ✅ Optional refinement
+    ShapeUpgrade_UnifySameDomain unify(fused, true, true, true);
+    unify.Build();
+    return unify.Shape();
+}
+
+TopoDS_Shape FuseAndRefineWithAPI_v3(const TopoDS_Shape& inputShape) {
+    // Early validation of input shape
+    if (inputShape.IsNull()) {
+        cotm(name, "⚠️ Input shape is null");
+        lua_error_with_line(L, "Input shape is null\n");
+        return shape;
+    }
+	// return inputShape;
+
+    // Extract solids efficiently
+    std::vector<TopoDS_Shape> solids;
+    for (TopExp_Explorer exp(inputShape, TopAbs_SOLID); exp.More(); exp.Next()) {
+        solids.push_back(exp.Current());
+    }
+
+    if (solids.empty()) {
+        cotm(name, "⚠️ No solids found in input shape");
+        lua_error_with_line(L, "No solids found in input shape\n");
+        return shape; // Return input as-is or empty shape
+    }
+
+    if (solids.size() == 1) {
+        // Single solid: refine only
+        ShapeUpgrade_UnifySameDomain unify(solids[0], /*UnifyFaces*/ true, /*UnifyEdges*/ true, /*ConcatBSplines*/ true);
+        unify.Build();
+        return unify.Shape();
+    }
+
+    // Batch fusion using BRepAlgoAPI_BuilderAlgo for efficiency
+    BRepAlgoAPI_BuilderAlgo fuseAlgo;
+    TopTools_ListOfShape arguments;
+    for (const auto& solid : solids) {
+        arguments.Append(solid);
+    }
+    fuseAlgo.SetArguments(arguments);
+    fuseAlgo.SetRunParallel(true); // Enable parallel processing if safe
+    fuseAlgo.Build();
+
+    if (!fuseAlgo.IsDone()) {
+        cotm(name, "❌ Fusion failed, returning compound instead");
+        // Optionally return a compound of solids (not shown)
+        return inputShape; // Or create compound from solids
+    }
+
+	return fuseAlgo;
+    // Refine result: merge faces, edges, vertices
+    ShapeUpgrade_UnifySameDomain unify(fuseAlgo, true, true, true);
+    unify.Build();
+    return unify.Shape();
+
+
+    // Refine the fused shape
+    // TopoDS_Shape fused = fuseAlgo.Shape();
+    // ShapeUpgrade_UnifySameDomain unify(fused, /*UnifyFaces*/ true, /*UnifyEdges*/ true, /*ConcatBSplines*/ true);
+    // unify.Build();
+    // return unify.Shape();
+}
+TopoDS_Shape FuseAndRefineWithAPI_v1(const TopoDS_Shape& inputShape) {
     auto solids = ExtractSolids(inputShape);
     if (solids.empty()) {
         // std::cerr << "⚠️ No solids found in input shape\n";
@@ -946,7 +1053,24 @@ TopoDS_Shape FuseAndRefineWithAPI(const TopoDS_Shape& inputShape) {
     return refined;
 }
  
- 
+ TopoDS_Shape FuseAndRefineWithAPI(const TopoDS_Shape& inputShape) {
+    auto solids = ExtractSolids(inputShape);
+    if (solids.empty()) {
+        // std::cerr << "⚠️ No solids found in input shape\n";
+		cotm(name,"⚠️ No solids found in input shape");
+		lua_error_with_line(L, "No solids found in input shape\n");
+        return shape;
+        // return TopoDS_Shape();
+    }
+    if (solids.size() == 1) {
+        // Only one solid → just refine it
+        ShapeUpgrade_UnifySameDomain unify(solids[0], true, true, true);
+        unify.Build();
+        return unify.Shape();
+    }
+	return cshape;
+
+}
  
 		void copy_placement(luadraw* tocopy) { trsf = tocopy->trsf; }
 		void exit() { throw std::runtime_error(lua_error_with_line(L, "exit")); }
@@ -5871,6 +5995,7 @@ void clearAll(OCC_Viewer* occv){
 void lua_str(const string &str, bool isfile) {
     // thread([](string str, bool isfile, OCC_Viewer* occv) {
         lua_mtx.lock();
+		perf();
         luainit();
 
 		clearAll(occv);
@@ -5911,6 +6036,7 @@ void lua_str(const string &str, bool isfile) {
                 std::cerr << "runtime error: " << lua_tostring(L, -1) << std::endl;
                 lua_pop(L, 1);
             }
+			perf("lua");
             Fl::awake(fillbrowser);
         } else {
             std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
