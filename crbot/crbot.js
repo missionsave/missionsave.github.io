@@ -14,9 +14,9 @@ const CONFIG = {
 
 const SYMBOLS = [
     // { name: "Bitcoin", pair: "BTCUSDT", nc: "BTC_PERP", trade: 1 },
-    // { name: "Etherum", pair: "ETHUSDT", nc: "ETH_PERP", trade: 1 },
+    { name: "Etherum", pair: "ETHUSDT", nc: "ETH_PERP", trade: 1 },
     // { name: "Etherum", pair: "SOLUSDT", nc: "ETH_PERP", trade: 1 },
-    { name: "Etherum", pair: "XRPUSDT", nc: "ETH_PERP", trade: 1 },
+    // { name: "Etherum", pair: "XRPUSDT", nc: "ETH_PERP", trade: 1 },
 ];
 
 const groupsCache = new Map();

@@ -1,3 +1,21 @@
+
+function test8()
+	error()
+	a=9
+	Part test
+	Pl 0,0 100,100 @200,100 0,0
+	Extrude 20
+	--Movel(30)
+	Pl 0,0 100,1000 @100,100 0,0
+	Extrude(60)
+	--Movel(150)
+	--compound()
+end
+--test8()
+
+
+
+
 --global variables
 container_width=2438
 container_height=2591
@@ -36,21 +54,7 @@ Offset 6
 Extrude -100
 Clone sketch_body
 Extrude -6
-Pl 0,0 50,0 @0,50 @-50,0 0,0
-Offset 6
-
---Rotatelx(-90)
---Rotatelx(45)
---Movel(220,170-50,0)
-
-Extrude -89
-
-Rotatelx(-90)
-Rotatelx(45)
-Movel(220,170-50,0)
---FilletToAllEdges(2)
-
---Movel(50)
+Fuse()
 
 
 Part sketch_bucket
@@ -66,9 +70,9 @@ Rotatelx(90)
 Movel(0,170-50,1)
 Clone sketch_bucket
 Extrude -6
-
 Rotatelx(90)
 Movel(0,0,1)
+Fuse()
 
 Part robot_arm
 Pl 0,0 70,0 @0,70 @-70,0
@@ -79,8 +83,9 @@ Movel(-70,170,-70-15)
 --FilletToAllEdges(2)
 
 
-Part skech_arm_1
+Part sketch_arm_1
 Pl 0,0 280,0 @0,6 @-280,0 0,0
+Visible(0)
 
 Part robot_arm_1
 Pl 0,0 70,66 @70,-66 @70,66 @70,-66
@@ -93,21 +98,29 @@ Movel(-285,170-7,-100)
 
 --Pl 0,0 280,0 @0,6 @-280,0 0,0
 --Extrude 56
-Clone skech_arm_1
+Clone sketch_arm_1
 Extrude 56
 --FilletToAllEdges(2)
 Rotatelx(90)
 Movel(-285,170-7,-100)
-Clone skech_arm_1
-Extrude 56
---FilletToAllEdges(2)
+Fuse()
+Clone sketch_arm_1
+Extrude 56 
 Rotatelx(90)
 Movel(0,0,70)
 Movel(-285,170-7,-100)
+Fuse()
+
+--Part test
+Pl 0,0 1000,100 @200,100
+--Extrude 20
+--Pl 0,0 100,1000 @100,100 0,0
+--Extrude 600
+--Fuse()
 
 
 end
-robot1()
+  --robot1()
 
  
 
@@ -169,6 +182,25 @@ Clone sketch_profile
 Extrude((container_height-crn_height*2))
 Rotatelx(-90)
 Movel(0,crn_height)
+
+Part framevref
+Clone(framev,1)
+Rotately(90)
+Movel(120+50)
+
+
+Part cupnref
+Clone sketch_upn40x20
+Extrude(400)
+Rotatelx(-90)
+Movel(2,crn_height,-120+80+2)
+
+Part cupnref1
+Clone(cupnref,1)
+Movel(0,0,-40)
+
+--error()
+
  
 Part longitudinal
 Clone sketch_profile
@@ -187,10 +219,10 @@ for i = 0, compartments - 1 do
 	Part longi_clones
 	for j = 0, floors - 1 do
 	Clone(longitudinal,1)
-	Movel(0,120*1,(-compart_len-120)*i)
+	Movel(0,tunel_height*j+120,(-compart_len-120)*i)
 	Clone(longitudinal,1)
-	Rotately(180)
-	Movel(container_width,120*1,((-compart_len-120)*-i)-container_long+120*2) 
+	Rotatelz(180)
+	Movel(container_width,tunel_height*j+120*2,((-compart_len-120)*i)) 
 	end
 --Clone(longitudinal,1)
 --Movel(0,tunel_height+120*1)
@@ -358,8 +390,7 @@ Movel(0,tunel_height*2)
 
 
 end
-struct()
-
+ struct()
 
 
 

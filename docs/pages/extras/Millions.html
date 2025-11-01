@@ -19,7 +19,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 1; i--) {
+    for (var i = arr.length - 1; i >= 0; i--) { ///////////////////////////////
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,

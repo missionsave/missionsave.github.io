@@ -38,6 +38,8 @@
 #include <cmath>
 #include <AIS_Shape.hxx>
 #include <SelectMgr_EntityOwner.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+#include <TopExp.hxx>
 // ----------------- assumed OCC_Viewer minimal interface -----------------
 // Keep these as comments; your real OCC_Viewer already has equivalents.
 //
@@ -56,6 +58,8 @@
 
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
+
+#define cotm1(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
 #define cotm(...)
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
@@ -694,7 +698,7 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 		TopoDS_Shape fshape;
 		// std::shared_ptr<TopoDS_Shape> shape;
 		Handle(AIS_Shape) ashape;
-		TopoDS_Face face;
+		// TopoDS_Face face;
 		gp_Pnt origin = gp_Pnt(0, 0, 0);
 		gp_Dir normal = gp_Dir(0, 0, 1);
 		gp_Dir xdir = gp_Dir(1, 0, 0);
@@ -775,8 +779,11 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 			
 		void update_placement() { 
 			if (needsplacementupdate == 0) return; 
-			shape=FuseAndRefineWithAPI(cshape); 
-			ashape->Set(shape);
+			// FuseAndRefineWithAPI(cshape); 
+			shape=FuseAndRefineWithAPI(cshape);
+			// shape=cshape; 
+			ashape->Set(cshape);
+			// ashape->Set(Extract_Solids(cshape));
 			needsplacementupdate = 0; 
 		}
 	void redisplay() {
@@ -793,9 +800,9 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 					occv->m_context->Display(ashape, false);
 				}
 			} else {
-				// cotm("notvisible",name)
 				// Only erase if it is displayed
 				if (occv->m_context->IsDisplayed(ashape)) {
+				cotm1("notvisible",name)
 					occv->m_context->Erase(ashape, Standard_False);
 				}
 			}
@@ -874,7 +881,18 @@ TopoDS_Shape ExtractNonSolids(const TopoDS_Shape& compound)
     return result;
 }
 
+TopoDS_Compound Extract_Solids(const TopoDS_Compound& source) {
+    TopoDS_Compound result;
+    TopoDS_Builder builder;
+    builder.MakeCompound(result);
 
+    for (TopExp_Explorer ex(source, TopAbs_SOLID); ex.More(); ex.Next()) {
+        const TopoDS_Solid& solid = TopoDS::Solid(ex.Current());
+        builder.Add(result, solid);
+    }
+
+    return result;
+}
 
 std::vector<TopoDS_Solid> ExtractSolids(const TopoDS_Shape& shape) {
     std::vector<TopoDS_Solid> solids;
@@ -1063,6 +1081,7 @@ TopoDS_Shape FuseAndRefineWithAPI_v1(const TopoDS_Shape& inputShape) {
         // return TopoDS_Shape();
     }
     if (solids.size() == 1) {
+		return solids[0];
         // Only one solid → just refine it
         ShapeUpgrade_UnifySameDomain unify(solids[0], true, true, true);
         unify.Build();
@@ -1088,6 +1107,10 @@ void clone(luadraw* toclone, bool copy_placement = false) {
 		toclone->needsplacementupdate=1; //verify better why this is needed
 		toclone->redisplay(); //verify better why this is needed
 
+		// auto solids = ExtractSolids(toclone->cshape);
+		// if (solids.size() >0) {
+		// this->shape = solids[0];}
+		// else  this->shape = toclone->cshape;
         this->shape = toclone->shape;
 
         if (!copy_placement) { 
@@ -1099,8 +1122,88 @@ void clone(luadraw* toclone, bool copy_placement = false) {
     }
 }
 
+#include <AIS_Shape.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <V3d_View.hxx>
+#include <vector>
 
-		bool solidify_wire_to_face() {
+void MoveAssembly(std::vector<Handle(AIS_Shape)>& parts,
+                  Handle(AIS_InteractiveContext)& context,
+                  const gp_Trsf& move)
+{
+    for (auto& part : parts)
+    {
+        // Keep each part’s local transform, but add the new offset
+        gp_Trsf current = part->LocalTransformation();
+        part->SetLocalTransformation(current.Multiplied(move));
+        context->Redisplay(part, Standard_False);
+    }
+    context->UpdateCurrentViewer();
+}
+
+void ResetAssembly(std::vector<Handle(AIS_Shape)>& parts,
+                   Handle(AIS_InteractiveContext)& context)
+{
+    for (auto& part : parts)
+    {
+        part->ResetTransformation();
+        context->Redisplay(part, Standard_False);
+    }
+    context->UpdateCurrentViewer();
+}
+
+// Example usage:
+void Example_MoveAssembly(Handle(AIS_InteractiveContext)& context)
+{
+    std::vector<Handle(AIS_Shape)> parts;
+
+    // make two boxes offset in space
+    TopoDS_Shape box1 = BRepPrimAPI_MakeBox(100, 100, 100);
+    TopoDS_Shape box2 = BRepPrimAPI_MakeBox(100, 100, 100).Shape();
+
+    Handle(AIS_Shape) ais1 = new AIS_Shape(box1);
+    Handle(AIS_Shape) ais2 = new AIS_Shape(box2);
+
+    gp_Trsf offset;
+    offset.SetTranslation(gp_Vec(150, 0, 0));
+    ais2->SetLocalTransformation(offset);
+
+    parts.push_back(ais1);
+    parts.push_back(ais2);
+
+    for (auto& p : parts)
+        context->Display(p, Standard_False);
+
+    context->UpdateCurrentViewer();
+
+    // Now move the entire group (shift world origin)
+    gp_Trsf moveAll;
+    moveAll.SetTranslation(gp_Vec(-75, -50, 0));
+    MoveAssembly(parts, context, moveAll);
+
+    // Later, you can reset them:
+    // ResetAssembly(parts, context);
+}
+
+TopoDS_Shape GetLastType(const TopoDS_Compound& cshape, TopAbs_ShapeEnum type = TopAbs_WIRE) {
+    TopoDS_Shape last;
+
+    // Only explore direct subshapes of the compound
+    for (TopExp_Explorer ex(cshape, type); ex.More(); ex.Next()) {
+        last = ex.Current();
+    }
+// for (TopExp_Explorer ex(cshape, TopAbs_SHAPE); ex.More(); ex.Next()) {
+//     std::cout << "Shape type: " << ex.Current().ShapeType() << std::endl;
+// }
+    return last; // may be null if none found
+}
+
+
+
+
+		bool solidify_wire_to_face() { 
+			TopoDS_Shape shape=GetLastType(cshape,TopAbs_WIRE);
 			if (shape.IsNull() || shape.ShapeType() != TopAbs_WIRE) {
 				return false;  // not a wire — nothing to do
 			}
@@ -1115,11 +1218,14 @@ void clone(luadraw* toclone, bool copy_placement = false) {
 			}
 
 			shape = mkFace.Face();
+    // Merge the new face into the compound
+    mergeShape(cshape, shape);
 			return true;
 		}
-		void extrude(float qtd = 0) {
+		void extrude_v1(float qtd = 0) {
 			cotm("Extrude", name);
-			solidify_wire_to_face();
+			bool sw=solidify_wire_to_face();
+			cout<<"sw"<<sw<<endl;
 			// 			gp_Dir dir = [](gp_Trsf trsf) {
 			// 	gp_Ax3 ax3;
 			// 	ax3.Transform(trsf);
@@ -1128,8 +1234,14 @@ void clone(luadraw* toclone, bool copy_placement = false) {
 			// gp_Vec extrusionVec(dir);
 			gp_Vec extrusionVec(normal);
 			extrusionVec *= qtd;
+			TopoDS_Shape shape=GetLastType(cshape,TopAbs_FACE);
+			if (shape.IsNull()){
+				return;
+			}
 			TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(shape, extrusionVec).Shape();  // shape from last
+				printf("extrude\n");
 			mergeShape(cshape, extrudedShape);
+			printf("extrude2\n");
 			// cshape=extrudedShape;
 			// throw std::runtime_error(lua_error_with_line(L, "Something went
 			// wrong")); throw std::runtime_error("Something went wrong");
@@ -1188,9 +1300,146 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			unify.Build();
 			this->shape = unify.Shape();
 		}
+void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
+    shape = toAdd; // last added 
+	cotm1(ShapeTypeName(shape));
+    if (toAdd.IsNull()) {
+        std::cerr << "Warning: toAdd is null." << std::endl;
+        return;
+    }
+    if (toAdd.IsSame(target)) {
+        std::cerr << "Warning: attempted to merge compound into itself." << std::endl;
+        return;
+    }
 
-		void mergeShape(TopoDS_Shape& target, const TopoDS_Shape &toAdd) {
-		// void mergeShape(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
+    if (target.IsNull()) {
+        builder.MakeCompound(target);
+    }
+
+    builder.Add(target, toAdd);
+
+    // Track transform
+    gp_Ax2 ax3(origin, normal, xdir);
+    trsf.SetTransformation(ax3);
+    trsf.Invert();
+    vtrsf.push_back(trsf);
+
+    // Debug: count shapes
+    int count = 0;
+    for (TopExp_Explorer exp(target, TopAbs_SHAPE); exp.More(); exp.Next()) {
+        ++count;
+    }
+	 count = 0; 
+// Use TopAbs_SOLID to count the high-level components added to the compound
+for (TopExp_Explorer exp(target, TopAbs_SOLID); exp.More(); exp.Next()) {
+    ++count;
+}
+    cotm1(count);
+
+    // shape = toAdd; // last added
+}
+const char* ShapeTypeName(const TopoDS_Shape& s) {
+    switch (s.ShapeType()) {
+        case TopAbs_COMPOUND: return "COMPOUND";
+        case TopAbs_COMPSOLID: return "COMPSOLID";
+        case TopAbs_SOLID: return "SOLID";
+        case TopAbs_SHELL: return "SHELL";
+        case TopAbs_FACE: return "FACE";
+        case TopAbs_WIRE: return "WIRE";
+        case TopAbs_EDGE: return "EDGE";
+        case TopAbs_VERTEX: return "VERTEX";
+        case TopAbs_SHAPE: return "SHAPE";
+        default: return "UNKNOWN";
+    }
+}
+bool replaceLastWireWithFace(TopoDS_Compound& cshape) {
+    // Collect all shapes in order
+    std::vector<TopoDS_Shape> ordered;
+    for (TopExp_Explorer ex(cshape, TopAbs_SHAPE); ex.More(); ex.Next()) {
+        ordered.push_back(ex.Current());
+    }
+
+    // Find last wire index
+    int lastWireIdx = -1;
+    for (int i = static_cast<int>(ordered.size()) - 1; i >= 0; --i) {
+        if (ordered[i].ShapeType() == TopAbs_WIRE) {
+            lastWireIdx = i;
+            break;
+        }
+    }
+
+    if (lastWireIdx == -1) {
+        std::cerr << "No wire found in compound." << std::endl;
+        return false;
+    }
+
+    // Try to build a face from that wire
+    TopoDS_Wire wire = TopoDS::Wire(ordered[lastWireIdx]);
+    BRepBuilderAPI_MakeFace mkFace(wire);
+    if (!mkFace.IsDone()) {
+        std::cerr << "Failed to create face from wire." << std::endl;
+        return false;
+    }
+
+    TopoDS_Face face = mkFace.Face();
+
+    // Replace the wire with the face
+    ordered[lastWireIdx] = face;
+
+    // Rebuild compound in the same order
+    TopoDS_Compound result;
+    TopoDS_Builder builder;
+    builder.MakeCompound(result);
+    for (const auto& s : ordered) {
+        builder.Add(result, s);
+    }
+
+    cshape = result; // overwrite with rebuilt compound
+    return true;
+}
+void extrude(float qtd = 0) {
+    cotm1("Extrude", name);
+
+	cotm1("onex",ShapeTypeName(shape));
+    // bool replaced = replaceLastWireWithFace(cshape);
+    // std::cout << "replaceLastWireWithFace: " << replaced << std::endl;
+
+    gp_Vec extrusionVec(normal);
+    extrusionVec *= qtd;
+
+    // TopoDS_Shape face = GetLastType(cshape, TopAbs_FACE);
+    if (shape.IsNull()) {
+        std::cerr << "No face found to extrude." << std::endl;
+        return;
+    }
+
+    // TopoDS_Shape extrudedShape = BRepPrimAPI_MakePrism(shape, extrusionVec).Shape();
+	TopoDS_Shape extrudedShape;
+
+try {
+
+	cotm1("extr",ShapeTypeName(shape));
+    BRepPrimAPI_MakePrism mkPrism(shape, extrusionVec);
+
+    if (!mkPrism.IsDone()) {
+        throw std::runtime_error("Extrusion failed: prism builder not done.");
+    }
+
+    extrudedShape = mkPrism.Shape();
+}
+catch (Standard_Failure& e) {
+    std::cerr << "OpenCascade error: " << e.GetMessageString() << std::endl;
+    return; // or handle gracefully
+}
+catch (...) {
+    std::cerr << "Unknown error during extrusion." << std::endl;
+    return;
+}
+    mergeShape(cshape, extrudedShape);
+}
+
+		// void mergeShape(TopoDS_Shape& target, const TopoDS_Shape &toAdd) {
+		void mergeShape_v1(TopoDS_Compound& target, const TopoDS_Shape& toAdd) {
 			if (toAdd.IsNull()) {
 				std::cerr << "Warning: toAdd is null." << std::endl;
 				return;
@@ -1483,9 +1732,9 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 
 		void createOffset(double distance) {
 			vector<gp_Pnt2d> ppoints;
-			ConvertVec2dToPnt2d(vpoints, ppoints);
+			ConvertVec2dToPnt2d(vpoints.back(), ppoints);
 
-			bool closed = ((vpoints[0].X() == vpoints.back().X()) && (vpoints[0].Y() == vpoints.back().Y()));
+			bool closed = ((vpoints.back()[0].X() == vpoints.back().back().X()) && (vpoints.back()[0].Y() == vpoints.back().back().Y()));
 			TopoDS_Face f;
 			if (closed) {
 				f = TopoDS::Face(MakeOffsetRingFace(ppoints, distance));  // well righ
@@ -1497,16 +1746,17 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			mergeShape(cshape, f);
 		}
 
-		std::vector<gp_Vec2d> vpoints;
+		vector<std::vector<gp_Vec2d>> vpoints;
 
 		void CreateWire(const std::vector<gp_Vec2d>& points, bool closed = false) {
-			vpoints = points;
+			vpoints.push_back(points);
+			// vpoints = points;
 			BRepBuilderAPI_MakePolygon poly;
 			for (auto& v : points) {
 				poly.Add(gp_Pnt(v.X(), v.Y(), 0));
 			}
 			if (closed && points.size() > 2) poly.Close();
-			// cotm("s1")
+			printf("s1\n");
 
 				TopoDS_Wire wire = poly.Wire();
 			if (points.size() > 2) {
@@ -1517,8 +1767,10 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 					// Mesh the face so it gets Poly_Triangulation
 					// if(points.size()>2)
 					BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-				// cotm("s4") 
+				printf("s4\n");
 				mergeShape(cshape, face);
+				shape=face;
+	cotm1("bextr",ShapeTypeName(shape));
 				// cotm("s5")
 			} else {
 				mergeShape(cshape, wire);
@@ -1558,7 +1810,7 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			wireBuilder.Add(e4);
 			TopoDS_Wire wire = wireBuilder.Wire();
 
-			face = BRepBuilderAPI_MakeFace(wire);
+			TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
 
 			shape = face;
 			// final
@@ -4524,6 +4776,7 @@ ld->visible_hardcoded=0;
 			// 	mhide[ld->name]=0;
 			// }
 			ld->visible_hardcoded=!ld->visible_hardcoded;
+			// if(ld->visible_hardcoded)mhide[ld->name]=1; else mhide[ld->name]=0;
 			ld->redisplay();
 			ld->occv->redraw();
 			return;
@@ -4863,9 +5116,112 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 	// };
 
 
+#include <BRepAlgoAPI_Fuse.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Builder.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS_Solid.hxx>
+#include <stdexcept>
+
+lua.set_function("Fuse", [&]() { 
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+    
+    const TopoDS_Compound& c = current_part->cshape;
+
+    // Collect all solids
+    std::vector<TopoDS_Solid> solids;
+    for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+
+    if (solids.size() < 2) {
+        throw std::runtime_error("Need at least two solids to fuse.");
+    }
+
+    // Fuse the last two solids
+    BRepAlgoAPI_Fuse fuseOp(solids[solids.size()-2], solids.back());
+    fuseOp.Build();
+    if (!fuseOp.IsDone()) {
+        throw std::runtime_error("Fuse operation failed.");
+    }
+
+    TopoDS_Shape fused = fuseOp.Shape();
+
+    // 🔧 Refine geometry (merge coplanar faces, edges, vertices)
+    ShapeUpgrade_UnifySameDomain refine(fused, true, true, true);
+    refine.Build();
+    TopoDS_Shape refinedShape = refine.Shape();
+    if (!refinedShape.IsNull()) {
+        fused = refinedShape;
+    }
+
+    // Build a new compound with all shapes preserved
+    TopoDS_Compound result;
+    TopoDS_Builder builder;
+    builder.MakeCompound(result);
+
+    // Add all original shapes except the fused ones
+    for (TopExp_Explorer ex(c, TopAbs_SHAPE); ex.More(); ex.Next()) {
+        const TopoDS_Shape& s = ex.Current();
+        if (s.ShapeType() == TopAbs_SOLID) {
+            const TopoDS_Solid solid = TopoDS::Solid(s);
+            if (solid.IsSame(solids.back()) || solid.IsSame(solids[solids.size()-2]))
+                continue;
+        }
+        builder.Add(result, s);
+    }
+
+    // Add refined fused result
+    builder.Add(result, fused);
+
+    // Update current part
+    current_part->cshape = result;
+    current_part->shape = fused;
+});
+
+#include <BRepAlgoAPI_Cut.hxx>
+
+lua.set_function("Subtract", [&]() {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+    const TopoDS_Compound& c = current_part->cshape;
+
+    std::vector<TopoDS_Solid> solids;
+    for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+    if (solids.size() < 2) {
+        throw std::runtime_error("Need at least two solids to subtract.");
+    }
+
+    // Subtract: before‑last minus last
+    TopoDS_Shape cut = BRepAlgoAPI_Cut(solids[solids.size()-2], solids.back());
+
+    // Build new compound
+    TopoDS_Compound result;
+    TopoDS_Builder builder;
+    builder.MakeCompound(result);
+
+    // Add all except the last two
+    for (size_t i = 0; i + 2 < solids.size(); ++i) {
+        builder.Add(result, solids[i]);
+    }
+    // Add cut result
+    builder.Add(result, cut);
+
+    current_part->cshape = result;
+});
+
+
 lua.set_function("Pl", [&, parse_coords](const std::string& coords) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
     current_part->CreateWire(parse_coords(coords), false);
+
+	// current_part->redisplay();
+	// current_part->needsplacementupdate=1;
+
 });
 
 lua.set_function("Offset", [&](double val) {
@@ -5802,7 +6158,7 @@ current_part->needsplacementupdate = 1;
 });
 
 //keeper
-lua.set_function("Fuse", [&](OCC_Viewer::luadraw* tofuse2){
+lua.set_function("Fuse1", [&](OCC_Viewer::luadraw* tofuse2){
 		OCC_Viewer::luadraw* tofuse1=current_part;
 		if (!tofuse1 || !tofuse2) {
 			throw std::runtime_error(lua_error_with_line(L, "Invalid luadraw pointer in fuse"));
