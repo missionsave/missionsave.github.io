@@ -950,6 +950,76 @@ if (pValue){ //replace "%2F" from p to "/"
   });
 })();
 </script>
+<script>
+// Run as early as possible
+(function() {
+  const TARGET = 'verified_user';
+
+  function protectTextNode(textNode) {
+    const text = textNode.nodeValue;
+    const idx = text.indexOf(TARGET);
+    if (idx === -1) return;
+
+    const parent = textNode.parentNode;
+    if (!parent) return;
+
+    // Split into before / target / after
+    const before = document.createTextNode(text.slice(0, idx));
+    const targetSpan = document.createElement('span');
+    targetSpan.className = 'notranslate';
+    targetSpan.setAttribute('translate', 'no');
+    targetSpan.textContent = TARGET;
+    const after = document.createTextNode(text.slice(idx + TARGET.length));
+
+    // Replace the original text node
+    parent.insertBefore(before, textNode);
+    parent.insertBefore(targetSpan, textNode);
+    parent.insertBefore(after, textNode);
+    parent.removeChild(textNode);
+  }
+
+  function walk(node) {
+    // If it's a text node, try to protect it
+    if (node.nodeType === Node.TEXT_NODE) {
+      protectTextNode(node);
+      return;
+    }
+    // Skip script/style/iframe contents
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const tag = node.tagName;
+    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IFRAME') return;
+
+    // If element has shadow DOM, walk it too
+    if (node.shadowRoot) {
+      walk(node.shadowRoot);
+    }
+    // Walk children
+    for (const child of node.childNodes) {
+      walk(child);
+    }
+  }
+
+  // Initial pass
+  walk(document.documentElement);
+
+  // Observe future mutations, including text changes
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.type === 'characterData') {
+        protectTextNode(m.target);
+      } else if (m.type === 'childList') {
+        m.addedNodes.forEach(walk);
+      }
+    }
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+})();
+</script>
 
 
 
