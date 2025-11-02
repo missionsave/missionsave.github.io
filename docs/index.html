@@ -39,6 +39,71 @@ body.no-hover .dropdownc:hover .dropdown-content {
 }
 </style> 
 
+
+
+
+
+
+
+
+<script>
+// A nossa função de proteção principal
+function protectContentFromTranslation(rootElement = document) {
+    const selectors = [
+        '.material-icons', '.material-symbols-outlined', '.material-symbols-rounded', '.material-symbols-sharp',
+        '.fa', '.fas', '.far', '.fal', '.fab',
+        'ins.adsbygoogle', 'iframe[id*="google_ads_frame"]', 'iframe[src*="googleads"]'
+    ];
+    
+    selectors.forEach(selector => {
+        // Encontra elementos dentro do elemento raiz (ou 'document' por defeito)
+        rootElement.querySelectorAll(selector).forEach(el => {
+            if (!el.classList.contains('notranslate')) {
+                el.classList.add('notranslate');
+                el.setAttribute('translate', 'no');
+            }
+        });
+    });
+}
+
+// Criar o observer (o seu "onchange" para o DOM)
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        // Se novos nós (elementos) foram adicionados
+        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+            mutation.addedNodes.forEach(node => {
+                // Só nos importamos com Elementos (ignora nós de texto)
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    // Protege o nó que foi adicionado E qualquer ícone dentro dele
+                    protectContentFromTranslation(node);
+                }
+            });
+        }
+    });
+});
+
+// Ligar o observer quando o DOM estiver pronto
+document.addEventListener('DOMContentLoaded', function() {
+    // Começa a observar o body por elementos adicionados (ex: anúncios)
+    observer.observe(document.body, {
+        childList: true, // Observa adição/remoção de filhos
+        subtree: true    // Observa em toda a árvore DOM
+    });
+});
+
+// E, finalmente, modifique a sua loadPage_v2 para usar a nova função
+// (como descrito na secção "Para o loadPage_v2" acima)
+</script>
+
+
+
+
+
+
+
+
+
+
 <script>
 	function dropdownFunction() {
 		
@@ -468,6 +533,7 @@ onresizeFunction();
 var lib;
 	function gtElInit() {
 		 lib = new google.translate.TranslateService();
+		 protectContentFromTranslation();
 		lib.translatePage('', langbr, function() {
 			// div_loader.style.display="none"; 
 			// div_all.style.display="block"; 
@@ -908,90 +974,10 @@ if (pValue){ //replace "%2F" from p to "/"
 
 
 
-<script>
-/**
- * Protege ícones e contentores de anúncios de serem traduzidos.
- * @param {HTMLElement} rootElement - O elemento para analisar (ex: document.body ou um fragmento de HTML)
- */
-function protectIconsAndAds(rootElement) {
-    // 1. Protege os seus ícones (Material Icons, Font Awesome)
-    //    (Vi que também usa 'fas fa-globe' no seu menu)
-    const iconSelectors = [
-        '.material-icons',
-        '.material-symbols-outlined', 
-        '.material-symbols-rounded',
-        '.material-symbols-sharp',
-        '.fa', '.fas', '.far', '.fal', '.fab' // Font Awesome
-    ];
-    
-    iconSelectors.forEach(selector => {
-        // Encontra ícones dentro do rootElement
-        const icons = rootElement.querySelectorAll(selector);
-        icons.forEach(icon => {
-            if (!icon.classList.contains('notranslate')) {
-                icon.classList.add('notranslate');
-                icon.setAttribute('translate', 'no');
-            }
-        });
-    });
 
-    // 2. Protege os contentores do AdSense (iframes e placeholders)
-    //    Isto diz ao Google Translate para *ignorar* o frame do anúncio inteiro.
-    const adSelectors = [
-        'ins.adsbygoogle', // O placeholder do AdSense
-        'iframe[src*="googleads"]', // O iframe do anúncio
-        'iframe[src*="googlesyndication"]', // Outra src comum do iframe
-        'iframe[id*="google_ads_frame"]' // Padrão de ID comum do AdSense
-    ];
 
-    adSelectors.forEach(selector => {
-        const elements = rootElement.querySelectorAll(selector);
-        elements.forEach(el => {
-            if (!el.classList.contains('notranslate')) {
-                el.classList.add('notranslate');
-                el.setAttribute('translate', 'no');
-            }
-        });
-        
-        // Verifica também se o próprio rootElement é um contentor de anúncio
-        // (Isto é para o MutationObserver, caso o nó adicionado seja o próprio iframe)
-        if (rootElement.matches && rootElement.matches(selector)) {
-             if (!rootElement.classList.contains('notranslate')) {
-                rootElement.classList.add('notranslate');
-                rootElement.setAttribute('translate', 'no');
-            }
-        }
-    });
-}
 
-// Cria o observer para detetar conteúdo dinâmico E anúncios
-const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        // Verifica se novos nós (elementos) foram adicionados
-        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-            mutation.addedNodes.forEach(node => {
-                // Só nos importamos com Elementos (tipo 1)
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    // Verifica o nó adicionado e todos os seus descendentes
-                    protectIconsAndAds(node);
-                }
-            });
-        }
-    });
-});
 
-// Assim que o DOM estiver pronto
-document.addEventListener('DOMContentLoaded', function() {
-    // 1. Protege todos os ícones e anúncios existentes na página inicial
-    protectIconsAndAds(document.body);
-    
-    // 2. Começa a observar por futuras alterações (anúncios a carregar, etc.)
-    observer.observe(document.body, {
-        childList: true, // Observa adição/remoção de filhos
-        subtree: true    // Observa em toda a árvore DOM
-    });
-});
-</script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script>
 </body>
