@@ -45,24 +45,53 @@ body.no-hover .dropdownc:hover .dropdown-content {
 
 
 
-
 <script>
-// A nossa função de proteção principal
-function protectContentFromTranslation(rootElement = document) {
+
+/**
+ * Encontra e protege ícones e contentores de anúncios de serem traduzidos.
+ * Esta versão verifica o 'rootElement' E os seus descendentes.
+ * @param {HTMLElement} rootElement - O elemento para analisar (ex: document.body ou um novo nó)
+ */
+function protectContentFromTranslation(rootElement) {
+    // Apenas processa nós do tipo Elemento
+    if (!rootElement || rootElement.nodeType !== Node.ELEMENT_NODE) {
+        return;
+    }
+
     const selectors = [
-        '.material-icons', '.material-symbols-outlined', '.material-symbols-rounded', '.material-symbols-sharp',
+        // Ícones do Material Icons
+        '.material-icons',
+        '.material-symbols-outlined',
+        '.material-symbols-rounded',
+        '.material-symbols-sharp',
+        
+        // Ícones do Font Awesome (ex: o seu ícone de globo)
         '.fa', '.fas', '.far', '.fal', '.fab',
-        'ins.adsbygoogle', 'iframe[id*="google_ads_frame"]', 'iframe[src*="googleads"]'
+        
+        // Contentores do Google AdSense
+        'ins.adsbygoogle',
+        'iframe[id*="google_ads_frame"]',
+        'iframe[src*="googleads"]',
+        'iframe[src*="googlesyndication"]'
     ];
     
     selectors.forEach(selector => {
-        // Encontra elementos dentro do elemento raiz (ou 'document' por defeito)
+        // 1. Verifica todos os DESCENDENTES do rootElement
         rootElement.querySelectorAll(selector).forEach(el => {
             if (!el.classList.contains('notranslate')) {
                 el.classList.add('notranslate');
                 el.setAttribute('translate', 'no');
             }
         });
+
+        // 2. Verifica o PRÓPRIO rootElement (A CORREÇÃO CRÍTICA)
+        // Isto apanha casos onde o nó adicionado é o próprio ícone (ex: o 'close')
+        if (rootElement.matches && rootElement.matches(selector)) {
+             if (!rootElement.classList.contains('notranslate')) {
+                rootElement.classList.add('notranslate');
+                rootElement.setAttribute('translate', 'no');
+            }
+        }
     });
 }
 
@@ -72,11 +101,8 @@ const observer = new MutationObserver(function(mutations) {
         // Se novos nós (elementos) foram adicionados
         if (mutation.addedNodes && mutation.addedNodes.length > 0) {
             mutation.addedNodes.forEach(node => {
-                // Só nos importamos com Elementos (ignora nós de texto)
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    // Protege o nó que foi adicionado E qualquer ícone dentro dele
-                    protectContentFromTranslation(node);
-                }
+                // Passa o novo nó para a nossa função de proteção corrigida
+                protectContentFromTranslation(node);
             });
         }
     });
@@ -90,12 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
         subtree: true    // Observa em toda a árvore DOM
     });
 });
-
-// E, finalmente, modifique a sua loadPage_v2 para usar a nova função
-// (como descrito na secção "Para o loadPage_v2" acima)
 </script>
-
-
 
 
 
