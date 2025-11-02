@@ -33,6 +33,19 @@
 	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
 
+	  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: 'Noto Sans', Arial, sans-serif;
+    }
+    .notranslate {
+      unicode-bidi: bidi-override;
+      direction: ltr;
+    }
+    .goog-te-gadget, .goog-te-menu-value {
+      font-family: 'Noto Sans', Arial, sans-serif !important;
+    }
+  </style>
 <style>/* disable hover whenever body.no-hover is present */
 body.no-hover .dropdownc:hover .dropdown-content {
   display: none !important;
@@ -903,50 +916,7 @@ if (pValue){ //replace "%2F" from p to "/"
 </script>
 
 
-<script>
-    // 1. Função para aplicar a exclusão de tradução
-    function applyNoTranslate(element) {
-        if (element) {
-            element.setAttribute("translate", "no");
-            element.classList.add("notranslate");
-            console.log('CMP element found. Translation disabled for icon.');
-            return true;
-        }
-        return false;
-    }
 
-    // 2. Função de observação (Callback)
-    function mutationCallback(mutations, observer) {
-        // Tente o seletor original e o seletor de fallback de classe
-        const selectors = [
-            'iframe[src*="fundingchoices"]', 
-            'iframe[src*="gcm.s.dl.adsafeprotected.com"]',
-            // O CMP do Google às vezes usa IDs que começam com 'google_consent_' ou classes globais
-            'iframe[id^="google_consent_"]',
-            'div[class*="__usp_cmp"]' 
-        ];
-
-        for (const selector of selectors) {
-            const cmpElement = document.querySelector(selector);
-            if (applyNoTranslate(cmpElement)) {
-                // Se o elemento foi encontrado e corrigido, pare de observar
-                observer.disconnect(); 
-                return;
-            }
-        }
-    }
-
-    // 3. Inicializar o MutationObserver
-    const observer = new MutationObserver(mutationCallback);
-    
-    // Configuração para observar a adição de novos elementos filhos em toda a página
-    const config = { childList: true, subtree: true };
-
-    // Começar a observar o body para qualquer adição de elementos
-    observer.observe(document.body, config);
-    
-    console.log('MutationObserver started. Waiting for CMP element to be added.');
-</script>
 
 <div class="cmp-container" translate="no">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
