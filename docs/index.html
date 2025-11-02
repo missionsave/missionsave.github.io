@@ -902,20 +902,40 @@ if (pValue){ //replace "%2F" from p to "/"
 		// loadPage("https://missionsave.github.io/pages/"+pValue);
 	}
 </script>
-
-<style>
-/* Tell Google Translate to skip all AdSense/Material icons */
-.material-icons {
-    -webkit-translate: none !important;
-    translate: none !important;
+<script>
+	function protectMaterialIconsFromTranslation() {
+    // Select all variations of Material Icons
+    const selectors = [
+        '.material-icons',
+        '.material-symbols-outlined',
+        '.material-symbols-rounded',
+        '.material-symbols-sharp'
+    ];
+    
+    let totalIcons = 0;
+    
+    selectors.forEach(selector => {
+        const icons = document.querySelectorAll(selector);
+        icons.forEach(icon => {
+            // Add the class
+            icon.classList.add('notranslate');
+            // Also set the HTML translate attribute for maximum compatibility
+            icon.setAttribute('translate', 'no');
+        });
+        totalIcons += icons.length;
+        console.log(`Protected ${icons.length} icons with selector: ${selector}`);
+    });
+    
+    console.log(`Total Material Icons protected from translation: ${totalIcons}`);
 }
 
-/* Or using the notranslate class properties */
-.material-icons {
-    -webkit-translate: no !important;
-    translate: no !important;
+// Run when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', protectMaterialIconsFromTranslation);
+} else {
+    protectMaterialIconsFromTranslation();
 }
-</style>
+</script>
 </body>
 </html>
 
