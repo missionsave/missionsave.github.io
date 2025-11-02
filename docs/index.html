@@ -909,7 +909,36 @@ if (pValue){ //replace "%2F" from p to "/"
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script>
 </div>
+<script>
+    function disableCMPTranslation() {
+        // Find the Google CMP iframe. It often contains 'fundingchoices' in its source URL.
+        const cmpIframe = document.querySelector('iframe[src*="fundingchoices"]'); 
 
+        if (cmpIframe) {
+            // 1. Mark the iframe itself
+            cmpIframe.setAttribute("translate", "no");
+            cmpIframe.classList.add("notranslate");
+
+            // 2. Mark the iframe's immediate parent container (the one on YOUR page)
+            if (cmpIframe.parentElement) {
+                cmpIframe.parentElement.setAttribute("translate", "no");
+                cmpIframe.parentElement.classList.add("notranslate");
+            }
+            console.log('CMP container found. Translation disabled for the CMP.');
+        } else {
+            // If the CMP hasn't loaded yet, try again (it loads dynamically)
+            setTimeout(disableCMPTranslation, 500);
+        }
+    }
+
+    // Start checking for the CMP after the page loads
+    window.addEventListener('load', () => {
+        // Check multiple times in case of a slow load
+        disableCMPTranslation(); 
+        setTimeout(disableCMPTranslation, 1000); 
+        setTimeout(disableCMPTranslation, 3000); 
+    });
+</script>
 
 
 </body>
