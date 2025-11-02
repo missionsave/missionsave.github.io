@@ -902,131 +902,18 @@ if (pValue){ //replace "%2F" from p to "/"
 	}
 </script>
 
-<script>
-(function() {
-  function protectIconEl(el) {
-    if (!el) return;
-    el.classList.add('notranslate');
-    el.setAttribute('translate', 'no');
-    // Optional: ensure exact ligature content
-    if (el.textContent.trim() !== 'verified_user') {
-      el.textContent = 'verified_user';
-    }
-    // Accessibility: avoid reading the ligature
-    el.setAttribute('aria-hidden', 'true');
-  }
-
-  function scan(root) {
-    root.querySelectorAll('.material-icons, .cmp-button-icon, .cmp-button-text')
-      .forEach(protectIconEl);
-  }
-
-  // Initial pass
-  scan(document);
-
-  // Observe future additions and text mutations
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      if (m.type === 'childList') {
-        m.addedNodes.forEach((n) => {
-          if (n.nodeType === Node.ELEMENT_NODE) {
-            protectIconEl(n.matches?.('.material-icons, .cmp-button-icon, .cmp-button-text') ? n : null);
-            scan(n);
-          }
-        });
-      } else if (m.type === 'characterData') {
-        const el = m.target.parentElement;
-        if (el && (el.classList.contains('material-icons') || el.classList.contains('cmp-button-text'))) {
-          protectIconEl(el);
-        }
-      }
-    }
-  });
-
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-})();
-</script>
-<script>
-// Run as early as possible
-(function() {
-  const TARGET = 'verified_user';
-
-  function protectTextNode(textNode) {
-    const text = textNode.nodeValue;
-    const idx = text.indexOf(TARGET);
-    if (idx === -1) return;
-
-    const parent = textNode.parentNode;
-    if (!parent) return;
-
-    // Split into before / target / after
-    const before = document.createTextNode(text.slice(0, idx));
-    const targetSpan = document.createElement('span');
-    targetSpan.className = 'notranslate';
-    targetSpan.setAttribute('translate', 'no');
-    targetSpan.textContent = TARGET;
-    const after = document.createTextNode(text.slice(idx + TARGET.length));
-
-    // Replace the original text node
-    parent.insertBefore(before, textNode);
-    parent.insertBefore(targetSpan, textNode);
-    parent.insertBefore(after, textNode);
-    parent.removeChild(textNode);
-  }
-
-  function walk(node) {
-    // If it's a text node, try to protect it
-    if (node.nodeType === Node.TEXT_NODE) {
-      protectTextNode(node);
-      return;
-    }
-    // Skip script/style/iframe contents
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const tag = node.tagName;
-    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IFRAME') return;
-
-    // If element has shadow DOM, walk it too
-    if (node.shadowRoot) {
-      walk(node.shadowRoot);
-    }
-    // Walk children
-    for (const child of node.childNodes) {
-      walk(child);
-    }
-  }
-
-  // Initial pass
-  walk(document.documentElement);
-
-  // Observe future mutations, including text changes
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      if (m.type === 'characterData') {
-        protectTextNode(m.target);
-      } else if (m.type === 'childList') {
-        m.addedNodes.forEach(walk);
-      }
-    }
-  });
-
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-})();
-</script>
+<i class="material-icons notranslate" translate="no">verified_user</i>
+<i class="material-icons notranslate" translate="no">&#xe8e8;</i>
 
 
 
 <div class="cmp-container" translate="no">
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
+<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script>
 </div>
+<i class="material-icons notranslate" translate="no">&#xe8e8;</i>
+
+<i class="material-icons notranslate" translate="no">verified_user</i>
 
 
 
