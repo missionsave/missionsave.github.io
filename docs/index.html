@@ -902,97 +902,33 @@ if (pValue){ //replace "%2F" from p to "/"
 	}
 </script>
 
-<!-- Add this to your <head> section -->
-<meta name="google" content="notranslate">
-<meta name="robots" content="notranslate">
-<meta http-equiv="Content-Language" content="en">
-<html lang="en" translate="no">
-
-<style>
-/* Force no translation on all consent and ad elements */
-.notranslate, [translate="no"], 
-[id*="fc"], .fc-consent-root, .fc-dialog, 
-.adsbygoogle, ins.adsbygoogle,
-.cmp-container, .cmp-container * {
-  translate: none !important;
-  transform: none !important;
-}
-
-/* Nuclear option for specific elements */
-.fc-consent-root *,
-.fc-dialog *,
-[class*="fc-"] * {
-  translate: none !important;
-  transform: none !important;
-}
-</style>
-
 <script>
-// Nuclear approach - prevent any translation
-function nuclearNoTranslate() {
-  // Mark entire body as no-translate initially
-  document.body.setAttribute("translate", "no");
-  document.body.classList.add("notranslate");
-  
-  // Target all possible consent and ad elements
-  const selectors = [
-    'body', 
-    '[id*="fc"]', 
-    '.fc-consent-root', 
-    '.fc-dialog',
-    '.adsbygoogle',
-    'ins.adsbygoogle',
-    '[class*="fc-"]',
-    '[class*="consent"]',
-    '.cmp-container',
-    '.cmp-container *'
-  ];
-  
-  selectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(el => {
-      // Apply multiple layers of protection
-      el.setAttribute("translate", "no");
-      el.classList.add("notranslate");
-      el.style.translate = "none";
-      el.style.transform = "none";
+  const observer = new MutationObserver((mutationsList, observer) => {
+    // 1. Target the Google CMP iframe
+    const cmpIframe = document.querySelector('iframe[src*="fundingchoices"]');
+
+    if (cmpIframe) {
+      // 2. Apply the attributes to the iframe element itself
+      cmpIframe.setAttribute("translate", "no");
+      cmpIframe.classList.add("notranslate");
       
-      // Also protect all children
-      el.querySelectorAll('*').forEach(child => {
-        child.setAttribute("translate", "no");
-        child.classList.add("notranslate");
-        child.style.translate = "none";
-        child.style.transform = "none";
-      });
-    });
+      // 3. (Optional, experimental) Set the sandbox attribute to restrict scripts
+      // WARNING: This may break the CMP functionality entirely. Use with caution.
+      // cmpIframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin'); 
+      
+      // Stop observing once found
+      observer.disconnect(); 
+      console.log('CMP iframe found and translation attributes applied.');
+    }
   });
-}
 
-// Run immediately and aggressively
-nuclearNoTranslate();
-
-// Run multiple times with different delays
-[0, 100, 500, 1000, 2000, 5000].forEach(timeout => {
-  setTimeout(nuclearNoTranslate, timeout);
-});
-
-// Very aggressive observer
-const observer = new MutationObserver((mutations) => {
-  mutations.forEach((mutation) => {
-    mutation.addedNodes.forEach((node) => {
-      if (node.nodeType === 1) { // Element node
-        nuclearNoTranslate();
-      }
-    });
-  });
-});
-
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-  attributes: true,
-  attributeFilter: ['class', 'id', 'style']
-});
+  // Start observing for the CMP iframe to appear
+  observer.observe(document.body, { childList: true, subtree: true });
 </script>
+<div class="cmp-container" translate="no">
+<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
+     crossorigin="anonymous"></script>
+</div>
 
 </body>
 </html>
