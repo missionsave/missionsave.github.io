@@ -903,58 +903,77 @@ if (pValue){ //replace "%2F" from p to "/"
 	}
 </script>
 <script>
-    // 1. Função para aplicar a exclusão de tradução
+    // Seletor do Iframe do CMP (Funding Choices/AdSense)
+    const CMP_IFRAME_SELECTOR = 'iframe[id^="google_esf"], iframe[src*="fundingchoices"]';
+
+    // 1. Função para aplicar a exclusão de tradução ao elemento pai
     function applyNoTranslate(element) {
         if (element) {
-            // Aplicar o atributo translate="no" e a classe notranslate
             element.setAttribute("translate", "no");
             element.classList.add("notranslate");
-            
-            // Certifique-se de que o CSS do ícone não foi alterado pela tradução
-            // O ícone do Google é uma font-family específica, vamos forçar a re-aplicação se for um iframe
-            if (element.tagName.toLowerCase() === 'iframe') {
-                 // Esta parte é difícil, mas tenta-se
-                 // Se o Google Translate reescreveu o CSS dentro do iframe, 
-                 // precisamos garantir que ele volte para a fonte correta. 
-                 // Sem acesso cross-origin, não é possível. 
-                 // A única solução é bloquear a tradução no nível do iframe.
-            }
-            
-            console.log('CMP (Google AdSense/FC) element found. Translation disabled for icon container.');
+            console.log('CMP element found. Translation disabled for icon container.');
             return true;
         }
         return false;
     }
 
-    // 2. Função de observação (Callback)
-    function mutationCallback(mutations, observer) {
-        // Seletores comuns para o iframe de consentimento da Google
-        const selectors = [
-            // Seletor mais comum para o iframe de Consentimento do AdSense/Funding Choices
-            'iframe[id^="google_esf"]', 
-            // Outros seletores conhecidos
-            'iframe[src*="fundingchoices"]', 
-            'iframe[name="googlefcLoaded"]',
-            'div[class*="fc-dialog"]' // Para a div que pode envolver
-        ];
+    // 2. Tentar corrigir o CSS do ícone dentro do Iframe
+    function fixIconInsideIframe(iframe) {
+        try {
+            // Isto pode falhar devido à política de mesma origem (Cross-Origin Policy)
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
 
-        for (const selector of selectors) {
-            const cmpElement = document.querySelector(selector);
-            if (applyNoTranslate(cmpElement)) {
-                // Se o elemento foi encontrado e corrigido, pare de observar
-                observer.disconnect(); 
-                return;
+            if (iframeDoc) {
+                // Tenta aplicar notranslate ao body do iframe
+                iframeDoc.body.setAttribute("translate", "no");
+                iframeDoc.body.classList.add("notranslate");
+
+                // Tenta forçar a font-family correta para ícones (se forem Material Icons)
+                const iconElements = iframeDoc.querySelectorAll('.material-icons, .fc-icon, i');
+                iconElements.forEach(icon => {
+                    icon.setAttribute("translate", "no");
+                    icon.classList.add("notranslate");
+                    // Forçar a fonte (Material Icons é um palpite comum para ícones do Google)
+                    icon.style.fontFamily = 'Material Icons, Roboto, sans-serif !important';
+                    icon.style.fontWeight = 'normal !important';
+                    icon.style.fontStyle = 'normal !important';
+                });
+
+                console.log('Attempted to fix icon font inside the iframe.');
             }
+        } catch (e) {
+            // Isto é esperado se o iframe for cross-origin (política de segurança)
+            console.warn('Could not access iframe content to fix icon. Cross-Origin policy is blocking internal access.', e);
         }
     }
 
-    // 3. Inicializar o MutationObserver
-    const observer = new MutationObserver(mutationCallback);
-    
-    // Configuração para observar a adição de novos elementos filhos em toda a árvore DOM
-    const config = { childList: true, subtree: true };
+    // 3. Observar e aplicar
+    function mutationCallback(mutations, observer) {
+        const cmpIframe = document.querySelector(CMP_IFRAME_SELECTOR);
+        
+        if (cmpIframe) {
+            // 3.1. Corrigir o contentor principal
+            applyNoTranslate(cmpIframe);
 
-    // Começar a observar o body para qualquer adição de elementos
+            // 3.2. Observar o evento de carregamento do iframe para tentar corrigir o conteúdo interno
+            // Isto é necessário porque o conteúdo interno carrega depois do iframe existir
+            cmpIframe.addEventListener('load', () => {
+                fixIconInsideIframe(cmpIframe);
+            });
+            
+            // Tentar corrigir imediatamente, pois pode já estar carregado
+            fixIconInsideIframe(cmpIframe);
+
+            // 3.3. Parar de observar
+            observer.disconnect(); 
+            console.log('MutationObserver disconnected.');
+            return;
+        }
+    }
+
+    // Inicializar o MutationObserver
+    const observer = new MutationObserver(mutationCallback);
+    const config = { childList: true, subtree: true };
     observer.observe(document.body, config);
     
 </script>
