@@ -902,24 +902,63 @@ if (pValue){ //replace "%2F" from p to "/"
 	}
 </script>
 
+<script>
+(function() {
+  function protectIconEl(el) {
+    if (!el) return;
+    el.classList.add('notranslate');
+    el.setAttribute('translate', 'no');
+    // Optional: ensure exact ligature content
+    if (el.textContent.trim() !== 'verified_user') {
+      el.textContent = 'verified_user';
+    }
+    // Accessibility: avoid reading the ligature
+    el.setAttribute('aria-hidden', 'true');
+  }
+
+  function scan(root) {
+    root.querySelectorAll('.material-icons, .cmp-button-icon, .cmp-button-text')
+      .forEach(protectIconEl);
+  }
+
+  // Initial pass
+  scan(document);
+
+  // Observe future additions and text mutations
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.type === 'childList') {
+        m.addedNodes.forEach((n) => {
+          if (n.nodeType === Node.ELEMENT_NODE) {
+            protectIconEl(n.matches?.('.material-icons, .cmp-button-icon, .cmp-button-text') ? n : null);
+            scan(n);
+          }
+        });
+      } else if (m.type === 'characterData') {
+        const el = m.target.parentElement;
+        if (el && (el.classList.contains('material-icons') || el.classList.contains('cmp-button-text'))) {
+          protectIconEl(el);
+        }
+      }
+    }
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+})();
+</script>
+
+
+
 <div class="cmp-container" translate="no">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script>
 </div>
-<script>
-
-observer.observe(document.body, { childList: true, subtree: true });
-const observer = new MutationObserver((mutationsList, observer) => {
-  const textElement = document.querySelector('.cmp-button-text');
-  if (textElement && textElement.textContent.includes('verified_user')) {
-    textElement.textContent = '';
-    observer.disconnect();
-  }
-});
-observer.observe(document.body, { childList: true, subtree: true });
 
 
-</script>
 
 </body>
 </html>
