@@ -906,32 +906,16 @@ if (pValue){ //replace "%2F" from p to "/"
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script>
 </div>
-<script>
-const observer = new MutationObserver((mutationsList, observer) => {
-  const cmpIframe = document.querySelector('iframe[src*="fundingchoices"]');
-  if (cmpIframe) {
-    cmpIframe.setAttribute("translate", "no");
-    cmpIframe.classList.add("notranslate");
-
-    // Try to access the iframe's document and set translate="no" on its body
-    try {
-      const iframeDoc = cmpIframe.contentDocument || cmpIframe.contentWindow.document;
-      if (iframeDoc) {
-        iframeDoc.documentElement.setAttribute("translate", "no");
-        iframeDoc.body.setAttribute("translate", "no");
-      }
-    } catch (e) {
-      console.warn("Could not access iframe document due to CORS:", e);
-    }
-
-    observer.disconnect();
-    console.log('CMP iframe found and translation attributes applied.');
-  }
-});
-observer.observe(document.body, { childList: true, subtree: true });
+<style>
+/* Hide the Google Translate tooltip widget */
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-te-menu-frame {
+  display: none !important;
+}
 
 
-</script>
+</style>
 
 </body>
 </html>
