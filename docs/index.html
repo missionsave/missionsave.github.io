@@ -903,49 +903,48 @@ if (pValue){ //replace "%2F" from p to "/"
 </script>
 
 <script>
-// Function to mark elements as non-translatable
-function markNonTranslatable() {
-  const selectors = [
-    '[id*="fc"]',
-    '.fc-consent-root', 
-    '.fc-dialog',
-    '.adsbygoogle',
-    '[class*="fc-"]',
-    '[class*="consent"]'
-  ];
-  
-  selectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(el => {
-      el.setAttribute("translate", "no");
-      el.classList.add("notranslate");
-    });
-  });
-}
+// Set up consent state before loading ads
+window.dataLayer = window.dataLayer || [];
+function gtag() { dataLayer.push(arguments); }
 
-// Run immediately for existing elements
-markNonTranslatable();
-
-// Set up observer for new elements
-const observer = new MutationObserver(markNonTranslatable);
-observer.observe(document.body, { 
-  childList: true, 
-  subtree: true 
+// Initialize consent mode
+gtag('consent', 'default', {
+  'ad_storage': 'denied',
+  'analytics_storage': 'denied',
+  'wait_for_update': 500
 });
 
-// Also run when DOM is fully loaded
-document.addEventListener('DOMContentLoaded', markNonTranslatable);
+// Function to handle consent elements
+function handleConsentElements() {
+  const elements = document.querySelectorAll('[id*="fc"], .fc-consent-root, .fc-dialog, .adsbygoogle');
+  elements.forEach(el => {
+    el.setAttribute("translate", "no");
+    el.classList.add("notranslate");
+  });
+  
+  // Trigger consent dialog if available
+  if (window.__tcfapi || window.fc) {
+    console.log('Consent framework detected');
+  }
+}
+
+// Run immediately and set up observer
+handleConsentElements();
+const observer = new MutationObserver(handleConsentElements);
+observer.observe(document.body, { childList: true, subtree: true });
+</script>
+
+<!-- Load Google Ads with consent support -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-123456789"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-123456789');
 </script>
 
 <div class="cmp-container" translate="no">
-  <ins class="adsbygoogle"
-       style="display:block"
-       data-ad-client="ca-pub-7469281181086429"
-       data-ad-slot="..."
-       data-ad-format="auto"
-       data-full-width-responsive="true"></ins>
-  <script>
-    (adsbygoogle = window.adsbygoogle || []).push({});
-  </script>
+  <script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429" crossorigin="anonymous"></script>
 </div>
 
 </body>
