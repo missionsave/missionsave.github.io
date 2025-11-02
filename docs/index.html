@@ -903,20 +903,49 @@ if (pValue){ //replace "%2F" from p to "/"
 </script>
 
 <script>
-const observer = new MutationObserver(() => {
-  document.querySelectorAll('[id*="fc"], .fc-consent-root, .fc-dialog')
-    .forEach(el => {
+// Function to mark elements as non-translatable
+function markNonTranslatable() {
+  const selectors = [
+    '[id*="fc"]',
+    '.fc-consent-root', 
+    '.fc-dialog',
+    '.adsbygoogle',
+    '[class*="fc-"]',
+    '[class*="consent"]'
+  ];
+  
+  selectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
       el.setAttribute("translate", "no");
       el.classList.add("notranslate");
     });
+  });
+}
+
+// Run immediately for existing elements
+markNonTranslatable();
+
+// Set up observer for new elements
+const observer = new MutationObserver(markNonTranslatable);
+observer.observe(document.body, { 
+  childList: true, 
+  subtree: true 
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
-
+// Also run when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', markNonTranslatable);
 </script>
+
 <div class="cmp-container" translate="no">
-<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
-     crossorigin="anonymous"></script>
+  <ins class="adsbygoogle"
+       style="display:block"
+       data-ad-client="ca-pub-7469281181086429"
+       data-ad-slot="..."
+       data-ad-format="auto"
+       data-full-width-responsive="true"></ins>
+  <script>
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  </script>
 </div>
 
 </body>
