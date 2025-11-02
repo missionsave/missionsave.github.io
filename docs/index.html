@@ -906,16 +906,20 @@ if (pValue){ //replace "%2F" from p to "/"
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script>
 </div>
-<style>
-/* Hide the Google Translate tooltip widget */
-#goog-gt-tt,
-.goog-te-balloon-frame,
-.goog-te-menu-frame {
-  display: none !important;
-}
+<script>
+
+observer.observe(document.body, { childList: true, subtree: true });
+const observer = new MutationObserver((mutationsList, observer) => {
+  const textElement = document.querySelector('.cmp-button-text');
+  if (textElement && textElement.textContent.includes('verified_user')) {
+    textElement.textContent = '';
+    observer.disconnect();
+  }
+});
+observer.observe(document.body, { childList: true, subtree: true });
 
 
-</style>
+</script>
 
 </body>
 </html>
