@@ -34,17 +34,85 @@
 	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
 
 	  <meta charset="UTF-8">
+	  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <style>
-    body {
-      font-family: 'Noto Sans', Arial, sans-serif;
-    }
-    .notranslate {
-      unicode-bidi: bidi-override;
-      direction: ltr;
-    }
-    .goog-te-gadget, .goog-te-menu-value {
-      font-family: 'Noto Sans', Arial, sans-serif !important;
-    }
+/* 1) Global: robust Unicode font stack */
+html, body {
+  font-family:
+    var(--app-font, "Inter"),
+    "Roboto",
+    "Noto Sans",
+    "Noto Sans Symbols",
+    "Segoe UI",
+    "Segoe UI Symbol",
+    "Arial Unicode MS",
+    Arial,
+    sans-serif !important;
+  /* Avoid odd glyph shaping issues */
+  font-variant-ligatures: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 2) Inherit font for all typical text containers */
+body, body *:not(i):not([class*="material-icons"]) {
+  font-family: inherit !important;
+}
+
+/* 3) Force Translate UI and injected spans to use your font */
+.goog-te-gadget,
+.goog-te-menu-value,
+.goog-te-banner-frame,
+.goog-te-balloon-frame,
+.goog-te-balloon-frame *,
+.goog-text-highlight,
+.goog-te-combo,
+.goog-te-menu2,
+.goog-te-menu2 * {
+  font-family: inherit !important;
+  letter-spacing: normal !important;
+}
+
+/* 4) Prevent Translate from breaking verification/CAPTCHA-like text */
+.notranslate,
+.captcha,
+.code,
+.token {
+  unicode-bidi: bidi-override;
+  direction: ltr;
+  font-feature-settings: "kern" 1, "liga" 0;
+}
+
+/* 5) Neutralize weird spacing boxes some fonts show after translation */
+.goog-text-highlight,
+span[id^=":"] {
+  text-shadow: none !important;
+  background: transparent !important;
+}
+
+/* 6) If your headline font lacks certain glyphs, supply per-range fallback */
+@font-face {
+  font-family: "Noto Sans Symbols Fallback";
+  src: local("Noto Sans Symbols"), local("Noto Sans");
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0100-024F, U+2000-206F, U+20A0-20CF, U+2190-21FF;
+}
+html, body {
+  /* append targeted fallback to catch symbol ranges */
+  font-family:
+    var(--app-font, "Inter"),
+    "Noto Sans Symbols Fallback",
+    "Segoe UI Symbol",
+    "Arial Unicode MS",
+    sans-serif !important;
+}
+
+/* 7) If you use icon fonts, keep them untouched */
+.material-icons, .fa, [class*="fa-"], i[class*="icon"] {
+  font-family: inherit; /* or your icon font */
+  font-feature-settings: "liga" 1;
+}
+
   </style>
 <style>/* disable hover whenever body.no-hover is present */
 body.no-hover .dropdownc:hover .dropdown-content {
