@@ -905,25 +905,16 @@ if (pValue){ //replace "%2F" from p to "/"
 
 <style>
 /* Tell Google Translate to skip all AdSense/Material icons */
-.material-icons,
-.material-icons-outlined,
-.material-icons-round,
-.material-icons-sharp,
-.material-icons-two-tone {
-  translate: no;              /* modern browsers */
+.material-icons {
+    -webkit-translate: none !important;
+    translate: none !important;
 }
 
-.material-icons,
-.material-icons-outlined,
-.material-icons-round,
-.material-icons-sharp,
-.material-icons-two-tone {
-  font-family: 'Material Icons' !important;
-  speak: none;
-  unicode-bidi: isolate;      /* prevent text interpretation */
-  direction: ltr;
+/* Or using the notranslate class properties */
+.material-icons {
+    -webkit-translate: no !important;
+    translate: no !important;
 }
-
 </style>
 </body>
 </html>
