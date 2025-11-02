@@ -902,111 +902,96 @@ if (pValue){ //replace "%2F" from p to "/"
 	}
 </script>
 
+<!-- Add this to your <head> section -->
+<meta name="google" content="notranslate">
+<meta name="robots" content="notranslate">
+<meta http-equiv="Content-Language" content="en">
+<html lang="en" translate="no">
+
+<style>
+/* Force no translation on all consent and ad elements */
+.notranslate, [translate="no"], 
+[id*="fc"], .fc-consent-root, .fc-dialog, 
+.adsbygoogle, ins.adsbygoogle,
+.cmp-container, .cmp-container * {
+  translate: none !important;
+  transform: none !important;
+}
+
+/* Nuclear option for specific elements */
+.fc-consent-root *,
+.fc-dialog *,
+[class*="fc-"] * {
+  translate: none !important;
+  transform: none !important;
+}
+</style>
+
 <script>
-// Create an iframe that's completely isolated from translation
-function createIsolatedConsent() {
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-    z-index: 999999;
-    background: transparent;
-  `;
-  iframe.srcdoc = `
-    <!DOCTYPE html>
-    <html lang="en" translate="no">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="google" content="notranslate">
-      <meta name="robots" content="notranslate">
-      <style>
-        body { 
-          margin: 0; 
-          font-family: Arial, sans-serif;
-          background: rgba(0,0,0,0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          height: 100vh;
-        }
-        .consent-dialog {
-          background: white;
-          padding: 30px;
-          border-radius: 12px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-          max-width: 500px;
-          text-align: center;
-        }
-        button {
-          margin: 10px;
-          padding: 12px 24px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 16px;
-        }
-        .accept { background: #007cba; color: white; }
-        .reject { background: #ccc; color: black; }
-      </style>
-    </head>
-    <body translate="no" class="notranslate">
-      <div class="consent-dialog" translate="no">
-        <h2>Cookie Consent</h2>
-        <p>We use cookies to personalize content and ads, to provide social media features and to analyze our traffic.</p>
-        <button class="accept" onclick="parent.acceptConsent()">Accept All</button>
-        <button class="reject" onclick="parent.rejectConsent()">Reject All</button>
-      </div>
-    </body>
-    </html>
-  `;
+// Nuclear approach - prevent any translation
+function nuclearNoTranslate() {
+  // Mark entire body as no-translate initially
+  document.body.setAttribute("translate", "no");
+  document.body.classList.add("notranslate");
   
-  document.body.appendChild(iframe);
-  window.consentIframe = iframe;
-}
-
-function acceptConsent() {
-  // Handle consent acceptance
-  window.dataLayer = window.dataLayer || [];
-  gtag('consent', 'update', {
-    'ad_storage': 'granted',
-    'analytics_storage': 'granted'
+  // Target all possible consent and ad elements
+  const selectors = [
+    'body', 
+    '[id*="fc"]', 
+    '.fc-consent-root', 
+    '.fc-dialog',
+    '.adsbygoogle',
+    'ins.adsbygoogle',
+    '[class*="fc-"]',
+    '[class*="consent"]',
+    '.cmp-container',
+    '.cmp-container *'
+  ];
+  
+  selectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      // Apply multiple layers of protection
+      el.setAttribute("translate", "no");
+      el.classList.add("notranslate");
+      el.style.translate = "none";
+      el.style.transform = "none";
+      
+      // Also protect all children
+      el.querySelectorAll('*').forEach(child => {
+        child.setAttribute("translate", "no");
+        child.classList.add("notranslate");
+        child.style.translate = "none";
+        child.style.transform = "none";
+      });
+    });
   });
-  
-  // Remove iframe
-  if (window.consentIframe) {
-    window.consentIframe.remove();
-  }
-  
-  // Load your ads
-  loadAds();
 }
 
-function rejectConsent() {
-  window.dataLayer = window.dataLayer || [];
-  gtag('consent', 'update', {
-    'ad_storage': 'denied',
-    'analytics_storage': 'denied'
+// Run immediately and aggressively
+nuclearNoTranslate();
+
+// Run multiple times with different delays
+[0, 100, 500, 1000, 2000, 5000].forEach(timeout => {
+  setTimeout(nuclearNoTranslate, timeout);
+});
+
+// Very aggressive observer
+const observer = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    mutation.addedNodes.forEach((node) => {
+      if (node.nodeType === 1) { // Element node
+        nuclearNoTranslate();
+      }
+    });
   });
-  
-  if (window.consentIframe) {
-    window.consentIframe.remove();
-  }
-}
+});
 
-function loadAds() {
-  // Your ad loading code
-  const script = document.createElement('script');
-  script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429';
-  script.crossOrigin = 'anonymous';
-  document.head.appendChild(script);
-}
-
-// Initialize isolated consent
-createIsolatedConsent();
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+  attributes: true,
+  attributeFilter: ['class', 'id', 'style']
+});
 </script>
 
 </body>
