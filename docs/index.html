@@ -911,33 +911,44 @@ if (pValue){ //replace "%2F" from p to "/"
 </div>
 <script>
     function disableCMPTranslation() {
-        // Find the Google CMP iframe. It often contains 'fundingchoices' in its source URL.
+        // Try to find the Google CMP iframe using a robust selector
         const cmpIframe = document.querySelector('iframe[src*="fundingchoices"]'); 
 
         if (cmpIframe) {
-            // 1. Mark the iframe itself
+            // CMP found! Apply the no-translation attributes
             cmpIframe.setAttribute("translate", "no");
             cmpIframe.classList.add("notranslate");
 
-            // 2. Mark the iframe's immediate parent container (the one on YOUR page)
+            // Apply to the parent element too, just in case (best practice)
             if (cmpIframe.parentElement) {
                 cmpIframe.parentElement.setAttribute("translate", "no");
                 cmpIframe.parentElement.classList.add("notranslate");
             }
+
             console.log('CMP container found. Translation disabled for the CMP.');
-        } else {
-            // If the CMP hasn't loaded yet, try again (it loads dynamically)
-            setTimeout(disableCMPTranslation, 500);
+            
+            // Stop searching once found
+            clearInterval(window.cmpInterval); 
+            return true; // Return true to indicate success
         }
+        
+        return false; // Return false to keep searching
     }
 
-    // Start checking for the CMP after the page loads
-    window.addEventListener('load', () => {
-        // Check multiple times in case of a slow load
-        disableCMPTranslation(); 
-        setTimeout(disableCMPTranslation, 1000); 
-        setTimeout(disableCMPTranslation, 3000); 
-    });
+    // Use an interval to repeatedly check for the CMP until it is found (max 10 seconds)
+    let checks = 0;
+    const maxChecks = 40; // Check every 250ms for 10 seconds
+
+    window.cmpInterval = setInterval(() => {
+        if (disableCMPTranslation() || checks >= maxChecks) {
+            clearInterval(window.cmpInterval);
+            if (checks >= maxChecks) {
+                console.warn('CMP iframe not found after 10 seconds. Icon fix may not be applied.');
+            }
+        }
+        checks++;
+    }, 250);
+
 </script>
 
 
