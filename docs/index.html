@@ -902,81 +902,12 @@ if (pValue){ //replace "%2F" from p to "/"
 		// loadPage("https://missionsave.github.io/pages/"+pValue);
 	}
 </script>
-<script>
-    // Seletor do Iframe do CMP (Funding Choices/AdSense)
-    const CMP_IFRAME_SELECTOR = 'iframe[id^="google_esf"], iframe[src*="fundingchoices"]';
 
-    // 1. Função para aplicar a exclusão de tradução ao elemento pai
-    function applyNoTranslate(element) {
-        if (element) {
-            element.setAttribute("translate", "no");
-            element.classList.add("notranslate");
-            console.log('CMP element found. Translation disabled for icon container.');
-            return true;
-        }
-        return false;
-    }
-
-    // 2. Tentar corrigir o CSS do ícone dentro do Iframe
-    function fixIconInsideIframe(iframe) {
-        try {
-            // Isto pode falhar devido à política de mesma origem (Cross-Origin Policy)
-            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-
-            if (iframeDoc) {
-                // Tenta aplicar notranslate ao body do iframe
-                iframeDoc.body.setAttribute("translate", "no");
-                iframeDoc.body.classList.add("notranslate");
-
-                // Tenta forçar a font-family correta para ícones (se forem Material Icons)
-                const iconElements = iframeDoc.querySelectorAll('.material-icons, .fc-icon, i');
-                iconElements.forEach(icon => {
-                    icon.setAttribute("translate", "no");
-                    icon.classList.add("notranslate");
-                    // Forçar a fonte (Material Icons é um palpite comum para ícones do Google)
-                    icon.style.fontFamily = 'Material Icons, Roboto, sans-serif !important';
-                    icon.style.fontWeight = 'normal !important';
-                    icon.style.fontStyle = 'normal !important';
-                });
-
-                console.log('Attempted to fix icon font inside the iframe.');
-            }
-        } catch (e) {
-            // Isto é esperado se o iframe for cross-origin (política de segurança)
-            console.warn('Could not access iframe content to fix icon. Cross-Origin policy is blocking internal access.', e);
-        }
-    }
-
-    // 3. Observar e aplicar
-    function mutationCallback(mutations, observer) {
-        const cmpIframe = document.querySelector(CMP_IFRAME_SELECTOR);
-        
-        if (cmpIframe) {
-            // 3.1. Corrigir o contentor principal
-            applyNoTranslate(cmpIframe);
-
-            // 3.2. Observar o evento de carregamento do iframe para tentar corrigir o conteúdo interno
-            // Isto é necessário porque o conteúdo interno carrega depois do iframe existir
-            cmpIframe.addEventListener('load', () => {
-                fixIconInsideIframe(cmpIframe);
-            });
-            
-            // Tentar corrigir imediatamente, pois pode já estar carregado
-            fixIconInsideIframe(cmpIframe);
-
-            // 3.3. Parar de observar
-            observer.disconnect(); 
-            console.log('MutationObserver disconnected.');
-            return;
-        }
-    }
-
-    // Inicializar o MutationObserver
-    const observer = new MutationObserver(mutationCallback);
-    const config = { childList: true, subtree: true };
-    observer.observe(document.body, config);
-    
-</script>
+<style>
+.material-icons, .material-icons-outlined, .material-icons-round {
+  translate: no;
+}
+</style>
 </body>
 </html>
 
