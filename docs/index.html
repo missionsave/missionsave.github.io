@@ -38,10 +38,7 @@ body.no-hover .dropdownc:hover .dropdown-content {
   display: none !important;
 }
 </style> 
-<div class="cmp-container" translate="no">
-<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
-     crossorigin="anonymous"></script>
-</div>
+
 <script>
 	function dropdownFunction() {
 		
@@ -905,6 +902,21 @@ if (pValue){ //replace "%2F" from p to "/"
 	}
 </script>
 
+<script>
+  const observer = new MutationObserver(() => {
+    const cmp = document.querySelector('[id^="fc-"], .fc-consent-root');
+    if (cmp) {
+      cmp.setAttribute("translate", "no");
+      cmp.classList.add("notranslate");
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+</script>
+<div class="cmp-container" translate="no">
+<script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
+     crossorigin="anonymous"></script>
+</div>
 
 </body>
 </html>
