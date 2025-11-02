@@ -903,27 +903,19 @@ if (pValue){ //replace "%2F" from p to "/"
 </script>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
   const observer = new MutationObserver((mutationsList, observer) => {
-    // 1. Target the Google CMP iframe
     const cmpIframe = document.querySelector('iframe[src*="fundingchoices"]');
-
     if (cmpIframe) {
-      // 2. Apply the attributes to the iframe element itself
       cmpIframe.setAttribute("translate", "no");
       cmpIframe.classList.add("notranslate");
-      
-      // 3. (Optional, experimental) Set the sandbox attribute to restrict scripts
-      // WARNING: This may break the CMP functionality entirely. Use with caution.
-      // cmpIframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin'); 
-      
-      // Stop observing once found
-      observer.disconnect(); 
+      observer.disconnect();
       console.log('CMP iframe found and translation attributes applied.');
     }
   });
-
-  // Start observing for the CMP iframe to appear
   observer.observe(document.body, { childList: true, subtree: true });
+});
+
 </script>
 <div class="cmp-container" translate="no">
 <script src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
