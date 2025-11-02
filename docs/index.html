@@ -903,54 +903,57 @@ if (pValue){ //replace "%2F" from p to "/"
 </script>
 
 
-
-
 <script>
-    function disableCMPTranslation() {
-        // Try to find the Google CMP iframe using a robust selector
-        const cmpIframe = document.querySelector('iframe[src*="fundingchoices"]'); 
-
-        if (cmpIframe) {
-            // CMP found! Apply the no-translation attributes
-            cmpIframe.setAttribute("translate", "no");
-            cmpIframe.classList.add("notranslate");
-
-            // Apply to the parent element too, just in case (best practice)
-            if (cmpIframe.parentElement) {
-                cmpIframe.parentElement.setAttribute("translate", "no");
-                cmpIframe.parentElement.classList.add("notranslate");
-            }
-
-            console.log('CMP container found. Translation disabled for the CMP.');
-            
-            // Stop searching once found
-            clearInterval(window.cmpInterval); 
-            return true; // Return true to indicate success
+    // 1. Função para aplicar a exclusão de tradução
+    function applyNoTranslate(element) {
+        if (element) {
+            element.setAttribute("translate", "no");
+            element.classList.add("notranslate");
+            console.log('CMP element found. Translation disabled for icon.');
+            return true;
         }
-        
-        return false; // Return false to keep searching
+        return false;
     }
 
-    // Use an interval to repeatedly check for the CMP until it is found (max 10 seconds)
-    let checks = 0;
-    const maxChecks = 40; // Check every 250ms for 10 seconds
+    // 2. Função de observação (Callback)
+    function mutationCallback(mutations, observer) {
+        // Tente o seletor original e o seletor de fallback de classe
+        const selectors = [
+            'iframe[src*="fundingchoices"]', 
+            'iframe[src*="gcm.s.dl.adsafeprotected.com"]',
+            // O CMP do Google às vezes usa IDs que começam com 'google_consent_' ou classes globais
+            'iframe[id^="google_consent_"]',
+            'div[class*="__usp_cmp"]' 
+        ];
 
-    window.cmpInterval = setInterval(() => {
-        if (disableCMPTranslation() || checks >= maxChecks) {
-            clearInterval(window.cmpInterval);
-            if (checks >= maxChecks) {
-                console.warn('CMP iframe not found after 10 seconds. Icon fix may not be applied.');
+        for (const selector of selectors) {
+            const cmpElement = document.querySelector(selector);
+            if (applyNoTranslate(cmpElement)) {
+                // Se o elemento foi encontrado e corrigido, pare de observar
+                observer.disconnect(); 
+                return;
             }
         }
-        checks++;
-    }, 250);
+    }
 
+    // 3. Inicializar o MutationObserver
+    const observer = new MutationObserver(mutationCallback);
+    
+    // Configuração para observar a adição de novos elementos filhos em toda a página
+    const config = { childList: true, subtree: true };
+
+    // Começar a observar o body para qualquer adição de elementos
+    observer.observe(document.body, config);
+    
+    console.log('MutationObserver started. Waiting for CMP element to be added.');
 </script>
 
 <div class="cmp-container" translate="no">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script>
 </div>
+
+
 
 </body>
 </html>
