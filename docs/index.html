@@ -998,9 +998,20 @@ if (pValue){ //replace "%2F" from p to "/"
 
 
 
-
+<!-- 
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
-     crossorigin="anonymous"></script>
+     crossorigin="anonymous"></script> -->
+
+<script>
+  if (window.location.hostname === "missionsave.org" || window.location.hostname === "www.missionsave.org") {
+    var s = document.createElement("script");
+    s.async = true;
+    s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429";
+    s.crossOrigin = "anonymous";
+    document.head.appendChild(s);
+  }
+</script>
+
 </body>
 </html>
 
