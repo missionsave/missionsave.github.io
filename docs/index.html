@@ -576,7 +576,7 @@ var lib;
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-
+	setInterval(()=>{ console.log("interval");	   document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));},1000);
 
 
 		lib.translatePage('', langbr, function() {
