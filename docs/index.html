@@ -1002,7 +1002,7 @@ if (pValue){ //replace "%2F" from p to "/"
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
      crossorigin="anonymous"></script> -->
 
-<div translate="no">
+<!-- <div translate="no">
   <script>
     if (window.location.hostname === "missionsave.org" || window.location.hostname === "www.missionsave.org") {
       var s = document.createElement("script");
@@ -1012,22 +1012,14 @@ if (pValue){ //replace "%2F" from p to "/"
       document.head.appendChild(s);
     }
   </script>
-</div>
+</div> -->
 
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
 <script>
-  // Espera até que os iframes do AdSense sejam criados e aplica translate="no"
-  const observer = new MutationObserver(mutations => {
-    mutations.forEach(mutation => {
-      mutation.addedNodes.forEach(node => {
-        if (node.tagName === 'IFRAME' && node.src.includes('ads')) {
-          node.setAttribute('translate', 'no');
-          node.classList.add('notranslate');
-        }
-      });
-    });
+  (adsbygoogle = window.adsbygoogle || []).push({
+    google_ad_client: "ca-pub-7469281181086429",
+    enable_page_level_ads: true
   });
-
-  observer.observe(document.body, { childList: true, subtree: true });
 </script>
 
 
