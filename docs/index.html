@@ -568,7 +568,11 @@ var lib;
           break;
         }
       }
-      if (changed) document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
+      if (changed){
+		console.log("changed");
+	   document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
+
+	  }
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
