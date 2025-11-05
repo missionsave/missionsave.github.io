@@ -337,6 +337,85 @@ onresizeFunction();
 </script>
 
 
+
+
+
+
+<script>
+	var langbr="";
+	const params = new URLSearchParams(window.location.search);
+	const lValue = params.get("l");
+	if(!lValue || lValue.trim() === ""){
+		// 1) Prefer the first full tag from navigator.languages
+
+		const fromLanguages = (navigator.languages || []).find(l => l.includes('-'));
+
+		// 2) Fallback: Intl often canonicalizes to a regioned locale
+		const fromIntl = Intl?.DateTimeFormat?.().resolvedOptions().locale;
+
+		// 3) Last resort: plain navigator.language
+		const fromNav = navigator.language;
+
+		const raw = fromLanguages || (fromIntl?.includes('-') ? fromIntl : fromNav);
+
+		// Normalize casing like "pt-PT"
+		const locale = raw.split('-').map((p,i) => i ? p.toUpperCase() : p.toLowerCase()).join('-');console.log('Detected locale:', locale);
+		langbr = locale;
+
+		// const userLang = navigator.language || navigator.userLanguage;
+		// params.set('l', 'en');  
+		params.set('l', langbr);  
+		const newUrl = `${window.location.pathname}?${params.toString()}`;
+		window.history.replaceState({}, '', newUrl);
+	}else{
+		langbr=lValue;
+	} 
+	console.log("langbr", langbr);
+var lib;
+	function gtElInit() {
+		 lib = new google.translate.TranslateService();
+		//  protectContentFromTranslation();
+
+
+
+
+//     // Observa o DOM e protege novos elementos (como iframes do AdSense)
+//     const observer = new MutationObserver(mutations => {
+//       let changed = false;
+//       for (const m of mutations) {
+//         if (m.addedNodes.length > 0) {
+//           changed = true;
+//           break;
+//         }
+//       }
+//       if (changed){
+// 		console.log("changed");
+// 	   document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
+
+// 	  }
+//     });
+//     observer.observe(document.body, { childList: true, subtree: true });
+
+// setInterval(() => {
+// 	console.log("interv");
+//     // Target only iframes and potential ad containers
+//     document.querySelectorAll('iframe, [class*="ad"], [id*="ad"]').forEach(el => {
+//         if (el.getAttribute('translate') !== 'no') {
+//             el.setAttribute('translate', 'no');
+//         }
+//     });
+// }, 1000);
+
+// 	menut(langbr);
+
+// 		// lib.translatePage('', langbr, function() {
+// 		// 	// div_loader.style.display="none"; 
+// 		// 	// div_all.style.display="block"; 
+// 		// });
+	}
+</script>
+<script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;hl=pt-PT&amp;client=wt" type="text/javascript"></script>
+
  </head>
 
  <body onresize="onresizeFunction()">
@@ -521,80 +600,7 @@ onresizeFunction();
 
 
 
-<script>
-	var langbr="";
-	const params = new URLSearchParams(window.location.search);
-	const lValue = params.get("l");
-	if(!lValue || lValue.trim() === ""){
-		// 1) Prefer the first full tag from navigator.languages
 
-		const fromLanguages = (navigator.languages || []).find(l => l.includes('-'));
-
-		// 2) Fallback: Intl often canonicalizes to a regioned locale
-		const fromIntl = Intl?.DateTimeFormat?.().resolvedOptions().locale;
-
-		// 3) Last resort: plain navigator.language
-		const fromNav = navigator.language;
-
-		const raw = fromLanguages || (fromIntl?.includes('-') ? fromIntl : fromNav);
-
-		// Normalize casing like "pt-PT"
-		const locale = raw.split('-').map((p,i) => i ? p.toUpperCase() : p.toLowerCase()).join('-');console.log('Detected locale:', locale);
-		langbr = locale;
-
-		// const userLang = navigator.language || navigator.userLanguage;
-		// params.set('l', 'en');  
-		params.set('l', langbr);  
-		const newUrl = `${window.location.pathname}?${params.toString()}`;
-		window.history.replaceState({}, '', newUrl);
-	}else{
-		langbr=lValue;
-	} 
-	console.log("langbr", langbr);
-var lib;
-	function gtElInit() {
-		 lib = new google.translate.TranslateService();
-		//  protectContentFromTranslation();
-
-
-
-
-    // Observa o DOM e protege novos elementos (como iframes do AdSense)
-    const observer = new MutationObserver(mutations => {
-      let changed = false;
-      for (const m of mutations) {
-        if (m.addedNodes.length > 0) {
-          changed = true;
-          break;
-        }
-      }
-      if (changed){
-		console.log("changed");
-	   document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
-
-	  }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-setInterval(() => {
-	console.log("interv");
-    // Target only iframes and potential ad containers
-    document.querySelectorAll('iframe, [class*="ad"], [id*="ad"]').forEach(el => {
-        if (el.getAttribute('translate') !== 'no') {
-            el.setAttribute('translate', 'no');
-        }
-    });
-}, 1000);
-
-	menut(langbr);
-
-		// lib.translatePage('', langbr, function() {
-		// 	// div_loader.style.display="none"; 
-		// 	// div_all.style.display="block"; 
-		// });
-	}
-</script>
-<script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;hl=pt-PT&amp;client=wt" type="text/javascript"></script>
 <style>
 	/* --- Google Translate UI Hiding (Existing Code) --- */
 
