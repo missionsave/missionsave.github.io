@@ -576,7 +576,15 @@ var lib;
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-	setInterval(()=>{ console.log("interval");	   document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));},1000);
+setInterval(() => {
+	console.log("interv");
+    // Target only iframes and potential ad containers
+    document.querySelectorAll('iframe, [class*="ad"], [id*="ad"]').forEach(el => {
+        if (el.getAttribute('translate') !== 'no') {
+            el.setAttribute('translate', 'no');
+        }
+    });
+}, 1000);
 
 
 		lib.translatePage('', langbr, function() {
