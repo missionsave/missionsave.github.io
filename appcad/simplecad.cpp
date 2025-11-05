@@ -4651,6 +4651,7 @@ OCC_Viewer* occv = 0;
 
 #pragma region browser
 unordered_map<string,bool> mhide;
+unordered_map<string,bool> msolo;
 void fillbrowser(void*) {
 	perf();
 	static int binit=1;
@@ -4659,22 +4660,22 @@ void fillbrowser(void*) {
 		binit=0;
 		// lop(i,0,occv->vlua.size()){
 		// 	OCC_Viewer::luadraw* ld = occv->vlua[i];
-		// 	mhide[ld->name]=0;
+		// 	msolo[ld->name]=0;
 		// }
 	}
 
-for (const auto& [key, value] : mhide) {
+for (const auto& [key, value] : msolo) {
     std::cout << key << " => " << std::boolalpha << value << '\n';
 }
 
 bool allTrue = true;
-for (const auto& [key, value] : mhide) {
+for (const auto& [key, value] : msolo) {
     if (!value) { // value == false
         allTrue = false;		
         break; // no need to check further
     }
 }
-if(allTrue)mhide.clear();
+if(allTrue)msolo.clear();
 		
 
 	std::vector<std::vector<bool>> on_off=fbm->on_off;
@@ -4710,23 +4711,26 @@ if(allTrue)mhide.clear();
 
 		fbm->addnew({"H","S",ld->name});
         fbm->data(fbm->size(), (void*)ld);
-
+		int line=fbm->size();
 
 			ld->visible_hardcoded=1;
+			if(mhide[ld->name]==1){
+				ld->visible_hardcoded=0;
+				fbm->toggleon(line,0,1);
+			}
 			// ld->visible_hardcoded=0;
 			// fbm->on_off[i][1]=0;
 			// fbm->toggleon(fbm->size(),1,1);
-		if(mhide.size()>0 && mhide[ld->name]==1){
+		if(msolo.size()>0 && msolo[ld->name]==1){
 ld->visible_hardcoded=0;
 			// int line=fbm->size();
 			// fbm->toggleon(line,1,0);
 			// fbm->on_off[i][1]=1;
 		}
 		
-		if(mhide.size()>0 && mhide[ld->name]==0){
+		if(msolo.size()>0 && msolo[ld->name]==0){
 			// ld->visible_hardcoded=1;
-			int line=fbm->size();
-			if(mhide.size()>0 )fbm->toggleon(line,1,1);
+			if(msolo.size()>0 )fbm->toggleon(line,1,1);
 
 		}
 		//else fbm->toggleon(fbm->size(),1,1);
@@ -4741,7 +4745,7 @@ ld->visible_hardcoded=0;
 		// fbm->addnew({"H","S",ld->name});
         // fbm->data(fbm->size(), (void*)ld);
 
-// 		if(mhide[ld->name]==1){
+// 		if(msolo[ld->name]==1){
 // 			ld->visible_hardcoded=1;
 // 			fbm->on_off[i][1]=0;
 // 			cotm(ld->name,ld->visible_hardcoded)
@@ -4770,13 +4774,14 @@ ld->visible_hardcoded=0;
 		//hide
 		if(code==0){
 			// if(fbm->on_off[i][code]==1){
-			// 	mhide[ld->name]=1;
+			// 	msolo[ld->name]=1;
 
 			// }else{
-			// 	mhide[ld->name]=0;
+			// 	msolo[ld->name]=0;
 			// }
 			ld->visible_hardcoded=!ld->visible_hardcoded;
-			// if(ld->visible_hardcoded)mhide[ld->name]=1; else mhide[ld->name]=0;
+			mhide[ld->name]=!ld->visible_hardcoded;
+			// if(ld->visible_hardcoded)msolo[ld->name]=1; else msolo[ld->name]=0;
 			ld->redisplay();
 			ld->occv->redraw();
 			return;
@@ -4791,7 +4796,7 @@ ld->visible_hardcoded=0;
 					flagempty=0;
 					// ldi->visible_hardcoded=0;
 					// ldi->redisplay();
-					mhide[ld->name]=0;
+					msolo[ld->name]=0;
 					cotm("c1")
 					break;
 				}
@@ -4800,26 +4805,30 @@ ld->visible_hardcoded=0;
 				lop(i,0,occv->vlua.size()){
 					OCC_Viewer::luadraw* ldi=occv->vlua[i];
 					ldi->visible_hardcoded=1;
+					if (mhide[ldi->name] == 1) {
+						ldi->visible_hardcoded = 0;
+						fbm->toggleon(i+1, 0, 1);
+					}
 					ldi->redisplay();
 
 
 
 
 
-					mhide[ld->name]=1;
+					msolo[ld->name]=1;
 					cotm("c2")
 				}
 				ld->occv->redraw();
 				return;
 			}
-			// return;
+			//make solo work
 			//at least one selected
 			// if(0)
 			lop(i,0,occv->vlua.size()){
 
 				OCC_Viewer::luadraw* ldi=occv->vlua[i];
 				ldi->visible_hardcoded=1;
-				mhide[ldi->name]=0;
+				msolo[ldi->name]=0;
 				cotm("c3")
 				
 				// if(ldi==ld){
@@ -4831,7 +4840,7 @@ ld->visible_hardcoded=0;
 						TopoDS_Shape shape2d = ld->ExtractNonSolids(ld->cshape);
 						if (!shape2d.IsNull()) {
 							ldi->visible_hardcoded = 0;
-							mhide[ldi->name]=1;
+							msolo[ldi->name]=1;
 							ldi->redisplay();
 							ashape = new AIS_Shape(shape2d);
 							ld->occv->m_context->Display(ashape, false);
@@ -4844,7 +4853,7 @@ ld->visible_hardcoded=0;
 				// ldi->occv->m_context->
 
 				ldi->visible_hardcoded=0;
-				mhide[ldi->name]=1;
+				msolo[ldi->name]=1;
 				ldi->redisplay();
 			}
 			ld->occv->redraw();
