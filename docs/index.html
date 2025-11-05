@@ -555,6 +555,8 @@ var lib;
 	function gtElInit() {
 		 lib = new google.translate.TranslateService();
 		//  protectContentFromTranslation();
+		document.querySelectorAll('iframe, script, style, link, .notranslate')
+      .forEach(el => el.setAttribute('translate', 'no'));
 		lib.translatePage('', langbr, function() {
 			// div_loader.style.display="none"; 
 			// div_all.style.display="block"; 
