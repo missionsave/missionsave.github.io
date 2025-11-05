@@ -95,27 +95,27 @@ function protectContentFromTranslation(rootElement) {
     });
 }
 
-// Criar o observer (o seu "onchange" para o DOM)
-const observer = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        // Se novos nós (elementos) foram adicionados
-        if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-            mutation.addedNodes.forEach(node => {
-                // Passa o novo nó para a nossa função de proteção corrigida
-                protectContentFromTranslation(node);
-            });
-        }
-    });
-});
+// // Criar o observer (o seu "onchange" para o DOM)
+// const observer = new MutationObserver(function(mutations) {
+//     mutations.forEach(function(mutation) {
+//         // Se novos nós (elementos) foram adicionados
+//         if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+//             mutation.addedNodes.forEach(node => {
+//                 // Passa o novo nó para a nossa função de proteção corrigida
+//                 protectContentFromTranslation(node);
+//             });
+//         }
+//     });
+// });
 
-// Ligar o observer quando o DOM estiver pronto
-document.addEventListener('DOMContentLoaded', function() {
-    // Começa a observar o body por elementos adicionados (ex: anúncios)
-    observer.observe(document.body, {
-        childList: true, // Observa adição/remoção de filhos
-        subtree: true    // Observa em toda a árvore DOM
-    });
-});
+// // Ligar o observer quando o DOM estiver pronto
+// document.addEventListener('DOMContentLoaded', function() {
+//     // Começa a observar o body por elementos adicionados (ex: anúncios)
+//     observer.observe(document.body, {
+//         childList: true, // Observa adição/remoção de filhos
+//         subtree: true    // Observa em toda a árvore DOM
+//     });
+// });
 </script>
 
 
@@ -554,7 +554,7 @@ onresizeFunction();
 var lib;
 	function gtElInit() {
 		 lib = new google.translate.TranslateService();
-		 protectContentFromTranslation();
+		//  protectContentFromTranslation();
 		lib.translatePage('', langbr, function() {
 			// div_loader.style.display="none"; 
 			// div_all.style.display="block"; 
