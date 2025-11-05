@@ -555,8 +555,26 @@ var lib;
 	function gtElInit() {
 		 lib = new google.translate.TranslateService();
 		//  protectContentFromTranslation();
-		document.querySelectorAll('iframe, script, style, link, .notranslate')
-      .forEach(el => el.setAttribute('translate', 'no'));
+
+
+
+
+    // Observa o DOM e protege novos elementos (como iframes do AdSense)
+    const observer = new MutationObserver(mutations => {
+      let changed = false;
+      for (const m of mutations) {
+        if (m.addedNodes.length > 0) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+
+
+
 		lib.translatePage('', langbr, function() {
 			// div_loader.style.display="none"; 
 			// div_all.style.display="block"; 
@@ -1033,9 +1051,6 @@ iframe, .notranslate {
   translate: no !important;
 }
 </style>
-
-
-
 
 <br><br><br><br><br><br><br><br><br><br><br>
 
