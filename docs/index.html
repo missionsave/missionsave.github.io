@@ -1014,6 +1014,21 @@ if (pValue){ //replace "%2F" from p to "/"
   </script>
 </div>
 
+<script>
+  // Espera até que os iframes do AdSense sejam criados e aplica translate="no"
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      mutation.addedNodes.forEach(node => {
+        if (node.tagName === 'IFRAME' && node.src.includes('ads')) {
+          node.setAttribute('translate', 'no');
+          node.classList.add('notranslate');
+        }
+      });
+    });
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+</script>
 
 </body>
 </html>
