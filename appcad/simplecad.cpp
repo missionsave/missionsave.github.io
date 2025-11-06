@@ -4652,12 +4652,108 @@ OCC_Viewer* occv = 0;
 #pragma region browser
 unordered_map<string,bool> mhide;
 unordered_map<string,bool> msolo;
+void fillbuttonhs(OCC_Viewer::luadraw* ld,int line){
+		ld->visible_hardcoded = 1;
+
+		// if(fbm->on_off[line][0]==1)fbm->toggleon(line,0,0);
+		if (mhide[ld->name] == 1) {
+			ld->visible_hardcoded = 0;
+			// fbm->toggleon(line, 0, 1);
+		} //else fbm->toggleon(line, 0, 0);
+
+		// if(fbm->on_off[line][1]==1)fbm->toggleon(line,1,0);
+		if (msolo[ld->name] == 1) {
+			ld->visible_hardcoded = 1; 
+			// fbm->toggleon(line,1,1); 
+		}else{
+			// fbm->toggleon(line,1,0); 
+		}
+ 
+}
+bool anysolo() {
+	bool any = 0;
+	for (const auto& [key, value] : msolo) {
+		if (value) { 
+			any = 1;
+			break;	// no need to check further
+		}
+	}
+	if (!any) {
+		msolo.clear();
+		return 0;
+	}
+	return 1;
+}
 void fillbrowser(void*) {
 	perf();
-	static int binit=1;
+	static int binit=0;
 	// if (fbm->size()==0){
-	if(binit){
+	if(!binit){
 		binit=0;
+			fbm->setCallback([](void* data, int code, void* fbm_) { 
+
+		OCC_Viewer::luadraw* ld=(OCC_Viewer::luadraw*)data;
+        std::cout << "Callback data_ptr=" 
+                  << ld->name 
+                  << ", code=" << code 
+                  << std::endl;
+
+		if(code==2 && !fbm->isrightclick){		  
+			gopart(ld->name);
+		}
+		if(code==2 && fbm->isrightclick){		  
+			ld->occv->FitViewToShape(ld->occv->m_view, ld->shape);
+		}
+
+		//hide
+		if(code==0){
+			if(mhide[ld->name]==0)mhide[ld->name]=1;
+			else if(mhide[ld->name]==1)mhide[ld->name]=0; 
+			fillbrowser(0);
+			// return;
+
+
+
+
+			// // if(fbm->on_off[i][code]==1){
+			// // 	msolo[ld->name]=1;
+
+			// // }else{
+			// // 	msolo[ld->name]=0;
+			// // }
+			// ld->visible_hardcoded=!ld->visible_hardcoded;
+			// mhide[ld->name]=!ld->visible_hardcoded;
+			// // if(ld->visible_hardcoded)msolo[ld->name]=1; else msolo[ld->name]=0;
+			// ld->redisplay();
+			// ld->occv->redraw();
+			// return;
+		
+
+		}
+		if(code==1){ 
+			if(msolo[ld->name]==0)msolo[ld->name]=1;
+			else if(msolo[ld->name]==1)msolo[ld->name]=0; 
+			// cotm1(ld->name,anysolo());
+			fillbrowser(0);
+			// cotm1(ld->name,anysolo());
+			// return;
+
+
+			// 	if(anysolo()==0)return;
+			// 	lop(i,0,occv->vlua.size()){
+			// 		OCC_Viewer::luadraw* ldi=occv->vlua[i];
+			// 		ldi->visible_hardcoded=0; 
+			// 		if(msolo[ldi->name]==1){
+			// 			ldi->visible_hardcoded=1; 		
+			// 		} 
+			// 		ldi->redisplay();
+			// 	}
+			// ld->redisplay();
+			// ld->occv->redraw();
+			// return;
+
+		} 
+    });
 		// lop(i,0,occv->vlua.size()){
 		// 	OCC_Viewer::luadraw* ld = occv->vlua[i];
 		// 	msolo[ld->name]=0;
@@ -4668,15 +4764,8 @@ for (const auto& [key, value] : msolo) {
     std::cout << key << " => " << std::boolalpha << value << '\n';
 }
 
-bool allTrue = true;
-for (const auto& [key, value] : msolo) {
-    if (!value) { // value == false
-        allTrue = false;		
-        break; // no need to check further
-    }
-}
-if(allTrue)msolo.clear();
-		
+	bool are_anysolo= anysolo();
+		cotm1(are_anysolo)
 
 	std::vector<std::vector<bool>> on_off=fbm->on_off;
 
@@ -4687,8 +4776,8 @@ if(allTrue)msolo.clear();
 	fbm->init();
 	// }
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
-	lop(i, 0, occv->vaShape.size()) {
-		OCC_Viewer::luadraw* ld = occv->vlua[i];
+	lop(ij, 0, occv->vaShape.size()) {
+		OCC_Viewer::luadraw* ld = occv->vlua[ij];
 		// OCC_Viewer::luadraw* ld = occv->getluadraw_from_ashape(occv->vaShape[i]);
 		// cotm(ld->visible_hardcoded)
 		// OCC_Viewer::luadraw* ld=occv->vlua[i];
@@ -4703,36 +4792,46 @@ if(allTrue)msolo.clear();
 
 // // Insert the new item at the same position
 // fbm->insert_at(i+1, {"H","S",ld->name});
-// fbm->data(i+1, (void*)ld); 
+// fbm->data(i+1, (void*)ld);
 
-// 		if(fbm->on_off[i][1]==1 || binit)
+		// 		if(fbm->on_off[i][1]==1 || binit)
 		// if(on_off.size()>0 && on_off[i][1])
 
+		fbm->addnew({"H", "S", ld->name});
+		fbm->data(fbm->size(), (void*)ld);
+		int line = fbm->size();
 
-		fbm->addnew({"H","S",ld->name});
-        fbm->data(fbm->size(), (void*)ld);
-		int line=fbm->size();
+		// fillbuttonhs(ld,line);
 
-			ld->visible_hardcoded=1;
-			if(mhide[ld->name]==1){
-				ld->visible_hardcoded=0;
-				fbm->toggleon(line,0,1);
-			}
-			// ld->visible_hardcoded=0;
-			// fbm->on_off[i][1]=0;
-			// fbm->toggleon(fbm->size(),1,1);
-		if(msolo.size()>0 && msolo[ld->name]==1){
-ld->visible_hardcoded=0;
-			// int line=fbm->size();
-			// fbm->toggleon(line,1,0);
-			// fbm->on_off[i][1]=1;
-		}
-		
-		if(msolo.size()>0 && msolo[ld->name]==0){
-			// ld->visible_hardcoded=1;
-			if(msolo.size()>0 )fbm->toggleon(line,1,1);
+		ld->visible_hardcoded = 1;
 
-		}
+		if (mhide[ld->name] == 1){
+			ld->visible_hardcoded = 0;
+			fbm->toggleon(line, 0, 1,0);
+		}else fbm->toggleon(line, 0, 0,0);
+
+
+		// if (mhide[ld->name] == 1) {
+		// 	ld->visible_hardcoded = 0;
+		// 	fbm->toggleon(line, 0, 1);
+		// }
+		// // ld->visible_hardcoded=0;
+		// // fbm->on_off[i][1]=0;
+		// // fbm->toggleon(fbm->size(),1,1);
+		// if (msolo.size() > 0 && msolo[ld->name] == 1) {
+		// 	ld->visible_hardcoded = 0;
+		// 	// int line=fbm->size();
+		// 	// fbm->toggleon(line,1,0);
+		// 	// fbm->on_off[i][1]=1;
+		// }
+
+		// if(msolo.size()>0 && msolo[ld->name]==0){
+		// 	// ld->visible_hardcoded=1;
+		// 	if(msolo.size()>0 )fbm->toggleon(line,1,1);
+
+		// }
+
+
 		//else fbm->toggleon(fbm->size(),1,1);
 		// else{
 		// 	ld->visible_hardcoded=1;
@@ -4753,113 +4852,23 @@ ld->visible_hardcoded=0;
 // ld->visible_hardcoded=0;
 // 			fbm->on_off[i][1]=1;
 // 		}
-		ld->redisplay(); 
+
+		ld->redisplay();
 	}
 
-	fbm->setCallback([](void* data, int code, void* fbm_) { 
+		if (are_anysolo) {
+			lop(i, 0, occv->vlua.size()) {
+				OCC_Viewer::luadraw* ldi = occv->vlua[i];
+				ldi->visible_hardcoded = 0;
+				if (msolo[ldi->name] == 1) {
+					ldi->visible_hardcoded = 1;
+					fbm->toggleon(i+1, 1, 1,0);
 
-		OCC_Viewer::luadraw* ld=(OCC_Viewer::luadraw*)data;
-        std::cout << "Callback data_ptr=" 
-                  << ld->name 
-                  << ", code=" << code 
-                  << std::endl;
-
-		if(code==2 && !fbm->isrightclick){		  
-			gopart(ld->name);
-		}
-		if(code==2 && fbm->isrightclick){		  
-			ld->occv->FitViewToShape(ld->occv->m_view, ld->shape);
-		}
-
-		//hide
-		if(code==0){
-			// if(fbm->on_off[i][code]==1){
-			// 	msolo[ld->name]=1;
-
-			// }else{
-			// 	msolo[ld->name]=0;
-			// }
-			ld->visible_hardcoded=!ld->visible_hardcoded;
-			mhide[ld->name]=!ld->visible_hardcoded;
-			// if(ld->visible_hardcoded)msolo[ld->name]=1; else msolo[ld->name]=0;
-			ld->redisplay();
-			ld->occv->redraw();
-			return;
-		
-
-		}
-		//solo
-		if(code==1){
-			bool flagempty=1;
-			lop(i,0,fbm->on_off.size()){
-				if(fbm->on_off[i][code]==1){
-					flagempty=0;
-					// ldi->visible_hardcoded=0;
-					// ldi->redisplay();
-					msolo[ld->name]=0;
-					cotm("c1")
-					break;
 				}
-			}
-			if(flagempty){
-				lop(i,0,occv->vlua.size()){
-					OCC_Viewer::luadraw* ldi=occv->vlua[i];
-					ldi->visible_hardcoded=1;
-					if (mhide[ldi->name] == 1) {
-						ldi->visible_hardcoded = 0;
-						fbm->toggleon(i+1, 0, 1);
-					}
-					ldi->redisplay();
-
-
-
-
-
-					msolo[ld->name]=1;
-					cotm("c2")
-				}
-				ld->occv->redraw();
-				return;
-			}
-			//make solo work
-			//at least one selected
-			// if(0)
-			lop(i,0,occv->vlua.size()){
-
-				OCC_Viewer::luadraw* ldi=occv->vlua[i];
-				ldi->visible_hardcoded=1;
-				msolo[ldi->name]=0;
-				cotm("c3")
-				
-				// if(ldi==ld){
-				if(fbm->on_off[i][code] ==1){
-					static Handle(AIS_Shape) ashape;
-					if (ashape) ld->occv->m_context->Remove(ashape, false);
-
-					if (ld->shape.IsNull()) {
-						TopoDS_Shape shape2d = ld->ExtractNonSolids(ld->cshape);
-						if (!shape2d.IsNull()) {
-							ldi->visible_hardcoded = 0;
-							msolo[ldi->name]=1;
-							ldi->redisplay();
-							ashape = new AIS_Shape(shape2d);
-							ld->occv->m_context->Display(ashape, false);
-						}
-					} else {
-						ldi->redisplay();
-					}
-					continue;
-				}
-				// ldi->occv->m_context->
-
-				ldi->visible_hardcoded=0;
-				msolo[ldi->name]=1;
 				ldi->redisplay();
 			}
-			ld->occv->redraw();
 		}
 
-    });
 
 	occv->fillvectopo();
 	// cotm("vshapes", occv->vshapes.size());
@@ -4868,6 +4877,7 @@ ld->visible_hardcoded=0;
 	occv->redraw();
 	perf("fillbrowser");
 }
+
 
 #pragma endregion browser
 
