@@ -188,6 +188,10 @@ Clone(framev,1)
 Rotately(90)
 Movel(120+50)
 
+Part framevref_right
+Clone(framevref,1)
+Movel(container_width-120-50*2)
+
 
 Part cupnref
 Clone sketch_upn40x20
