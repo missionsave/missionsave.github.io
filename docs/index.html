@@ -1080,22 +1080,17 @@ iframe, .notranslate {
 
 </style>
 <script>
-(function() {
-  const removerFundingChoices = () => {
-    document.querySelectorAll('iframe[src*="fundingchoicesmessages.google.com"]').forEach(el => el.remove());
-    document.querySelectorAll('[style*="fundingchoicesmessages.google.com"]').forEach(el => el.remove());
-  };
+window.addEventListener('scroll', (e) => {
+  const scrollMax = document.documentElement.scrollHeight - window.innerHeight;
+  const scrollAtual = window.scrollY;
+  const scrollLimite = scrollMax * 0.98;
 
-  // tentar logo no início
-  removerFundingChoices();
+  if (scrollAtual > scrollLimite) {
+    e.preventDefault?.();
+    window.scrollTo(0, scrollLimite);
+  }
+}, { passive: false });
 
-  // observar novos elementos adicionados dinamicamente
-  const observer = new MutationObserver(removerFundingChoices);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-
-  // repetir por segurança depois de alguns segundos
-  setInterval(removerFundingChoices, 2000);
-})();
 </script>
 
 <p></p>
