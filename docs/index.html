@@ -1101,54 +1101,65 @@ iframe, .notranslate {
 
 
 <style>
-/* Impede o "elastic scroll" no fim da página (mobile, iOS, Android) */
 html, body {
-  overscroll-behavior: none;
+  overscroll-behavior: none; /* evita elástico em mobile */
+  height: 100%;
 }
 </style>
 
 <script>
 (function() {
-  const limite = 0.98; // 98% do scroll máximo permitido
-  let travando = false;
+  const limite = 0.98; // 98% do scroll máximo
+  let scrollMax = 0;
+  let scrollLimite = 0;
 
-  // Função para travar o scroll de forma suave
-  function limitarScroll() {
+  function atualizarLimite() {
     const doc = document.documentElement;
-    const scrollMax = doc.scrollHeight - window.innerHeight;
-    const scrollLimite = scrollMax * limite;
-    const scrollAtual = window.scrollY;
-
-    // Se passar do limite, aplica travagem suave
-    if (scrollAtual > scrollLimite && !travando) {
-      travando = true;
-
-      // Anima de volta suavemente até o limite
-      window.scrollTo({
-        top: scrollLimite,
-        behavior: 'smooth'
-      });
-
-      setTimeout(() => travando = false, 200); // desbloqueia após animação
-    }
+    scrollMax = doc.scrollHeight - window.innerHeight;
+    scrollLimite = scrollMax * limite;
   }
 
-  // Observa o scroll continuamente
-  window.addEventListener('scroll', limitarScroll, { passive: false });
+  // Atualiza sempre que muda o tamanho da página
+  window.addEventListener('resize', atualizarLimite);
+  window.addEventListener('load', atualizarLimite);
+  atualizarLimite();
 
-  // Evita que o utilizador tente arrastar além do limite por toque
-  window.addEventListener('touchmove', (e) => {
-    const doc = document.documentElement;
-    const scrollMax = doc.scrollHeight - window.innerHeight;
-    const scrollLimite = scrollMax * limite;
-    if (window.scrollY >= scrollLimite) {
-      e.preventDefault(); // impede o arrasto extra
+  // Impede scroll com roda do rato
+  window.addEventListener('wheel', (e) => {
+    const y = window.scrollY;
+    if (y >= scrollLimite && e.deltaY > 0) {
+      e.preventDefault();
       window.scrollTo(0, scrollLimite);
     }
   }, { passive: false });
 
-  // Também controla com setInterval, caso algo mude dinamicamente
-  setInterval(limitarScroll, 300);
+  // Impede scroll por toque
+  window.addEventListener('touchmove', (e) => {
+    const y = window.scrollY;
+    if (y >= scrollLimite) {
+      e.preventDefault();
+      window.scrollTo(0, scrollLimite);
+    }
+  }, { passive: false });
+
+  // Impede scroll por teclado (setas, espaço, PageDown, etc.)
+  window.addEventListener('keydown', (e) => {
+    const teclas = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' ', 'End'];
+    if (teclas.includes(e.key)) {
+      const y = window.scrollY;
+      if (y >= scrollLimite) {
+        e.preventDefault();
+        window.scrollTo(0, scrollLimite);
+      }
+    }
+  });
+
+  // Travar também se script ou CSS mover a página
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > scrollLimite) {
+      window.scrollTo(0, scrollLimite);
+    }
+  }, { passive: false });
 })();
 </script>
 
