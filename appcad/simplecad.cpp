@@ -5125,7 +5125,9 @@ lua.set_function("Fuse", [&]() {
     }
 
     if (solids.size() < 2) {
-        throw std::runtime_error("Need at least two solids to fuse.");
+		throw std::runtime_error(lua_error_with_line(L, "Need at least two solids to fuse..."));
+		// lua_error_with_line(L,"Need at least two solids to fuse.");
+        // throw std::runtime_error("Need at least two solids to fuse..");
     }
 
     // Fuse the last two solids
@@ -6369,9 +6371,11 @@ void lua_str(const string &str, bool isfile) {
             }
             std::string src((std::istreambuf_iterator<char>(f)), {});
             code = translate_shorthand(src);
+			code+="\nrobot1()";
             status = luaL_loadbuffer(L, code.data(), code.size(), str.c_str());
         } else {
             code = translate_shorthand(str);
+			code+="\nrobot1()";
             status = luaL_loadbuffer(L, code.data(), code.size(), "chunk");
         }
 

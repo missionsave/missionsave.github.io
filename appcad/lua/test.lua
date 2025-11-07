@@ -80,6 +80,7 @@ Offset 6
 Extrude 70
 Rotatelx(90)
 Movel(-70,170,-70-15)
+--Fuse()
 --FilletToAllEdges(2)
 
 
@@ -112,7 +113,7 @@ Movel(-285,170-7,-100)
 Fuse()
 
 --Part test
-Pl 0,0 1000,100 @200,100
+--Pl 0,0 100,100 @200,100 @0,100 0,0
 --Extrude 20
 --Pl 0,0 100,1000 @100,100 0,0
 --Extrude 600
@@ -397,7 +398,7 @@ Movel(0,tunel_height*2)
 
 
 end
- struct()
+ --struct()
 
 
 
