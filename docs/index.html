@@ -1099,73 +1099,119 @@ iframe, .notranslate {
 
 </script>
 
+<br>
+<p></p>
+<br>
+<p></p>
+
 
 <style>
+/* impede elastic scroll no mobile, sem forçar height:100% */
 html, body {
-  overscroll-behavior: none; /* evita elástico em mobile */
-  height: 100%;
+  overscroll-behavior: none;
+  /* NÃO colocar height:100% aqui — pode diminuir scrollHeight em algumas páginas */
 }
 </style>
 
 <script>
 (function() {
-  const limite = 0.99; // 98% do scroll máximo
+  const limiteRatio = 0.98; // 98%
   let scrollMax = 0;
   let scrollLimite = 0;
 
   function atualizarLimite() {
+    // recalcula sempre com os valores atuais do documento
     const doc = document.documentElement;
-    scrollMax = doc.scrollHeight - window.innerHeight;
-    scrollLimite = scrollMax * limite;
+    scrollMax = Math.max(0, doc.scrollHeight - window.innerHeight);
+    scrollLimite = scrollMax * limiteRatio;
   }
 
-  // Atualiza sempre que muda o tamanho da página
-  window.addEventListener('resize', atualizarLimite);
-  window.addEventListener('load', atualizarLimite);
+  // Inicial
   atualizarLimite();
 
-  // Impede scroll com roda do rato
+  // Recalcula em eventos relevantes
+  window.addEventListener('load', atualizarLimite);
+  window.addEventListener('resize', () => { atualizarLimite(); });
+  // fallback periódico caso algo mude frequentemente (ads, imagens, conteúdo dinâmico)
+  const intervalHandle = setInterval(atualizarLimite, 500);
+
+  // Observa mudanças DOM para recalcular imediatamente quando o conteúdo aumenta
+  const mo = new MutationObserver(() => atualizarLimite());
+  mo.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
+
+  // Helper: verifica se um destino ultrapassaria o limite
+  function excedeLimite(destY) {
+    atualizarLimite(); // garante valores recentes
+    return destY > scrollLimite;
+  }
+
+  // --- Roda do rato / touchpad (wheel) ---
   window.addEventListener('wheel', (e) => {
-    const y = window.scrollY;
-    if (y >= scrollLimite && e.deltaY > 0) {
-      e.preventDefault();
-      window.scrollTo(0, scrollLimite);
-    }
-  }, { passive: false });
-
-  // Impede scroll por toque
-  window.addEventListener('touchmove', (e) => {
-    const y = window.scrollY;
-    if (y >= scrollLimite) {
-      e.preventDefault();
-      window.scrollTo(0, scrollLimite);
-    }
-  }, { passive: false });
-
-  // Impede scroll por teclado (setas, espaço, PageDown, etc.)
-  window.addEventListener('keydown', (e) => {
-    const teclas = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' ', 'End'];
-    if (teclas.includes(e.key)) {
-      const y = window.scrollY;
-      if (y >= scrollLimite) {
+    // deltaY positivo => scroll para baixo
+    if (e.deltaY > 0) {
+      const intended = window.scrollY + e.deltaY;
+      if (excedeLimite(intended)) {
         e.preventDefault();
-        window.scrollTo(0, scrollLimite);
+        window.scrollTo({ top: scrollLimite });
+      }
+    }
+  }, { passive: false });
+
+  // --- Touch (mobile) ---
+  // vamos calcular delta entre touchstart e touchmove
+  let touchStartY = null;
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches.length) touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!touchStartY) return;
+    const currentY = (e.touches && e.touches.length) ? e.touches[0].clientY : null;
+    if (currentY == null) return;
+    const delta = touchStartY - currentY; // positivo = scroll para baixo
+    if (delta > 0) {
+      const intended = window.scrollY + delta;
+      if (excedeLimite(intended)) {
+        e.preventDefault();
+        window.scrollTo({ top: scrollLimite });
+      }
+    }
+  }, { passive: false });
+
+  window.addEventListener('touchend', () => touchStartY = null);
+
+  // --- Teclado (setas, PageDown, Space, End) ---
+  window.addEventListener('keydown', (e) => {
+    // teclas que movem para baixo
+    const downKeys = ['ArrowDown', 'PageDown', ' ', 'End'];
+    if (downKeys.includes(e.key)) {
+      // estimativa do destino dependendo da tecla
+      let intended = window.scrollY;
+      if (e.key === 'ArrowDown') intended += 40;
+      else if (e.key === 'PageDown') intended += window.innerHeight * 0.9;
+      else if (e.key === ' ') intended += window.innerHeight * 0.9;
+      else if (e.key === 'End') intended = scrollMax;
+
+      if (excedeLimite(intended)) {
+        e.preventDefault();
+        window.scrollTo({ top: scrollLimite });
       }
     }
   });
 
-  // Travar também se script ou CSS mover a página
+  // Segurança: caso algo mova o scroll por script, trava imediatamente se passar do limite
   window.addEventListener('scroll', () => {
+    atualizarLimite();
     if (window.scrollY > scrollLimite) {
       window.scrollTo(0, scrollLimite);
     }
   }, { passive: false });
+
+  // cleanup (opcional) — caso queiras parar de observar depois de X tempo
+  setTimeout(() => { mo.disconnect(); clearInterval(intervalHandle); }, 60000);
 })();
 </script>
-<br>
-<p></p>
-<br>
-<p></p>
+
 </html>
 
  		 		
