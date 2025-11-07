@@ -1079,6 +1079,24 @@ iframe, .notranslate {
 }
 
 </style>
+<script>
+(function() {
+  const removerFundingChoices = () => {
+    document.querySelectorAll('iframe[src*="fundingchoicesmessages.google.com"]').forEach(el => el.remove());
+    document.querySelectorAll('[style*="fundingchoicesmessages.google.com"]').forEach(el => el.remove());
+  };
+
+  // tentar logo no início
+  removerFundingChoices();
+
+  // observar novos elementos adicionados dinamicamente
+  const observer = new MutationObserver(removerFundingChoices);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  // repetir por segurança depois de alguns segundos
+  setInterval(removerFundingChoices, 2000);
+})();
+</script>
 
 <p></p>
 </html>
