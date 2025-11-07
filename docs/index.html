@@ -1096,17 +1096,60 @@ iframe, .notranslate {
   // repetir por segurança depois de alguns segundos
   setInterval(removerFundingChoices, 2000);
 })();
-window.addEventListener('scroll', (e) => {
-  const scrollMax = document.documentElement.scrollHeight - window.innerHeight;
-  const scrollAtual = window.scrollY;
-  const scrollLimite = scrollMax * 0.98;
 
-  if (scrollAtual > scrollLimite) {
-    e.preventDefault?.();
-    window.scrollTo(0, scrollLimite);
+</script>
+
+
+<style>
+/* Impede o "elastic scroll" no fim da página (mobile, iOS, Android) */
+html, body {
+  overscroll-behavior: none;
+}
+</style>
+
+<script>
+(function() {
+  const limite = 0.98; // 98% do scroll máximo permitido
+  let travando = false;
+
+  // Função para travar o scroll de forma suave
+  function limitarScroll() {
+    const doc = document.documentElement;
+    const scrollMax = doc.scrollHeight - window.innerHeight;
+    const scrollLimite = scrollMax * limite;
+    const scrollAtual = window.scrollY;
+
+    // Se passar do limite, aplica travagem suave
+    if (scrollAtual > scrollLimite && !travando) {
+      travando = true;
+
+      // Anima de volta suavemente até o limite
+      window.scrollTo({
+        top: scrollLimite,
+        behavior: 'smooth'
+      });
+
+      setTimeout(() => travando = false, 200); // desbloqueia após animação
+    }
   }
-}, { passive: false });
 
+  // Observa o scroll continuamente
+  window.addEventListener('scroll', limitarScroll, { passive: false });
+
+  // Evita que o utilizador tente arrastar além do limite por toque
+  window.addEventListener('touchmove', (e) => {
+    const doc = document.documentElement;
+    const scrollMax = doc.scrollHeight - window.innerHeight;
+    const scrollLimite = scrollMax * limite;
+    if (window.scrollY >= scrollLimite) {
+      e.preventDefault(); // impede o arrasto extra
+      window.scrollTo(0, scrollLimite);
+    }
+  }, { passive: false });
+
+  // Também controla com setInterval, caso algo mude dinamicamente
+  setInterval(limitarScroll, 300);
+})();
 </script>
 
 <p></p>
