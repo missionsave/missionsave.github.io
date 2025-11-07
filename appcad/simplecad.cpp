@@ -4651,25 +4651,7 @@ OCC_Viewer* occv = 0;
 
 #pragma region browser
 unordered_map<string,bool> mhide;
-unordered_map<string,bool> msolo;
-void fillbuttonhs(OCC_Viewer::luadraw* ld,int line){
-		ld->visible_hardcoded = 1;
-
-		// if(fbm->on_off[line][0]==1)fbm->toggleon(line,0,0);
-		if (mhide[ld->name] == 1) {
-			ld->visible_hardcoded = 0;
-			// fbm->toggleon(line, 0, 1);
-		} //else fbm->toggleon(line, 0, 0);
-
-		// if(fbm->on_off[line][1]==1)fbm->toggleon(line,1,0);
-		if (msolo[ld->name] == 1) {
-			ld->visible_hardcoded = 1; 
-			// fbm->toggleon(line,1,1); 
-		}else{
-			// fbm->toggleon(line,1,0); 
-		}
- 
-}
+unordered_map<string,bool> msolo; 
 bool anysolo() {
 	bool any = 0;
 	for (const auto& [key, value] : msolo) {
@@ -4686,93 +4668,87 @@ bool anysolo() {
 }
 void fillbrowser(void*) {
 	perf();
-	static int binit=0;
+	static int binit = 0;
 	// if (fbm->size()==0){
-	if(!binit){
-		binit=0;
-			fbm->setCallback([](void* data, int code, void* fbm_) { 
+	if (!binit) {
+		binit = 1;
+		fbm->setCallback([](void* data, int code, void* fbm_) {
+			OCC_Viewer::luadraw* ld = (OCC_Viewer::luadraw*)data;
+			std::cout << "Callback data_ptr=" << ld->name << ", code=" << code << std::endl;
 
-		OCC_Viewer::luadraw* ld=(OCC_Viewer::luadraw*)data;
-        std::cout << "Callback data_ptr=" 
-                  << ld->name 
-                  << ", code=" << code 
-                  << std::endl;
+			if (code == 2 && !fbm->isrightclick) {
+				gopart(ld->name);
+			}
+			if (code == 2 && fbm->isrightclick) {
+				ld->occv->FitViewToShape(ld->occv->m_view, ld->shape);
+			}
 
-		if(code==2 && !fbm->isrightclick){		  
-			gopart(ld->name);
-		}
-		if(code==2 && fbm->isrightclick){		  
-			ld->occv->FitViewToShape(ld->occv->m_view, ld->shape);
-		}
+			// hide
+			if (code == 0) {
+				if (mhide[ld->name] == 0)
+					mhide[ld->name] = 1;
+				else if (mhide[ld->name] == 1)
+					mhide[ld->name] = 0;
+				fillbrowser(0);
+				// return;
 
-		//hide
-		if(code==0){
-			if(mhide[ld->name]==0)mhide[ld->name]=1;
-			else if(mhide[ld->name]==1)mhide[ld->name]=0; 
-			fillbrowser(0);
-			// return;
+				// // if(fbm->on_off[i][code]==1){
+				// // 	msolo[ld->name]=1;
 
+				// // }else{
+				// // 	msolo[ld->name]=0;
+				// // }
+				// ld->visible_hardcoded=!ld->visible_hardcoded;
+				// mhide[ld->name]=!ld->visible_hardcoded;
+				// // if(ld->visible_hardcoded)msolo[ld->name]=1; else msolo[ld->name]=0;
+				// ld->redisplay();
+				// ld->occv->redraw();
+				// return;
+			}
+			if (code == 1) {
+				if (msolo[ld->name] == 0)
+					msolo[ld->name] = 1;
+				else if (msolo[ld->name] == 1)
+					msolo[ld->name] = 0;
+				// cotm1(ld->name,anysolo());
+				fillbrowser(0);
+				// cotm1(ld->name,anysolo());
+				// return;
 
-
-
-			// // if(fbm->on_off[i][code]==1){
-			// // 	msolo[ld->name]=1;
-
-			// // }else{
-			// // 	msolo[ld->name]=0;
-			// // }
-			// ld->visible_hardcoded=!ld->visible_hardcoded;
-			// mhide[ld->name]=!ld->visible_hardcoded;
-			// // if(ld->visible_hardcoded)msolo[ld->name]=1; else msolo[ld->name]=0;
-			// ld->redisplay();
-			// ld->occv->redraw();
-			// return;
-		
-
-		}
-		if(code==1){ 
-			if(msolo[ld->name]==0)msolo[ld->name]=1;
-			else if(msolo[ld->name]==1)msolo[ld->name]=0; 
-			// cotm1(ld->name,anysolo());
-			fillbrowser(0);
-			// cotm1(ld->name,anysolo());
-			// return;
-
-
-			// 	if(anysolo()==0)return;
-			// 	lop(i,0,occv->vlua.size()){
-			// 		OCC_Viewer::luadraw* ldi=occv->vlua[i];
-			// 		ldi->visible_hardcoded=0; 
-			// 		if(msolo[ldi->name]==1){
-			// 			ldi->visible_hardcoded=1; 		
-			// 		} 
-			// 		ldi->redisplay();
-			// 	}
-			// ld->redisplay();
-			// ld->occv->redraw();
-			// return;
-
-		} 
-    });
+				// 	if(anysolo()==0)return;
+				// 	lop(i,0,occv->vlua.size()){
+				// 		OCC_Viewer::luadraw* ldi=occv->vlua[i];
+				// 		ldi->visible_hardcoded=0;
+				// 		if(msolo[ldi->name]==1){
+				// 			ldi->visible_hardcoded=1;
+				// 		}
+				// 		ldi->redisplay();
+				// 	}
+				// ld->redisplay();
+				// ld->occv->redraw();
+				// return;
+			}
+		});
 		// lop(i,0,occv->vlua.size()){
 		// 	OCC_Viewer::luadraw* ld = occv->vlua[i];
 		// 	msolo[ld->name]=0;
 		// }
 	}
 
-for (const auto& [key, value] : msolo) {
-    std::cout << key << " => " << std::boolalpha << value << '\n';
-}
+	for (const auto& [key, value] : msolo) {
+		std::cout << key << " => " << std::boolalpha << value << '\n';
+	}
 
-	bool are_anysolo= anysolo();
-		cotm1(are_anysolo)
+	bool are_anysolo = anysolo();
+	// cotm1(are_anysolo)
 
-	std::vector<std::vector<bool>> on_off=fbm->on_off;
+		std::vector<std::vector<bool>>
+			on_off = fbm->on_off;
 
 	fbm->clear_all();
-	fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"",""}}; 
-	// fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"","@B12@C7"}}; 
-	// fbm->color(fl_rgb_color(220, 235, 255)); 
+	fbm->vcols = {{18, "@B31@C64", "@B64@C31"}, {18, "@B29@C64", "@B64@C29"}, {18, "", ""}};
+	// fbm->vcols={{18,"@B31@C64","@B64@C31"},{18,"@B29@C64","@B64@C29"},{18,"","@B12@C7"}};
+	// fbm->color(fl_rgb_color(220, 235, 255));
 	fbm->init();
 	// }
 	// if(occv->vlua.size()>0)occv->vlua.back()->redisplay(); //regen
@@ -4783,16 +4759,16 @@ for (const auto& [key, value] : msolo) {
 		// OCC_Viewer::luadraw* ld=occv->vlua[i];
 
 		// OCC_Viewer::luadraw* ldi=0;
-// 		if(fbm->cache.size()>0){
-// 			ldi=(OCC_Viewer::luadraw*)fbm->data(i+1);
-// 		}
-// 		if(ld==ldi)continue;
-// 		// Remove the old item
-// fbm->remove(i+1);
+		// 		if(fbm->cache.size()>0){
+		// 			ldi=(OCC_Viewer::luadraw*)fbm->data(i+1);
+		// 		}
+		// 		if(ld==ldi)continue;
+		// 		// Remove the old item
+		// fbm->remove(i+1);
 
-// // Insert the new item at the same position
-// fbm->insert_at(i+1, {"H","S",ld->name});
-// fbm->data(i+1, (void*)ld);
+		// // Insert the new item at the same position
+		// fbm->insert_at(i+1, {"H","S",ld->name});
+		// fbm->data(i+1, (void*)ld);
 
 		// 		if(fbm->on_off[i][1]==1 || binit)
 		// if(on_off.size()>0 && on_off[i][1])
@@ -4805,11 +4781,10 @@ for (const auto& [key, value] : msolo) {
 
 		ld->visible_hardcoded = 1;
 
-		if (mhide[ld->name] == 1){
+		if (mhide[ld->name] == 1) {
 			ld->visible_hardcoded = 0;
-			fbm->toggleon(line, 0, 1,0);
-		}else fbm->toggleon(line, 0, 0,0);
-
+			fbm->toggleon(line, 0, 1, 0);
+		}  // else fbm->toggleon(line, 0, 0,0);
 
 		// if (mhide[ld->name] == 1) {
 		// 	ld->visible_hardcoded = 0;
@@ -4831,44 +4806,39 @@ for (const auto& [key, value] : msolo) {
 
 		// }
 
-
-		//else fbm->toggleon(fbm->size(),1,1);
-		// else{
-		// 	ld->visible_hardcoded=1;
-		// 	fbm->on_off[i][1]=1;
-		// 	cotm(ld->name,ld->visible_hardcoded)
-		// }
-
-
+		// else fbm->toggleon(fbm->size(),1,1);
+		//  else{
+		//  	ld->visible_hardcoded=1;
+		//  	fbm->on_off[i][1]=1;
+		//  	cotm(ld->name,ld->visible_hardcoded)
+		//  }
 
 		// fbm->addnew({"H","S",ld->name});
-        // fbm->data(fbm->size(), (void*)ld);
+		// fbm->data(fbm->size(), (void*)ld);
 
-// 		if(msolo[ld->name]==1){
-// 			ld->visible_hardcoded=1;
-// 			fbm->on_off[i][1]=0;
-// 			cotm(ld->name,ld->visible_hardcoded)
-// 		}else{
-// ld->visible_hardcoded=0;
-// 			fbm->on_off[i][1]=1;
-// 		}
+		// 		if(msolo[ld->name]==1){
+		// 			ld->visible_hardcoded=1;
+		// 			fbm->on_off[i][1]=0;
+		// 			cotm(ld->name,ld->visible_hardcoded)
+		// 		}else{
+		// ld->visible_hardcoded=0;
+		// 			fbm->on_off[i][1]=1;
+		// 		}
 
 		ld->redisplay();
 	}
 
-		if (are_anysolo) {
-			lop(i, 0, occv->vlua.size()) {
-				OCC_Viewer::luadraw* ldi = occv->vlua[i];
-				ldi->visible_hardcoded = 0;
-				if (msolo[ldi->name] == 1) {
-					ldi->visible_hardcoded = 1;
-					fbm->toggleon(i+1, 1, 1,0);
-
-				}
-				ldi->redisplay();
+	if (are_anysolo) {
+		lop(i, 0, occv->vlua.size()) {
+			OCC_Viewer::luadraw* ldi = occv->vlua[i];
+			ldi->visible_hardcoded = 0;
+			if (msolo[ldi->name] == 1) {
+				ldi->visible_hardcoded = 1;
+				fbm->toggleon(i + 1, 1, 1, 0);
 			}
+			ldi->redisplay();
 		}
-
+	}
 
 	occv->fillvectopo();
 	// cotm("vshapes", occv->vshapes.size());
@@ -4877,7 +4847,6 @@ for (const auto& [key, value] : msolo) {
 	occv->redraw();
 	perf("fillbrowser");
 }
-
 
 #pragma endregion browser
 

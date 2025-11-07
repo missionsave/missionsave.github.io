@@ -202,6 +202,9 @@ Movel(2,crn_height,-120+80+2)
 Part cupnref1
 Clone(cupnref,1)
 Movel(0,0,-40)
+Clone(cupnref,1)
+Rotately(90)
+Movel(110,0,40-2*2)
 
 --error()
 

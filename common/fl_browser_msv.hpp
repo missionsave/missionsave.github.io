@@ -37,26 +37,26 @@ public:
 	std::vector<std::vector<bool>> on_off;
 
 	std::string msel = "@b@u";
-	// void toggleon(int line,int code,bool on=1){
-	// 	// if(code==2)return;
-	// 	on_off[line-1][code]=on;
-	// 	if (on) {
-	// 		std::stringstream strm;
-	// 		lop(i, 0, cache[line - 1].size()) {
-	// 			strm << ((code==i)?(vcols[i].prefix_on):(vcols[i].prefix) ) << msel << cache[line - 1][i];
-	// 			if (i < cache[line - 1].size() - 1) strm << "\t";
-	// 		}
-	// 		text(line, strm.str().c_str());
-	// 	}else{ //here not working well
-	// 		std::stringstream strm;
-	// 		lop(i, 0, cache[line - 1].size()) {
-	// 			strm << ((code==i)?(vcols[i].prefix):(vcols[i].prefix_on) ) << msel << cache[line - 1][i];
-	// 			if (i < cache[line - 1].size() - 1) strm << "\t";
-	// 		}
-	// 		text(line, strm.str().c_str());
+	void toggleon_v1(int line,int code,bool on=1, bool selectit=1) {
+		// if(code==2)return;
+		on_off[line-1][code]=on;
+		if (on) {
+			std::stringstream strm;
+			lop(i, 0, cache[line - 1].size()) {
+				strm << ((code==i)?(vcols[i].prefix_on):(vcols[i].prefix) ) << ((selectit)?msel:"") << cache[line - 1][i];
+				if (i < cache[line - 1].size() - 1) strm << "\t";
+			}
+			text(line, strm.str().c_str());
+		}else{ //here not working well
+			std::stringstream strm;
+			lop(i, 0, cache[line - 1].size()) {
+				strm << ((code==i)?(vcols[i].prefix):(vcols[i].prefix_on) ) << ((selectit)?msel:"") << cache[line - 1][i];
+				if (i < cache[line - 1].size() - 1) strm << "\t";
+			}
+			text(line, strm.str().c_str());
 
-	// 	}
-	// }
+		}
+	}
 
 	void toggleon(int line, int code, bool on = true, bool selectit=1) {
     on_off[line - 1][code] = on;
