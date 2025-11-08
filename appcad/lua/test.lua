@@ -89,14 +89,14 @@ Pl 0,0 280,0 @0,6 @-280,0 0,0
 Visible(0)
 
 Part robot_arm_1
-Pl 0,0 70,66 @70,-66 @70,66 @70,-66
+Pl 0,0 70,66 @70,-66 @70,66 @70,-80
 Offset 7
-Extrude (56) 
+--Extrude (56) 
+error()
 --FilletToAllEdges(2)
 Rotatelx(90)
 Movel(-285,170-7,-100)
 --Movel(-285,170-7,-100)
-
 --Pl 0,0 280,0 @0,6 @-280,0 0,0
 --Extrude 56
 Clone sketch_arm_1

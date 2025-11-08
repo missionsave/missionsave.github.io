@@ -989,7 +989,7 @@ async function loadPage_v1(url, addToHistory = true) {
 // });
 
 const path = window.location.pathname.replace(/^\/+/, '');
-console.log(path);
+console.log("path",path);
 
 const pValue = params.get("p");
 if (pValue){ //replace "%2F" from p to "/"
@@ -1011,6 +1011,30 @@ if (pValue){ //replace "%2F" from p to "/"
 }
 
 	console.log(pValue);
+
+	async function fileExists(url) {
+	try {
+		const res = await fetch(url, { method: "HEAD" });
+		return res.ok; // true if status is 200–299
+	} catch {
+		return false; // network error, CORS issue, etc.
+	}
+	}
+
+	// Example usage:
+
+	fileExists("https://missionsave.github.io/books/books.html")
+	.then(exists => {
+		if (exists) {
+		console.log("✅ File exists");
+		} else {
+		console.log("❌ File not found");
+		}
+	});
+	if(path=="books/"){
+		loadPage_v2('https://missionsave.github.io/books/books.html');
+	}
+	else
 	if (!pValue || pValue.trim() === "") {
 		// loadPage('gest/index.html');
 		// loadPage('https://missionsave.github.io/gest/index.html');
