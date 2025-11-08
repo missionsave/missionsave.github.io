@@ -1038,35 +1038,6 @@ if (pValue){ //replace "%2F" from p to "/"
 
 
 
-<style>
-.material-icons,
-.material-symbols-outlined,
-.material-symbols-rounded,
-.material-symbols-sharp {
-  translate: no !important;
-  user-select: none !important;
-}
-.notranslate {
-  translate: no !important;
-}
-
-iframe, .notranslate {
-  translate: no !important;
-}
-
-
-#google_esf, #fc-consent-banner, #fc-consent-dialog, [id^="fc-iframe-wrap"], [id^="fc-iframe"], 
-[style*="fundingchoicesmessages.google.com"] {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-
-
-
-
-</style>
 <!-- <script>
 (function() {
   const removerFundingChoices = () => {
@@ -1209,13 +1180,43 @@ html, body {
   <script>
     if (window.location.hostname === "missionsave.org" || window.location.hostname === "www.missionsave.org") {
       var s = document.createElement("script");
-      s.async = true;
+      s.async = false;
       s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
       s.crossOrigin = "anonymous";
       document.head.appendChild(s);
     }
   </script>
 </div>
+
+<style>
+.material-icons,
+.material-symbols-outlined,
+.material-symbols-rounded,
+.material-symbols-sharp {
+  translate: no !important;
+  user-select: none !important;
+}
+.notranslate {
+  translate: no !important;
+}
+
+iframe, .notranslate {
+  translate: no !important;
+}
+
+
+#google_esf, #fc-consent-banner, #fc-consent-dialog, [id^="fc-iframe-wrap"], [id^="fc-iframe"], 
+[style*="fundingchoicesmessages.google.com"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+
+
+
+
+</style>
 </html>
 
  		 		
