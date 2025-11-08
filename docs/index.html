@@ -1031,10 +1031,11 @@ if (pValue){ //replace "%2F" from p to "/"
 	// 	console.log("❌ File not found");
 	// 	}
 	// });
-	// if(path=="books/"){
-	// 	loadPage_v2('https://missionsave.github.io/books/books.html');
-	// }
-	// else
+	if(path=="books/"){
+		loadPage_v2('https://missionsave.github.io/books/books.html');
+		onresizeFunction();
+	}
+	else
 	if (!pValue || pValue.trim() === "") {
 		// loadPage('gest/index.html');
 		// loadPage('https://missionsave.github.io/gest/index.html');
