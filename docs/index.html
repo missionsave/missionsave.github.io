@@ -1031,7 +1031,7 @@ if (pValue){ //replace "%2F" from p to "/"
 	// 	console.log("❌ File not found");
 	// 	}
 	// });
-	if(path=="books/"){
+	if(path=="books/" || path=="books"){
 		loadPage_v2('https://missionsave.github.io/books/books.html');
 		onresizeFunction();
 	}
@@ -1204,6 +1204,7 @@ html, body {
 <div translate="no" class="notranslate">
   <script>
     if (window.location.hostname === "missionsave.org" || window.location.hostname === "www.missionsave.org") {
+	  console.log("ads");
       var s = document.createElement("script");
       s.async = false;
       s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
