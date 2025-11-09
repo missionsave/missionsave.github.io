@@ -380,21 +380,21 @@ var lib;
 
 
 //     // Observa o DOM e protege novos elementos (como iframes do AdSense)
-//     const observer = new MutationObserver(mutations => {
-//       let changed = false;
-//       for (const m of mutations) {
-//         if (m.addedNodes.length > 0) {
-//           changed = true;
-//           break;
-//         }
-//       }
-//       if (changed){
-// 		console.log("changed");
-// 	   document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
+    const observer = new MutationObserver(mutations => {
+      let changed = false;
+      for (const m of mutations) {
+        if (m.addedNodes.length > 0) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed){
+		console.log("changed");
+	   document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
 
-// 	  }
-//     });
-//     observer.observe(document.body, { childList: true, subtree: true });
+	  }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
 // setInterval(() => {
 // 	console.log("interv");
