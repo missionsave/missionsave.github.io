@@ -19,7 +19,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 0; i--) { ///////////////////////////////
+    for (var i = arr.length - 1; i >= 1; i--) { ///////////////////////////////
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -566,6 +566,16 @@ let nles=0.005;
 // isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
 
 
+if(1){
+	console.log("keys",keys);
+	for(let i=1;i<keys.length;i++){
+		if(qtkeys==keys[i].length-1){
+			isgood=isgood && (dif[  keys[i][ keys[i].length-1 ]   ])<-0.06;
+		}
+	}
+}
+
+
 if(0){
 	if(qtkeys==3 ){	 
 	isgood=isgood && (dif[0])>0.04; 
@@ -601,7 +611,10 @@ if(0){
 }
 // 6 15 25 27 45
 
-if(1){
+
+
+
+if(0){////////////////////////////////
 	if(qtkeys==47 ){
 	isgood=isgood && (Math.abs(dif[5])>=0.05 || Math.abs(dif[5])==0.0);
 	// isgood=isgood && Math.abs(dif[5])>0.04;
@@ -1130,7 +1143,7 @@ async function test(){
 		addone+='<button id="btn35" onclick="addonebt(35,4)" >Add 35</button>';
 		addone+='<button id="btn40" onclick="addonebt(40,5)" >Add 40</button>';
 		addone+='<button id="btn43" onclick="addonebt(43,5)" >Add 43</button>';
-		addone+='<button id="btn45" onclick="addonebt(47,5)" >Add 45</button>';
+		addone+='<button id="btn45" onclick="addonebt(47,4)" >Add 45</button>';
 		var xl=x.length;
 		var xlm="";
 		if(xl>20){
@@ -1252,13 +1265,16 @@ function waitForElement(id) {
 // var bts=["btn7","btn6","btn5","btn4","btn3"];
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn5",6],["btn4",7]]; 
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn4",7]]; //////
-var bts=[["btn45",70]];///
+// var bts=[["btn43",70]];///
 // var bts=[["btn43",25]];///
 // var bts=[["btn43",13],["btn40",5]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4],["btn10",10],["btn2",6]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4]];//////////////////
 // var bts=[["btn9",5],["btn8",5],["btn9",5]];
 // var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5]];
+var bts=[["btn2",1] ,["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn11",1],["btn24",1],["btn26",1],["btn30",1],["btn35",1],["btn40",1],["btn43",1],["btn40",1],["btn43",1],["btn45",1]];
+// var bts=[["btn2",1],["btn3",1],["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1],["btn10",1],["btn11",1],["btn24",1],["btn26",1],["btn30",1],["btn35",1],["btn40",1],["btn43",1],["btn45",1]]; //////4
+// var bts=[["btn24",1],["btn11",3],["btn10",3],["btn9",3],["btn4",3],["btn43",2],["btn40",3],["btn45",3]];//////////////
 // var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5],["btn4",5]];//////////////
 // var bts=[["btn24",1],["btn11",8],["btn10",7],["btn9",6]]; 
 // var bts=[["btn24",1],["btn11",3],["btn10",5],["btn9",3],["btn5",4],["btn4",7]];
