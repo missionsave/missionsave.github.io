@@ -19,7 +19,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 0; i--) { ///////////////////////////////
+    for (var i = arr.length - 1; i >= 1; i--) { ///////////////////////////////
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -428,7 +428,7 @@ function randomize(idkey,dbg=1){
 	if(dbg)//console.log("keyid",idkey,kes.length);
 	if(dbg)test(); //
 };
-async function best(idkey){
+async function best_v4w(idkey){
 
 		keys_selected=[0,1,1,1,0,0];
 		keys_selected=[0,0,0,1,1,1];
@@ -984,7 +984,7 @@ if(qtkeys==24){	//tá bom
 	// //console.log(-0.048<-0.132);
 }
 
-async function best_v1(idkey){
+async function best(idkey){
 
 		keys_selected=[0,1,1,1,0,0];
 		keys_selected=[0,0,0,1,1,1];
@@ -1129,7 +1129,7 @@ let nles=0.005;
 	// console.log("idkey",idkey,);
 let sbestdiff=0;//dif[idkey];
 // let sbestdiff=0;
-if(0){
+if(1){
 
 	// console.log("keys",keys);
 	for(let i=1;i<keys.length;i++){
@@ -1555,18 +1555,18 @@ if(qtkeys==24){	//tá bom
 				// 	break;
 				// }else continue;
 
-			// // if(bestmin<sbestdiff){
-			// if(Number(bestmin)>Number(sbestdiff)){
-			// 	console.log("bestmin",bestmin,"sbestdiff",sbestdiff,it);
-			// 	bestmin=Number(sbestdiff);
-			// 	bestkeys=keys[idkey];
-			// 	if(Number(bestmin)<-1.59)break;
-			// }
+			// if(bestmin<sbestdiff){
+			if(Number(bestmin)>Number(sbestdiff)){
+				console.log("bestmin",bestmin,"sbestdiff",sbestdiff,it);
+				bestmin=Number(sbestdiff);
+				bestkeys=keys[idkey];
+				if(Number(bestmin)<-0.10)break;
+			}
 
 		// }
-		if (isgood)break;
+		// if (isgood)break;
 	}
-	// keys[idkey]=bestkeys; //
+	keys[idkey]=bestkeys; //
 		seek(keys[idkey]);
 
 	fillSelected(idkey);
@@ -1938,11 +1938,12 @@ async function waitForElement(id) {
 
 
 // var bts=[["btn2",1] ,["btn3",1] ,["btn40",1] ,["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn11",1],["btn35",1],["btn15",1],["btn43",1],["btn40",1],["btn45",1],["btn12",1],["btn13",1],["btn14",1]];
-// var bts=[  ];
+var bts=[  ];
 // var bts=[["btn10",4],["btn40",4] ];
 
 
-var bts=[["btn2",1] ,["btn3",1],["btn4",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1],["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn46",1] ,["btn47",1]   ];
+//winner 4
+// var bts=[["btn2",1] ,["btn3",1],["btn4",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1],["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn46",1] ,["btn47",1]   ];
 
 
 
