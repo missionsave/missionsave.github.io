@@ -19,7 +19,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 1; i--) { ///////////////////////////////
+    for (var i = arr.length - 1; i >= 0; i--) { ///////////////////////////////
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -314,8 +314,8 @@ function mustMatchDirect(keys){
 		return res;
 }
 
-// function mustMatch(keys,response){  
-async function mustMatch(keys,response){  
+function mustMatch(keys,response){  
+// async function mustMatch(keys,response){  
 	// setTimeout(function(){
 	
 console.time('Function #1');
@@ -434,8 +434,13 @@ async function best(idkey){
 		keys_selected=[0,0,0,1,1,1];
 
 
+	// let bestmin=-90;
+	let bestmin=90;
+	let bestkeys=[];
+
 	// for(let it=0;it<1;it++){
-	for(let it=0;it<100000;it++){
+	for(let it=0;it<4000;it++){
+	// for(let it=0;it<100000;it++){
 		// randomize(idkey,0);
 
 		//randomize
@@ -565,15 +570,584 @@ let nles=0.005;
 		// keys_selected=[0,1,1,0,0,0]; //15
 // isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
 
-
+let sbestdiff=0;
 if(1){
-	console.log("keys",keys);
+
+	// console.log("keys",keys);
 	for(let i=1;i<keys.length;i++){
 		if(qtkeys==keys[i].length-1){
-			isgood=isgood && (dif[  keys[i][ keys[i].length-1 ]   ])<-0.06;
+			sbestdiff=dif[  keys[i][ keys[i].length-1 ]   ];
+				// console.log("sbestdiff",sbestdiff);
+			break;
+			// isgood=isgood && (dif[  keys[i][ keys[i].length-1 ]   ])<-0.06;
 		}
 	}
 }
+
+
+if(0){
+	if(qtkeys==3 ){	 
+	isgood=isgood && (dif[0])>0.04; 
+	}
+	if(qtkeys==4 ){	 
+	isgood=isgood && (dif[0])>0.05; 
+	}
+	if(qtkeys==5 ){	 
+	isgood=isgood && (dif[0])>0.07; 
+	} 
+	if(qtkeys==6 ){	 
+	isgood=isgood && (dif[0])>0.08; 
+	} 
+	if( qtkeys==7){	 
+	isgood=isgood && (dif[0])>0.10; 
+	} 
+	if(qtkeys==8){	 
+		isgood=isgood && (dif[1])>0.11; 
+	}
+	if(qtkeys==9){	 
+		isgood=isgood && (dif[1])>0.11; 
+	}
+	if(qtkeys==10){	 
+		isgood=isgood && (dif[1])>0.11; 
+	}
+	if(qtkeys==26){	 
+		isgood=isgood && (dif[3])<-0.10; 
+	}
+	if(qtkeys==24){ 
+		isgood=isgood && (dif[2])<-0.10; 
+	} 
+
+}
+// 6 15 25 27 45
+
+
+
+
+if(0){////////////////////////////////
+	if(qtkeys==47 ){
+	isgood=isgood && (Math.abs(dif[5])>=0.05 || Math.abs(dif[5])==0.0);
+	// isgood=isgood && Math.abs(dif[5])>0.04;
+	}
+	if(qtkeys==46 ){
+	isgood=isgood && (dif[3])<=0;
+	isgood=isgood && (dif[5])<=-0.07;
+	isgood=isgood && (dif[4])>=0.05;
+	isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[1])>=0;
+	isgood=isgood && (dif[0])>=0;
+	}
+	if(qtkeys==43 ){
+	isgood=isgood && (dif[3])<=0;
+	isgood=isgood && (dif[5])<=-0.07;
+	isgood=isgood && (dif[4])>=0.05;
+	isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[1])>=0;
+	isgood=isgood && (dif[0])>=0;
+	}
+	if(qtkeys==40 ){
+	isgood=isgood && (dif[3])<=0;
+	isgood=isgood && (dif[5])<=-0.07;
+	isgood=isgood && (dif[4])>=0.05;
+	isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[1])>=0;
+	isgood=isgood && (dif[0])>=0;
+	}
+	if(qtkeys==35 ){
+	isgood=isgood && (dif[3])==0;
+	isgood=isgood && (dif[5])<=-0.1;
+	isgood=isgood && (dif[4])==0;
+
+	// isgood=isgood && (dif[5])==0;
+	// isgood=isgood && Math.abs(dif[4])>=0.05;
+	// isgood=isgood && Math.abs(dif[3])>=0.05;
+	// isgood=isgood && (dif[3])==0;
+	// isgood=isgood && (dif[2])==0;
+	}
+	if(qtkeys==30 ){	 
+	// isgood=isgood && Math.abs(dif[0])<=-0.02;
+	// isgood=isgood && Math.abs(dif[1])<=-0.02;
+	// isgood=isgood && (dif[2])<=-0.02;
+	// isgood=isgood && (dif[3])>=0.02;
+	// isgood=isgood && (dif[2])==0;
+	isgood=isgood && (dif[3])==0;
+	isgood=isgood && (dif[4])==0;
+
+	// isgood=isgood && (dif[0])>0.01;
+	// isgood=isgood && (dif[5])>0.1 && (dif[5])<0.2;
+	// isgood=isgood && (dif[5])==0;
+	// isgood=isgood && Math.abs(dif[5])<=-0.02
+	;
+	// isgood=isgood && Math.abs(dif[1])<=0.03;
+	// isgood=isgood && Math.abs(dif[2])<=0.03;
+	// // isgood=isgood && Math.abs(dif[3])>=0;
+	// isgood=isgood &&  (dif[5])>0.1;
+	// // isgood=isgood && Math.abs(dif[5])>=0.1;
+	// isgood=isgood && (dif[2])>0.05;
+	// isgood=isgood && (dif[3])==0;
+	// isgood=isgood && (dif[4])<-0.05;
+	// // isgood=isgood && (dif[5])<0;
+	}
+	if(qtkeys==2 ){	 
+	isgood=isgood && (dif[0])<-0.01; 
+	isgood=isgood && (dif[1])>=0;
+	isgood=isgood && (dif[2])>=0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+	}
+	if(qtkeys==3 ){	 
+	// isgood=isgood && (dif[0])<-0.02; 
+	// isgood=isgood && (dif[1])<=-0.1;
+	isgood=isgood && (dif[0])>=0.05;
+	// isgood=isgood && (dif[2])>=0;
+	// isgood=isgood && (dif[3])>=0;
+	// isgood=isgood && (dif[4])>=0;
+	// isgood=isgood && (dif[5])>=0;
+	// isgood=isgood && (dif[0])<-notless; 
+	}
+	if(qtkeys==4 ){	 
+	isgood=isgood && (dif[0])<-notless && (dif[0])>-notless-nles; 
+	// isgood=isgood && (dif[1])>=0;
+	// isgood=isgood && (dif[2])>=0;
+	// isgood=isgood && (dif[3])>=0;
+	// isgood=isgood && (dif[4])>=0;
+	// isgood=isgood && (dif[5])>=0;
+	}
+	if(qtkeys==5 ){	 
+	isgood=isgood && (dif[0])<-0.07; 
+	} 
+	if(qtkeys==6 ){	 
+	isgood=isgood && (dif[1])<-0.1; 
+		isgood=isgood && (dif[0])>=0.05;
+		isgood=isgood && (dif[2])<=0;
+		isgood=isgood && (dif[3])<=0;
+		isgood=isgood && (dif[4])<=0;
+		isgood=isgood && (dif[5])<=0;
+	} 
+	if( qtkeys==7){	 
+	isgood=isgood && (dif[0])<-0.10; 
+	} 
+	if(qtkeys==8){	 
+		// isgood=isgood && (dif[1])<-0.11; 
+		isgood=isgood && (dif[0])<-0.08; 
+		isgood=isgood && Math.abs(dif[1])>=0;
+		isgood=isgood && Math.abs(dif[2])>=0;
+		isgood=isgood && Math.abs(dif[3])>=0;
+		isgood=isgood && Math.abs(dif[4])>=0;
+		isgood=isgood && (dif[5])>=0;
+	}
+	if(qtkeys==9){	
+		notless=0.077;
+		nles=0.005;
+		isgood=isgood && (dif[1])<-notless  && (dif[1])>-notless-nles;	
+		isgood=isgood && (dif[0])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>=0; 
+		// isgood=isgood && (dif[1])>0.03; 
+		// isgood=isgood && (dif[0])<=0;
+		// isgood=isgood && (dif[2])<=0;
+		// isgood=isgood && (dif[3])<=0;
+		// isgood=isgood && (dif[4])<=0;
+		// isgood=isgood && (dif[5])>=0;
+		// isgood=isgood && (dif[1])>notless;// && (dif[1])>-notless-nles;	
+		// isgood=isgood && (dif[0])<=-0.04;
+		// isgood=isgood && (dif[2])>=0 && (dif[2])<=0.05;//.04 && (dif[2])<0.10;
+		// isgood=isgood && (dif[3])>=0;
+		// isgood=isgood && (dif[4])>=0.02;
+		// isgood=isgood && (dif[5])>=0;
+	}
+	if(qtkeys==10){	 
+		// notless=0.05;
+		// isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
+		// isgood=isgood && (dif[1])<=-0.05;
+		// isgood=isgood && (dif[0])==0.05;
+		// isgood=isgood && (dif[2])>=0;
+		// isgood=isgood && (dif[3])>=0;
+		// isgood=isgood && (dif[4])>=0;
+		// isgood=isgood && (dif[5])>=0;
+
+		// isgood=isgood && (dif[1])==-0.08;
+		// // isgood=isgood && (dif[0])==0.06;
+		// isgood=isgood && (dif[2])>0.06;
+		// isgood=isgood && (dif[3])>0;
+		// // isgood=isgood && (dif[4])>=0;
+		// isgood=isgood && (dif[5])>0;
+
+		// isgood=isgood && (dif[0])==0.0;
+		// isgood=isgood && (dif[1])==0.0;
+		// isgood=isgood && (dif[2])==0.0;
+		// isgood=isgood && (dif[3])==0.0;
+		// isgood=isgood && (dif[4])==0.0;
+		// isgood=isgood && (dif[5])==0.0;
+
+
+		isgood=isgood && Math.abs(dif[0])>=0.02;
+		isgood=isgood && Math.abs(dif[2])==0;
+		isgood=isgood && Math.abs(dif[1])>=0.02;
+		isgood=isgood && Math.abs(dif[3])>=0.02;
+		isgood=isgood && Math.abs(dif[4])>=0.02;
+		// isgood=isgood && Math.abs(dif[5])<=0.02;
+
+		// isgood=isgood && (dif[2])==0.0;
+		// isgood=isgood && (dif[3])==-0.01;
+		// isgood=isgood && (dif[1])==-0.06;
+		// isgood=isgood && (dif[1])<-0.04;
+		// isgood=isgood && (dif[1])<=-0.02;
+		// isgood=isgood && Math.abs(dif[2])<=0.02;
+		// isgood=isgood && Math.abs(dif[3])<=0.02;
+		// isgood=isgood && Math.abs(dif[4])<=0.02;
+		// isgood=isgood && Math.abs(dif[0])>=0.03; 
+		// isgood=isgood && Math.abs(dif[2])>=0.03; 
+		// // isgood=isgood && Math.abs(dif[3])>=0.03; 
+		// isgood=isgood && (dif[3])<=0.04; 
+		// isgood=isgood && (dif[5])==0; 
+	}
+	if(qtkeys==11){	 
+		isgood=isgood && (dif[1])<-notless && (dif[1])>-notless-nles; 
+		isgood=isgood && (dif[0])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[4])>=0;
+		isgood=isgood && (dif[5])>=0;
+	}
+	if(qtkeys==26){	 
+		isgood=isgood && (dif[3])<-0.10; 
+	}
+	if(qtkeys==24){ 
+		isgood=isgood && (dif[4])<-notless && (dif[4])>-notless-nles; 
+		// isgood=isgood && (dif[2])<-notless && (dif[2])>-notless-nles; 
+		console.log("qtkeys",qtkeys);
+		isgood=isgood && (dif[0])>=0;
+		isgood=isgood && (dif[1])>=0;
+		isgood=isgood && (dif[3])>=0;
+		isgood=isgood && (dif[2])>=0;
+		isgood=isgood && (dif[5])>=0;
+	} 
+
+}
+
+
+
+if(0){
+if(qtkeys==2 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.01;
+// isgood=isgood && (dif[1])>0.04;// && (dif[1])<0.075;
+// isgood=isgood && (dif[2])>=0; 
+}
+if(qtkeys==3 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.035;
+isgood=isgood && (dif[1])>0.04;// && (dif[1])<0.075;
+isgood=isgood && (dif[2])>=0; 
+}
+if(qtkeys==4 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.07;
+isgood=isgood && (dif[1])>0;//.04 && (dif[1])<0.075;
+isgood=isgood && (dif[2])>0;
+isgood=isgood && (dif[3])>0;
+}
+if(qtkeys==5 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.06;
+isgood=isgood && (dif[1])>0;//.03 && (dif[1])<0.045;
+// isgood=isgood && (dif[0])<-0.05;
+// isgood=isgood && (dif[1])>0.03 && (dif[1])<0.045;
+isgood=isgood && (dif[2])>=0;
+isgood=isgood && (dif[3])>=0;
+isgood=isgood && (dif[4])>=0;
+}
+
+if(qtkeys==6 ){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.055;
+isgood=isgood && (dif[1])>0;//.06 && (dif[1])<0.085;
+isgood=isgood && (dif[2])>0;
+isgood=isgood && (dif[3])>=0;
+isgood=isgood && (dif[4])>=0;
+// isgood=isgood && (dif[5])>0;
+}
+
+if( qtkeys==7){	
+	keys_selected=[1,0,0,0,0,0];
+isgood=isgood && (dif[0])<-0.05;
+isgood=isgood && (dif[1])>0.03;// && (dif[1])<0.055;
+isgood=isgood && (dif[2])>0;
+isgood=isgood && (dif[3])>0;
+isgood=isgood && (dif[4])>=0;
+isgood=isgood && (dif[5])>=0;
+}
+
+
+if(qtkeys==8){	
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.05;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==9){	
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.07;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==10){	
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.07;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==11){	
+	keys_selected=[1,0,0,0,0,0];
+	isgood=isgood && (dif[1])<-0.07;
+	isgood=isgood && (dif[0])>0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])>=0;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==26){	
+	keys_selected=[0,0,0,1,0,0];
+	isgood=isgood && (dif[0])>=0;
+	isgood=isgood && (dif[1])>=0;//.04;// && (dif[1])<0.055;
+	isgood=isgood && (dif[2])>0;
+	isgood=isgood && (dif[3])<-0.13;
+	// isgood=isgood && (dif[3])<-0.06 && (dif[3])>-0.08;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+if(qtkeys==24){	//tá bom
+	keys_selected=[0,0,1,0,0,0];
+	isgood=isgood && (dif[0])>=0;
+	// isgood=isgood && (dif[1])>=0.01;//  && (dif[1])<0.03;
+	// isgood=isgood && (dif[3])>0.05;
+	// isgood=isgood && (dif[2])<-0.13;
+	isgood=isgood && (dif[2])<-0.07;//&& (dif[2])>-0.07;
+	isgood=isgood && (dif[4])>=0;
+	isgood=isgood && (dif[5])>=0;
+}
+// if(qtkeys==24){	
+// 	// keys_selected=[0,0,1,0,0,0];
+// 	isgood=isgood && (dif[0])<=-0.4;
+// 	isgood=isgood && (dif[1])>=0.01;//  && (dif[1])<0.03;
+// 	isgood=isgood && (dif[3])>0.05;
+// 	// isgood=isgood && (dif[2])<-0.13;
+// 	// isgood=isgood && (dif[2])<-0.1;//&& (dif[2])>-0.07;
+// 	isgood=isgood && (dif[4])>=0;
+// 	isgood=isgood && (dif[5])>=0;
+// }
+
+}
+
+
+
+// isgood=isgood && (dif[2])>0.05;
+ 
+		// if (isgood)
+		{
+			//console.log("dif",it,dif);
+			// //console.log("dif2",it,dif2);
+
+
+
+			// if(bestmin<sbestdiff){
+			if(bestmin>sbestdiff){
+				console.log("bestmin",bestmin,"sbestdiff",sbestdiff);
+				bestmin=sbestdiff;
+				bestkeys=keys[idkey];
+			}
+
+		}
+		// if (isgood)break;
+	}
+	keys[idkey]=bestkeys;
+		seek(keys[idkey]);
+
+	fillSelected(idkey);
+		//console.log("qtkeys",qtkeys);
+	createStatTable(idkey,qtkeys);
+	test();
+	// test();
+	console.log("tchaves",ttchaves);
+	// //console.log(-0.048<-0.132);
+}
+
+async function best_v1(idkey){
+
+		keys_selected=[0,1,1,1,0,0];
+		keys_selected=[0,0,0,1,1,1];
+
+
+	// let bestmin=-90;
+	let bestmin=90;
+	let bestkeys=[];
+
+	// for(let it=0;it<1;it++){
+	for(let it=0;it<40000;it++){
+	// for(let it=0;it<100000;it++){
+		// randomize(idkey,0);
+
+		//randomize
+		var keysize=keys[idkey].length-1;
+		var sel=keys[idkey][keysize];
+		var kes=genrand(keysize,1,n); 
+		kes.push(sel);
+		keys[idkey]=kes;
+
+		//fillv
+		var selkey=keys[idkey][keys[idkey].length-1];
+		var qtkeys=keys[idkey].length-1;
+		seek(keys[idkey]);
+
+		var qtkeys=keys[idkey].length-1;
+
+
+
+ 
+		var dif=[k+1];
+		for(var i=0;i<k+1;i++){ 
+		// for(var i=0;i<k+1;i++){ 
+			var sel=keys[idkey][keys[idkey].length-1];
+			var totalchavesper=(keysProbt[qtkeys][i]*100/keysProbt[0][0]);
+			var persaidas=(qtdisum[i]*100/histsize);
+			var diff=mathDiffPer(persaidas,totalchavesper,1);
+			if(diff==-2.0 || isNaN(diff))diff=0;
+			dif[i]=Number(diff.toFixed(2));
+			// //console.log("best",i,diff.toFixed(2));
+		}
+
+		// var dif2=[k+1];
+		// for(var i=0;i<k+1;i++){ 
+		// // for(var i=0;i<k+1;i++){ 
+		// 	var sel=keys[idkey][keys[idkey].length-1];
+		// 	var totalchavesper=(keysProbt[qtkeys][i]*100/keysProbt[0][0]);
+		// 	var persaidas=(qtdisum[i]*100/1500.0);
+		// 	var diff=mathDiffPer(persaidas,totalchavesper,1);
+		// 	if(diff==-2.0 || isNaN(diff))diff=0;
+		// 	dif2[i]=Number(diff.toFixed(3));
+		// 	// //console.log("best",i,diff.toFixed(2));
+		// }
+
+		// //console.log("dif",it,dif);
+		let isgood=1;
+		// let isgood=(Math.abs(dif[0])<=0.01 && Math.abs(dif[3])<=0.01);
+
+		//good +-
+		// // keysize=5; 
+		// keys_selected=[1,1,1,0,0,0]; //25
+		// isgood=(isgood && Math.abs(dif[0])>0.08 && dif[1]>0.08 && Math.abs(dif[2])>0.08 & Math.abs(dif[3])>0.04) ;
+		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04); //good
+
+		// isgood=(isgood && dif[1]>0.08 && dif[2]>=-0.08 && dif[2]<=-0.04  && dif[0]>0.02 && dif[3]<-0.02);
+
+		// isgood=dif[2]>0.15 && dif[3]<-0.15;
+		
+		
+		
+		// keys_selected=[0,0,1,1,0,0]; //32
+		// keys_selected=[0,0,0,1,1,1]; //32
+		// isgood= dif[4]<-0.07 && dif[3]>0.07 && Math.abs(dif[2])<0.04;
+
+
+
+		// isgood=(isgood && Math.abs(dif[5])<0.02 && dif[4]>0.07 && Math.abs(dif[1])>0.02 && Math.abs(dif[0])>0.03 & Math.abs(dif[2])>0.05 && dif[3]<-0.06 && dif[4]<0.11);
+		// isgood=isgood && (dif[5])<-0.1 && (dif[4])<-0.07 && (dif[3])<-0.07 && Math.abs(dif[2])>0.03 && Math.abs(dif[2])<0.06;
+
+		// isgood=dif[5]>0.18 && (dif[5]-dif[4]>0.4) && (dif[4]-dif[3]<0.15) && (dif[3]-dif[2]<0.07) && dif[2]>dif[1] && dif[1]>dif[0];
+
+		let b=-0.001;
+		let bmax=0.05;
+		// isgood=Math.abs(dif[1])>0.13;
+		// isgood= dif[1]<-0.05 && dif[0]<0; 
+
+		// isgood=dif[0]>0.2 && Math.abs(dif[1])>0.08 && Math.abs(dif[2])<0.02 && dif[5]<-0.4;
+
+		// isgood= dif[1]>0.1; //k6
+		// isgood=Math.abs(dif[1])>0.08 && Math.abs(dif[2])>0.08;
+
+		// isgood=isgood && Math.abs(dif[1])<0.04 && Math.abs(dif[4])<0.04;
+
+		// isgood=dif[0]>b && dif[0]<bmax && dif[1]>b && dif[2]>b  && dif[4]<-0.06 && dif[3]>b && dif[5]>0.14;
+
+		// isgood=dif[0]>0.02 && dif[1]>0 && dif[2]>0  && dif[3]<-0.1 && dif[4]<=-0.04 && dif[5]>0.0 && dif[5]<0.05 && dif[0]<0.04 && dif[4]>-0.08;
+
+		// isgood=isgood && dif[5]>0.22 && dif[4]<-0.03 && dif[3]>0.055 && dif[2]>-0.01;
+		// isgood=isgood && dif[5]>0.12 && dif[4]>0.08 && dif[3]>0.04 && dif[2]>-0.01;
+
+		// isgood=isgood && dif[5]<0.1;
+		// isgood=isgood && dif[5]>dif[4] && dif[4]>dif[3];
+		// isgood=isgood && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+
+		// isgood=isgood && dif[5]<0.1;
+		// isgood=isgood && dif[5]<dif[4] && dif[4]<dif[3];
+		// isgood=isgood && dif[3]<dif[2] && dif[2]<dif[1] && dif[1]<dif[0];
+
+		// isgood=isgood && dif[5]>dif[4] && dif[4]>dif[3];
+		
+		// isgood=isgood && dif[5]<dif[4] && dif[4]<dif[3];
+		// isgood=isgood && dif[3]>0.05 && dif[2]>dif[1] && dif[1]>dif[0];
+// isgood=isgood && dif[2]>0.09;
+// isgood=isgood && dif[3]<-0.09;
+
+// isgood=isgood && Math.abs(dif[4])>0.09;
+// isgood=isgood && Math.abs(dif[3])>0.09; 
+
+let notless=0.066;
+let nles=0.005;
+// isgood=isgood && Math.abs(dif[0])>notless;
+// isgood=isgood && Math.abs(dif[1])>notless;
+// isgood=isgood && Math.abs(dif[2])>notless;
+// isgood=isgood && Math.abs(dif[3])>notless;
+// isgood=isgood && Math.abs(dif[4])>notless;
+// isgood=isgood && Math.abs(dif[5])>notless;
+
+
+		// keys_selected=[1,1,0,0,0,0]; //25
+// isgood=isgood && (dif[0])>notless;
+// isgood=isgood && (dif[1])<-notless;
+// isgood=isgood && (dif[2])>notless;
+// isgood=isgood && (dif[3])>notless;
+// isgood=isgood && (dif[4])>notless;
+// isgood=isgood && (dif[5])>notless;
+
+		// keys_selected=[1,0,0,0,0,0]; //6
+		// keys_selected=[0,1,1,0,0,0]; //15
+// isgood=dif[5]>0.20 && (dif[5]-dif[4]<0.15) && dif[4]>dif[3] && dif[3]>dif[2] && dif[2]>dif[1] && dif[1]>dif[0];
+
+	// console.log("idkey",idkey,);
+let sbestdiff=0;//dif[idkey];
+// let sbestdiff=0;
+if(0){
+
+	// console.log("keys",keys);
+	for(let i=1;i<keys.length;i++){
+		if(qtkeys==keys[i].length-1){
+			sbestdiff=dif[  keys[i][ keys[i].length-1 ]   ];
+				console.log("sbestdiff",sbestdiff, keys[i][ keys[i].length-1 ] );
+			break;
+			// isgood=isgood && (dif[  keys[i][ keys[i].length-1 ]   ])<-0.06;
+		}
+	}
+}
+	if(qtkeys==5 ){	 
+		isgood=isgood && (dif[0])==0; 
+		isgood=isgood && (dif[2])<-0.09; 
+		isgood=isgood && (dif[3])<-0.99; 
+		isgood=isgood && (dif[4])==0; 
+	} 
+
 
 
 if(0){
@@ -970,17 +1544,36 @@ if(qtkeys==24){	//tá bom
 		// if( Math.abs(dif[0])<0.02 && Math.abs(dif[3])<0.02 
 		
 
-		if (isgood)
-		{
-			//console.log("dif",it,dif);
+		// if (isgood)
+		// {
+			// console.log("dif",it,sbestdiff,dif);
 			// //console.log("dif2",it,dif2);
-		}
+
+
+				// if(Number(sbestdiff)==-0.1){
+				// // bestkeys=keys[idkey];
+				// 	break;
+				// }else continue;
+
+			// // if(bestmin<sbestdiff){
+			// if(Number(bestmin)>Number(sbestdiff)){
+			// 	console.log("bestmin",bestmin,"sbestdiff",sbestdiff,it);
+			// 	bestmin=Number(sbestdiff);
+			// 	bestkeys=keys[idkey];
+			// 	if(Number(bestmin)<-1.59)break;
+			// }
+
+		// }
 		if (isgood)break;
 	}
+	// keys[idkey]=bestkeys; //
+		seek(keys[idkey]);
+
 	fillSelected(idkey);
 		//console.log("qtkeys",qtkeys);
 	createStatTable(idkey,qtkeys);
-	await test();
+	test();
+	// test();
 	console.log("tchaves",ttchaves);
 	// //console.log(-0.048<-0.132);
 }
@@ -1104,7 +1697,8 @@ var  keysProbt=[[2118760,0,0,0,0,0],[1906884,211876,0,0,0,0],[1712304,389160,172
 
 // keys[3]=[0];
 
-async function test(){
+function test(){
+// async function test(){
 	if(loading==1)return;
 	document.getElementById("totais").innerHTML = "A calcular";
 	//var keys=new Array();//=[[1,2,5,6,20,3],[12,22,33,44,2]];
@@ -1126,7 +1720,9 @@ async function test(){
 	
 	//keys[5]=[17,1];
 	
-	await mustMatch(keys,function (x) {
+	mustMatch(keys,function (x) {
+	// await mustMatch(keys,function (x) {
+
 		var addone='<button id="btn3" onclick="addonebt(3,0)" >Add 3</button>';
 		addone+='<button id="btn2" onclick="addonebt(2,0)" >Add 2</button>';
 		addone+='<button id="btn4" onclick="addonebt(4,0)" >Add 4</button>';
@@ -1137,13 +1733,62 @@ async function test(){
 		addone+='<button id="btn9" onclick="addonebt(9,1)" >Add 9</button>';
 		addone+='<button id="btn10" onclick="addonebt(10,1)" >Add 10</button>';
 		addone+='<button id="btn11" onclick="addonebt(11,1)" >Add 11</button>';
-		addone+='<button id="btn24" onclick="addonebt(24,4)" >Add 24</button>';
+		addone+='<button id="btn12" onclick="addonebt(12,1)" >Add 12</button>';
+		addone+='<button id="btn13" onclick="addonebt(13,1)" >Add 13</button>';
+		addone+='<button id="btn14" onclick="addonebt(14,1)" >Add 14</button>';
+		addone+='<button id="btn15" onclick="addonebt(19,2)" >Add 15</button>';
+		addone+='<button id="btn16" onclick="addonebt(20,2)" >Add 16</button>';
+		addone+='<button id="btn17" onclick="addonebt(21,2)" >Add 17</button>';
+		addone+='<button id="btn18" onclick="addonebt(22,2)" >Add 18</button>';
+		addone+='<button id="btn24" onclick="addonebt(24,2)" >Add 24</button>';
 		addone+='<button id="btn26" onclick="addonebt(26,3)" >Add 26</button>';
-		addone+='<button id="btn30" onclick="addonebt(30,4)" >Add 30</button>';
+		addone+='<button id="btn30" onclick="addonebt(30,3)" >Add 30</button>';
 		addone+='<button id="btn35" onclick="addonebt(35,4)" >Add 35</button>';
+		addone+='<button id="btn36" onclick="addonebt(36,5)" >Add 36</button>';
+		addone+='<button id="btn37" onclick="addonebt(37,5)" >Add 37</button>';
+		addone+='<button id="btn38" onclick="addonebt(38,5)" >Add 38</button>';
+		addone+='<button id="btn39" onclick="addonebt(39,5)" >Add 39</button>';
 		addone+='<button id="btn40" onclick="addonebt(40,5)" >Add 40</button>';
+		addone+='<button id="btn41" onclick="addonebt(41,5)" >Add 41</button>';
+		addone+='<button id="btn42" onclick="addonebt(42,5)" >Add 42</button>';
 		addone+='<button id="btn43" onclick="addonebt(43,5)" >Add 43</button>';
-		addone+='<button id="btn45" onclick="addonebt(47,4)" >Add 45</button>';
+		addone+='<button id="btn44" onclick="addonebt(44,5)" >Add 44</button>';
+		addone+='<button id="btn45" onclick="addonebt(45,5)" >Add 45</button>';
+		addone+='<button id="btn46" onclick="addonebt(46,5)" >Add 46</button>';
+		addone+='<button id="btn47" onclick="addonebt(47,4)" >Add 47</button>';
+		// var addone='<button id="btn3" onclick="addonebt(3,0)" >Add 3</button>';
+		// addone+='<button id="btn2" onclick="addonebt(2,1)" >Add 2</button>';
+		// addone+='<button id="btn4" onclick="addonebt(4,1)" >Add 4</button>';
+		// addone+='<button id="btn5" onclick="addonebt(5,3)" >Add 5</button>';
+		// addone+='<button id="btn6" onclick="addonebt(6,1)" >Add 6</button>';
+		// addone+='<button id="btn7" onclick="addonebt(7,1)" >Add 7</button>';
+		// addone+='<button id="btn8" onclick="addonebt(8,1)" >Add 8</button>';
+		// addone+='<button id="btn9" onclick="addonebt(9,1)" >Add 9</button>';
+		// addone+='<button id="btn10" onclick="addonebt(10,4)" >Add 10</button>';
+		// addone+='<button id="btn11" onclick="addonebt(11,1)" >Add 11</button>';
+		// addone+='<button id="btn12" onclick="addonebt(12,1)" >Add 12</button>';
+		// addone+='<button id="btn13" onclick="addonebt(13,1)" >Add 13</button>';
+		// addone+='<button id="btn14" onclick="addonebt(14,1)" >Add 14</button>';
+		// addone+='<button id="btn15" onclick="addonebt(19,2)" >Add 15</button>';
+		// addone+='<button id="btn16" onclick="addonebt(20,2)" >Add 16</button>';
+		// addone+='<button id="btn17" onclick="addonebt(21,2)" >Add 17</button>';
+		// addone+='<button id="btn18" onclick="addonebt(22,2)" >Add 18</button>';
+		// addone+='<button id="btn24" onclick="addonebt(24,3)" >Add 24</button>';
+		// addone+='<button id="btn26" onclick="addonebt(26,3)" >Add 26</button>';
+		// addone+='<button id="btn30" onclick="addonebt(30,3)" >Add 30</button>';
+		// addone+='<button id="btn35" onclick="addonebt(35,4)" >Add 35</button>';
+		// addone+='<button id="btn36" onclick="addonebt(36,5)" >Add 36</button>';
+		// addone+='<button id="btn37" onclick="addonebt(37,5)" >Add 37</button>';
+		// addone+='<button id="btn38" onclick="addonebt(38,5)" >Add 38</button>';
+		// addone+='<button id="btn39" onclick="addonebt(39,5)" >Add 39</button>';
+		// addone+='<button id="btn40" onclick="addonebt(40,4)" >Add 40</button>';
+		// addone+='<button id="btn41" onclick="addonebt(41,5)" >Add 41</button>';
+		// addone+='<button id="btn42" onclick="addonebt(42,5)" >Add 42</button>';
+		// addone+='<button id="btn43" onclick="addonebt(43,5)" >Add 43</button>';
+		// addone+='<button id="btn44" onclick="addonebt(44,5)" >Add 44</button>';
+		// addone+='<button id="btn45" onclick="addonebt(45,5)" >Add 45</button>';
+		// addone+='<button id="btn46" onclick="addonebt(46,5)" >Add 46</button>';
+		// addone+='<button id="btn47" onclick="addonebt(47,4)" >Add 47</button>';
 		var xl=x.length;
 		var xlm="";
 		if(xl>20){
@@ -1232,7 +1877,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-function waitForElement(id) {
+async function waitForElement(id) {
   return new Promise(resolve => {
     const el = document.getElementById(id);
     if (el) return resolve(el);
@@ -1267,12 +1912,41 @@ function waitForElement(id) {
 // var bts=[["btn10",6],["btn9",6],["btn6",7],["btn4",7]]; //////
 // var bts=[["btn43",70]];///
 // var bts=[["btn43",25]];///
-// var bts=[["btn43",13],["btn40",5]];///
+// var bts=[["btn43",13],["btn40",15]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4],["btn10",10],["btn2",6]];///
 // var bts=[["btn5",4],["btn4",5],["btn3",5],["btn6",4]];//////////////////
 // var bts=[["btn9",5],["btn8",5],["btn9",5]];
 // var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5]];
-var bts=[["btn2",1] ,["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn11",1],["btn24",1],["btn26",1],["btn30",1],["btn35",1],["btn40",1],["btn43",1],["btn40",1],["btn43",1],["btn45",1]];
+
+// var bts=[["btn2",2] ,["btn4",2],["btn5",2],["btn6",2],["btn7",1],["btn11",1],["btn24",1],["btn26",1],["btn30",1],["btn35",1],["btn40",1],["btn43",1],["btn40",1],["btn43",1],["btn45",1]];
+
+
+
+// var bts=[["btn2",1] ,["btn3",1],["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn6",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1] ,["btn2",1] ,["btn3",1],["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn6",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1]   ];
+// var bts=[["btn2",1] ,["btn3",1],["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1] ,["btn2",1] ,["btn3",1],["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1]   ];
+
+
+
+// var bts=[["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1] ,["btn46",1] ,["btn47",1] ,["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn46",1] ,["btn47",1]   ];
+
+// var bts=[["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn45",1] ,["btn46",1] ,["btn47",1] ,["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn45",1] ,["btn46",1] ,["btn47",1]   ];
+
+
+// var bts=[["btn2",1] ,["btn3",1],["btn4",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1],["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn46",1] ,["btn47",1]   ];
+
+// var bts=[["btn2",1] ,["btn3",1],["btn4",1],["btn5",1],["btn6",1],["btn7",3],["btn8",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1],["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn45",1] ,["btn46",1] ,["btn47",1]   ];
+
+
+// var bts=[["btn2",1] ,["btn3",1] ,["btn40",1] ,["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn11",1],["btn35",1],["btn15",1],["btn43",1],["btn40",1],["btn45",1],["btn12",1],["btn13",1],["btn14",1]];
+// var bts=[  ];
+// var bts=[["btn10",4],["btn40",4] ];
+
+
+var bts=[["btn2",1] ,["btn3",1],["btn4",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1] ,["btn10",1],["btn11",1],["btn12",1],["btn13",1],["btn36",1],["btn37",1],["btn38",1],["btn39",1],["btn40",1] ,["btn41",1],["btn42",1] ,["btn43",1] ,["btn44",1],["btn46",1] ,["btn47",1]   ];
+
+
+
+// var bts=[["btn2",1] ,["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn11",1],["btn24",1],["btn26",1],["btn30",1],["btn35",1],["btn40",1],["btn43",1],["btn40",1],["btn43",1],["btn45",1]];
 // var bts=[["btn2",1],["btn3",1],["btn4",1],["btn5",1],["btn6",1],["btn7",1],["btn8",1],["btn9",1],["btn10",1],["btn11",1],["btn24",1],["btn26",1],["btn30",1],["btn35",1],["btn40",1],["btn43",1],["btn45",1]]; //////4
 // var bts=[["btn24",1],["btn11",3],["btn10",3],["btn9",3],["btn4",3],["btn43",2],["btn40",3],["btn45",3]];//////////////
 // var bts=[["btn24",1],["btn11",5],["btn10",5],["btn9",5],["btn4",5]];//////////////
@@ -1298,11 +1972,16 @@ for(let bi=0;bi<bts.length;bi++){
 		tchavesprev=ttchaves;
 		// if(spr-)
 		btn.click();
-  		best(keys.length-1);
+		let maxtries=3;
+		while(ttchaves==0 || tchavesprev==ttchaves){
+  		await best(keys.length-1);
   		await new Promise(r => setTimeout(r, 0));
   		console.log("auto",ttchaves,keys.length,spr);
 		window.scrollTo(0, document.body.scrollHeight);
-		if(ttchaves<5)return;
+			maxtries--;
+			if(maxtries<0)break;
+		}
+		if(ttchaves<2 )return;
 	}
 }
 // console.log("keys.length",keys.length);
@@ -1377,6 +2056,7 @@ window.scrollTo(0, document.body.scrollHeight);
 //   await addonebt(24,2);
 //   (await waitForElement('best'))?.click();
 //   //console.log("auto",ttchaves)
+// });
 })();
 
 </script>

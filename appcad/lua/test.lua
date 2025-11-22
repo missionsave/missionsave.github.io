@@ -1,5 +1,10 @@
 
 function test8()
+	Part floor
+	Pl 0,0 
+
+
+
 	error()
 	a=9
 	Part test
