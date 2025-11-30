@@ -458,6 +458,64 @@ collectlibs(){
 ldd build64/*|grep -iv system32|grep -vi windows|grep -v :$  | cut -f2 -d\> | cut -f1 -d\( | tr \\ / |while read a; do ! [ -e "build64/`basename $a`" ] && cp -v "$a" build64/; done
 }
 
+
+install_qcad_ce() {
+    set -e
+
+    echo "[*] Installing QCAD Community Edition (CE)…"
+
+    # Install dependencies
+    sudo apt-get update
+    sudo apt-get install -y wget tar libfreetype6 libfontconfig1 libglu1-mesa libxrender1 libxext6 libxcursor1
+
+    # QCAD latest trial version (64-bit Linux)
+    QCAD_VERSION="3.32.4"
+    QCAD_TAR="qcad-${QCAD_VERSION}-trial-linux-x86_64.tar.gz"
+    QCAD_URL="https://www.qcad.org/archives/qcad/${QCAD_TAR}"
+
+    TMP_DIR=$(mktemp -d)
+    cd "$TMP_DIR"
+
+    echo "[*] Downloading QCAD ${QCAD_VERSION}…"
+    wget -O qcad.tgz "$QCAD_URL"
+
+    echo "[*] Extracting…"
+    tar -xzf qcad.tgz
+
+    # Find the extracted dir
+    EX_DIR=$(find . -maxdepth 1 -type d -name "qcad*" | head -n1)
+    if [ -z "$EX_DIR" ]; then
+        echo "[!] Extraction failed."
+        return 1
+    fi
+
+    echo "[*] Installing to /opt/qcad…"
+    sudo rm -rf /opt/qcad
+    sudo mv "$EX_DIR" /opt/qcad
+    sudo chmod -R 755 /opt/qcad
+
+    # Remove Pro plugins to get pure Community Edition
+    # echo "[*] Removing Pro plugins…"
+    # sudo find /opt/qcad/plugins -type f -name "libqcadpro*" -exec rm -f {} +
+	# sudo rm -f /opt/qcad/plugins/{libqcadpdf.so,libqcadpolygon.so,libqcadproj.so,libqcadproscripts.so,libqcadproxies.so,libqcadshp.so,libqcadspatialindexpro.so,libqcadtrace.so,libqcadtriangulation.so,libqcaddwg.so}
+
+
+    # Create launcher
+    echo "[*] Creating /usr/local/bin/qcad …"
+    sudo tee /usr/local/bin/qcad > /dev/null << 'EOF'
+#!/bin/bash
+/opt/qcad/qcad "$@"
+EOF
+    sudo chmod +x /usr/local/bin/qcad
+
+    # Clean up
+    cd ~
+    rm -rf "$TMP_DIR"
+
+    echo "[✓] QCAD CE ${QCAD_VERSION} installed. Run with: qcad"
+}
+
+
 win8() {
   local SHARE_DIR="$HOME/qemu-share"
   local SOCKET_PATH="/run/user/$(id -u)/vfs0.sock"

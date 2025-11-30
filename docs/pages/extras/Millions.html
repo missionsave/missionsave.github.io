@@ -19,7 +19,7 @@ function fillkeysall() {
     var data = JSON.parse(xhr.responseText);
     var arr = data.drawns;
 
-    for (var i = arr.length - 1; i >= 1; i--) { ///////////////////////////////
+    for (var i = arr.length - 1500; i >= 1; i--) { ///////////////////////////////
       vardate.push(arr[i].date);
       varball.push([
         arr[i].number_1,
@@ -1555,18 +1555,24 @@ if(qtkeys==24){	//tá bom
 				// 	break;
 				// }else continue;
 
+
+				if((dif[1])<-0.14 && (dif[0])<0.05 && (dif[4])>1)break; //interessante
+				// if((dif[1])==-0.11)break; //interessante
+				// if((dif[3])>0.3 && (dif[1])<-0.04 && (dif[2])==0.0)break;
+
 			// if(bestmin<sbestdiff){
-			if(Number(bestmin)>Number(sbestdiff)){
-				console.log("bestmin",bestmin,"sbestdiff",sbestdiff,it);
-				bestmin=Number(sbestdiff);
-				bestkeys=keys[idkey];
-				if(Number(bestmin)<-0.10)break;
-			}
+			// if(Number(bestmin)>Number(sbestdiff)){
+			// 	console.log("bestmin",bestmin,"sbestdiff",sbestdiff,it);
+			// 	bestmin=Number(sbestdiff);
+			// 	bestkeys=keys[idkey];
+			// 	// if(Number(bestmin)<-0.10)break;
+			// 	if(Number(bestmin)<-0.10 && (dif[0])<0.06)break;
+			// }
 
 		// }
 		// if (isgood)break;
 	}
-	keys[idkey]=bestkeys; //
+	// keys[idkey]=bestkeys; //
 		seek(keys[idkey]);
 
 	fillSelected(idkey);

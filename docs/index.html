@@ -1246,6 +1246,16 @@ iframe, .notranslate {
 
 
 </style>
+<script>const observer = new MutationObserver(() => {
+  const el = document.querySelector('div[style*="forced-color-adjust"]');
+  if (el && !el.classList.contains('notranslate')) {
+    el.classList.add('notranslate');
+    observer.disconnect();
+  }
+});
+
+observer.observe(document.body, { childList: true, subtree: true });
+</script>
 </html>
 
  		 		
