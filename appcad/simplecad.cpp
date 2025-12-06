@@ -1778,6 +1778,57 @@ catch (...) {
 			
 		}
 
+		#include <gp_Vec2d.hxx>
+#include <vector>
+#include <cmath>
+
+// Gera 6 pontos que formam um hexágono regular.
+// flatDistance = distância entre as faces paralelas horizontais.
+// O canto inferior-esquerdo do bounding-box fica exatamente em (0,0).
+// Retorna os 6 pontos em sentido CCW (começando pelo canto inferior-esquerdo).
+std::vector<gp_Vec2d> MakeHexagonPoints(double flatDistance)
+{
+    if (flatDistance <= 0)
+        flatDistance = 1.0;
+
+    const double sqrt3 = std::sqrt(3.0);
+
+    // R = distância do centro aos vértices
+    double R = flatDistance / sqrt3;
+
+    // metades pré-calculadas
+    double hx   = R;                 // R
+    double hx2  = R * 0.5;           // R/2
+    double hy2  = (sqrt3 * 0.5) * R; // sqrt(3)/2 * R
+
+    // pontos centrados no (0,0) (centro do hexágono)
+    gp_Vec2d v1(  hx,    0.0 ); // 0°
+    gp_Vec2d v2(  hx2,   hy2 ); // 60°
+    gp_Vec2d v3( -hx2,   hy2 ); // 120°
+    gp_Vec2d v4( -hx,    0.0 ); // 180°
+    gp_Vec2d v5( -hx2,  -hy2 ); // 240°
+    gp_Vec2d v6(  hx2,  -hy2 ); // 300°
+
+    // bounding-box centrado:
+    // minX = -R
+    // minY = -hy2
+    // para colocar no (0,0):
+    double tx = R;
+    double ty = hy2;
+
+    // ordenar CCW começando no canto inferior-esquerdo
+    std::vector<gp_Vec2d> pts = {
+        gp_Vec2d(v5.X() + tx, v5.Y() + ty), // inferior-esquerdo
+        gp_Vec2d(v6.X() + tx, v6.Y() + ty), // inferior-direito
+        gp_Vec2d(v1.X() + tx, v1.Y() + ty),
+        gp_Vec2d(v2.X() + tx, v2.Y() + ty),
+        gp_Vec2d(v3.X() + tx, v3.Y() + ty),
+        gp_Vec2d(v4.X() + tx, v4.Y() + ty)
+    };
+
+    return pts;
+}
+
 		// GeomAbs_Intersection
 
 		// Creates a simple wire from points
@@ -5214,6 +5265,16 @@ lua.set_function("Pl", [&, parse_coords](const std::string& coords) {
 
 });
 
+
+lua.set_function("Plhex", [&](double val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+    current_part->CreateWire(current_part->MakeHexagonPoints(val), true);
+
+	// current_part->redisplay();
+	// current_part->needsplacementupdate=1;
+
+});
+
 lua.set_function("Offset", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->createOffset(val);
@@ -6371,11 +6432,11 @@ void lua_str(const string &str, bool isfile) {
             }
             std::string src((std::istreambuf_iterator<char>(f)), {});
             code = translate_shorthand(src);
-			code+="\nrobot1()";
+			// code+="\nrobot1()";
             status = luaL_loadbuffer(L, code.data(), code.size(), str.c_str());
         } else {
             code = translate_shorthand(str);
-			code+="\nrobot1()";
+			// code+="\nrobot1()";
             status = luaL_loadbuffer(L, code.data(), code.size(), "chunk");
         }
 

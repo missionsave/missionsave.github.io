@@ -116,6 +116,11 @@ crbot/*6h_1000.json
 # !.github/workflows/crobot.js
 # !.github/**/**
 
+
+!2d
+!2d/study*
+
+
 *_v1*
 *_v2*
 *_v3*

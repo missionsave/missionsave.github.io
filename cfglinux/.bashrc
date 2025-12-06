@@ -470,6 +470,8 @@ install_qcad_ce() {
 
     # QCAD latest trial version (64-bit Linux)
     QCAD_VERSION="3.32.4"
+	# QCAD CE 3.27.9
+	# QCAD_VERSION="3.27.9"
     QCAD_TAR="qcad-${QCAD_VERSION}-trial-linux-x86_64.tar.gz"
     QCAD_URL="https://www.qcad.org/archives/qcad/${QCAD_TAR}"
 
@@ -513,6 +515,45 @@ EOF
     rm -rf "$TMP_DIR"
 
     echo "[✓] QCAD CE ${QCAD_VERSION} installed. Run with: qcad"
+}
+qcadce() {
+    local plugins=(
+        libqcadpdf.so
+        libqcadpolygon.so
+        libqcadproj.so
+        libqcadproscripts.so
+        libqcadproxies.so
+        libqcadshp.so
+        libqcadspatialindexpro.so
+        libqcadtrace.so
+        libqcadtriangulation.so
+        libqcaddwg.so
+    )
+    local dir="/opt/qcad/plugins"
+
+    case "$1" in
+        1)
+            # Rename to *.pro
+            for f in "${plugins[@]}"; do
+                if [ -e "$dir/$f" ]; then
+                    mv "$dir/$f" "$dir/$f.pro"
+                fi
+            done
+            ;;
+        0)
+            # Rename back (remove .pro)
+            for f in "${plugins[@]}"; do
+                if [ -e "$dir/$f.pro" ]; then
+                    mv "$dir/$f.pro" "$dir/$f"
+                fi
+            done
+            ;;
+        *)
+            echo "Usage: qcadce {0|1}"
+            echo "  0 → rename to *.pro"
+            echo "  1 → rename back (remove .pro)"
+            ;;
+    esac
 }
 
 

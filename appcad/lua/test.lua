@@ -27,6 +27,8 @@ container_height=2591
 --container_height=2895 --hc
 container_long=6058
 --container_long=12192
+fcompartment=1000
+ttmosaics=23
 container_midle=container_width/2
 
 crn_width=162
@@ -41,6 +43,7 @@ floors=4
 function c40()
 container_long=12192
 compartments=4
+ttmosaics=53
 end 
 --c40()
 compart_len=(container_long-120*(compartments+1))/compartments
@@ -128,8 +131,59 @@ Fuse()
 end
   --robot1()
 
- 
+function pmap()
+suc_height=203
+suc_jun=175.8
 
+Part sketch_peanut
+Plhex(suc_height)
+Extrude 200
+Rotatelx(90)
+--Rotately(90)
+
+
+
+Part suc
+Clone(sketch_peanut)
+Movel(0,suc_height)
+Clone(sketch_peanut)
+Movel(suc_jun,suc_height/2)
+
+for i=1, 12 do
+Part succ
+Clone(suc,1)
+Movel(suc_jun*i,suc_height/2*i)
+end
+
+
+end
+--pmap()
+
+function mosaics()
+Part mosaic
+Pl 0,0 203,0 @0,203 @-203,0 0,0
+Extrude(200)
+Rotatelx(-90)
+
+Part mosaic_clones
+for i=0, ttmosaics do
+Clone(mosaic,1)
+Movel(0,0,-203*i-fcompartment)
+end
+
+
+for j=1, 6 do
+Part mosaic_clones_adv
+Clone(mosaic_clones,1)
+Movel(203*(j-1)*2+203,0,-203/2)
+if(j<6) then 
+Clone(mosaic_clones,1)
+Movel(203*j*2,0,0)
+end
+end
+
+end
+mosaics()
 
 function struct()
 
@@ -378,7 +432,7 @@ Movel(-120,0,-container_long)
 
 Part rail
 Clone sketch_profile
-Extrude(container_long-1000-50)
+Extrude(container_long-fcompartment-50)
 Rotatelz(-90)
 Movel(container_width/3 , tunel_height+120*2+20,-container_long+50)
 
@@ -403,12 +457,22 @@ Movel(0,tunel_height*2)
 
 
 end
- --struct()
+ struct()
 
 
 
 
+function elevator()
+Part elv
+Clone sketch_profile
+Extrude(container_height)
+Rotatelx(-90)
+Rotately(-90)
+Movel(container_midle-120/2,0,-fcompartment)
 
+
+end
+elevator()
 
 
 
