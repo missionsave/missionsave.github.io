@@ -471,9 +471,11 @@ install_qcad_ce() {
     # QCAD latest trial version (64-bit Linux)
     QCAD_VERSION="3.32.4"
 	# QCAD CE 3.27.9
-	# QCAD_VERSION="3.27.9"
+	# QCAD_VERSION="3.27.9" 
     QCAD_TAR="qcad-${QCAD_VERSION}-trial-linux-x86_64.tar.gz"
     QCAD_URL="https://www.qcad.org/archives/qcad/${QCAD_TAR}"
+	# echo $QCAD_URL
+	# return
 
     TMP_DIR=$(mktemp -d)
     cd "$TMP_DIR"
