@@ -172,6 +172,7 @@ struct FileEntry {
     Fl_Browser* bfilesmodified=0;
     Fl_Browser* bfunctions=0;
     vint vline;
+	vstring vlinestring;
     vstring getfuncs();
     void navigatorSetUpdated();
     std::vector<FileEntry> lfiles; 
@@ -196,6 +197,45 @@ protected:
 		 menu->play_menu(item);
 		 return;
 	 }
+
+	 //Functions
+	 	fl_scintilla* editor=(fl_scintilla*)data;
+		// Fl_Browser* b=editor->bfunctions;
+		int sel=-1;
+		// int sel=b->value()-1;
+
+		lop(i,0,editor->vlinestring.size()){
+			if(editor->vlinestring[i]==item->label()){
+				sel=i;
+				break;
+			}
+		}
+		if(sel==-1)return;
+
+
+
+
+		cotm(editor->vline.size(),item->label())
+		if(sel<editor->vline.size()){
+			// cotm(vs->vline[sel])
+			int line = editor->vline[sel];  // line you want at the top (0-based)
+			
+			// Get visual line number (taking wrap into account)
+			int visual_line = editor->SendEditor(SCI_VISIBLEFROMDOCLINE, line);
+
+			// Get current first visible visual line
+			int current_visual_top = editor->SendEditor(SCI_GETFIRSTVISIBLELINE);
+
+			// Calculate how many lines to scroll
+			int delta = visual_line - current_visual_top;
+
+			// Scroll so the line is at the top
+			editor->SendEditor(SCI_LINESCROLL, 0, delta);
+
+			// Optionally move caret there too
+			int pos = editor->SendEditor(SCI_POSITIONFROMLINE, line);
+			editor->SendEditor(SCI_SETSEL, pos, pos);
+		}
  }
 
 	// approximate horizontal padding FLTK uses around each label
@@ -259,7 +299,7 @@ for (size_t i = 0; i < val.size()-1; ++i) {
 
     path = strdup(buf); // persist string for FLTK
 
-    this->add(path, 0, item_cb, path, FL_MENU_TOGGLE);
+    this->add(path, 0, item_cb,(void*)parent, FL_MENU_TOGGLE);
 }
 
 

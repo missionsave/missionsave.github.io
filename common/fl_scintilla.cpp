@@ -911,7 +911,9 @@ vstring fl_scintilla::getfuncs(){
 	
     // if(tres!=pres){
 	// 	pres = tres;
+		vline = vlinel;
 		vstring v = split(tres, "\n");
+		vlinestring=v;
 	// }
 	return v;
 
