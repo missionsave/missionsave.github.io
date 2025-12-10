@@ -520,7 +520,7 @@ void fl_scintilla::toggle_comment() {
 
 void fl_scintilla::update_menu(){
 	    window()->begin(); 
-		fmb=new MyMenuBar(x(),y(),w(),22);
+		fmb=new fl_scintilla::MyMenuBar(x(),y(),w(),22,0,this);
 		size(w(),h()-22);
 		position(x(),y()+22);
     fmb->add("Files/Open folder",0, menu_callback);
@@ -867,8 +867,8 @@ SendEditor(SCI_SETEXTRADESCENT, -2);
     // Optionally set wrap indent mode
     SendEditor(  SCI_SETWRAPINDENTMODE, SC_WRAPINDENT_INDENT, 0);
 }
-void fl_scintilla::getfuncs(){
-	if(!bfunctions)return;
+vstring fl_scintilla::getfuncs(){
+	// if(!bfunctions)return;
     const int lineCount = SendEditor(SCI_GETLINECOUNT);
     std::stack<int> blockStack;
 	vint vlinel;
@@ -908,15 +908,24 @@ void fl_scintilla::getfuncs(){
 			vlinel.push_back(line);
         }
     }
-	// cotm(0)
-    if(tres!=pres){
-		pres = tres;
-		vline = vlinel;
-		bfunctions->clear();
+	
+    // if(tres!=pres){
+	// 	pres = tres;
 		vstring v = split(tres, "\n");
-		lop(i, 0, v.size() - 1) { bfunctions->add(v[i].c_str()); }
-		// printf("%s\n",pres.c_str());
-    }
+	// }
+	return v;
+
+
+
+	// cotm(0)
+    // if(tres!=pres){
+	// 	pres = tres;
+	// 	vline = vlinel;
+	// 	bfunctions->clear();
+	// 	vstring v = split(tres, "\n");
+	// 	lop(i, 0, v.size() - 1) { bfunctions->add(v[i].c_str()); }
+	// 	// printf("%s\n",pres.c_str());
+    // }
 }
 static const char *minus_xpm[] = {
 	/* width height num_colors chars_per_pixel */

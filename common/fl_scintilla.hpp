@@ -76,75 +76,6 @@ struct FileEntry {
 #include <cstring>
 #include <cstdlib>
 
-class MyMenuBar : public Fl_Menu_Bar {
-public:
-    using Fl_Menu_Bar::Fl_Menu_Bar;
-
-protected:
- static void item_cb(Fl_Widget* w, void* data) {
-	 Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;
-	 Fl_Menu_Item* item = (Fl_Menu_Item*)menu->mvalue();
-	 printf("selected: %s\n", static_cast<char*>(data));
-	 bool clicked_on_checkbox = (Fl::event_x() <= 25);
-	 if (clicked_on_checkbox) {
-		 menu->play_menu(item);
-		 return;
-	 }
- }
-
-	// approximate horizontal padding FLTK uses around each label
-    static constexpr int H_PAD = 14; // ~7px left + ~7px right
-
-    int handle(int ev) override {
-        if (ev == FL_PUSH) {
-            int ex = Fl::event_x();    // x relative to this widget
-            // find index of the "Functions" header in the flat menu array
-            int opt_idx = find_index("Functions");
-            if (opt_idx < 0) return Fl_Menu_Bar::handle(ev);
-
-            // access the internal flat Fl_Menu_Item array
-            const Fl_Menu_Item* items = this->menu();
-            if (!items) return Fl_Menu_Bar::handle(ev);
-
-            // compute the x origin of the "Functions" header by summing widths of preceding top-level headers
-            int origin_x = this->x(); // left edge of menubar in parent coords
-            fl_font(FL_HELVETICA, 14); // use same font/size as the menu bar (adjust if your menubar uses different)
-            for (int i = 0; i < opt_idx; ++i) {
-                if (!items[i].text) break;
-                // Treat entries with FL_SUBMENU as top-level headers
-                if (items[i].flags & FL_SUBMENU) {
-                    origin_x += static_cast<int>(fl_width(items[i].text)) + H_PAD;
-                }
-            }
-
-            // header width
-            int hdr_w = static_cast<int>(fl_width(items[opt_idx].text)) + H_PAD;
-
-            // check whether click X falls inside the computed header rectangle
-            if (ex >= origin_x && ex < origin_x + hdr_w) {
-                // Click landed on "Functions"
-                static int counter = 0;
-                ++counter;
-
-				clear_submenu(opt_idx);
-
-                char buf[64];
-                std::snprintf(buf, sizeof(buf), "Functions/Item %d", counter);
-                char* path = strdup(buf); // persist string for FLTK
-
-                this->add(path, 0, item_cb, path,FL_MENU_TOGGLE  );
-                this->menu_end();
-                this->redraw();
-
-                Fl_Menu_Item* child = (Fl_Menu_Item*)this->find_item(path);
-                if (child) this->play_menu(child);
-
-                return 1; // we handled the click
-            }
-        }
-        return Fl_Menu_Bar::handle(ev);
-    }
-};
 
 // int main(int argc, char** argv) {
 //     Fl_Window win(640, 240, "Precise Functions Region");
@@ -228,7 +159,6 @@ protected:
 
 	std::vector<FileEntry> list_files_in_dir(const std::string path);
 	void update_menu();
-	MyMenuBar* fmb;
 	void move_item(Fl_Browser* browser, std::string str);
 
     void save();
@@ -242,9 +172,112 @@ protected:
     Fl_Browser* bfilesmodified=0;
     Fl_Browser* bfunctions=0;
     vint vline;
-    void getfuncs();
+    vstring getfuncs();
     void navigatorSetUpdated();
     std::vector<FileEntry> lfiles; 
+
+
+
+	class MyMenuBar : public Fl_Menu_Bar {
+public:
+fl_scintilla* parent;
+    using Fl_Menu_Bar::Fl_Menu_Bar;
+
+	    MyMenuBar(int X, int Y, int W, int H, const char* L, fl_scintilla* p)
+        : Fl_Menu_Bar(X, Y, W, H, L), parent(p) {}
+
+protected:
+ static void item_cb(Fl_Widget* w, void* data) {
+	 Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;
+	 Fl_Menu_Item* item = (Fl_Menu_Item*)menu->mvalue();
+	 printf("selected: %s\n", static_cast<char*>(data));
+	 bool clicked_on_checkbox = (Fl::event_x() <= 25);
+	 if (clicked_on_checkbox) {
+		 menu->play_menu(item);
+		 return;
+	 }
+ }
+
+	// approximate horizontal padding FLTK uses around each label
+    static constexpr int H_PAD = 14; // ~7px left + ~7px right
+
+    int handle(int ev) override {
+        if (ev == FL_PUSH) {
+            int ex = Fl::event_x();    // x relative to this widget
+            // find index of the "Functions" header in the flat menu array
+            int opt_idx = find_index("Functions");
+            if (opt_idx < 0) return Fl_Menu_Bar::handle(ev);
+
+            // access the internal flat Fl_Menu_Item array
+            const Fl_Menu_Item* items = this->menu();
+            if (!items) return Fl_Menu_Bar::handle(ev);
+
+            // compute the x origin of the "Functions" header by summing widths of preceding top-level headers
+            int origin_x = this->x(); // left edge of menubar in parent coords
+            fl_font(FL_HELVETICA, 14); // use same font/size as the menu bar (adjust if your menubar uses different)
+            for (int i = 0; i < opt_idx; ++i) {
+                if (!items[i].text) break;
+                // Treat entries with FL_SUBMENU as top-level headers
+                if (items[i].flags & FL_SUBMENU) {
+                    origin_x += static_cast<int>(fl_width(items[i].text)) + H_PAD;
+                }
+            }
+
+            // header width
+            int hdr_w = static_cast<int>(fl_width(items[opt_idx].text)) + H_PAD;
+
+            // check whether click X falls inside the computed header rectangle
+            if (ex >= origin_x && ex < origin_x + hdr_w) {
+                // Click landed on "Functions"
+                static int counter = 0;
+                ++counter;
+
+				clear_submenu(opt_idx);
+				char* path;
+
+// 				vstring val=parent->getfuncs();
+// cotm(val)
+// 				lop(i,0,val.size()){
+				
+//                 char buf[64];
+//                 std::snprintf(buf, sizeof(buf), "%s", val[i].c_str());
+
+//                 // std::snprintf(buf, sizeof(buf), "Functions/Item %d", i);
+//                 path = strdup(buf); // persist string for FLTK
+// 				// path=(char*)val[i].c_str();
+
+//                 this->add(path, 0, item_cb, path,FL_MENU_TOGGLE  );
+// 				}
+
+vstring val = parent->getfuncs();
+if(val.size()<2)return 0;
+cotm(val);
+
+for (size_t i = 0; i < val.size()-1; ++i) {
+    char buf[64];
+    std::snprintf(buf, sizeof(buf), "Functions/%s", val[i].c_str());
+
+    path = strdup(buf); // persist string for FLTK
+
+    this->add(path, 0, item_cb, path, FL_MENU_TOGGLE);
+}
+
+
+                this->menu_end();
+                this->redraw();
+
+                Fl_Menu_Item* child = (Fl_Menu_Item*)this->find_item(path);
+                if (child) this->play_menu(child);
+
+                return 1; // we handled the click
+            }
+        }
+        return Fl_Menu_Bar::handle(ev);
+    }
+};
+
+	MyMenuBar* fmb;
+
 };
 
 
