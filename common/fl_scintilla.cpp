@@ -199,7 +199,7 @@ void fl_scintilla::searchshow(){
 	if(!wFind){
 		Fl_Group::current(parent()); // important
 		int sz=190;
-		wFind=new FixedSubWindow(x()+w()-sz-16,22,sz,22,"@25-> ⚲");
+		wFind=new FixedSubWindow(x()+w()-sz-16,y(),sz,22,"@25-> ⚲");
 		wFind->scint=this; 
 		wFind->color(FL_RED);
 		// cotm("findinit")	 
@@ -268,9 +268,132 @@ std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int 
 
 #pragma endregion find
 
+#pragma region menu
+
 #include <FL/Fl_Menu_Bar.H>
+
+
+Fl_Menu_Button* myMenu = nullptr;
+Fl_Window* mainWin = nullptr;
+
+#include <FL/Fl.H>
+#include <FL/Fl_Menu_.H>
+#include <FL/Fl_Menu_Bar.H>
+
+Fl_Menu_Bar* menubar = nullptr;
+
+
+bool flag=0;
+// void menu_cb(Fl_Widget* w, void* user) {
+//     Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;
+//     Fl_Menu_Item* item = (Fl_Menu_Item*) menu->mvalue();
+//     if (!item) return;
+
+// 		cotm(flag);
+//     // Only respond when parent "Options" is selected
+//     if (item->label() && strcmp(item->label(), "Options") == 0) {
+//         int idx = menu->find_index("Options");
+//         // if (idx == -1) {
+//             // menu->add("Options", 0, 0, 0, FL_SUBMENU);  // ensure submenu exists
+//             idx = menu->find_index("Options");
+// 			item->flags |= FL_SUBMENU;
+//         // }
+
+//         // Clear children and add new ones
+//         menu->clear_submenu(idx);
+//         // menu->add("Options/Aaa", 0, submenu_item_cb, (void*)"Aaa", FL_MENU_TOGGLE);
+//         menu->add("Options/Bbb", 0, 0, (void*)"Bbb", FL_MENU_TOGGLE);
+//         menu->menu_end();
+//         menu->redraw();
+// 		flag=1;
+// 		cotm(flag);
+// 		menu->play_menu(menu->find_item("Options/Bbb"));
+// 		// menu->find_item("Options")->do_callback(menu);
+
+//         // Re-open the submenu so new items are visible immediately.
+//         // Place popup at current mouse x and just below the menubar.
+//         // Fl::event_x() and Fl::event_y() are relative to the widget that received the event,
+//         // so use menu->screen_x()/screen_y() to convert to screen coords.
+//         // int px = menu->screen_x() + Fl::event_x();
+//         // int py = menu->screen_y() + menu->h();   // popup just under menubar
+//         // menu->popup(0, 0);
+
+//         // done
+//         return;
+//     }
+// int idx = menu->find_index("Options");
+// Fl_Menu_Item* it=(Fl_Menu_Item*)menu->find_item("Options");
+// 		it->flags &= ~FL_SUBMENU;       menu->menu_end();
+//         menu->redraw();
+//     // other menu handling...
+// }
+
+
+// void menu_cb__(Fl_Widget* w, void* data) {
+// Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;
+// Fl_Menu_Item* item = (Fl_Menu_Item*) menu->mvalue();
+// if (!item) return;
+
+// if (strcmp(item->label(), "Options") == 0) {
+// int idx = menu->find_index("Options");
+// if (idx == -1) {
+//     menu->add("Options", 0, 0, 0, FL_SUBMENU);  // create submenu
+//     idx = menu->find_index("Options");
+// }
+// menu->clear_submenu(idx);  // clear children
+// int indexitem=menu->add("Options/Aaa", 0, menu_cb, (void*)"Aaa", FL_MENU_TOGGLE);
+// menu->add("Options/Bbb", 0, menu_cb, (void*)"Bbb", FL_MENU_TOGGLE);
+// menu->menu_end();
+// menu->redraw();
+// menu->picked(menu->find_item("Options/Bbb"));
+
+// menu->play_menu(menu->find_item("Options/Bbb")); 
+//     // return;
+// }
+
+
+//     // Handle clicks on other items, including the dynamically added ones.
+//     // cotm(item->label(), index); // (Assuming cotm is a custom function)
+
+
+
+// 	// Detect if click was on the checkbox square (left ~25 pixels)
+// 	bool clicked_on_checkbox = (Fl::event_x() <= 25);
+// 	if (clicked_on_checkbox) {
+// 		menu->play_menu(item);
+// 		return;
+// 	}
+
+// 	// Normal click on text → normal behavior (close menu + your action)
+// 	// printf("Activated feature %s (state = %d)\n", feature, item->value());
+// }
+
+// // Global handler to detect clicks outside
+// // int outsideHandler(int event) {
+// //     if (event == FL_PUSH && myMenu) {
+// //         int mx = Fl::event_x();
+// //         int my = Fl::event_y();
+
+// //         bool insideMenuButton =
+// //             (mx >= myMenu->x() && mx < myMenu->x() + myMenu->w() &&
+// //              my >= myMenu->y() && my < myMenu->y() + myMenu->h());
+
+// //         if (!insideMenuButton) {
+// //             // Close the popup menu
+// //             Fl::release();   // <-- instead of myMenu->menu()->hide()
+// //         }
+// //     }
+// //     return 0;
+// // }
+
+
+
+
+
+
+
 void menu_callback(Fl_Widget* w, void* data) {
-    Fl_Menu_Item* item = (Fl_Menu_Item*)data;
+    Fl_Menu_Item* item = (Fl_Menu_Item*)w;
     printf("You selected: %s\n", item->label());
 }
 
@@ -397,14 +520,37 @@ void fl_scintilla::toggle_comment() {
 
 void fl_scintilla::update_menu(){
 	    window()->begin(); 
-		fmb=new Fl_Menu_Bar(x(),y(),w(),22);
+		fmb=new MyMenuBar(x(),y(),w(),22);
 		size(w(),h()-22);
 		position(x(),y()+22);
+    fmb->add("Files/Open folder",0, menu_callback);
 	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
 	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
 	    // Initial menu items
-    fmb->add("Files/Open folder",0, menu_callback);
     // fmb->add("Files/Quit", 0, menu_callback);
+
+fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
+// fmb->add("Options/test",0,menu_cb);
+fmb->add("Help",0,0);
+ 
+// fmb->add("Options/Enable feature A", 0, menu_cb, (void*)"A",FL_MENU_TOGGLE);
+// fmb->add("Options/Enable feature B", 0, menu_cb, (void*)"B",FL_MENU_TOGGLE);
+// fmb->add("Options/Enable feature C", FL_MENU_TOGGLE, menu_cb, (void*)"C");
+
+
+    // Fl::add_handler(outsideHandler);
+
+    // mainWin = (Fl_Window*)this;
+    // myMenu = new Fl_Menu_Button(50,50,100,30,"Menu");
+    // myMenu->type(Fl_Menu_Button::POPUP3);
+    // myMenu->add("Option A", 0, menu_cb, (void*)"A");
+    // myMenu->add("Option B", 0, menu_cb, (void*)"B");
+    // myMenu->add("Option C", 0, menu_cb, (void*)"C");
+
+
+
+
+
 
 
 
@@ -764,14 +910,12 @@ void fl_scintilla::getfuncs(){
     }
 	// cotm(0)
     if(tres!=pres){
-        pres=tres;
-		vline=vlinel;
-		bfunctions->clear(); 
-		vstring v=split(tres,"\n");
-		lop(i,0,v.size()-1){ 
-			bfunctions->add(v[i].c_str());
-		}
-        // printf("%s\n",pres.c_str());
+		pres = tres;
+		vline = vlinel;
+		bfunctions->clear();
+		vstring v = split(tres, "\n");
+		lop(i, 0, v.size() - 1) { bfunctions->add(v[i].c_str()); }
+		// printf("%s\n",pres.c_str());
     }
 }
 static const char *minus_xpm[] = {

@@ -6930,7 +6930,7 @@ int main(int argc, char** argv) {
 	Fl::visual(FL_DOUBLE | FL_INDEX);
 	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
-	Fl::scheme("gleam");	Fl_Group::current(content);
+	Fl_Group::current(content);
  
 
 	// string floaded = load_app_font("Courier Prime Bold.otf");
@@ -6946,6 +6946,7 @@ int main(int argc, char** argv) {
 	int secondblock = w * 0.12;
 	int lastblock = w - firstblock - secondblock;
 
+	Fl::scheme("oxy");	
 	// Fl_Window* win = new Fl_Window(0, 0, w, h, "simplecad");
 	Fl_Double_Window* win = new Fl_Double_Window(0, 0, w, h, "simplecad"); 
 	win->color(FL_RED);

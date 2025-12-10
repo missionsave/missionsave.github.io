@@ -459,6 +459,63 @@ ldd build64/*|grep -iv system32|grep -vi windows|grep -v :$  | cut -f2 -d\> | cu
 }
 
 
+# Adicione ao ~/.bashrc e depois rode: source ~/.bashrc
+install_fltk() {
+  set -euo pipefail
+  local PREFIX="${1:-/usr/local}"
+  local TMPDIR="${HOME}/.cache/fltk_build"
+  local REPO_GIT="https://github.com/fltk/fltk.git"
+  local BRANCH="${2:-master}"   # opcional: passar branch/tag como segundo argumento
+
+  echo "Prefixo de instalação: $PREFIX"
+  echo "Diretório temporário: $TMPDIR"
+
+  echo "Instalando dependências (pode pedir senha sudo)..."
+  sudo apt update
+  sudo apt install -y build-essential cmake git pkg-config \
+    libx11-dev libxext-dev libxft-dev libxinerama-dev libxrandr-dev \
+    libxrender-dev libgl1-mesa-dev libjpeg-dev libpng-dev zlib1g-dev
+
+  echo "Preparando diretório de trabalho..."
+  rm -rf "$TMPDIR"
+  mkdir -p "$TMPDIR"
+  cd "$TMPDIR"
+
+  echo "Clonando repositório FLTK (git)..."
+  git clone --depth 1 --branch "$BRANCH" "$REPO_GIT" fltk || {
+    echo "git clone falhou. Tentando clone completo..."
+    rm -rf fltk
+    git clone "$REPO_GIT" fltk
+  }
+
+  echo "Criando build fora da árvore..."
+  mkdir -p fltk/build
+  cd fltk/build
+
+  echo "Configurando com CMake..."
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" ..
+
+  echo "Compilando com $(nproc) núcleos..."
+  make -j"$(nproc)"
+
+  echo "Instalando para $PREFIX..."
+  if [ "$PREFIX" = "/usr" ] || [ "$PREFIX" = "/usr/local" ]; then
+    sudo make install
+  else
+    make install
+  fi
+
+  echo "Instalação concluída em $PREFIX"
+
+  echo "Limpando diretório temporário..."
+  rm -rf "$TMPDIR"
+
+  echo "Se instalou em prefixo local, verifique PATH/LD_LIBRARY_PATH."
+}
+
+
+
+
 install_qcad_ce() {
     set -e
 
