@@ -1,27 +1,21 @@
 
 function test8()
-	Part floor
-	Pl 0,0 
-
-
-
-	error()
-	a=9
-	Part test
-	Pl 0,0 100,100 @200,100 0,0
-	Extrude 20
-	--Movel(30)
-	Pl 0,0 100,1000 @100,100 0,0
-	Extrude(60)
-	--Movel(150)
-	--compound()
+	--error()
+	--a=9
+	--Part test
+	--Pl 0,0 100,100 @200,100 0,0
+	--Extrude 20
+	----Movel(30)
+	--Pl 0,0 100,1000 @100,100 0,0
+	--Extrude(60)
+	----Movel(150)
+	----compound()
 end
 --test8()
+--test31()
 
 
-
-
---global variables
+function globals() 
 container_width=2438
 container_height=2591
 --container_height=2895 --hc
@@ -40,18 +34,37 @@ tunel_height=(container_height-120*3)/4
 compartments=2
 floors=4
 
+compart_len=(container_long-120*(compartments+1))/compartments
+end
+--testg()
+
 function c40()
 container_long=12192
 compartments=4
 ttmosaics=53
-end 
---c40()
 compart_len=(container_long-120*(compartments+1))/compartments
+end 
+
+globals()
+--c40()
+
+
+Part sketch_upn40x20
+Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
+
+
+
+
+Part sketch_profile
+Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
+Offset -2
 
 
 
 
 function robot1()
+Origin(container_width-800,600,-1000)
+--Origin(0,0,0)
 
 Part sketch_body
 Pl 0,0 220,0 @0,170 @-220,0 0,0
@@ -94,25 +107,26 @@ Movel(-70,170,-70-15)
 
 Part sketch_arm_1
 Pl 0,0 280,0 @0,6 @-280,0 0,0
-Visible(0)
+Visible(1)
 
 Part robot_arm_1
 Pl 0,0 70,66 @70,-66 @70,66 @70,-80
 Offset 7
---Extrude (56) 
-error()
+Extrude (56) 
+Movel(-285,170-7,-100)
+--error()
 --FilletToAllEdges(2)
 Rotatelx(90)
-Movel(-285,170-7,-100)
+--
 --Movel(-285,170-7,-100)
---Pl 0,0 280,0 @0,6 @-280,0 0,0
---Extrude 56
+Pl 0,0 280,0 @0,6 @-280,0 0,0
+Extrude 56
 Clone sketch_arm_1
 Extrude 56
 --FilletToAllEdges(2)
 Rotatelx(90)
 Movel(-285,170-7,-100)
-Fuse()
+--Fuse()
 Clone sketch_arm_1
 Extrude 56 
 Rotatelx(90)
@@ -130,6 +144,7 @@ Fuse()
 
 end
   --robot1()
+
 
 function pmap()
 suc_height=203
@@ -183,9 +198,11 @@ end
 end
 
 end
-mosaics()
+--mosaics()
 
 function struct()
+
+Origin(0,0,0)
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
@@ -208,15 +225,15 @@ Movel(0,container_height-crn_height,0)
 
 
 
-Part sketch_upn40x20
-Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
+--Part sketch_upn40x20
+--Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
 
 
 
 
-Part sketch_profile
-Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
-Offset -2
+--Part sketch_profile
+--Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
+--Offset -2
 
 Part frame
 Clone sketch_profile
@@ -457,9 +474,10 @@ Movel(0,tunel_height*2)
 
 
 end
+
+robot1()
+
  struct()
-
-
 
 
 function elevator()
@@ -472,7 +490,7 @@ Movel(container_midle-120/2,0,-fcompartment)
 
 
 end
-elevator()
+--elevator()
 
 
 
@@ -522,7 +540,7 @@ Connect(p1,2)
 end
 --inocent3()
 
-function inocent2()
+function inocent2(o)
 Part sketch
 Pl 0,0 200,0 @0,100 @-300,0 @100,-50 0,0
 Offset 10

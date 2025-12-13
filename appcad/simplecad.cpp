@@ -59,7 +59,8 @@
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
 
-#define cotm1(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
+#define cotm2(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
+#define cotm1(...) 
 #define cotm(...)
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
@@ -276,7 +277,12 @@ struct OCC_Viewer : public flwindow {
 	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_GREEN, Aspect_TOL_SOLID, 5.0);
 	Handle(Prs3d_Drawer) customDrawerp = new Prs3d_Drawer();
 
+	//dummy origin
+	TopLoc_Location Origin;
+	gp_Trsf Origintrsf;
+
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
+
 		Fl::add_timeout(10, idle_refresh_cb, 0);
 	}
 
@@ -683,6 +689,7 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 	};
 
 	struct luadraw {
+		TopLoc_Location Origin;
 		int type=0;
 		// vector<luadraw*> vnl;
 		bool editing=0; 
@@ -711,12 +718,12 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 		// DEFINE_STANDARD_RTTIEXT(OCC_Viewer::luadraw, Standard_Transient)
 		luadraw(string _name = "test", OCC_Viewer* p = 0) : occv(p), name(_name) {
 			// regen
-			//  if(occv->vaShape.size()>0){
-			//  	OCC_Viewer::luadraw*
-			//  ld=occv->getluadraw_from_ashape(occv->vaShape.back());
-			//  	// occv
-			//  	ld->redisplay();
-			//  }
+			 if(occv->vaShape.size()>0){
+			 	OCC_Viewer::luadraw*
+			 ld=occv->getluadraw_from_ashape(occv->vaShape.back());
+			 	// occv
+			 	ld->redisplay();
+			 }
 
 			builder.MakeCompound(TopoDS::Compound( cshape) );
 
@@ -776,13 +783,36 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 
 			return working;
 		}
-			
+		bool orupd=0;
 		void update_placement() { 
 			if (needsplacementupdate == 0) return; 
 			// FuseAndRefineWithAPI(cshape); 
 			shape=FuseAndRefineWithAPI(cshape);
+
+			// Origin=
+			// occv->Origintrsf.SetTranslation(gp_Vec(200, 100, -200));
+ 			// occv->Origin=TopLoc_Location(occv->Origintrsf);
+
+			// TopLoc_Location Lcur = shape.Location();  // current location
+			// TopLoc_Location Lnew = Lcur * occv->Origin;   // compose
+			// shape.Location(Lnew); 
+			// {
+			// TopLoc_Location Lcur = cshape.Location();  // current location
+			// TopLoc_Location Lnew = Lcur * occv->Origin;   // compose
+			// cshape.Location(Lnew); 
+			// }
+
 			// shape=cshape; 
 			ashape->Set(cshape);
+
+			
+			if(orupd==0 ){//&& !occv->Origin.IsIdentity()){
+				orupd=1;
+				Origin=occv->Origin; 
+				ashape->SetLocalTransformation(Origin.Transformation());
+			}
+
+
 			// ashape->Set(Extract_Solids(cshape));
 			needsplacementupdate = 0; 
 		}
@@ -1756,7 +1786,7 @@ catch (...) {
 				poly.Add(gp_Pnt(v.X(), v.Y(), 0));
 			}
 			if (closed && points.size() > 2) poly.Close();
-			printf("s1\n");
+			// printf("s1\n");
 
 				TopoDS_Wire wire = poly.Wire();
 			if (points.size() > 2) {
@@ -1767,7 +1797,7 @@ catch (...) {
 					// Mesh the face so it gets Poly_Triangulation
 					// if(points.size()>2)
 					BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-				printf("s4\n");
+				// printf("s4\n");
 				mergeShape(cshape, face);
 				shape=face;
 	cotm1("bextr",ShapeTypeName(shape));
@@ -2410,7 +2440,7 @@ bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
 }
 
 
-	void highlightVertex(const TopoDS_Vertex& aVertex) {
+	void highlightVertex(const TopoDS_Vertex& aVertex,luadraw* ldd=0) {
 		clearHighlight();  // Clear any existing highlight first
 
 		// perf();
@@ -2420,7 +2450,10 @@ bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
 		// double ratio=theProjector->Aspect();
 		// cotm(ratio);
 
-		gp_Pnt vertexPnt = BRep_Tool::Pnt(aVertex);
+		gp_Pnt vertexPntL = BRep_Tool::Pnt(aVertex);
+
+
+		gp_Pnt vertexPnt=vertexPntL.Transformed(ldd->Origin);
 
 		//check here
 		// if(!IsVertexVisible(vertexPnt,m_view,m_context))return;
@@ -2753,7 +2786,7 @@ void ev_highlight() {
 		// if(!IsPointVisibleOnShape(detected,m_view,vertexPnt))break;
 
         if (!myLastHighlightedVertex.IsEqual(v))
-            highlightVertex(v);
+            highlightVertex(v,ldd);
         break;
     }
 
@@ -4876,6 +4909,7 @@ void fillbrowser(void*) {
 		// 			fbm->on_off[i][1]=1;
 		// 		}
 
+		// if(ij==occv->vaShape.size()-1)
 		ld->redisplay();
 	}
 
@@ -5163,6 +5197,16 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 #include <TopoDS_Solid.hxx>
 #include <stdexcept>
 
+lua.set_function("Origin", [occv](Standard_Real x=0,Standard_Real y=0,Standard_Real z=0) { 
+	if (current_part)current_part->redisplay();
+		// cotm2("origin",x)
+		// occv->Origintrsf.
+		gp_Trsf tr;
+tr.SetTranslation(gp_Vec(x, y, z));
+		occv->Origin=TopLoc_Location(tr);
+
+
+});
 lua.set_function("Fuse", [&]() { 
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
@@ -6364,7 +6408,10 @@ void lua_hook(lua_State* L, lua_Debug* ar) {
 
 //
 void luainit() {
-    if (G) return;
+    if (G){
+		G.reset();
+	} 
+    // if (G) return;
     if (!occv) cotm("occv not init");
 
     G = std::make_unique<sol::state>();
@@ -6395,6 +6442,10 @@ void clearAll(OCC_Viewer* occv){
 	occv->vaShape.clear();
 	occv->ulua.clear();
 	occv->vlua.clear();
+
+	gp_Trsf tr;
+	tr.SetTranslation(gp_Vec(0, 0, 0));  // no move
+	occv->Origin=TopLoc_Location(tr);
 }
 
 
@@ -6930,9 +6981,10 @@ int main(int argc, char** argv) {
 	Fl::visual(FL_DOUBLE | FL_INDEX);
 	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 
+	Fl::scheme("oxy");	
+	
 	Fl_Group::current(content);
  
-
 	// string floaded = load_app_font("Courier Prime Bold.otf");
 	// string floaded = load_app_font("DejaVuSansMono.ttf");
 	// string floaded = load_app_font("FiraGO-SemiBold.otf");
@@ -6946,7 +6998,6 @@ int main(int argc, char** argv) {
 	int secondblock = w * 0.12;
 	int lastblock = w - firstblock - secondblock;
 
-	Fl::scheme("oxy");	
 	// Fl_Window* win = new Fl_Window(0, 0, w, h, "simplecad");
 	Fl_Double_Window* win = new Fl_Double_Window(0, 0, w, h, "simplecad"); 
 	win->color(FL_RED);
@@ -6975,6 +7026,10 @@ int main(int argc, char** argv) {
 	fbm = new fl_browser_msv(firstblock, 22, secondblock, h - 22-htable);
 	fbm->box(FL_UP_BOX);
 	fbm->color(FL_GRAY);
+	fbm->scrollbar_size(1);
+	Fl_Scrollbar &vsb = fbm->scrollbar;  // vertical scrollbar 
+	vsb.selection_color(FL_RED); 
+
 
 	Fl_Group::current(content); 
 	scint_init(firstblock + secondblock, 0, lastblock, h - 0 - htable); 
@@ -6995,7 +7050,8 @@ int main(int argc, char** argv) {
 
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0); 
-	win->show(argc, argv); 
+	win->show(); 
+	// win->show(argc, argv); 
 
 	// woccbtn->damage(FL_DAMAGE_ALL); 
 	// woccbtn->redraw(); 
