@@ -7732,9 +7732,9 @@ std::string load_app_font(const std::string& filename);
 
 
 
-
 int checkdepthbit()
 {
+#ifdef __linux__
     Display* dpy = XOpenDisplay(nullptr);
     if (!dpy) {
         std::cerr << "Failed to open X display\n";
@@ -7771,6 +7771,7 @@ int checkdepthbit()
 
     XFree(fbc);
     XCloseDisplay(dpy);
+#endif
     return 0;
 }
 
