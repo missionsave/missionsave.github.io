@@ -935,7 +935,7 @@ qemu-system-x86_64 \
   -smp 4 \
   -cpu host \
   -machine q35,accel=kvm \
-  -drive file=win8.1.qcow2,format=qcow2 \
+  -drive file=win8.1_v1.qcow2,format=qcow2 \
   -vga virtio \
   -device virtio-gpu-pci \
   -display sdl,gl=off \
@@ -1506,6 +1506,65 @@ install_deb() {
 
   echo "✅ $filename instalado com sucesso!"
 }
+
+install_occt_7_9_3() {
+    set -e
+
+    OCCT_VER=7_9_3
+    PREFIX=/opt/occt-${OCCT_VER}
+    JOBS=$(nproc)
+
+    echo "=== Installing OCCT ${OCCT_VER} ==="
+
+    sudo apt update
+    sudo apt install -y \
+      build-essential \
+      cmake \
+      git \
+      wget \
+      libx11-dev \
+      libxmu-dev \
+      libxi-dev \
+      libgl1-mesa-dev \
+      libglu1-mesa-dev \
+      libfreetype6-dev \
+      libtbb-dev \
+      tcl-dev \
+      tk-dev
+
+    cd /tmp
+    rm -rf OCCT-${OCCT_VER} V${OCCT_VER}.tar.gz
+
+    wget -q https://github.com/Open-Cascade-SAS/OCCT/archive/refs/tags/V${OCCT_VER}.tar.gz
+    tar xf V${OCCT_VER}.tar.gz
+    cd OCCT-${OCCT_VER}
+
+    mkdir -p build
+    cd build
+
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DBUILD_MODULE_Draw=OFF \
+      -DBUILD_SAMPLES_QT=OFF \
+      -DBUILD_SAMPLES_MFC=OFF \
+      -DBUILD_SAMPLES_ANDROID=OFF \
+      -DBUILD_SAMPLES_IOS=OFF \
+      -DUSE_TBB=ON \
+      -DUSE_FREETYPE=ON \
+      -DUSE_XLIB=ON \
+      -DUSE_OPENGL=ON
+
+    make -j${JOBS}
+    sudo make install
+
+    echo "=== OCCT ${OCCT_VER} installed in ${PREFIX} ==="
+}
+
+
+
+
+
 
 install_qemu() {
   echo "🔧 A instalar QEMU/KVM e dependências..."

@@ -17,9 +17,12 @@ end
 
 function globals() 
 container_width=2438
+--container_width=1000
 container_height=2591
+--container_height=1000
 --container_height=2895 --hc
 container_long=6058
+--container_long=1000
 --container_long=12192
 fcompartment=1000
 ttmosaics=23
@@ -63,7 +66,7 @@ Offset -2
 
 
 function robot1()
-Origin(container_width-800,600,-1000)
+Origin(container_width-800,600,-fcompartment)
 --Origin(0,0,0)
 
 Part sketch_body
@@ -100,7 +103,7 @@ Pl 0,0 70,0 @0,70 @-70,0
 Offset 6
 Extrude 70
 Rotatelx(90)
-Movel(-70,170,-70-15)
+Movel(-71,170,-70-15)
 --Fuse()
 --FilletToAllEdges(2)
 
@@ -274,11 +277,11 @@ Part cupnref
 Clone sketch_upn40x20
 Extrude(400)
 Rotatelx(-90)
-Movel(2,crn_height,-120+80+2)
+Movel(2+1,crn_height+10,-120+80+2+10)
 
 Part cupnref1
 Clone(cupnref,1)
-Movel(0,0,-40)
+Movel(0,0,-40-5)
 Clone(cupnref,1)
 Rotately(90)
 Movel(110,0,40-2*2)

@@ -1,6 +1,14 @@
 #define M_PI 3.14159265358979323846
 #define M_PI_2 1.57079632679489661923
 
+#include <GL/glew.h> 
+#ifdef __linux__
+extern "C" {
+#include <X11/Xlib.h>
+#include <GL/glx.h>
+#include <GL/glxext.h>
+}
+#endif
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H> 
 #include <FL/Fl_Gl_Window.H>

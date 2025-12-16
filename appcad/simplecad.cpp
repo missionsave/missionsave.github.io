@@ -1,4 +1,9 @@
+
 #include "includes.hpp"
+#include <OpenGl_FrameBuffer.hxx>
+#include <OpenGl_Context.hxx>
+#include <OpenGl_View.hxx>
+#include <OpenGl_Workspace.hxx>
 #include <BRepBndLib.hxx>
 #include <Bnd_Box.hxx>
 
@@ -10,7 +15,7 @@
 
 #include <AIS_AnimationCamera.hxx>
 #include <AIS_InteractiveContext.hxx>
-#include <AIS_Shape.hxx>
+#include <AIS_ColoredShape.hxx>
 
 #include <SelectMgr_EntityOwner.hxx>
 #include <SelectMgr_SelectableObject.hxx>
@@ -36,7 +41,7 @@
 #include <set>
 #include <vector>
 #include <cmath>
-#include <AIS_Shape.hxx>
+#include <AIS_ColoredShape.hxx>
 #include <SelectMgr_EntityOwner.hxx>
 #include <TopTools_IndexedMapOfShape.hxx>
 #include <TopExp.hxx>
@@ -58,6 +63,7 @@
 
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
+// #define flwindow Fl_Gl_Window  
 
 #define cotm2(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
 #define cotm1(...) 
@@ -98,11 +104,148 @@ void GetAlignedCameraVectors(const Handle(V3d_View)& view,
 
 TopoDS_Shape ApplyFilletToAllEdges(const TopoDS_Shape shape, Standard_Real radius);
 
+
+
+
+
 void ReplaceShapeInCompound(
     TopoDS_Compound& compound,
     TopoDS_Shape& targetShape,
     const std::function<TopoDS_Shape(const TopoDS_Shape&)>& modifier
 );
+
+#include <Graphic3d_Camera.hxx>
+#include <Graphic3d_Mat4d.hxx>
+#include <V3d_View.hxx>
+#include <cmath>
+#include <GL/gl.h> // or appropriate GL header for your platform
+
+// Build a Reverse-Z perspective projection matrix (OpenGL convention)
+Graphic3d_Mat4d BuildReverseZProjection(const Handle(Graphic3d_Camera)& cam)
+{
+    const double zNear  = cam->ZNear();
+    const double zFar   = cam->ZFar();
+    const double fovY   = cam->FOVy();
+    const double aspect = cam->Aspect();
+
+    const double f = 1.0 / std::tan(fovY * 0.5);
+
+    Graphic3d_Mat4d proj;
+
+    // Initialize all elements to 0
+    for (int r = 0; r < 4; ++r)
+      for (int c = 0; c < 4; ++c)
+        proj.SetValue(r, c, 0.0);
+
+    // Standard perspective terms (X/Y)
+    proj.SetValue(0, 0, f / aspect);
+    proj.SetValue(1, 1, f);
+
+    // Reverse-Z terms (Z row)
+    // Map far -> depth 0, near -> depth 1
+    proj.SetValue(2, 2,  zNear / (zFar - zNear));
+    proj.SetValue(2, 3,  (zFar * zNear) / (zFar - zNear));
+
+    // Perspective divide row
+    proj.SetValue(3, 2, -1.0);
+
+    return proj;
+}
+
+void ApplyReverseZ(const Handle(V3d_View)& view)
+{
+    Handle(Graphic3d_Camera) cam = view->Camera();
+
+    // Build and assign custom projection matrix (if you intercept upload path)
+    Graphic3d_Mat4d proj = BuildReverseZProjection(cam);
+    // If you have a hook to set a custom projection, do it here.
+    // Otherwise, you'll patch the GL state in the viewer.
+
+    // Flip depth range and comparison for Reverse-Z
+    glEnable(GL_DEPTH_TEST);
+    glDepthRange(1.0, 0.0);
+    glDepthFunc(GL_GREATER);
+
+    // Keep near/far tight for best precision
+    // cam->SetZNear(1.0);
+    // cam->SetZFar(1000.0);
+    view->SetCamera(cam);
+    view->Redraw();
+}
+void FixZPrecisionAndGhostLines_793 (
+    const Handle(AIS_InteractiveContext)& ctx,
+    const Handle(V3d_View)&                view,
+    const Handle(AIS_InteractiveObject)&   shape)
+{
+    /* ===============================
+     * 1. Compute scene bounding box
+     * =============================== */
+
+    Bnd_Box box;
+
+    AIS_ListOfInteractive list;
+    ctx->DisplayedObjects(list);
+
+    for (AIS_ListOfInteractive::Iterator it(list); it.More(); it.Next())
+    {
+        Bnd_Box b;
+        it.Value()->BoundingBox(b);
+        box.Add(b);
+    }
+
+    if (box.IsVoid())
+        return;
+
+    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+    box.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+
+    gp_Pnt pmin(xmin, ymin, zmin);
+    gp_Pnt pmax(xmax, ymax, zmax);
+    Standard_Real diag = pmin.Distance(pmax);
+
+    if (diag <= Precision::Confusion())
+        diag = 1000.0;
+
+
+    /* ===============================
+     * 2. Optimal Z range
+     * =============================== */
+
+    Standard_Real zNear = Max(1.0, diag * 0.02);
+    Standard_Real zFar  = diag * 1.5;
+
+    Handle(Graphic3d_Camera) cam = view->Camera();
+
+    view->SetAutoZFitMode(Standard_False);
+    cam->SetZRange(zNear, zFar);
+    cam->InvalidateProjection();
+
+
+    /* ===============================
+     * 3. Polygon offset for edges
+     * =============================== */
+
+    Handle(Prs3d_Drawer) dr = new Prs3d_Drawer();
+
+    Handle(Prs3d_LineAspect) la =
+        new Prs3d_LineAspect(Quantity_NOC_BLACK,
+                             Aspect_TOL_SOLID,
+                             1.0);
+
+    Handle(Graphic3d_AspectLine3d) asp = la->Aspect();
+    asp->SetPolygonOffsets(Aspect_POM_Line, 1.0f, -1.0f);
+
+    dr->SetLineAspect(la);
+    ctx->SetLocalAttributes(shape, dr, Standard_True);
+
+
+    /* ===============================
+     * 4. Redraw
+     * =============================== */
+
+    // view->Redraw();
+}
+
 
 std::string SerializeFaceInvariant(const TopoDS_Face& face);
 gp_Ax3 get_face_local_cs(const TopoDS_Face& face);
@@ -231,10 +374,10 @@ std::string lua_error_with_line(lua_State* L, const std::string& msg) {
 	}
 	return msg;
 }
-class AIS_NonSelectableShape : public AIS_Shape {
+class AIS_NonSelectableShape : public AIS_ColoredShape {
 
    public:
-	AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_Shape(s) {
+	AIS_NonSelectableShape(const TopoDS_Shape& s) : AIS_ColoredShape(s) {
 		//  SetSelectionPriority(0);
         // SetAutoHilight(false); //terminate called after throwing an instance of 'Standard_NotImplemented'
 
@@ -263,12 +406,16 @@ struct OCC_Viewer : public flwindow {
 	Handle(V3d_Viewer) m_viewer;
 	Handle(OpenGl_Context) aCtx;
 	Handle(AIS_InteractiveContext) m_context;
+    Handle(OpenGl_FrameBuffer) m_fbo;
+	// Handle(OpenGl_Context) ctx;
+	Handle(OpenGl_Context) glCtx;
+	Handle(OpenGl_View) glView;
 	Handle(V3d_View) m_view;
 	Handle(AIS_Trihedron) trihedron0_0_0;
 	bool m_initialized = false;
 	bool hlr_on = false;
 	std::vector<TopoDS_Shape> vshapes;
-	std::vector<Handle(AIS_Shape)> vaShape;
+	std::vector<Handle(AIS_ColoredShape)> vaShape;
 	Handle(AIS_NonSelectableShape) visible_;
 	Handle(AIS_ColoredShape) hidden_;
 
@@ -282,11 +429,15 @@ struct OCC_Viewer : public flwindow {
 	gp_Trsf Origintrsf;
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
-
+ // Request a 32-bit depth buffer if supported
+        // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        // Fl::gl_visual(32);
 		Fl::add_timeout(10, idle_refresh_cb, 0);
 	}
 
 	void initialize_opencascade() {
+
+
 		// perf();
 		// Get native window handle
 #ifdef _WIN32
@@ -304,24 +455,128 @@ struct OCC_Viewer : public flwindow {
 #endif
 		m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
 
+
+	
 		m_viewer = new V3d_Viewer(m_graphic_driver);
 		m_viewer->SetDefaultLights();
 		m_viewer->SetLightOn();
 		m_context = new AIS_InteractiveContext(m_viewer);
 		m_view = m_viewer->CreateView();
+		// m_view->SetZClippingType(V3d_ZCLIP_NOTHING); // or tighter clipping
+		// m_view->SetZSize(0.00000000001); // refine near/far ratio
 		m_view->SetWindow(wind);
 
+			m_context->SetDeviationCoefficient(0.01);
+			m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
+if(0){	
+
+ m_view->MustBeResized(); // FORÇA criação do contexto GL
+
+    /* ---------- OpenGL context (CORRETO EM 7.9.x) ---------- */
+    // Handle(OpenGl_Context) glCtx =
+    glCtx= m_graphic_driver->GetSharedContext();
+
+    if (glCtx.IsNull())
+    {
+        std::cerr << "OpenGL context not available\n";
+        return;
+    }
+
+make_current(); // FLTK — OBRIGATÓRIO
+
+// Handle(OpenGl_Context) ctx =
+//     m_graphic_driver->GetSharedContext();
+
+// if (ctx.IsNull() || !ctx->IsValid())
+// {
+//     std::cerr << "OpenGL context invalid\n";
+//     return;
+// }
+
+std::cout << "GL version: "
+          << (const char*)glGetString(GL_VERSION) << std::endl;
+
+std::cout << "GL renderer: "
+          << (const char*)glGetString(GL_RENDERER) << std::endl;
+
+
+
+
+    /* ---------- FBO com depth 32F ---------- */
+    m_fbo = new OpenGl_FrameBuffer();
+
+    Standard_Integer w = this->w();
+    Standard_Integer h = this->h();
+// GL_DEPTH_COMPONENT24
+// GL_DEPTH32F_STENCIL8
+// GL_DEPTH24_STENCIL8
+    if (!m_fbo->Init(glCtx,
+                   w,
+                   h,
+                   GL_RGBA8,
+                   GL_DEPTH32F_STENCIL8))
+    {
+        std::cerr << "Failed to create 32F depth FBO\n";
+        return;
+    }
+
+    /* ---------- Associar FBO à view ---------- */
+    // Handle(OpenGl_View) glView =
+    glView =
+        Handle(OpenGl_View)::DownCast(m_view->View());
+
+    if (!glView.IsNull())
+    {
+        glView->SetFBO(m_fbo);
+    }
+
+
+    if (glCtx.IsNull() || !glCtx->IsValid())
+    {
+        std::cerr << "Invalid GL context\n";
+        return;
+    }
+
+    if (m_fbo.IsNull() || !m_fbo->IsValid())
+    {
+        std::cerr << "FBO not valid\n";
+        return;
+    }
+
+
+m_fbo->BindBuffer(glCtx);
+GLenum err = glewInit();
+if (err != GLEW_OK) {
+    std::cerr << "GLEW init failed: " << glewGetErrorString(err) << std::endl;
+}
+	GLint depthSize = 0;
+glGetFramebufferAttachmentParameteriv(
+    GL_FRAMEBUFFER,
+    GL_DEPTH_ATTACHMENT,
+    GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE,
+    &depthSize);
+
+std::cout << "FBO depth bits = " << depthSize << std::endl;
+    m_view->Redraw();
+
+
+}
+		m_context->SetDeviationCoefficient(0.5);
+		// m_context->DefaultDrawer()->SetHiddenLineRemoval(Standard_True);
+
+// m_viewer->SetZClippingType(V3d_ZClippingType_UserDefined);
 
 
 		m_view->SetImmediateUpdate(Standard_False);
 
+
 		// m_context->SetAutomaticHilight(true);
 
-		// m_context->Activate(AIS_Shape::SelectionMode(TopAbs_WIRE  )); // 4 =
+		// m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_WIRE  )); // 4 =
 		// Face selection mode
-		// m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE )); // 4 =
+		// m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_FACE )); // 4 =
 		// Face selection mode
-		// m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX )); // 4 =
+		// m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_VERTEX )); // 4 =
 		// vertex selection mode
 
 		// m_context->SetMode(TopAbs_VERTEX, Standard_True); // Enable vertex
@@ -382,6 +637,37 @@ struct OCC_Viewer : public flwindow {
 		SetupHighlightLineType(m_context);
 		m_initialized = true;
 
+
+
+
+m_view->ChangeRenderingParams().IsTransparentShadowEnabled = Standard_False;
+m_view->ChangeRenderingParams().ToEnableDepthPrepass = Standard_True;
+// m_view->ChangeRenderingParams().UseDepthTestForLines = Standard_True;
+
+				// Handle(Graphic3d_Camera) cam = m_view->Camera();
+// 				cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective); // switch to perspective
+// cam->SetFOVy(45.0 * M_PI / 180.0); // optional: vertical FOV (radians)
+
+		m_view->SetAutoZFitMode(Standard_True, 0.99);
+		// m_view->SetAutoZFitMode(Standard_False);
+//  glDepthFunc(GL_GREATER); 
+// cam->SetZRange( 1000,10000);
+// glDepthRange(1000,10000);
+
+		// ApplyReverseZ(m_view);
+// cam->InvalidateProjection();
+// m_view->SetCamera(cam);
+// m_view->Redraw();
+
+// glEnable(GL_DEPTH_TEST);
+// glDepthFunc(GL_GREATER);     // reversed-Z
+// glClearDepth(0.0);           // far = 0
+// glDepthRange(1.0, 0.0);      // reversed mapping
+
+// glEnable(GL_CULL_FACE);
+// glCullFace(GL_BACK);
+
+// setupProjection(w(), h());
 		redraw();
 		// m_view->Redraw();
 		// perf("occvldoi");
@@ -398,10 +684,19 @@ struct OCC_Viewer : public flwindow {
 			} else {
 				std::cout << "glGetString() failed — no OpenGL context active!" << std::endl;
 			}
+			    // Report depth buffer precision of the current window
+			GLint depthBits = 0;
+			glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+			std::cout << "Window depth buffer precision: " << depthBits << " bits" << std::endl;
+			// GLint maxDepthBits = 0;
+			// glGetIntegerv(GL_MAX_DEPTH_BITS, &maxDepthBits);
+			// printf("Maximum supported depth bits: %d\n", maxDepthBits);
+
 		}
 
 		toggle_shaded_transp(currentMode);
  
+// setupProjection(w(), h());
 		Fl::add_timeout(
 			1.4,
 			[](void* d) {
@@ -416,13 +711,199 @@ struct OCC_Viewer : public flwindow {
 		glFinish();
 		Fl::repeat_timeout(10, idle_refresh_cb, 0);
 	}
-	void draw() override {
-		if (!m_initialized) return;
-		// m_context->UpdateCurrentViewer();
-		m_view->Update();
-		// m_view->Redraw(); //new
-		// flush();
-	}
+// 	void draw() override {
+// 		if (!m_initialized) return;
+// 		// m_context->UpdateCurrentViewer();
+// 		glEnable(GL_DEPTH_TEST);
+// 		glDepthFunc(GL_LESS);
+// 		// glDepthFunc(GL_GREATER);
+// 		glPolygonOffset(0,0);
+// 		glDepthRange(0,1);
+
+// 		glEnable(GL_POLYGON_OFFSET_LINE);
+// glPolygonOffset(-1.0f, -1.0f); 
+// glEnable(GL_CULL_FACE);
+// glCullFace(GL_BACK);
+
+// 		m_view->Update();
+
+// glDisable(GL_POLYGON_OFFSET_LINE);
+
+// 		// m_view->Redraw(); //new
+// 		// flush();
+// 	}
+void setupProjection(int w, int h)
+{
+    float aspect = float(w) / float(h);
+    float fovY   = 45.0f * M_PI / 180.0f;
+    float zNear  = 1.0f;   // push near plane far
+
+    float f = 1.0f / tanf(fovY * 0.5f);
+
+    float proj[16] = {
+        f / aspect, 0,  0,  0,
+        0,           f,  0,  0,
+        0,           0,  0, -1,
+        0,           0,  zNear, 0
+    };
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(proj);
+}
+
+// void draw() override
+// {
+//     if (!m_initialized)
+//         return;
+
+//     /* ---------------- clear ---------------- */
+
+// setupProjection(w(), h());
+//     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+//     /* ---------------- faces ---------------- */
+
+//     glDisable(GL_POLYGON_OFFSET_LINE);
+//     glDisable(GL_POLYGON_OFFSET_FILL);
+
+//     m_view->Redraw();   // OCCT draws faces here
+//     // m_view->Update();   // OCCT draws faces here
+
+//     /* ---------------- edges ---------------- */
+
+//     glEnable(GL_POLYGON_OFFSET_LINE);
+//     glPolygonOffset(-1.0f, -1.0f);
+
+//     m_view->Update();   // OCCT draws edges
+
+//     glDisable(GL_POLYGON_OFFSET_LINE);
+// }
+void draw() override
+{
+    if (!m_initialized) return;
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glDepthRange(0.0, 1.0);
+
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // ----------------- Compute scene bounding box -----------------
+    // Bnd_Box sceneBox;
+    // AIS_ListOfInteractive displayed;
+    // m_context->DisplayedObjects(displayed);
+
+    // Standard_Real sceneDiag = 1.0; // fallback
+
+    // for (AIS_ListOfInteractive::Iterator it(displayed); it.More(); it.Next())
+    // {
+    //     Bnd_Box b;
+    //     it.Value()->BoundingBox(b);
+    //     sceneBox.Add(b);
+    // }
+
+    // if (!sceneBox.IsVoid())
+    // {
+    //     Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+    //     sceneBox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+
+    //     gp_Pnt pmin(xmin, ymin, zmin);
+    //     gp_Pnt pmax(xmax, ymax, zmax);
+    //     sceneDiag = pmin.Distance(pmax);
+
+    //     if (sceneDiag <= Precision::Confusion())
+    //         sceneDiag = 1000.0; // fallback
+
+    //     // ----------------- Set optimal camera Z range -----------------
+    //     Handle(Graphic3d_Camera) cam = m_view->Camera();
+    //     // m_view->SetAutoZFitMode(Standard_False);
+
+    //     Standard_Real zNear = sceneDiag * 0.02;  // 2% of scene size
+    //     Standard_Real zFar  = sceneDiag * 2.0;   // 2× scene diagonal
+	// 	cotm2(zNear, zFar);
+    //     cam->SetZRange(zNear, zFar);
+    //     cam->InvalidateProjection();
+    // }
+
+    // // ----------------- Dynamic line offset based on scene size -----------------
+    // // Use 0.1% of the diagonal for the polygon offset factor
+    // Standard_Real offsetFactor = sceneDiag * 0.001;
+    glEnable(GL_POLYGON_OFFSET_LINE);
+    // glPolygonOffset(-offsetFactor, -offsetFactor);
+    glPolygonOffset(-3, -3);
+
+
+    // ----------------- Draw the scene -----------------
+
+// m_view->SetZoom(30.0);
+    m_view->Update();
+
+    glDisable(GL_POLYGON_OFFSET_LINE);
+}
+
+ 
+// void draw() override
+// {
+//     if (!m_initialized) return;
+
+//     make_current(); // garante contexto FLTK
+
+//     Handle(OpenGl_Context) ctx = m_graphic_driver->GetSharedContext();
+//     if (ctx.IsNull() || !ctx->IsValid()) return;
+
+//     // ---------- Bind do FBO ----------
+//     if (!m_fbo.IsNull() && m_fbo->IsValid())
+//         m_fbo->BindBuffer(ctx);
+
+//     // ---------- Configuração OpenGL ----------
+//     glEnable(GL_DEPTH_TEST);
+//     glDepthFunc(GL_LESS);
+//     glDepthRange(0.0, 1.0);
+
+//     glEnable(GL_CULL_FACE);
+//     glCullFace(GL_BACK);
+
+//     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+//     glEnable(GL_POLYGON_OFFSET_LINE);
+//     glPolygonOffset(-3, -3);
+
+//     // ---------- Redraw da view OCCT ----------
+//     m_view->Redraw(); // renderiza a cena no FBO
+
+//     glDisable(GL_POLYGON_OFFSET_LINE);
+
+//     // ---------- Unbind do FBO ----------
+//     if (!m_fbo.IsNull() && m_fbo->IsValid())
+//         m_fbo->UnbindBuffer(ctx);
+
+//     // ---------- Blit do FBO para a janela FLTK ----------
+//     if (!m_fbo.IsNull() && m_fbo->IsValid())
+//     {
+//         // Se FboId() for público
+//         // GLuint fboId = m_fbo->FboId();
+// 	GLint fboId = 0;
+// glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fboId);
+
+//         glBindFramebuffer(GL_READ_FRAMEBUFFER, fboId);
+//         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // framebuffer da janela
+
+//         glBlitFramebuffer(
+//             0, 0, this->w(), this->h(),   // origem
+//             0, 0, this->w(), this->h(),   // destino
+//             GL_COLOR_BUFFER_BIT, GL_NEAREST
+//         );
+
+//         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//     }
+// }
+
+
+
+
 
 	void resize(int X, int Y, int W, int H) override {
 		static bool in_resize=0;
@@ -704,7 +1185,7 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 		TopoDS_Shape shape;
 		TopoDS_Shape fshape;
 		// std::shared_ptr<TopoDS_Shape> shape;
-		Handle(AIS_Shape) ashape;
+		Handle(AIS_ColoredShape) ashape;
 		// TopoDS_Face face;
 		gp_Pnt origin = gp_Pnt(0, 0, 0);
 		gp_Dir normal = gp_Dir(0, 0, 1);
@@ -741,7 +1222,7 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 			gp_Ax2 ax3(origin, normal, xdir);
 			trsf.SetTransformation(ax3);
 			trsf.Invert();
-			ashape = new AIS_Shape(cshape);
+			ashape = new AIS_ColoredShape(cshape);
 			// shape = cshape;
 
 			// allocate something for the application and hand ownership to the
@@ -1152,13 +1633,13 @@ void clone(luadraw* toclone, bool copy_placement = false) {
     }
 }
 
-#include <AIS_Shape.hxx>
+#include <AIS_ColoredShape.hxx>
 #include <AIS_InteractiveContext.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <V3d_View.hxx>
 #include <vector>
 
-void MoveAssembly(std::vector<Handle(AIS_Shape)>& parts,
+void MoveAssembly(std::vector<Handle(AIS_ColoredShape)>& parts,
                   Handle(AIS_InteractiveContext)& context,
                   const gp_Trsf& move)
 {
@@ -1172,7 +1653,7 @@ void MoveAssembly(std::vector<Handle(AIS_Shape)>& parts,
     context->UpdateCurrentViewer();
 }
 
-void ResetAssembly(std::vector<Handle(AIS_Shape)>& parts,
+void ResetAssembly(std::vector<Handle(AIS_ColoredShape)>& parts,
                    Handle(AIS_InteractiveContext)& context)
 {
     for (auto& part : parts)
@@ -1186,14 +1667,14 @@ void ResetAssembly(std::vector<Handle(AIS_Shape)>& parts,
 // Example usage:
 void Example_MoveAssembly(Handle(AIS_InteractiveContext)& context)
 {
-    std::vector<Handle(AIS_Shape)> parts;
+    std::vector<Handle(AIS_ColoredShape)> parts;
 
     // make two boxes offset in space
     TopoDS_Shape box1 = BRepPrimAPI_MakeBox(100, 100, 100);
     TopoDS_Shape box2 = BRepPrimAPI_MakeBox(100, 100, 100).Shape();
 
-    Handle(AIS_Shape) ais1 = new AIS_Shape(box1);
-    Handle(AIS_Shape) ais2 = new AIS_Shape(box2);
+    Handle(AIS_ColoredShape) ais1 = new AIS_ColoredShape(box1);
+    Handle(AIS_ColoredShape) ais2 = new AIS_ColoredShape(box2);
 
     gp_Trsf offset;
     offset.SetTranslation(gp_Vec(150, 0, 0));
@@ -1282,8 +1763,8 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			}
 			tofuse1->update_placement();
 			tofuse2->update_placement();
-			Handle(AIS_Shape) af1 = tofuse1->ashape;
-			Handle(AIS_Shape) af2 = tofuse2->ashape;
+			Handle(AIS_ColoredShape) af1 = tofuse1->ashape;
+			Handle(AIS_ColoredShape) af2 = tofuse2->ashape;
 			TopoDS_Shape ts1 = tofuse1->shape;
 			TopoDS_Shape ts2 = tofuse2->shape;
 
@@ -1309,8 +1790,8 @@ void fuse(luadraw* tofuse1, luadraw* tofuse2) {
 			}
 			tofuse1->update_placement();
 			tofuse2->update_placement();
-			Handle(AIS_Shape) af1 = tofuse1->ashape;
-			Handle(AIS_Shape) af2 = tofuse2->ashape;
+			Handle(AIS_ColoredShape) af1 = tofuse1->ashape;
+			Handle(AIS_ColoredShape) af2 = tofuse2->ashape;
 			TopoDS_Shape ts1 = tofuse1->shape;
 			TopoDS_Shape ts2 = tofuse2->shape;
 
@@ -1938,7 +2419,7 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 
 	};
 
-	luadraw* getluadraw_from_ashape(const Handle(AIS_Shape) & ashape) {
+	luadraw* getluadraw_from_ashape(const Handle(AIS_ColoredShape) & ashape) {
 		Handle(Standard_Transient) owner = ashape->GetOwner();
 		if (!owner.IsNull()) {
 			Handle(ManagedPtrWrapper<luadraw>) wrapper = Handle(ManagedPtrWrapper<luadraw>)::DownCast(owner);
@@ -2027,7 +2508,7 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 
 		// ---- 2) Remove compounds first
 		for (auto it = unique.begin(); it != unique.end();) {
-			Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(*it);
+			Handle(AIS_ColoredShape) ais = Handle(AIS_ColoredShape)::DownCast(*it);
 			if (!ais.IsNull()) {
 				const TopoDS_Shape& s = ais->Shape();
 				if (!s.IsNull() && s.ShapeType() == TopAbs_COMPOUND) {
@@ -2056,7 +2537,7 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 		m_context->UpdateCurrentViewer();
 	}
 
-	Handle(AIS_Shape) myHighlightedPointAIS;  // To store the highlighting sphere
+	Handle(AIS_ColoredShape) myHighlightedPointAIS;  // To store the highlighting sphere
 	TopoDS_Vertex myLastHighlightedVertex;	  // To store the last highlighted vertex
 	void clearHighlight() {
 		if (!myHighlightedPointAIS.IsNull()) {
@@ -2090,12 +2571,12 @@ void connect(OCC_Viewer::luadraw* target, int faceIndex,
 		return {windowToWorldX, windowToWorldY, worldToWindowX, worldToWindowY, viewportHeight, viewportWidth};
 	}
 
-	#include <AIS_Shape.hxx>
+	#include <AIS_ColoredShape.hxx>
 #include <V3d_View.hxx>
 #include <AIS_InteractiveContext.hxx>
 #include <Image_PixMap.hxx>
 
-bool IsShapeVisible(const Handle(AIS_Shape)& aisShape,
+bool IsShapeVisible(const Handle(AIS_ColoredShape)& aisShape,
                            const Handle(V3d_View)& view,
                            const Handle(AIS_InteractiveContext)& context)
 {
@@ -2167,7 +2648,7 @@ bool IsShapeVisible(const Handle(AIS_Shape)& aisShape,
     return visible;
 }
 
-bool IsShapeVisible_v1(const Handle(AIS_Shape)& aisShape, const Handle(V3d_View)& view, const Handle(AIS_InteractiveContext)& context)
+bool IsShapeVisible_v1(const Handle(AIS_ColoredShape)& aisShape, const Handle(V3d_View)& view, const Handle(AIS_InteractiveContext)& context)
 {
     if (aisShape.IsNull() || view.IsNull() || context.IsNull())
         return false;
@@ -2450,6 +2931,8 @@ bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
 		// double ratio=theProjector->Aspect();
 		// cotm(ratio);
 
+		
+
 		gp_Pnt vertexPntL = BRep_Tool::Pnt(aVertex);
 
 
@@ -2462,7 +2945,7 @@ bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
 		// Create a small red sphere at the vertex location
 		Standard_Real sphereRadius = 5 * ratio;	 // Small radius for the highlight ball
 		TopoDS_Shape sphereShape = BRepPrimAPI_MakeSphere(vertexPnt, sphereRadius).Shape();
-		myHighlightedPointAIS = new AIS_Shape(sphereShape);
+		myHighlightedPointAIS = new AIS_ColoredShape(sphereShape);
 		myHighlightedPointAIS->SetColor(Quantity_NOC_GREEN);
 		myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
 		// myHighlightedPointAIS->SetTransparency(0.2f);			   // Slightly transparent
@@ -2485,6 +2968,12 @@ bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
     + fmt(vertexPnt.X()) + ","
     + fmt(vertexPnt.Y()) + ","
     + fmt(vertexPnt.Z());
+	if(!ldd->Origin.IsIdentity()){
+		help.point += " Pointl: " 
+    + fmt(vertexPntL.X()) + ","
+    + fmt(vertexPntL.Y()) + ","
+    + fmt(vertexPntL.Z());
+	}
 		help.upd();
 		// 	if(!projector.Perspective()){
 		// 		gp_Pnt clickedPoint(mousex, mousey, 0);
@@ -2530,9 +3019,9 @@ bool IsPixelQuantityGreen_v1(const Handle(V3d_View)& view,
 		clearHighlight();
 
 		// 2. Activate ONLY vertex selection mode for this specific picking
-		// operation. This uses the AIS_Shape::SelectionMode utility, which
+		// operation. This uses the AIS_ColoredShape::SelectionMode utility, which
 		// correctly returns 0 for TopAbs_VERTEX.
-		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+		m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_VERTEX));
 
 		// 3. Perform the picking operations
 		m_context->MoveTo(mousex, mousey, m_view, Standard_False);
@@ -2713,12 +3202,12 @@ void ev_highlight() {
     clearHighlight();
 
     // Activate only what you need once per hover
-    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
-    m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+    m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_EDGE));
+    m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_VERTEX));
     if (!hlr_on)
-        m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
+        m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_FACE));
     else
-        m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+        m_context->Deactivate(AIS_ColoredShape::SelectionMode(TopAbs_FACE));
 
     // Move cursor in context
     m_context->MoveTo(mousex, mousey, m_view, Standard_False);
@@ -2807,7 +3296,7 @@ void ev_highlight() {
         // stable face index
         int faceIndex = -1;
         {
-            Handle(AIS_Shape) aisShape = Handle(AIS_Shape)::DownCast(brepOwner->Selectable());
+            Handle(AIS_ColoredShape) aisShape = Handle(AIS_ColoredShape)::DownCast(brepOwner->Selectable());
             if (!aisShape.IsNull()) {
                 TopoDS_Shape full = aisShape->Shape();
                 full.Location(TopLoc_Location());
@@ -2864,14 +3353,14 @@ void ev_highlight() {
 		// a special mode.
 
 		// 2. Activate ONLY vertex selection mode for this specific picking
-		// operation. This uses the AIS_Shape::SelectionMode utility, which
+		// operation. This uses the AIS_ColoredShape::SelectionMode utility, which
 		// correctly returns 0 for TopAbs_VERTEX.
-		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
-		m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+		m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_EDGE));
+		m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_VERTEX));
 		if (!hlr_on) {
-			m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
+			m_context->Activate(AIS_ColoredShape::SelectionMode(TopAbs_FACE));
 		} else {
-			m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+			m_context->Deactivate(AIS_ColoredShape::SelectionMode(TopAbs_FACE));
 		}
 		// 3. Perform the picking operations
 		m_context->MoveTo(mousex, mousey, m_view, Standard_False);
@@ -2895,7 +3384,7 @@ void ev_highlight() {
 		// This is crucial if you only want vertex picking *during* hover,
 		// and want other selection behaviors (e.g., selecting faces on click)
 		// at other times.
-		// m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+		// m_context->Deactivate(AIS_ColoredShape::SelectionMode(TopAbs_VERTEX));
 		// --- End Strict Selection Mode Control ---
 
 		// --- Debugging and Highlighting Logic ---
@@ -2946,7 +3435,7 @@ pickedRaw.Location(TopLoc_Location());
 int faceIndex = -1;
 if (!brepOwner.IsNull()) {
     Handle(SelectMgr_SelectableObject) selObj = brepOwner->Selectable();
-    Handle(AIS_Shape) aisShape = Handle(AIS_Shape)::DownCast(selObj);
+    Handle(AIS_ColoredShape) aisShape = Handle(AIS_ColoredShape)::DownCast(selObj);
     if (!aisShape.IsNull()) {
         TopoDS_Shape fullRaw = aisShape->Shape();
         fullRaw.Location(TopLoc_Location());
@@ -3132,7 +3621,7 @@ if(event== FL_PUSH && (Fl::event_state() & FL_CTRL)){
 		// In your createSampleShape() method:
 		// Remove any AIS_InteractiveContext::SetMode() calls here, as we will
 		// control it directly in FL_MOVE The default selection behavior on the
-		// AIS_Shape itself is sufficient for this approach.
+		// AIS_ColoredShape itself is sufficient for this approach.
 
 		// In your handle(int event) method:
 
@@ -3235,7 +3724,7 @@ if (event == FL_MOVE) {
 							redraw();  //  redraw(); // m_view->Update ();
 
 							// redraw();//
-							// myView->Redraw();
+							// m_view->Redraw();
 						}
 						return 1;
 					}
@@ -3316,7 +3805,33 @@ if (event == FL_MOVE) {
 
 							// Call ZoomAtPoint with both points
 							m_view->ZoomAtPoint(mouseX, mouseY, endX, endY);
-							redraw();  //  redraw(); // m_view->Update ();
+							
+		// 							lop(i,0,vaShape.size()){
+		// FixZPrecisionAndGhostLines_793(m_context,m_view,vaShape[i]);}
+
+							// redraw();  //  redraw(); // m_view->Update ();
+							// Handle(Graphic3d_Camera) cam = m_view->Camera();
+							// cam->InvalidateProjection();
+// // cam->SetCenter (gp_Pnt(0,0,0));
+// m_view->SetAutoZFitMode(Standard_False);
+// // Near / Far explícitos
+// std::cout
+//     << "ZNear = " << cam->ZNear()
+//     << " ZFar = "  << cam->ZFar()
+//     << std::endl;
+// cam->SetZRange(0.1, 10000);
+
+// // Aplicar
+// m_view->Invalidate();  std::cout
+//     << "ZNear = " << cam->ZNear()
+//     << " ZFar = "  << cam->ZFar()
+//     << std::endl;
+// 	m_view->Redraw();std::cout
+//     << "ZNear = " << cam->ZNear()
+//     << " ZFar = "  << cam->ZFar()
+//     << std::endl;
+
+	redraw();
 
 					// );
 					return 1;
@@ -3368,11 +3883,11 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 
 #pragma endregion events
 
-	struct pashape : public AIS_Shape {
-		// expõe o drawer protegido da AIS_Shape
-		using AIS_Shape::myDrawer;
+	struct pashape : public AIS_ColoredShape {
+		// expõe o drawer protegido da AIS_ColoredShape
+		using AIS_ColoredShape::myDrawer;
 
-		pashape(const TopoDS_Shape& shape) : AIS_Shape(shape) {
+		pashape(const TopoDS_Shape& shape) : AIS_ColoredShape(shape) {
 			// 1) Cria um novo drawer
 			Handle(Prs3d_Drawer) dr = new Prs3d_Drawer();
 
@@ -3404,7 +3919,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	void draw_objs() {
 		perf1("");
 		for (int i = 0; i < vshapes.size(); i++) {
-			Handle(AIS_Shape) aShape = new AIS_Shape(vshapes[i]);
+			Handle(AIS_ColoredShape) aShape = new AIS_ColoredShape(vshapes[i]);
 			vaShape.push_back(aShape);
 			m_context->Display(aShape, 0);
 		}
@@ -3497,7 +4012,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		perf1();
 		// cotm(vaShape.size()) 
 		for (std::size_t i = 0; i < vaShape.size(); ++i) {
-			Handle(AIS_Shape) aShape = vaShape[i];
+			Handle(AIS_ColoredShape) aShape = vaShape[i];
 			if (aShape.IsNull()) continue;
 
 			if (fromcurrentMode == AIS_Shaded) {
@@ -3516,19 +4031,211 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 				aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
 			} else {
 				hlr_on = 0;
-				// Mudar para modo sombreado
-				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+	// 			// Mudar para modo sombreado
+	// 			// aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+
+	// 			m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+
+	// 			aShape->SetColor(Quantity_NOC_GRAY70); 
+	// 			aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
+	// 			aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+	// 			// aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
+	// 			// opcional
+	// 		// m_context->Redisplay(aShape, AIS_Shaded, 0);
+	// 		    m_context->SetPolygonOffsets(
+    //     aShape,
+    //     Aspect_POM_Fill,   // mode: fill + edges
+    //     0.0f,             // factor
+    //     0,             // units
+    //     0     // update viewer immediately
+    // );
+// m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+// aShape->SetColor(Quantity_NOC_GRAY70);
+// 				aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
+// 				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+// 				aShape->Attributes()->SetFaceBoundaryUpperContinuity(GeomAbs_C2);
+// 				m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         0,             // factor
+//         0,             // units
+//         0     // update viewer immediately
+//     );
+
+if(1){
+ 
+				// aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+				if(vlua[i]->name=="framev"  ){
+aShape->SetZLayer(Graphic3d_ZLayerId_Top);
+				}else{
+					// aShape->SetZLayer(Graphic3d_ZLayerId_Bot);
+				}
 
 				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+aShape->SetColor(Quantity_NOC_GRAY70);
+				// aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
+				// aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
 
-				aShape->SetColor(Quantity_NOC_GRAY70); 
-				aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
-				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
-				// aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
-				// opcional
+// Drawer global (ou shaded->Attributes() se quiseres só para este objeto)
+Handle(Prs3d_Drawer) drawer = m_context->DefaultDrawer();
+
+// Ativa o desenho das face boundaries (as edges reais entre faces)
+drawer->SetFaceBoundaryDraw(Standard_True);
+
+// Configura cor e espessura das boundaries (ficam pretas e nítidas)
+Handle(Prs3d_Drawer) objDrawer = aShape->Attributes();
+objDrawer->SetFaceBoundaryDraw(Standard_True);
+objDrawer->SetFaceBoundaryAspect(new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 1.8)); // 1.0 a 1.5 costuma ficar bom
+
+// Crucial: suprime as boundaries com continuidade alta (seams suaves, como em cilindros ou fillets)
+drawer->SetFaceBoundaryUpperContinuity(GeomAbs_C2);  // ou GeomAbs_C2 para esconder ainda mais seams suaves
+// GeomAbs_C0 = mostra tudo (arestas "duras" só)
+// GeomAbs_C1 = esconde seams tangentes (bom para cilindros)
+// GeomAbs_C2 = esconde mais (fillets suaves)
+
+// Desativa isoparamétricas (linhas U/V da triangulação)
+drawer->SetIsoOnTriangulation(Standard_False);
+
+// m_view->SetZClippingDepth(1.0);
+// m_view->SetZClippingWidth(2000.0);
+
+m_context->SetPolygonOffsets(
+        aShape,
+        Aspect_POM_Fill,   // mode: fill + edges
+        0,             // factor
+        0,             // units
+        0     // update viewer immediately
+    );
+
+// Display
+// m_context->Display(shaded, Standard_True);
+if(0 &&vlua[i]->name=="framev"){
+// 	Graphic3d_ZLayerId edgeLayer;  // ou int edgeLayer; (Graphic3d_ZLayerId é um enum int)
+
+// // Cria uma nova ZLayer custom (inserida antes da Graphic3d_ZLayerId_Top)
+// m_viewer->AddZLayer(edgeLayer);  // edgeLayer recebe o novo ID
+
+// // Atribui esta layer ao teu AIS_Shape (todo o objeto vai para esta layer)
+// m_context->SetZLayer(aShape, edgeLayer);
+
+	// cotm2("framev")
+// 			    m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         0.5,             // factor
+//         2,             // units
+//         0     // update viewer immediately
+//     );
+// }else{
+// m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         1,             // factor
+//         -1,             // units
+//         0     // update viewer immediately
+//     );
+
+
+// #include <Graphic3d_ZLayerSettings.hxx>
+// #include <Graphic3d_PolygonOffset.hxx>
+
+// Cria ID para nova layer (inserida antes da Top por defeito)
+Graphic3d_ZLayerId myEdgeLayer;
+m_viewer->AddZLayer(myEdgeLayer);  // retorna o ID
+
+// Obtém as settings da layer para modificar
+Graphic3d_ZLayerSettings layerSettings = m_viewer->ZLayerSettings(myEdgeLayer);
+
+// Configurações úteis para edges/overlay sem z-fighting
+layerSettings.SetEnableDepthTest(Standard_True);   // testa profundidade (normal)
+// layerSettings.SetEnableDepthWrite(Standard_False); // NÃO escreve profundidade → objetos por cima não ocultam os de trás (bom para linhas por cima)
+// layerSettings.SetClearDepth(Standard_False);       // não limpa depth buffer (se quiseres overlay puro, podes por True)
+
+// Polygon offset na layer inteira (empurra ligeiramente as linhas para a frente)
+Graphic3d_PolygonOffset offset;
+offset.Factor = 1.0;   // experimenta 0.5 a 2.0
+offset.Units  = 2.0;   // ajuda mais em zoom out extremo
+layerSettings.SetPolygonOffset(offset);
+// Ou conveniência: layerSettings.SetDepthOffsetPositive(); // offset mínimo positivo
+
+// Opcional: torna immediate para desenhar por último
+// layerSettings.SetImmediate(Standard_True);
+
+// Aplica as settings
+m_viewer->SetZLayerSettings(myEdgeLayer, layerSettings);
+
+// Atribui ao teu objeto (ou só às edges se separares)
+m_context->SetZLayer(aShape, myEdgeLayer);
+// m_context->Redisplay(aShape, Standard_True);
+
+}
+}
+if(0){
+m_context->Remove(aShape,0);
+// Handle(AIS_Shape) &obj = aShape;
+// m_context->Remove(obj,0);
+// m_context->Erase(obj,0);
+
+// Garantir triangulação (obrigatório para PolyAlgo)
+BRepMesh_IncrementalMesh(aShape->Shape(), 0.5);
+
+Handle(AIS_Shape) obj = new AIS_Shape(aShape->Shape());
+
+// HLR exige Shaded
+obj->SetDisplayMode(AIS_Shaded);
+
+Handle(Prs3d_Drawer) dr = obj->Attributes();
+
+// 1) HLR rápido
+dr->SetTypeOfHLR(Prs3d_TOH_PolyAlgo);
+
+// 2) NÃO desenhar faces
+dr->SetFaceBoundaryDraw(Standard_False);
+dr->SetWireDraw(Standard_True);
+
+// 3) Wire aspect explícito (CRUCIAL)
+Handle(Prs3d_LineAspect) wire =
+    new Prs3d_LineAspect(
+        Quantity_NOC_BLACK,
+        Aspect_TOL_SOLID,
+        1.0
+    );
+
+dr->SetWireAspect(wire);
+
+// NÃO definir HiddenLineAspect → linhas escondidas não aparecem
+
+m_context->Display(obj, Standard_True);
+}
+if(0){
+m_context->Remove(aShape,0);
+// Handle(AIS_Shape) visible = new AIS_Shape(aShape);  // ou AIS_ColoredShape se quiseres cores custom
+
+// aShape->SetTransparency(1.0);        // remove fill completamente
+aShape->SetDisplayMode(AIS_Shaded);  // mantém shaded para boundaries funcionarem bem
+
+Handle(Prs3d_Drawer) drawer = m_context->DefaultDrawer();
+drawer->SetFaceBoundaryDraw(Standard_True);
+
+Handle(Prs3d_LineAspect) boundaryAspect = drawer->FaceBoundaryAspect();
+boundaryAspect->SetColor(Quantity_NOC_BLACK);
+boundaryAspect->SetWidth(1.5);  // ou 3 como tinhas
+
+drawer->SetIsoOnTriangulation(Standard_False);
+drawer->SetFreeBoundaryDraw(Standard_False);
+drawer->SetUnFreeBoundaryDraw(Standard_False);
+
+// Para prismas/extrusões poligonais, normalmente não precisas de continuity filter (já ficam clean)
+
+m_context->Display(aShape, 0);
+}
+
+
+
+
 			}
-
 			m_context->Redisplay(aShape, 0);
+			// FixZPrecisionAndGhostLines_793(m_context,m_view,aShape);
 		}
 
 		perf1("toggle_shaded_transp");
@@ -3564,12 +4271,12 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
 		if (!hlr_on)return;
 		// perf1();
-		projectAndDisplayWithHLR_P(shapes,isDragonly);
-		// projectAndDisplayWithHLR_lp(shapes,isDragonly);
+		// projectAndDisplayWithHLR_P(shapes,isDragonly);
+		projectAndDisplayWithHLR_lp(shapes,isDragonly);
 		// projectAndDisplayWithHLR_ntw(shapes,isDragonly);
 		// perf1("hlr");
 	}
-	#define ENABLE_PARALLEL 0
+	// #define ENABLE_PARALLEL 1
 	void projectAndDisplayWithHLR_ntw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 		// perf1();
@@ -3669,7 +4376,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		BRepBuilderAPI_Transform visT(vEdges, invTrsf);
 		TopoDS_Shape result = visT.Shape();
 
-		// 6. Mostrar ou atualizar AIS_Shape
+		// 6. Mostrar ou atualizar AIS_ColoredShape
 		if (!visible_.IsNull()) {
 			if (!visible_->Shape().IsEqual(result)) {
 				visible_->SetShape(result);
@@ -3688,7 +4395,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		// perf1("elapsed hlr1");
 	}
 
-	// #define ENABLE_PARALLEL
+	// #define ENABLE_PARALLEL 1
 	// less precision
 	void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
@@ -3788,7 +4495,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		BRepBuilderAPI_Transform visT(vEdges, invTrsf);
 		TopoDS_Shape result = visT.Shape();
 
-		// 6. Mostrar ou atualizar AIS_Shape
+		// 6. Mostrar ou atualizar AIS_ColoredShape
 		if (!visible_.IsNull()) {
 			if (!visible_->Shape().IsEqual(result)) {
 				visible_->SetShape(result);
@@ -3868,7 +4575,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 		visible_ = new AIS_NonSelectableShape(transformedShape);
 
         m_context->Deactivate(visible_);
-		// visible_ = new AIS_Shape(transformedShape);
+		// visible_ = new AIS_ColoredShape(transformedShape);
 		visible_->SetColor(Quantity_NOC_BLACK);
 		visible_->SetWidth(3);
 		m_context->Display(visible_, false);
@@ -4309,7 +5016,7 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 
 #include <AIS_AnimationCamera.hxx>
 #include <AIS_InteractiveContext.hxx>
-#include <AIS_Shape.hxx>
+#include <AIS_ColoredShape.hxx>
 
 #include <Aspect_Window.hxx>
 
@@ -4343,7 +5050,7 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 // static void animation_update(void* userdata);
 
 // ---- Compute center of shapes actually visible in the viewport (without changing selection) ----
-#include <AIS_Shape.hxx>
+#include <AIS_ColoredShape.hxx>
 #include <AIS_ListOfInteractive.hxx>
 #include <AIS_DisplayStatus.hxx>
 #include <SelectMgr_ViewerSelector.hxx>
@@ -4412,7 +5119,7 @@ static gp_Pnt computeVisibleCenter(OCC_Viewer* occv)
                 shp = brepOwner->Shape();
             } else {
                 Handle(SelectMgr_SelectableObject) so = owner->Selectable();
-                Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(so);
+                Handle(AIS_ColoredShape) ais = Handle(AIS_ColoredShape)::DownCast(so);
                 if (!ais.IsNull()) shp = ais->Shape();
             }
             selector->Clear();
@@ -4435,7 +5142,7 @@ static gp_Pnt computeVisibleCenter(OCC_Viewer* occv)
 
     for (AIS_ListOfInteractive::Iterator it(disp); it.More(); it.Next()) {
         const Handle(AIS_InteractiveObject)& obj = it.Value();
-        Handle(AIS_Shape) ais = Handle(AIS_Shape)::DownCast(obj);
+        Handle(AIS_ColoredShape) ais = Handle(AIS_ColoredShape)::DownCast(obj);
         if (ais.IsNull()) continue;
 
         const TopoDS_Shape& shp = ais->Shape();
@@ -5201,10 +5908,10 @@ lua.set_function("Origin", [occv](Standard_Real x=0,Standard_Real y=0,Standard_R
 	if (current_part)current_part->redisplay();
 		// cotm2("origin",x)
 		// occv->Origintrsf.
+		if(x==0 && y==0 && z==0){occv->Origin=TopLoc_Location(); return;}
 		gp_Trsf tr;
-tr.SetTranslation(gp_Vec(x, y, z));
+		tr.SetTranslation(gp_Vec(x, y, z));
 		occv->Origin=TopLoc_Location(tr);
-
 
 });
 lua.set_function("Fuse", [&]() { 
@@ -6115,9 +6822,9 @@ lua.set_function("Connect_v1", [&](const std::string& s) {
                    "Expected: \"partName index nx,ny,nz cx,cy,cz area\"");
     }
 
-    Handle(AIS_Shape) aisShape = current_part->ashape;
+    Handle(AIS_ColoredShape) aisShape = current_part->ashape;
     if (aisShape.IsNull())
-        luaL_error(lua.lua_state(), "Current part has no AIS_Shape");
+        luaL_error(lua.lua_state(), "Current part has no AIS_ColoredShape");
 
     // Full owner shape in raw model space
     TopoDS_Shape fullRaw = aisShape->Shape();
@@ -6260,8 +6967,8 @@ lua.set_function("Fuse1", [&](OCC_Viewer::luadraw* tofuse2){
 		}
 		// tofuse1->update_placement();
 		// tofuse2->update_placement();
-		// Handle(AIS_Shape) af1 = tofuse1->ashape;
-		// Handle(AIS_Shape) af2 = tofuse2->ashape;
+		// Handle(AIS_ColoredShape) af1 = tofuse1->ashape;
+		// Handle(AIS_ColoredShape) af2 = tofuse2->ashape;
 		TopoDS_Shape ts1 = tofuse1->shape;
 		TopoDS_Shape ts2 = tofuse2->shape;
 
@@ -6443,11 +7150,38 @@ void clearAll(OCC_Viewer* occv){
 	occv->ulua.clear();
 	occv->vlua.clear();
 
-	gp_Trsf tr;
-	tr.SetTranslation(gp_Vec(0, 0, 0));  // no move
-	occv->Origin=TopLoc_Location(tr);
+	// gp_Trsf tr;
+	// tr.SetTranslation(gp_Vec(0, 0, 0));  // no move
+	// occv->Origin=TopLoc_Location(tr);
+	occv->Origin = TopLoc_Location(); //reset
 }
 
+// #include <AIS_Shape.hxx>
+// #include <BRepMesh_IncrementalMesh.hxx>
+// #include <TopoDS_Shape.hxx>
+
+// Refine tessellation for all AIS_Shapes in a vector
+void RefineAISShapes(std::vector<Handle(AIS_ColoredShape)>& shapes,
+                     double deflection = 0.000001,
+                     bool isRelative = 1)
+{
+    for (auto& aisShape : shapes)
+    {
+        if (aisShape.IsNull()) continue;
+
+        // Get the underlying TopoDS_Shape
+        TopoDS_Shape topo = aisShape->Shape();
+
+        // Apply remeshing (triangulation)
+        BRepMesh_IncrementalMesh(topo, deflection, isRelative);
+
+        // Update AIS_Shape with the remeshed geometry
+        aisShape->Set(topo);
+
+        // Optional: recompute presentation
+        aisShape->Redisplay(Standard_True);
+    }
+}
 
 
 void lua_str(const string &str, bool isfile) {
@@ -6497,7 +7231,36 @@ void lua_str(const string &str, bool isfile) {
                 lua_pop(L, 1);
             }
 			perf("lua");
+
             Fl::awake(fillbrowser);
+
+
+
+
+
+// gp_Trsf scaleTrsf;
+// scaleTrsf.SetScale(gp_Pnt(0,0,0), 10.0); // scale 10x around origin
+
+// for (auto& aisShape : occv->vaShape) {
+//     // Get the underlying TopoDS_Shape
+//     TopoDS_Shape original = aisShape->Shape();
+
+//     // Apply scaling to geometry
+//     BRepBuilderAPI_Transform geomTrsf(original, scaleTrsf);
+//     TopoDS_Shape scaledGeom = geomTrsf.Shape();
+
+//     // Replace geometry in AIS_Shape
+//     aisShape->Set(scaledGeom);
+
+//     // Apply same scaling to AIS local transformation
+//     aisShape->SetLocalTransformation(scaleTrsf * aisShape->LocalTransformation());
+// }
+
+
+			// RefineAISShapes(occv->vaShape);
+
+
+
         } else {
             std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
             lua_pop(L, 1);
@@ -6938,7 +7701,7 @@ static Fl_Menu_Item items[] = {
 	{0}	 // End marker
 };
 
-// Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
+// Handle(AIS_ColoredShape) aisShape = new AIS_ColoredShape(shape);
 // // ... use aisShape ...
 // aisShape.Nullify();
 // BRepTools::Clean();
@@ -6966,6 +7729,51 @@ std::cout << "Direction: (" << direction.X() << ", "
 
 
 std::string load_app_font(const std::string& filename);
+
+
+
+
+int checkdepthbit()
+{
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) {
+        std::cerr << "Failed to open X display\n";
+        return 1;
+    }
+
+    int screen = DefaultScreen(dpy);
+    int fbcount = 0;
+    GLXFBConfig* fbc = glXGetFBConfigs(dpy, screen, &fbcount);
+
+    if (!fbc) {
+        std::cerr << "No FBConfigs found\n";
+        return 1;
+    }
+
+    std::cout << "Found " << fbcount << " framebuffer configs\n";
+
+    for (int i = 0; i < fbcount; ++i) {
+        int depthSize = 0;
+        int redSize = 0, greenSize = 0, blueSize = 0;
+
+        glXGetFBConfigAttrib(dpy, fbc[i], GLX_DEPTH_SIZE, &depthSize);
+        glXGetFBConfigAttrib(dpy, fbc[i], GLX_RED_SIZE, &redSize);
+        glXGetFBConfigAttrib(dpy, fbc[i], GLX_GREEN_SIZE, &greenSize);
+        glXGetFBConfigAttrib(dpy, fbc[i], GLX_BLUE_SIZE, &blueSize);
+
+        std::cout << "FBConfig " << i
+                  << " Depth=" << depthSize
+                  << " R=" << redSize
+                  << " G=" << greenSize
+                  << " B=" << blueSize
+                  << "\n";
+    }
+
+    XFree(fbc);
+    XCloseDisplay(dpy);
+    return 0;
+}
+
 int main(int argc, char** argv) {
 	test();
 	// pausa
@@ -6980,7 +7788,7 @@ int main(int argc, char** argv) {
 
 	Fl::visual(FL_DOUBLE | FL_INDEX);
 	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
-
+// Fl::gl_visual(64);
 	Fl::scheme("oxy");	
 	
 	Fl_Group::current(content);
@@ -7025,7 +7833,7 @@ int main(int argc, char** argv) {
 	Fl_Group::current(content);
 	fbm = new fl_browser_msv(firstblock, 22, secondblock, h - 22-htable);
 	fbm->box(FL_UP_BOX);
-	fbm->color(FL_GRAY);
+	fbm->color(FL_WHITE);
 	fbm->scrollbar_size(1);
 	Fl_Scrollbar &vsb = fbm->scrollbar;  // vertical scrollbar 
 	vsb.selection_color(FL_RED); 
@@ -7074,5 +7882,6 @@ int main(int argc, char** argv) {
 		occv->sbt[7].occbtn->do_callback(); 
 		},
 		0);  
+		// checkdepthbit();
 	return Fl::run();
 }

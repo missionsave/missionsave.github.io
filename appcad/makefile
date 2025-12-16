@@ -144,9 +144,43 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 	
 
+	LDFLAGS+= -ltbb
 	# dynamic
-	CXXFLAGS+= -I/usr/include/opencascade	
-	LDFLAGS+= -lTKFillet -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKBRep -lTKMesh -lTKOffset
+# 	CXXFLAGS+= -I/usr/include/opencascade
+	CXXFLAGS+= -I/opt/occt-7_9_3/include/opencascade
+	LDFLAGS+= -L/opt/occt-7_9_3/lib
+# 	LDFLAGS+= -lTKFillet -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKBRep -lTKMesh -lTKOffset
+
+	LDFLAGS+= \
+  -lTKOpenGl \
+  -lTKV3d \
+  -lTKService \
+  -lTKDESTEP \
+  -lTKDEIGES \
+  -lTKDE \
+  -lTKXSBase \
+  -lTKXCAF \
+  -lTKCAF \
+  -lTKCDF \
+  -lTKOffset \
+  -lTKBO \
+  -lTKBool \
+  -lTKFillet \
+  -lTKFeat \
+  -lTKShHealing \
+  -lTKPrim \
+  -lTKTopAlgo \
+  -lTKBRep \
+  -lTKGeomAlgo \
+  -lTKGeomBase \
+  -lTKG3d \
+  -lTKG2d \
+  -lTKHLR \
+  -lTKMesh \
+  -lTKMath \
+  -lTKStd \
+  -lTKernel
+
 
 	# static
 	# LDFLAGS+= -L../common/opencascade_lin/lib	
@@ -159,7 +193,7 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+=  -lsqlite3 
 	LDFLAGS+= -lfltk_gl -lfltk -lfontconfig
 	LDFLAGS+=  -lX11
-	LDFLAGS+= -lGL -lGLU
+	LDFLAGS+= -lGL -lGLU -lGLEW
 	# LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a 
 	# LDFLAGS+= -l:libfltk_gl.so -l:libfltk.so 
 	# LDFLAGS += -lwayland-client -lwayland-cursor -lwayland-egl
@@ -178,6 +212,8 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+= -lz -lpthread -ldl -lm -lrt -lstdc++
 	# LDFLAGS+= -lfreetype
 	# LDFLAGS+=  -l:libstdc++.a
+
+	export LD_LIBRARY_PATH=/opt/occt-7_9_3/lib:$$LD_LIBRARY_PATH
 
 endif
 ifeq ($(OS_NAME), Arm)
