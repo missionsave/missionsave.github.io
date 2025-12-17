@@ -110,14 +110,15 @@ Movel(-71,170,-70-15)
 
 Part sketch_arm_1
 Pl 0,0 280,0 @0,6 @-280,0 0,0
-Visible(1)
+Visible(0)
 
+Origin(0,0,0)
 Part robot_arm_1
 Pl 0,0 70,66 @70,-66 @70,66 @70,-80
 Offset 7
 Extrude (56) 
 Movel(-285,170-7,-100)
---error()
+error()
 --FilletToAllEdges(2)
 Rotatelx(90)
 --
@@ -478,10 +479,10 @@ Movel(0,tunel_height*2)
 
 end
 
-robot1()
 
  struct()
 
+--robot1()
 
 function elevator()
 Part elv

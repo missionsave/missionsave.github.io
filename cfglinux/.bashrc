@@ -6,7 +6,7 @@
 # Caminho padr�o
 export PATH="$PATH:/$HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/super/desk/missionsave/robot_driver/openvino_toolkit_ubuntu20_2025.0.0.17942.1f68be9f594_x86_64/runtime/lib/intel64"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/super/desk/missionsave/robot_driver/openvino_toolkit_ubuntu20_2025.0.0.17942.1f68be9f594_x86_64/runtime/lib/intel64:/opt/occt-7_9_3/lib"
 
 export PATH="$PATH:/usr/lib/x86_64-linux-gnu"
 

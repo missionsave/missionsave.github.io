@@ -303,6 +303,7 @@ public:
         in_resize = false;
     }
 };
+Fl_Double_Window* win;
 Fl_Menu_Bar* menu;
 Fl_Group* content; 
 fl_browser_msv* fbm;
@@ -7257,7 +7258,7 @@ void lua_str(const string &str, bool isfile) {
 // }
 
 
-			// RefineAISShapes(occv->vaShape);
+			// RefineAISShapes(occv->vaShape,0.0000001,0);
 
 
 
@@ -7675,8 +7676,48 @@ static Fl_Menu_Item items[] = {
 	 (void*)menu},
 	{0},
 
-	{"&Help", 0, 0, 0, FL_SUBMENU},
-	{"&About v2", 0, ([](Fl_Widget*, void* v) {
+	// {"&Help", 0, 0, 0, FL_SUBMENU},
+	// {"&About v2", 0, ([](Fl_Widget*, void* v) {
+	// 	 // // lua_init();
+	// 	 // // getallsqlitefuncs();
+	// 	 // string val=getfunctionhelp();
+	// 	 // cot1(val);
+	// 	 // fl_message(val.c_str());
+	//  }),
+	//  (void*)menu},
+	// {0},
+
+
+	{"&Help", 0, ([](Fl_Widget*, void* v) { 
+		// win->begin();
+		Fl_Group::current(nullptr);  // clear current group
+
+Fl_Window* fhelp = new Fl_Window(
+    win->x() + win->w()/4,   // position relative to parent
+    win->y() + win->h()/4,
+    win->w()/2, win->h()/2,
+    "Help"
+);
+// fhelp->set_menu_window();
+
+// make it a child of 'parent' so no new taskbar icon
+fhelp->set_modal();   // owned by parent, not independent
+
+Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
+fh->value("<html><body><h2>Help</h2><br>\
+	ctrl + mouse click = go to code of Part bellow mouse cursor<br>\
+	</body></html>");
+
+fhelp->end();
+fhelp->show();
+
+	 }),
+	 (void*)menu},
+	{0},
+
+	{"&test", 0, ([](Fl_Widget*, void* v) {
+		 cotm("test")
+		//  WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test.stl");
 		 // // lua_init();
 		 // // getallsqlitefuncs();
 		 // string val=getfunctionhelp();
@@ -7686,17 +7727,6 @@ static Fl_Menu_Item items[] = {
 	 (void*)menu},
 	{0},
 
-	{"&test", 0, ([](Fl_Widget*, void* v) {
-		 cotm("test")
-		 WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test.stl");
-		 // // lua_init();
-		 // // getallsqlitefuncs();
-		 // string val=getfunctionhelp();
-		 // cot1(val);
-		 // fl_message(val.c_str());
-	 }),
-	 (void*)menu},
-	{0},
 
 	{0}	 // End marker
 };
@@ -7808,7 +7838,8 @@ int main(int argc, char** argv) {
 	int lastblock = w - firstblock - secondblock;
 
 	// Fl_Window* win = new Fl_Window(0, 0, w, h, "simplecad");
-	Fl_Double_Window* win = new Fl_Double_Window(0, 0, w, h, "simplecad"); 
+	// Fl_Double_Window* win = new Fl_Double_Window(0, 0, w, h, "simplecad"); 
+	win = new Fl_Double_Window(0, 0, w, h, "simplecad"); 
 	win->color(FL_RED);
 	win->callback([](Fl_Widget* widget, void*) {
 		if (Fl::event() == FL_SHORTCUT && Fl::event_key() == FL_Escape) return;
