@@ -10,8 +10,23 @@ function test8()
 	--Extrude(60)
 	----Movel(150)
 	----compound()
+Origin (230,0,0)
+Part t1
+Pl 0,0 10,0 @0,10 @-10,0 0,0
+Offset (-3)
+Extrude 10
+
+--Part t2
+Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
+Offset (-3)
+--Visible(0)
+Extrude (10)
+Fuse()
+	
+	
 end
 --test8()
+--error()
 --test31()
 
 
@@ -206,7 +221,7 @@ end
 
 function struct()
 
-Origin(0,0,0)
+--Origin(0,0,0)
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
@@ -490,11 +505,11 @@ Clone sketch_profile
 Extrude(container_height)
 Rotatelx(-90)
 Rotately(-90)
-Movel(container_midle-120/2,0,-fcompartment)
+Movel(container_midle,0,-fcompartment)
 
 
 end
---elevator()
+elevator()
 
 
 

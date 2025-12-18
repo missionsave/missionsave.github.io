@@ -72,6 +72,10 @@ EOF
 echo "$plugin_content"  #> "$plugin_file"
 }
 
+drop_caches(){
+sudo sh -c "echo 3 > /proc/sys/vm/drop_caches"
+}
+
 xclip1() {
   if [[ "$*" == *"-selection clipboard"* ]]; then
     echo "$(command xclip -o -sel clip)" >> ~/.clip_history
