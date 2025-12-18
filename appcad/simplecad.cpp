@@ -1,5 +1,6 @@
 
 #include "includes.hpp"
+#include <Aspect_NeutralWindow.hxx>
 #include <OpenGl_FrameBuffer.hxx>
 #include <OpenGl_Context.hxx>
 #include <OpenGl_View.hxx>
@@ -63,7 +64,7 @@
 
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
-// #define flwindow Fl_Gl_Window  
+#define flwindow Fl_Gl_Window  
 
 #define cotm2(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
 #define cotm1(...) 
@@ -411,6 +412,8 @@ struct OCC_Viewer : public flwindow {
 	// Handle(OpenGl_Context) ctx;
 	Handle(OpenGl_Context) glCtx;
 	Handle(OpenGl_View) glView;
+	Handle(OpenGl_Context)      m_glContext;  // cached shared context
+	Handle(OpenGl_View)         m_glView;    // cached OpenGl_View
 	Handle(V3d_View) m_view;
 	Handle(AIS_Trihedron) trihedron0_0_0;
 	bool m_initialized = false;
@@ -431,13 +434,137 @@ struct OCC_Viewer : public flwindow {
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
  // Request a 32-bit depth buffer if supported
+		
+        mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
+        // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // Fl::gl_visual(32);
 		Fl::add_timeout(10, idle_refresh_cb, 0);
 	}
+void initialize_opencascade_() {
+    // Get native window handle and create OCCT window
+#ifdef _WIN32
+    Fl::wait();
+    make_current();
+    HWND hwnd = (HWND)fl_xid(this);
+    Handle(WNT_Window) wind = new WNT_Window(hwnd);
+    m_display_connection = new Aspect_DisplayConnection("");
+#else
+    Window win = (Window)fl_xid(this);
+    Display* display = fl_display;
+    m_display_connection = new Aspect_DisplayConnection(display);
+    Handle(Xw_Window) wind = new Xw_Window(m_display_connection, win);
+#endif
+
+    // Create graphic driver and viewer
+    m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
+
+    m_viewer = new V3d_Viewer(m_graphic_driver);
+    m_viewer->SetDefaultLights();
+    m_viewer->SetLightOn();
+
+    m_context = new AIS_InteractiveContext(m_viewer);
+
+    m_view = m_viewer->CreateView();
+    m_view->SetWindow(wind);
+
+    // Rendering quality settings
+    m_context->SetDeviationCoefficient(0.01);
+    m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
+
+    // Immediate mode off for better control
+    m_view->SetImmediateUpdate(Standard_False);
+
+    // Highlight and selection setup
+    SetupHighlightLineType(m_context);
+
+    // Trihedron (axes)
+    m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.08);
+
+    gp_Ax2 axes(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1), gp_Dir(1, 0, 0));
+    Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(axes);
+    trihedron0_0_0 = new AIS_Trihedron(placement);
+    trihedron0_0_0->SetSize(25.0);
+    m_context->Display(trihedron0_0_0, Standard_False);
+
+    // Selection tolerance
+    m_context->MainSelector()->AllowOverlapDetection(0);
+    m_context->SetPixelTolerance(2);
+
+    // Edge aspects (custom line style/thickness)
+    m_context->DefaultDrawer()->SetLineAspect(edgeAspect);
+    m_context->DefaultDrawer()->SetSeenLineAspect(edgeAspect);
+    m_context->DefaultDrawer()->SetFaceBoundaryAspect(edgeAspect);
+    m_context->DefaultDrawer()->SetWireAspect(edgeAspect);
+    m_context->DefaultDrawer()->SetUnFreeBoundaryAspect(edgeAspect);
+    m_context->DefaultDrawer()->SetFreeBoundaryAspect(edgeAspect);
+
+    // Background and rendering params
+    m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
+
+    m_view->ChangeRenderingParams().IsTransparentShadowEnabled = Standard_False;
+    m_view->ChangeRenderingParams().ToEnableDepthPrepass = Standard_True;
+
+    m_view->SetAutoZFitMode(Standard_True, 0.99);
+
+    // Force initial resize and fit
+    m_view->MustBeResized();
+    m_view->FitAll();
+
+    // Cache OpenGL context and view
+    m_glContext = m_graphic_driver->GetSharedContext();
+    m_glView    = Handle(OpenGl_View)::DownCast(m_view->View());
+
+    if (m_glContext.IsNull() || m_glView.IsNull()) {
+        std::cerr << "Failed to retrieve OpenGL context or view!" << std::endl;
+        return;
+    }
+
+    // Create custom FBO with 32-bit float depth
+    m_fbo = new OpenGl_FrameBuffer();
+
+    Standard_Integer w = this->w();
+    Standard_Integer h = this->h();
+
+    make_current();  // Ensure FLTK context is current before FBO init
+
+    if (!m_fbo->Init(m_glContext,Graphic3d_Vec2i(w, h), GL_SRGB8_ALPHA8, GL_DEPTH32F_STENCIL8, 0))
+							  {
+        std::cerr << "Failed to initialize 32F depth FBO!" << std::endl;
+        m_fbo.Nullify();
+        // Continue with on-screen rendering as fallback
+    }
+	 else 
+	{
+        // Assign the FBO to the view — now OCCT will render into it
+        m_glView->SetFBO(m_fbo);
+
+        // Optional: verify depth precision
+        m_fbo->BindBuffer(m_glContext);
+		GLenum err = glewInit();
+        GLint depthBits = 0;
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER,
+                                              GL_DEPTH_ATTACHMENT,
+                                              GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE,
+                                              &depthBits);
+        std::cout << "Custom FBO depth precision: " << depthBits << " bits (should be 32)" << std::endl;
+        m_fbo->UnbindBuffer(m_glContext);
+    }
+
+    setbar5per();
+    toggle_shaded_transp(currentMode);
+// pausa
+    m_initialized = true;
+
+    redraw();  // Trigger first draw
+}
+
+
+
 
 	void initialize_opencascade() {
-
+// Fl::wait();
+		make_current();
 
 		// perf();
 		// Get native window handle
@@ -456,7 +583,7 @@ struct OCC_Viewer : public flwindow {
 #endif
 		m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
 
-
+m_graphic_driver->ChangeOptions().buffersNoSwap = Standard_True;
 	
 		m_viewer = new V3d_Viewer(m_graphic_driver);
 		m_viewer->SetDefaultLights();
@@ -469,6 +596,36 @@ struct OCC_Viewer : public flwindow {
 
 			m_context->SetDeviationCoefficient(0.01);
 			m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
+
+			if(0){
+GLenum err = glewInit();
+if (err != GLEW_OK) {
+    std::cerr << "GLEW init failed: " << glewGetErrorString(err) << std::endl;
+}
+m_view->MustBeResized();
+    // Cache OpenGL context and view
+    m_glContext = m_graphic_driver->GetSharedContext();
+    m_glView    = Handle(OpenGl_View)::DownCast(m_view->View());
+
+    if (m_glContext.IsNull() || m_glView.IsNull()) {
+        std::cerr << "Failed to retrieve OpenGL context or view!" << std::endl;
+        return;
+    }
+
+	m_fbo = new OpenGl_FrameBuffer();
+
+    if (!m_fbo.IsNull()) {
+        bool success = createOrResizeFBO(w(), h());
+
+        if (success) {
+            m_glView->SetFBO(m_fbo);
+        } else {
+            m_fbo.Nullify();
+        }
+    }
+	cotm2(w(),h());
+
+}
 if(0){	
 
  m_view->MustBeResized(); // FORÇA criação do contexto GL
@@ -649,7 +806,7 @@ m_view->ChangeRenderingParams().ToEnableDepthPrepass = Standard_True;
 // 				cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective); // switch to perspective
 // cam->SetFOVy(45.0 * M_PI / 180.0); // optional: vertical FOV (radians)
 
-		m_view->SetAutoZFitMode(Standard_True, 0.99);
+		m_view->SetAutoZFitMode(Standard_True, 1);
 		// m_view->SetAutoZFitMode(Standard_False);
 //  glDepthFunc(GL_GREATER); 
 // cam->SetZRange( 1000,10000);
@@ -779,8 +936,17 @@ void setupProjection(int w, int h)
 
 //     glDisable(GL_POLYGON_OFFSET_LINE);
 // }
-void draw() override
+void show() override {
+    Fl_Gl_Window::show();
+    if (!m_initialized) {
+        initialize_opencascade();
+    }
+}
+void draw () override
 {
+	// if (!m_initialized && valid()) {
+    //     initialize_opencascade();
+    // }
     if (!m_initialized) return;
 
     glEnable(GL_DEPTH_TEST);
@@ -840,12 +1006,43 @@ void draw() override
     // ----------------- Draw the scene -----------------
 
 // m_view->SetZoom(30.0);
-    m_view->Update();
+    m_view->Redraw();
 
     glDisable(GL_POLYGON_OFFSET_LINE);
 }
+void draw_() {
+    make_current();
 
- 
+    if (!m_initialized || m_glContext.IsNull()) {
+        return;
+    }
+
+    int winW = w();
+    int winH = h();
+
+    if (!m_fbo.IsNull()) {
+        // Render into custom FBO
+        m_fbo->BindBuffer(m_glContext);
+        glViewport(0, 0, winW, winH);
+
+        // Let OCCT handle clearing (background color is already set)
+        m_view->Redraw();
+
+        m_fbo->UnbindBuffer(m_glContext);
+
+        // Blit to window - correct orientation (no manual Y-flip needed)
+        m_fbo->BindReadBuffer(m_glContext);
+        glBlitFramebuffer(0, 0, winW, winH,
+                          0, 0, winW, winH,
+                          GL_COLOR_BUFFER_BIT,
+                          GL_NEAREST);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    } else {
+        // Direct rendering fallback
+		cotm(3)
+        m_view->Redraw();
+    }
+}
 // void draw() override
 // {
 //     if (!m_initialized) return;
@@ -903,7 +1100,70 @@ void draw() override
 // }
 
 
+bool createOrResizeFBO(int width, int height)
+{
+    if (width <= 0 || height <= 0) return false;
 
+    make_current();  // Critical!
+
+	// if(!m_fbo->IsNull())m_fbo.Nullify()
+	if (m_glContext.IsNull()) return 0;
+
+    // Temporarily detach FBO to prevent OCCT rendering into broken state
+    if (!m_fbo.IsNull()) {
+        m_glView->SetFBO(Handle(OpenGl_FrameBuffer)());  // null handle = default window FB
+    };
+
+	// Now safely re-create FBO with new size
+    // if (!m_fbo.IsNull()) {
+    //     bool success = createOrResizeFBO(width, height);
+
+    //     if (success) {
+    //         m_glView->SetFBO(m_fbo);
+    //     } else {
+    //         m_fbo.Nullify();
+    //     }
+    // }
+
+    // Fallback 1: RGBA8 + 32F depth/stencil
+    if (m_fbo->Init(m_glContext,
+                    Graphic3d_Vec2i(width, height),
+                    GL_RGBA8,
+                    GL_DEPTH32F_STENCIL8,
+                    0))
+    {
+        std::cout << "FBO created: RGBA8 + DEPTH32F_STENCIL8" << std::endl;
+        return true;
+    }
+
+
+    // First try the best format: sRGB + 32F depth/stencil
+    if (m_fbo->Init(m_glContext,
+                    Graphic3d_Vec2i(width, height),
+                    GL_SRGB8_ALPHA8,
+                    GL_DEPTH32F_STENCIL8,
+                    0))
+    {
+        std::cout << "FBO created: sRGB8_ALPHA8 + DEPTH32F_STENCIL8" << std::endl;
+        return true;
+    }
+
+
+
+    // Fallback 2: sRGB + 32F depth only (no stencil)
+    if (m_fbo->Init(m_glContext,
+                    Graphic3d_Vec2i(width, height),
+                    GL_SRGB8_ALPHA8,
+                    GL_DEPTH_COMPONENT32F,
+                    0))
+    {
+        std::cout << "FBO created: sRGB8_ALPHA8 + DEPTH_COMPONENT32F" << std::endl;
+        return true;
+    }
+
+    std::cerr << "All FBO formats failed!" << std::endl;
+    return false;
+}
 
 
 	void resize(int X, int Y, int W, int H) override {
@@ -921,6 +1181,21 @@ void draw() override
 			// lop(i, 0, sbt.size()) {	sbt[i].occbtn->size(sbt[i].occbtn->w(),24);}
 			
 	// woccbtn->size(W-40, 24);
+
+// if (m_glContext.IsNull()) return;
+
+//     // Detach FBO first — prevents rendering into potentially broken state
+//     m_glView->SetFBO(Handle(OpenGl_FrameBuffer)());
+
+//     bool success = createOrResizeFBO(W, H);
+
+//     if (success) {
+//         m_glView->SetFBO(m_fbo);
+//     } else {
+//         m_fbo.Nullify();  // Force fallback to on-screen
+//     }
+
+
 			m_view->MustBeResized();
 			setbar5per();
 			// redraw(); 
@@ -7704,9 +7979,48 @@ Fl_Window* fhelp = new Fl_Window(
 fhelp->set_modal();   // owned by parent, not independent
 
 Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
-fh->value("<html><body><h2>Help</h2><br>\
-	ctrl + mouse click = go to code of Part bellow mouse cursor<br>\
-	</body></html>");
+fh->textfont(0);
+fh->value("<html><body>\
+<h2>Keys:</h2>\
+<p><b>Ctrl + Mouse Click </b> Go to the code of the Part under the mouse cursor\
+<p><p>\ 
+<h2>Commands:</h2>\
+<p><b>Origin(x,y,z) </b> Move all subsequent Parts to the specified (x,y,z) relative to world coordinates until another Origin is defined\
+<p><b>Part [label] </b> Create a new Part with a label of your choice\
+<p><b>Clone([label],[copy placement]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+<p><b>Pl [coords] </b> Create polyline with coords Autocad style\
+</body></html>");
+
 
 fhelp->end();
 fhelp->show();
@@ -7808,6 +8122,7 @@ int checkdepthbit()
 int main(int argc, char** argv) {
 	test();
 	// pausa
+	Fl::set_font(FL_HELVETICA, "DejaVu Sans");
 	Fl::use_high_res_GL(1);
 	// setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
 	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION << "." << FL_PATCH_VERSION
@@ -7817,8 +8132,8 @@ int main(int argc, char** argv) {
 	// OSD_Parallel::SetUseOcctThreads(1);
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
-	Fl::visual(FL_DOUBLE | FL_INDEX);
-	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+	// Fl::visual(FL_DOUBLE | FL_INDEX);
+	// Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 // Fl::gl_visual(64);
 	Fl::scheme("oxy");	
 	
@@ -7900,16 +8215,17 @@ int main(int argc, char** argv) {
 	woccbtn->flush(); 
 	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
-	win->maximize();
-	// int x, y, _w, _h;
-	// Fl::screen_work_area(x, y, _w, _h);
-	// win->resize(x, y+22, _w, _h-22);   
-	occv->initialize_opencascade(); 
+	// win->maximize();
+	int x, y, _w, _h;
+	Fl::screen_work_area(x, y, _w, _h);
+	win->resize(x, y+22, _w, _h-22);   
+	// occv->initialize_opencascade(); 
 
-	lua_str(currfilename,1); //init
+	// lua_str(currfilename,1); //init
 	Fl::add_timeout(
 		0.7,
 		[](void* d) {
+	lua_str(currfilename,1); //init
 		occv->m_view->FitAll();				
 		occv->sbt[7].occbtn->do_callback(); 
 		},
