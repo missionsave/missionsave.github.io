@@ -435,6 +435,9 @@ struct OCC_Viewer : public flwindow {
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
         // Try to request 32-bit depth buffer
+		#if FL_ABI_VERSION<10500
+		#define FL_DEPTH32 FL_DEPTH
+		#endif
 		mode( FL_RGB8|FL_ALPHA | FL_DOUBLE | FL_ABI_VERSION>=10500?FL_DEPTH32:FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE); 
         if (!can_do(mode())) {
             fprintf(stderr, "FL_DEPTH32 not supported, falling back to FL_DEPTH\n");
