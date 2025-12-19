@@ -424,8 +424,8 @@ struct OCC_Viewer : public flwindow {
 	Handle(AIS_NonSelectableShape) visible_;
 	Handle(AIS_Shape) hidden_;
 
-	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
-	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 3.0);
+	Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_GRAY, Aspect_TOL_DASH, 0.2);
+	Handle(Prs3d_LineAspect) edgeAspect = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 1.5);
 	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_GREEN, Aspect_TOL_SOLID, 5.0);
 	Handle(Prs3d_Drawer) customDrawerp = new Prs3d_Drawer();
 
@@ -435,7 +435,7 @@ struct OCC_Viewer : public flwindow {
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
         // Try to request 32-bit depth buffer
-		mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH32 | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE); 
+		mode( FL_RGB8|FL_ALPHA | FL_DOUBLE | FL_ABI_VERSION>=10500?FL_DEPTH32:FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE); 
         if (!can_do(mode())) {
             fprintf(stderr, "FL_DEPTH32 not supported, falling back to FL_DEPTH\n");
             mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
@@ -4311,9 +4311,9 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 			Handle(Prs3d_Drawer) dr = new Prs3d_Drawer();
 
 			// 2) Linha tracejada vermelha, espessura 2
-			Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_BLUE,	// cor vermelha
+			Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_GRAY,	// cor vermelha
 																	Aspect_TOL_DASH,	// tipo: dash
-																	0.5					// espessura da linha
+																	0.3					// espessura da linha
 			);
 
 			// dr->SetWireAspect(wireAsp);
@@ -4453,7 +4453,7 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 			} else {
 				hlr_on = 0;
 	// 			// Mudar para modo sombreado
-	// 			// aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
 
 	// 			m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
@@ -4694,8 +4694,8 @@ m_context->Display(aShape, 0);
 	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
 		if (!hlr_on)return;
 		// perf1();
-		// projectAndDisplayWithHLR_P(shapes,isDragonly); 
-		projectAndDisplayWithHLR_lp(shapes,isDragonly);
+		projectAndDisplayWithHLR_P(shapes,isDragonly); 
+		// projectAndDisplayWithHLR_lp(shapes,isDragonly);
 		// projectAndDisplayWithHLR_ntw(shapes,isDragonly);
 		// perf1("hlr");
 	}
@@ -4789,7 +4789,7 @@ void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool i
     // 3. Meshing - use OCCT's built-in parallel mode (fastest & thread-safe)
     // Tune deflection higher (e.g. 0.01 - 0.1) for much faster meshing + HLR Update()
     // Lower values = more precision, many more polygons → slower Update()
-    Standard_Real deflection = 0.05;  // Adjust this for your speed/quality tradeoff
+    Standard_Real deflection = 0.02;  // Adjust this for your speed/quality tradeoff
 
     Standard_Real angularDeflection = 0.5;  // radians, controls curve discretization
 
@@ -5144,7 +5144,7 @@ void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool i
         m_context->Deactivate(visible_);
 		// visible_ = new AIS_Shape(transformedShape);
 		visible_->SetColor(Quantity_NOC_BLACK);
-		visible_->SetWidth(3);
+		visible_->SetWidth(1.5);
 		m_context->Display(visible_, false);
 
 		// Handle(Prs3d_LineAspect) lineAspect = new
