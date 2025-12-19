@@ -10,7 +10,7 @@ function test8()
 	--Extrude(60)
 	----Movel(150)
 	----compound()
-Origin (230,0,0)
+Origin (0,0,0)
 Part t1
 Pl 0,0 10,0 @0,10 @-10,0 0,0
 Offset (-3)
@@ -221,7 +221,7 @@ end
 
 function struct()
 
---Origin(0,0,0)
+Origin(0,0,0)
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0

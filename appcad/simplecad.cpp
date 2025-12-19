@@ -13,6 +13,7 @@
 #include <FL/Fl.H>
 
 #include <AIS_ColoredDrawer.hxx>
+#include <Aspect_DisplayConnectionDefinitionError.hxx>
 
 #include <AIS_AnimationCamera.hxx>
 #include <AIS_InteractiveContext.hxx>
@@ -433,9 +434,22 @@ struct OCC_Viewer : public flwindow {
 	gp_Trsf Origintrsf;
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
+        // Try to request 32-bit depth buffer
+		mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH32 | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE); 
+        if (!can_do(mode())) {
+            fprintf(stderr, "FL_DEPTH32 not supported, falling back to FL_DEPTH\n");
+            mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
+        }
+
+
+
+
  // Request a 32-bit depth buffer if supported
 		
-        mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
+        // cotm2(mode( FL_OPENGL3 | FL_DEPTH32 ));
+		// cotm2("mode")
+        // mode( FL_DEPTH | FL_STENCIL);
+        // mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH32 | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // Fl::gl_visual(32);
@@ -564,8 +578,18 @@ void initialize_opencascade_() {
 
 	void initialize_opencascade() {
 // Fl::wait();
+// pausa
 		make_current();
-
+// GLint depthBits = 0;
+// glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+//                                       GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
+// GLenum err = glGetError();
+// if (err == GL_NO_ERROR) {
+//     printf("Actual depth bits: %d\n", depthBits);
+// } else {
+//     printf("Query error: %u\n", err);
+// }
+// pausa
 		// perf();
 		// Get native window handle
 #ifdef _WIN32
@@ -578,8 +602,36 @@ void initialize_opencascade_() {
 		Window win = (Window)fl_xid((this));
 		Display* display = fl_display;
 
+
+// if (!glXQueryExtension(display, nullptr, nullptr)) {
+//     std::cerr << "GLX not available on this X server" << std::endl;
+//     // fallback: disable OCCT viewer or use offscreen rendering
+// }
+
+
+
 		m_display_connection = new Aspect_DisplayConnection(display);
 		Handle(Xw_Window) wind = new Xw_Window(m_display_connection, win);
+// pausa
+// 		// Handle(Xw_Window) wind;
+// 		bool success = false;
+// for (unsigned mode : {FL_OPENGL3 | FL_DEPTH32,
+//                       FL_OPENGL3 | FL_DEPTH,
+//                       FL_OPENGL3 | FL_DEPTH}) {
+//     this->mode(mode);
+//     this->make_current();
+//     try {
+//         wind = new Xw_Window(m_display_connection, win);
+//         success = true;
+//         break;
+//     } catch (Standard_Failure&) {
+//         // try next mode
+//     }
+// }
+// if (!success) {
+//     throw std::runtime_error("No suitable GL context found for OCCT");
+// }
+		
 #endif
 		m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
 
@@ -598,7 +650,7 @@ m_graphic_driver->ChangeOptions().buffersNoSwap = Standard_True;
 			m_context->SetDeviationCoefficient(0.01);
 			m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
 
-			if(0){
+if(0){
 GLenum err = glewInit();
 if (err != GLEW_OK) {
     std::cerr << "GLEW init failed: " << glewGetErrorString(err) << std::endl;
@@ -625,7 +677,7 @@ m_view->MustBeResized();
         }
     }
 	cotm2(w(),h());
-
+	zghost();
 }
 if(0){	
 
@@ -786,7 +838,8 @@ std::cout << "FBO depth bits = " << depthSize << std::endl;
 
 
 
-		m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
+		m_view->SetBackgroundColor(Quantity_NOC_WHITE);
+		// m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
 		setbar5per();
 
 
@@ -853,7 +906,7 @@ m_view->ChangeRenderingParams().ToEnableDepthPrepass = Standard_True;
 
 		}
 
-		// zghost();
+		zghost();
 		toggle_shaded_transp(currentMode);
  
 // setupProjection(w(), h());
@@ -990,7 +1043,7 @@ void show() override {
         initialize_opencascade();
     }
 }
-void draw () override
+void draw () 
 {
 	// m_view->Redraw();return;
 	// if (!m_initialized && valid()) {
@@ -1089,7 +1142,7 @@ void draw_() {
     } else {
         // Direct rendering fallback
 		cotm(3)
-        m_view->Redraw();
+        // m_view->Redraw();
     }
 }
 // void draw() override
@@ -1173,15 +1226,50 @@ bool createOrResizeFBO(int width, int height)
     //         m_fbo.Nullify();
     //     }
     // }
+zghost();
+const Graphic3d_Vec2i size(width, height);
+// m_fbo->Init(m_glContext, size, GL_RGBA8, GL_DEPTH_COMPONENT32, 0);zghost();
+// return 1;
+// // Preferred retry with InitLazy
+// if (!m_fbo->Init(m_glContext, size, GL_RGBA8, GL_DEPTH_COMPONENT32F, 0)) {
+//     m_fbo->Release(m_glContext.get());
 
+//     // Try InitLazy with 32F
+//     if (!m_fbo->InitLazy(m_glContext, size, GL_RGBA8, GL_DEPTH_COMPONENT32F, 0)) {
+//         // Fresh object for a clean state
+//         m_fbo = new OpenGl_FrameBuffer();
+
+//         // Try 32-bit integer depth
+//         if (!m_fbo->Init(m_glContext, size, GL_RGBA8, GL_DEPTH_COMPONENT32, 0)) {
+//             // Final fallback to 24-bit
+//             m_fbo->Release(m_glContext.get());
+//             m_fbo = new OpenGl_FrameBuffer();
+//             m_fbo->Init(m_glContext, size, GL_RGBA8, GL_DEPTH_COMPONENT24, 0);
+//         }
+//     }
+// }
+// return 1;
     // Fallback 1: RGBA8 + 32F depth/stencil
-    if (m_fbo->Init(m_glContext,
+    if (m_fbo->InitLazy(m_glContext, Graphic3d_Vec2i(width, height),
+            GL_RGBA8, GL_DEPTH_COMPONENT32, 0))
+    {
+        std::cout << "FBO created: RGBA8 + GL_DEPTH_COMPONENT32F" << std::endl;
+        return true;
+    }
+	m_fbo->Release(m_glContext.get());
+	m_fbo = new OpenGl_FrameBuffer();
+	m_glView->SetFBO(Handle(OpenGl_FrameBuffer)());
+	//  m_fbo = new OpenGl_FrameBuffer();
+    // Fallback 1: RGBA8 + 32F depth/stencil
+
+    if (m_fbo->InitLazy(m_glContext,
                     Graphic3d_Vec2i(width, height),
                     GL_RGBA8,
                     GL_DEPTH32F_STENCIL8,
                     0))
     {
         std::cout << "FBO created: RGBA8 + DEPTH32F_STENCIL8" << std::endl;
+		zghost();
         return true;
     }
 
@@ -1241,7 +1329,8 @@ bool createOrResizeFBO(int width, int height)
 //     if (success) {
 //         m_glView->SetFBO(m_fbo);
 //     } else {
-//         m_fbo.Nullify();  // Force fallback to on-screen
+// 		cotm2("nofbo")
+//         // m_fbo.Nullify();  // Force fallback to on-screen
 //     }
 
 
@@ -4340,6 +4429,8 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 	Standard_Integer currentMode = AIS_WireFrame;
 	void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 		perf1();
+		// m_context->SetDisplayMode(AIS_HLRMode, Standard_True);
+
 		// cotm(vaShape.size()) 
 		for (std::size_t i = 0; i < vaShape.size(); ++i) {
 			Handle(AIS_Shape) aShape = vaShape[i];
@@ -4402,7 +4493,8 @@ aShape->SetZLayer(Graphic3d_ZLayerId_Top);
 				}
 
 				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
-aShape->SetColor(Quantity_NOC_GRAY70);
+// aShape->SetColor(Quantity_NOC_GRAY70);
+aShape->SetColor(Quantity_NOC_WHITE);
 				// aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
 				// aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
 
@@ -4602,11 +4694,152 @@ m_context->Display(aShape, 0);
 	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
 		if (!hlr_on)return;
 		// perf1();
-		projectAndDisplayWithHLR_P(shapes,isDragonly);
-		// projectAndDisplayWithHLR_lp(shapes,isDragonly);
+		// projectAndDisplayWithHLR_P(shapes,isDragonly); 
+		projectAndDisplayWithHLR_lp(shapes,isDragonly);
 		// projectAndDisplayWithHLR_ntw(shapes,isDragonly);
 		// perf1("hlr");
 	}
+
+
+// Fastest stable GPU-based version: only visible sharp edges + silhouettes (thick black lines)
+// Real-time interactive, no hidden lines, no face fill
+void projectAndDisplayWithHLR_lp_notwrking(const std::vector<TopoDS_Shape>& shapes, bool isDragonfly = false) {
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+static Handle(AIS_InteractiveObject) visible_v;
+
+    // White background for classic technical drawing look
+    m_view->SetBackgroundColor(Quantity_NOC_WHITE);
+
+    // Build compound for best performance and correct silhouette detection
+    TopoDS_Compound compound;
+    BRep_Builder builder;
+    builder.MakeCompound(compound);
+
+    bool hasShapes = false;
+    for (const auto& s : shapes) {
+        if (!s.IsNull()) {
+            builder.Add(compound, s);
+            hasShapes = true;
+        }
+    }
+
+    if (!hasShapes) {
+        if (!visible_v.IsNull()) {
+            m_context->Erase(visible_v, Standard_True);
+            visible_v.Nullify();
+        }
+        return;
+    }
+
+    Handle(AIS_InteractiveObject) aisObject;
+
+    // Always create a new AIS_Shape - safest way to update shape and avoid issues
+    aisObject = new AIS_Shape(compound);
+
+    // Remove old one if exists (prevents duplication and memory issues)
+    if (!visible_v.IsNull()) {
+        m_context->Remove(visible_v, Standard_True);  // True = update viewer immediately
+        visible_v.Nullify();
+    }
+
+    // Key settings for visible edges/silhouettes only
+    Handle(Prs3d_Drawer) drawer = aisObject->Attributes();
+
+    drawer->SetShadingModel(Graphic3d_TOSM_NONE);          // Disable shading completely
+
+    drawer->SetFaceBoundaryDraw(Standard_True);            // Enable face boundaries (sharp edges + GPU silhouettes)
+
+    // Thick black lines for visible outlines
+    // drawer->FaceBoundaryAspect()->SetColor(Quantity_NOC_BLACK);
+	// pausa
+    // drawer->FaceBoundaryAspect()->SetWidth(3);
+
+    // Optional: also draw free boundaries (open edges) if needed
+    // drawer->SetFreeBoundaryDraw(Standard_True);
+	
+    aisObject->SetInfiniteState(Standard_True);
+
+    // Display the new object
+    m_context->Display(aisObject, Standard_False);  // False = no automatic fit
+
+    visible_v = aisObject;  // Store for next call
+
+}
+
+
+
+	// Fastest stable version for OCCT 7.9.x (PolyHLR with max internal parallelism)
+void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonfly = false) {
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
+
+    // 1. Camera transformation setup (kept your working version)
+    const Handle(Graphic3d_Camera)& camera = m_view->Camera();
+    gp_Dir viewDir = -camera->Direction();
+    gp_Dir viewUp = camera->Up();
+    gp_Dir viewRight = viewUp.Crossed(viewDir);
+    gp_Ax3 viewAxes(gp_Pnt(0, 0, 0), viewDir, viewRight);
+
+    gp_Trsf viewTrsf;
+    viewTrsf.SetTransformation(viewAxes);
+    gp_Trsf invTrsf = viewTrsf.Inverted();
+
+    // 2. Projector
+    HLRAlgo_Projector projector(viewTrsf, !camera->IsOrthographic(), camera->Scale());
+
+    // 3. Meshing - use OCCT's built-in parallel mode (fastest & thread-safe)
+    // Tune deflection higher (e.g. 0.01 - 0.1) for much faster meshing + HLR Update()
+    // Lower values = more precision, many more polygons → slower Update()
+    Standard_Real deflection = 0.05;  // Adjust this for your speed/quality tradeoff
+
+    Standard_Real angularDeflection = 0.5;  // radians, controls curve discretization
+
+    for (const auto& s : shapes) {
+        if (!s.IsNull()) {
+            // Optional: skip if already meshed sufficiently (your commented check)
+            // For maximum speed, you can force remesh or skip check
+            BRepMesh_IncrementalMesh(s, deflection, Standard_False, angularDeflection, Standard_True);
+        }
+    }
+
+    // 4. HLR computation (sequential - no parallelism available in OCCT HLR)
+    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+
+    for (const auto& s : shapes) {
+        if (!s.IsNull()) {
+            algo->Load(s);
+        }
+    }
+
+    algo->Projector(projector);
+    algo->Update();  // This is the main bottleneck - coarser mesh = much faster here
+
+    // 5. Extract visible edges and transform back
+    HLRBRep_PolyHLRToShape hlrToShape;
+    hlrToShape.Update(algo);
+
+    TopoDS_Shape vEdges = hlrToShape.VCompound();  // Visible sharp edges (adjust for other types if needed)
+    BRepBuilderAPI_Transform visT(vEdges, invTrsf);
+    TopoDS_Shape result = visT.Shape();
+
+    // 6. Display / update AIS_Shape
+    if (!visible_.IsNull()) {
+        if (!visible_->Shape().IsEqual(result)) {
+            m_context->Deactivate(visible_);
+            visible_->SetShape(result);
+            visible_->SetColor(Quantity_NOC_BLACK);
+            visible_->SetWidth(3);
+            visible_->SetInfiniteState(true);
+            m_context->Redisplay(visible_, false);
+        }
+    } else {
+        visible_ = new AIS_NonSelectableShape(result);
+		m_context->Deactivate(visible_);
+        visible_->SetColor(Quantity_NOC_BLACK);
+        visible_->SetWidth(3);
+        visible_->SetInfiniteState(true);
+        m_context->Display(visible_, false);
+    }
+}
 	// #define ENABLE_PARALLEL 1
 	void projectAndDisplayWithHLR_ntw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
@@ -4728,7 +4961,7 @@ m_context->Display(aShape, 0);
 
 	// #define ENABLE_PARALLEL 1
 	// less precision
-	void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
+	void projectAndDisplayWithHLR_lp_prev(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
 		if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 		// perf1();
 
@@ -4829,6 +5062,7 @@ m_context->Display(aShape, 0);
 		// 6. Mostrar ou atualizar AIS_Shape
 		if (!visible_.IsNull()) {
 			if (!visible_->Shape().IsEqual(result)) {
+				m_context->Deactivate(visible_);//
 				visible_->SetShape(result);
 				visible_->SetColor(Quantity_NOC_BLACK);
 				visible_->SetWidth(3);
@@ -4837,6 +5071,7 @@ m_context->Display(aShape, 0);
 			}
 		} else {
 			visible_ = new AIS_NonSelectableShape(result);
+			m_context->Deactivate(visible_);//
 			visible_->SetColor(Quantity_NOC_BLACK);
 			visible_->SetWidth(3);
 			visible_->SetInfiniteState(true);  // opcional
@@ -4905,7 +5140,7 @@ m_context->Display(aShape, 0);
 
 		visible_ = new AIS_NonSelectableShape(transformedShape);
 
-		cotm2(90)
+		// cotm2(90)
         m_context->Deactivate(visible_);
 		// visible_ = new AIS_Shape(transformedShape);
 		visible_->SetColor(Quantity_NOC_BLACK);
@@ -5261,49 +5496,43 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 	};
 
 	vector<sbts> sbt;
-	void drawbuttons(float w, int hc1) {
-		// auto& sbt = occv->sbt;
-		// auto& sbts = occv->sbts;
+	void sbtset(bool zdirup=0){
+		sbt.clear();
 
-		std::function<void()> func = [this, &sbt = this->sbt] { cotm(m_initialized, sbt[0].label) };
+		vector<sbts> sbty = {
+			// Name    {}  ID   {  Dir X, Y, Z,   Up X, Y, Z  }
+			sbts{"Front",     {}, 1, {  0,  0,  1,   0, 1,  0 }},
+			sbts{"Back",      {}, 1, {  0,  0, -1,   0, 1,  0 }},
+			sbts{"Top",       {}, 1, {  0,  1,  0,   1, 0,  0 }},
+			sbts{"Bottom",    {}, 1, {  0, -1,  0,  -1, 0,  0 }},
+			sbts{"Left",      {}, 1, { -1,  0,  0,   0, 1,  0 }},
+			sbts{"Right",     {}, 1, {  1,  0,  0,   0, 1,  0 }},
+			sbts{"Iso",       {}, 1, { -1,  1,  1,   0, 1,  0 }},
+			sbts{"Isor",      {}, 1, {  1,  1, -1,   0, 1,  0 }},
+		};
 
-		sbt = {
-			sbts{"Front", {}, 1, {0, -1, 0, 0, 0, 1}}, 
-			sbts{"Top", {}, 1, {0, 0, 1, 0, 1, 0}},
-			sbts{"Left", {}, 1, {-1, 0, 0, 0, 0, 1}}, 
-			sbts{"Right", {}, 1, {1, 0, 0, 0, 0, 1}},
-			sbts{"Back", {}, 1, {0, 1, 0, 0, 0, 1}}, 
-			sbts{"Bottom", {}, 1, {0, 0, -1, 0, 1, 0}},
-			// sbts{"Bottom", {}, 1, {0, 0, -1, 0, -1, 0}}, //iso but dont like it
-			sbts{"Iso", {}, 1, {0.57735, -0.57735, 0.57735, -0.408248, 0.408248, 0.816497}},
+		vector<sbts> sbtz = {
+			// Name     {}  ID   {  Dir X, Y, Z,   Up X, Y, Z  }
+			sbts{"Front",    {}, 1, {  0,  1,  0,   0, 0,  1 }},
+			sbts{"Back",     {}, 1, {  0, -1,  0,   0, 0,  1 }},
+			sbts{"Top",      {}, 1, {  0,  0,  1,   0, 1,  0 }},
+			sbts{"Bottom",   {}, 1, {  0,  0, -1,   0, 1,  0 }},
+			sbts{"Left",     {}, 1, { -1,  0,  0,   0, 0,  1 }},
+			sbts{"Right",    {}, 1, {  1,  0,  0,   0, 0,  1 }},
+			sbts{"Iso",      {}, 1, { -1,  1,  1,   0, 0,  1 }},
+			sbts{"Isor",     {}, 1, {  1, -1,  1,   0, 0,  1 }},
+		};
 
-			// sbts{"Iso",{}, 1, { 1,  1,  1,   0,  0,  1 }},
 
-			// old standard
-			//  sbts{"Front",     {}, 1, {  0,  0,  1,   0, 1,  0 }},
-			//  sbts{"Back",      {}, 1, {  0,  0, -1,   0, 1,  0 }},
-			//  sbts{"Top",       {}, 1, {  0, -1,  0,   0, 0, -1 }},
-			//  sbts{"Bottom",    {}, 1, {  0,  1,  0,   0, 0,  1 }},
-			//  sbts{"Left",      {}, 1, {  1,  0,  0,   0, 1,  0 }},
-			//  sbts{"Right",     {}, 1, { -1,  0,  0,   0, 1,  0 }},
-			//  sbts{"Isometric", {}, 1, { -1,  1,  1,   0, 1,  0 }},
-			sbts{"Iso z", {}, 1, {-1, 1, 1, 0, 1, 0}},
-			sbts{"Iso zr", {}, 1, {1, 1, -1, 0, 1, 0}},
 
-			// sbts{"T",[this,&sbt = this->sbt]{ cotm(sbt[0].label)   }},
 
-			sbts{"Invert",
-				 [this] {
-					 Standard_Real dx, dy, dz, ux, uy, uz;
-					 m_view->Proj(dx, dy, dz);
-					 m_view->Up(ux, uy, uz);
-					 // Reverse the projection direction
-					 end_proj_global = gp_Vec(-dx, -dy, -dz);
-					 end_up_global = gp_Vec(-ux, -uy, -uz);
-					 start_animation(this);
-				 }},
+		if(zdirup==0)
+			sbt=sbty;
+		if(zdirup==1)
+			sbt=sbtz;
 
-			sbts{"Invert p",
+		vector<sbts> sbtstd = {
+			sbts{"Invert d",
 				 [this] {
 					 Standard_Real dx, dy, dz, ux, uy, uz;
 					 m_view->Proj(dx, dy, dz);
@@ -5317,15 +5546,80 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 			sbts{"Align",
 				 [this] { 
 					 GetAlignedCameraVectors(m_view,end_proj_global,end_up_global); 
+					//  cotm2(end_proj_global,end_up_global);
 					 start_animation(this);
-				 }},
-
-			// sbts{"Invertan",[this]{
-			//     animate_flip_view(this);
-			// }},
-			// sbts{"Ti",func }
-			// add more if needed
+				 }}
 		};
+
+		sbt.insert(sbt.end(), sbtstd.begin(), sbtstd.end());
+	}
+	void drawbuttons(float w, int hc1) {
+		// auto& sbt = occv->sbt;
+		// auto& sbts = occv->sbts;
+
+		std::function<void()> func = [this, &sbt = this->sbt] { cotm(m_initialized, sbt[0].label) };
+
+		sbtset(0);
+
+		// sbt = {
+		// 	sbts{"Front", {}, 1, {0, -1, 0, 0, 0, 1}}, 
+		// 	sbts{"Top", {}, 1, {0, 0, 1, 0, 1, 0}},
+		// 	sbts{"Left", {}, 1, {-1, 0, 0, 0, 0, 1}}, 
+		// 	sbts{"Right", {}, 1, {1, 0, 0, 0, 0, 1}},
+		// 	sbts{"Back", {}, 1, {0, 1, 0, 0, 0, 1}}, 
+		// 	sbts{"Bottom", {}, 1, {0, 0, -1, 0, 1, 0}},
+		// 	// sbts{"Bottom", {}, 1, {0, 0, -1, 0, -1, 0}}, //iso but dont like it
+		// 	sbts{"Iso", {}, 1, {0.57735, -0.57735, 0.57735, -0.408248, 0.408248, 0.816497}},
+
+		// 	// sbts{"Iso",{}, 1, { 1,  1,  1,   0,  0,  1 }},
+
+		// 	// old standard
+		// 	//  sbts{"Front",     {}, 1, {  0,  0,  1,   0, 1,  0 }},
+		// 	//  sbts{"Back",      {}, 1, {  0,  0, -1,   0, 1,  0 }},
+		// 	//  sbts{"Top",       {}, 1, {  0, -1,  0,   0, 0, -1 }},
+		// 	//  sbts{"Bottom",    {}, 1, {  0,  1,  0,   0, 0,  1 }},
+		// 	//  sbts{"Left",      {}, 1, {  1,  0,  0,   0, 1,  0 }},
+		// 	//  sbts{"Right",     {}, 1, { -1,  0,  0,   0, 1,  0 }},
+		// 	//  sbts{"Isometric", {}, 1, { -1,  1,  1,   0, 1,  0 }},
+		// 	sbts{"Iso z", {}, 1, {-1, 1, 1, 0, 1, 0}},
+		// 	sbts{"Iso zr", {}, 1, {1, 1, -1, 0, 1, 0}},
+
+		// 	// sbts{"T",[this,&sbt = this->sbt]{ cotm(sbt[0].label)   }},
+
+		// 	// sbts{"Invert",
+		// 	// 	 [this] {
+		// 	// 		 Standard_Real dx, dy, dz, ux, uy, uz;
+		// 	// 		 m_view->Proj(dx, dy, dz);
+		// 	// 		 m_view->Up(ux, uy, uz);
+		// 	// 		 // Reverse the projection direction
+		// 	// 		 end_proj_global = gp_Vec(-dx, -dy, -dz);
+		// 	// 		 end_up_global = gp_Vec(-ux, -uy, -uz);
+		// 	// 		 start_animation(this);
+		// 	// 	 }},
+
+		// 	sbts{"Invert d",
+		// 		 [this] {
+		// 			 Standard_Real dx, dy, dz, ux, uy, uz;
+		// 			 m_view->Proj(dx, dy, dz);
+		// 			 m_view->Up(ux, uy, uz);
+		// 			 // Reverse the projection direction
+		// 			 end_proj_global = gp_Vec(-dx, -dy, -dz);
+		// 			 end_up_global = gp_Vec(ux, uy, uz);
+		// 			 start_animation(this);
+		// 		 }},
+
+		// 	sbts{"Align",
+		// 		 [this] { 
+		// 			 GetAlignedCameraVectors(m_view,end_proj_global,end_up_global); 
+		// 			 start_animation(this);
+		// 		 }},
+
+		// 	// sbts{"Invertan",[this]{
+		// 	//     animate_flip_view(this);
+		// 	// }},
+		// 	// sbts{"Ti",func }
+		// 	// add more if needed
+		// };
 
 		float w1 = ceil(w / sbt.size()) + 0.0;
 
@@ -8053,7 +8347,7 @@ if(fh->value()==0) fh->value("<html><body>\
 <h2>Commands:</h2>\
 <p><b>Origin(x,y,z) </b> Move all subsequent Parts to the specified (x,y,z) relative to world coordinates until another Origin is defined\
 <p><b>Part [label] </b> Create a new Part with a label of your choice\
-<p><b>Clone([label],[copy placement]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
+<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
 <p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square\
 <p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. Offset -3  = offset 3 inside, Offset 3  = offset 3 outside\
 <p><b>Extrude ([height]) </b> \
@@ -8244,9 +8538,9 @@ int main(int argc, char** argv) {
 
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0);  
-	// int x, y, _w, _h;
-	// Fl::screen_work_area(x, y, _w, _h);
-	// win->resize(x, y+22, _w, _h-22); 
+	int x, y, _w, _h;
+	Fl::screen_work_area(x, y, _w, _h);
+	win->resize(x, y+22, _w, _h-22); 
 	win->show(); 
 	// win->show(argc, argv); 
 
@@ -8257,7 +8551,7 @@ int main(int argc, char** argv) {
 	woccbtn->flush(); 
 	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
-	win->maximize();
+	// win->maximize();
   
 	// occv->initialize_opencascade(); 
 
@@ -8267,7 +8561,7 @@ int main(int argc, char** argv) {
 		0.7,
 		[](void* d) {
 		occv->m_view->FitAll();				
-		occv->sbt[7].occbtn->do_callback(); 
+		occv->sbt[6].occbtn->do_callback(); 
 		occv->m_view->FitAll();	
 		},
 		0);  
