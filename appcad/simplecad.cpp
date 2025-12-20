@@ -924,7 +924,7 @@ m_view->ChangeRenderingParams().ToEnableDepthPrepass = Standard_True;
 
 		}
 
-		zghost();
+		// zghost();
 		toggle_shaded_transp(currentMode);
  
 // setupProjection(w(), h());
@@ -1074,6 +1074,7 @@ void draw ()
             // glEnable(GL_DEPTH_TEST);
     }
     if (!m_initialized) return;
+	m_view->Redraw();return;
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -3628,6 +3629,67 @@ bool IsPointVisible_Picking(const Handle(AIS_InteractiveContext)& ctx,
 
     return (ctx->NbSelected() > 0);
 }
+// Returns closest subshape (edge/vertex/face) and its owning AIS_Shape at mouse (x,y).
+// Returns false if nothing hit.
+// static bool PickSubShapeAtCursor(
+//     int mousex,
+//     int mousey,
+//     const Handle(V3d_View)& theView,
+//     const std::vector<Handle(AIS_Shape)>& theShapes, // your list of real shapes
+//     TopoDS_Shape& outSubShape,
+//     Handle(AIS_Shape)& outAisShape)
+// {
+//     outSubShape.Nullify();
+//     outAisShape.Nullify();
+
+//     // 1. Build pick ray from eye through mouse (OCCT 7.9.3)
+//     gp_Pnt eyePnt;
+//     gp_Vec dirVec;
+//     theView->Convert(mousex, mousey, eyePnt, dirVec); // this overload exists in 7.9.3
+//     if (dirVec.Magnitude() <= gp::Resolution())
+//         return false;
+
+//     gp_Dir rayDir(dirVec);
+//     gp_Lin ray(eyePnt, rayDir);
+
+//     // Convert ray to an edge (required by BRepExtrema_DistShapeShape in OCCT 7.9.3)
+//     TopoDS_Edge rayEdge = BRepBuilderAPI_MakeEdge(ray);
+
+//     Standard_Real bestDist = RealLast();
+//     TopoDS_Shape bestSub;
+//     Handle(AIS_Shape) bestAis;
+
+//     // 2. Test against all shapes you consider pickable
+//     for (const Handle(AIS_Shape)& ais : theShapes)
+//     {
+//         if (ais.IsNull())
+//             continue;
+
+//         const TopoDS_Shape& S = ais->Shape();
+//         if (S.IsNull())
+//             continue;
+
+//         BRepExtrema_DistShapeShape dist(rayEdge, S);
+//         dist.Perform();
+//         if (!dist.IsDone())
+//             continue;
+
+//         Standard_Real d = dist.Value();
+//         if (d < bestDist && dist.NbSolution() > 0)
+//         {
+//             bestDist = d;
+//             bestSub = dist.SupportOnShape2(1); // closest subshape on S
+//             bestAis = ais;
+//         }
+//     }
+
+//     if (bestSub.IsNull() || bestAis.IsNull())
+//         return false;
+
+//     outSubShape = bestSub;
+//     outAisShape = bestAis;
+//     return true;
+// }
 
 void ev_highlight() {
 // m_context->SetViewAffinity((Standard_False);
@@ -3639,13 +3701,16 @@ void ev_highlight() {
 
     clearHighlight();
 
-    // Activate only what you need once per hover
+    // // Activate only what you need once per hover
     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
     if (!hlr_on)
         m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
-    else
+    else{
+        m_context->Deactivate(visible_);
+		if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Default );
         m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+	}
 
     // Move cursor in context
     m_context->MoveTo(mousex, mousey, m_view, Standard_False);
@@ -3654,9 +3719,71 @@ void ev_highlight() {
     Handle(SelectMgr_EntityOwner) anOwner = m_context->DetectedOwner();
     if (anOwner.IsNull()) {
         clearHighlight();
+		if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
         redraw();
         return;
     }
+
+// // ------------------------------
+// // HLR‑aware picking (drop‑in)
+// // ------------------------------
+
+// Handle(SelectMgr_EntityOwner) anOwner;
+
+// // Case 1: HLR OFF → normal AIS selection (unchanged)
+// if (!hlr_on)
+// {
+//     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
+//     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+//     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_FACE));
+
+//     m_context->MoveTo(mousex, mousey, m_view, Standard_False);
+//     m_context->SelectDetected(AIS_SelectionScheme_Replace);
+
+//     anOwner = m_context->DetectedOwner();
+// }
+// else
+// {
+//     // Case 2: HLR ON → geometric picking on real shapes
+
+//     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_EDGE));
+//     m_context->Activate(AIS_Shape::SelectionMode(TopAbs_VERTEX));
+//     m_context->Deactivate(AIS_Shape::SelectionMode(TopAbs_FACE));
+
+//     // Do NOT rely on AIS for the “behind” edge here
+//     TopoDS_Shape pickedSub;
+//     Handle(AIS_Shape) pickedAis;
+
+//     // You must provide this: all AIS_Shapes that represent the real solids/parts.
+//     // Example: std::vector<Handle(AIS_Shape)> m_shapes;
+//     if (!PickSubShapeAtCursor(mousex, mousey, m_view, m_shapes, pickedSub, pickedAis))
+//     {
+//         anOwner.Nullify();
+//     }
+//     else
+//     {
+//         // Wrap subshape into an owner, OCCT 7.9.3 constructor
+//         Handle(StdSelect_BRepOwner) owner = new StdSelect_BRepOwner(pickedSub, 0);
+//         anOwner = owner;
+
+//         // Optionally, you can still use AIS highlight:
+//         // m_context->ClearSelected();
+//         // m_context->AddOrRemoveSelected(pickedAis, Standard_False);
+//     }
+// }
+
+// // ------------------------------
+// // Unified post‑selection logic
+// // ------------------------------
+// if (anOwner.IsNull())
+// {
+//     clearHighlight();
+//     redraw();
+//     return;
+// }
+
+// Continue with your existing code using `anOwner`
+
 
 	
 
@@ -3679,13 +3806,17 @@ void ev_highlight() {
 			// std::cout << "Mass (assuming density=1): " << mass << std::endl;
 			help.upd(); 
 		}
-    }
+    }else{
+		if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+		return;
+	} 
 
 
 
     Handle(StdSelect_BRepOwner) brepOwner = Handle(StdSelect_BRepOwner)::DownCast(anOwner);
     if (brepOwner.IsNull()) {
         clearHighlight();
+		if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
         redraw();
         return;
     }
@@ -3694,9 +3825,11 @@ void ev_highlight() {
     TopoDS_Shape detected = brepOwner->Shape();
     if (detected.IsNull()) {
         clearHighlight();
+		if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
         redraw();
         return;
     }
+	if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
 					// Skip the HLR shape
 // 			if (detected == visible_->Shape()){
 // 				cotm("Skipped");
@@ -3723,12 +3856,103 @@ void ev_highlight() {
     }
 // break;
     case TopAbs_EDGE: {
-        TopoDS_Edge edge = TopoDS::Edge(detected);
-		GProp_GProps props;
-		BRepGProp::LinearProperties(edge, props);
-		double length = props.Mass();
-		string pname="Edge length: "+to_string_trim(length);
-		if(pname!=help.edge){help.edge=pname;help.upd();}
+//         TopoDS_Edge edge = TopoDS::Edge(detected);
+// 		GProp_GProps props;
+// 		BRepGProp::LinearProperties(edge, props);
+// 		double length = props.Mass();
+// 		string pname="Edge length: "+to_string_trim(length);
+// 		if(pname!=help.edge){help.edge=pname;help.upd();}
+// 		//here want highlight is visible
+// 		if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+// 		// highlight modes must ALSO be moved to topmost
+// // m_context->SetZLayer(visible_, Graphic3d_ZLayerId_Topmost,
+// //                      Prs3d_TypeOfHighlight_LocalDynamic);
+// // m_context->SetZLayer(visible_, Graphic3d_ZLayerId_Topmost,
+// //                      Prs3d_TypeOfHighlight_Selected);
+// 		// m_context->SetDisplayPriority(visible_, -1);
+// 		//here want that highlight keep visible
+
+
+// // m_context->SetDisplayPriority(visible_, 1);
+// redraw();
+		
+
+// 	static	Handle(AIS_Shape) highlight = new AIS_Shape(edge);
+// 	if(m_context->IsDisplayed(highlight))m_context->Erase(highlight,1);
+// 	highlight->Set(edge);
+// // wireframe mode
+// highlight->SetDisplayMode(AIS_WireFrame);
+
+// // line style (color + width)
+// Handle(Prs3d_LineAspect) la =
+//     new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 3.0);
+// highlight->Attributes()->SetLineAspect(la);
+// // customDrawer->SetLineAspect(highlightAsp);
+// highlight->Attributes()->SetWireAspect(la);
+// highlight->Attributes()->SetFreeBoundaryAspect(la);
+// highlight->Attributes()->SetUnFreeBoundaryAspect(la);
+// highlight->Attributes()->SetFaceBoundaryAspect(la);
+// highlight->Attributes()->SetHiddenLineAspect(la);
+// highlight->Attributes()->SetVectorAspect(la);
+// highlight->Attributes()->SetSectionAspect(la);
+// highlight->Attributes()->SetSeenLineAspect(la);
+
+// // display
+// highlight->SetZLayer(Graphic3d_ZLayerId_Topmost);
+// if(m_context->IsDisplayed(highlight))m_context->Redisplay(highlight, 1);else m_context->Display(highlight, 1);
+
+// // force topmost overlay
+// // m_context->SetDisplayPriority(highlight, 10);
+
+// // m_context->Redisplay(highlight, 1);
+
+
+TopoDS_Edge edge = TopoDS::Edge(detected);
+
+GProp_GProps props;
+BRepGProp::LinearProperties(edge, props);
+double length = props.Mass();
+
+string pname = "Edge length: " + to_string_trim(length);
+if (pname != help.edge)
+{
+    help.edge = pname;
+    help.upd();
+}
+
+static Handle(AIS_Shape) highlight = new AIS_Shape(edge);
+
+if (m_context->IsDisplayed(highlight))
+    m_context->Remove(highlight, Standard_False);
+
+highlight->Set(edge);
+highlight->SetDisplayMode(AIS_WireFrame);
+
+Handle(Prs3d_LineAspect) la =
+    new Prs3d_LineAspect(Quantity_NOC_RED, Aspect_TOL_SOLID, 3.0);
+
+highlight->Attributes()->SetLineAspect(la);
+highlight->Attributes()->SetWireAspect(la);
+highlight->Attributes()->SetFreeBoundaryAspect(la);
+highlight->Attributes()->SetUnFreeBoundaryAspect(la);
+highlight->Attributes()->SetFaceBoundaryAspect(la);
+highlight->Attributes()->SetHiddenLineAspect(la);
+highlight->Attributes()->SetVectorAspect(la);
+highlight->Attributes()->SetSectionAspect(la);
+highlight->Attributes()->SetSeenLineAspect(la);
+
+highlight->SetZLayer(Graphic3d_ZLayerId_Topmost);
+
+if (m_context->IsDisplayed(highlight))
+    m_context->Redisplay(highlight, Standard_True);
+else
+    m_context->Display(highlight, Standard_True);
+
+// redraw();
+
+
+		// redraw();
+		return;
 		break;
 	}
     case TopAbs_FACE: {
@@ -3774,10 +3998,11 @@ void ev_highlight() {
     }
 
     default:
+		// if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
         clearHighlight();
         break;
     }
-
+// if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
     redraw();
 }
 
@@ -4478,13 +4703,15 @@ void OnMouseClick(Standard_Integer x, Standard_Integer y,
 				hlr_on = 0;
 	// 			// Mudar para modo sombreado
 				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+if(0){
+				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
-	// 			m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
-
-	// 			aShape->SetColor(Quantity_NOC_GRAY70); 
-	// 			aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
-	// 			aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
-	// 			// aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
+				aShape->SetColor(Quantity_NOC_GRAY70); 
+				aShape->Attributes()->SetFaceBoundaryDraw(1);//////////////////
+				// aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
+				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+				aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
+}
 	// 			// opcional
 	// 		// m_context->Redisplay(aShape, AIS_Shaded, 0);
 	// 		    m_context->SetPolygonOffsets(
@@ -4545,13 +4772,13 @@ drawer->SetIsoOnTriangulation(Standard_False);
 // m_view->SetZClippingDepth(1.0);
 // m_view->SetZClippingWidth(2000.0);
 
-m_context->SetPolygonOffsets(
-        aShape,
-        Aspect_POM_Fill,   // mode: fill + edges
-        0,             // factor
-        0,             // units
-        0     // update viewer immediately
-    );
+// m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         0.1,             // factor
+//         0,             // units
+//         0     // update viewer immediately
+//     );
 
 // Display
 // m_context->Display(shaded, Standard_True);
@@ -4688,15 +4915,17 @@ m_context->Display(aShape, 0);
 		perf1("toggle_shaded_transp");
 		if (hlr_on == 1) {
 			cotm("hlr1")
-			cotm(vshapes.size())
+			// cotm2(vshapes.size())
 				// projectAndDisplayWithHLR(vaShape);
 				projectAndDisplayWithHLR(vshapes);
+				// if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Top);
 				// projectAndDisplayWithHLR(vshapes);
 		} else {
 			cotm("hlr0") if (!visible_.IsNull()) {
 				m_context->Remove(visible_, 0);
 				visible_.Nullify();
 			}
+			// zghost();
 		}
 		currentMode = fromcurrentMode;
 		// redraw();
@@ -5165,11 +5394,13 @@ void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool i
 		visible_ = new AIS_NonSelectableShape(transformedShape);
 
 		// cotm2(90)
-        m_context->Deactivate(visible_);
+        // m_context->Deactivate(visible_);
 		// visible_ = new AIS_Shape(transformedShape);
 		visible_->SetColor(Quantity_NOC_BLACK);
 		visible_->SetWidth(2.2);
 		m_context->Display(visible_, false);
+		visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+        m_context->Deactivate(visible_);
 
 		// Handle(Prs3d_LineAspect) lineAspect = new
 		// Prs3d_LineAspect(Quantity_NOC_BLUE, Aspect_TOL_DASH, 0.5);
