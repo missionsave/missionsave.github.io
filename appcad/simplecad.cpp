@@ -593,7 +593,7 @@ void initialize_opencascade_() {
 	void initialize_opencascade() {
 // Fl::wait();
 // pausa
-		// make_current();
+		make_current();
 // GLint depthBits = 0;
 // glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
 //                                       GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
@@ -607,10 +607,10 @@ void initialize_opencascade_() {
 		// perf();
 		// Get native window handle
 #ifdef _WIN32
-		Fl::wait();
-		make_current();
-		while(!valid())sleepms(200);
-		sleepms(2000);
+		// Fl::wait();
+		// make_current();
+		// while(!valid())sleepms(200);
+		// sleepms(2000);
 		HWND hwnd = (HWND)fl_xid(this);
 		Handle(WNT_Window) wind = new WNT_Window(hwnd);
 		m_display_connection = new Aspect_DisplayConnection("");
@@ -1062,7 +1062,8 @@ void setupProjection(int w, int h)
 void draw () 
 {
 	// m_view->Redraw();return;
-	if (!m_initialized && valid()) {
+	if (!m_initialized && !valid()) {
+		valid(1);
         initialize_opencascade();
 
             // glEnable(GL_DEPTH_TEST);
@@ -8485,7 +8486,7 @@ int main(int argc, char** argv) {
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
 	// Fl::visual(FL_DOUBLE | FL_INDEX);
-	// Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 // Fl::gl_visual(64);
 	Fl::scheme("oxy");	
 	
@@ -8571,7 +8572,7 @@ int main(int argc, char** argv) {
 	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
 	win->maximize();
-  
+  return Fl::run();
 	// occv->initialize_opencascade(); 
 
 	lua_str(currfilename,1); //init
