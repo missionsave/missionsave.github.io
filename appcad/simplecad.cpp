@@ -611,7 +611,7 @@ void initialize_opencascade_() {
 		// make_current();
 		// while(!valid())sleepms(200);
 		// sleepms(2000);
-		show();
+		this->show();
 		make_current();
 		HWND hwnd = (HWND)fl_xid(this);
 		Handle(WNT_Window) wind = new WNT_Window(hwnd);
@@ -8488,7 +8488,7 @@ int main(int argc, char** argv) {
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
 	// Fl::visual(FL_DOUBLE | FL_INDEX);
-	Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+	Fl::gl_visual(FL_RGB8 | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 // Fl::gl_visual(64);
 	Fl::scheme("oxy");	
 	
