@@ -435,34 +435,34 @@ struct OCC_Viewer : public flwindow {
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
 		// Try to request a 32-bit depth buffer when available
-		#if FL_ABI_VERSION < 10500
-		#  define FL_DEPTH32 FL_DEPTH
-		#endif
+		// #if FL_ABI_VERSION < 10500
+		// #  define FL_DEPTH32 FL_DEPTH
+		// #endif
 
-		int mode32 =
-			FL_RGB8 | FL_ALPHA | FL_DOUBLE |
-			(FL_ABI_VERSION >= 10500 ? FL_DEPTH32 : FL_DEPTH) |
-			FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE;
+		// int mode32 =
+		// 	FL_RGB8 | FL_ALPHA | FL_DOUBLE |
+		// 	(FL_ABI_VERSION >= 10500 ? FL_DEPTH32 : FL_DEPTH) |
+		// 	FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE;
 
-		mode(mode32);
+		// mode(mode32);
 
-		if (!can_do(mode32)) {
-			fprintf(stderr, "FL_DEPTH32 not supported, falling back to FL_DEPTH\n");
+		// if (!can_do(mode32)) {
+		// 	fprintf(stderr, "FL_DEPTH32 not supported, falling back to FL_DEPTH\n");
 
-			int mode24 =
-				FL_RGB8 | FL_ALPHA | FL_DOUBLE |
-				FL_DEPTH |
-				FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE;
+		// 	int mode24 =
+		// 		FL_RGB8 | FL_ALPHA | FL_DOUBLE |
+		// 		FL_DEPTH |
+		// 		FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE;
 
-			mode(mode24);
-		}
+		// 	mode(mode24);
+		// }
 
 		// Request a 32-bit depth buffer if supported
 		
         // cotm2(mode( FL_OPENGL3 | FL_DEPTH32 ));
 		// cotm2("mode")
         // mode( FL_DEPTH | FL_STENCIL);
-        // mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH32 | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
+        mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // Fl::gl_visual(32);
