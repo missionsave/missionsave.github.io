@@ -462,7 +462,8 @@ struct OCC_Viewer : public flwindow {
         // cotm2(mode( FL_OPENGL3 | FL_DEPTH32 ));
 		// cotm2("mode")
         // mode( FL_DEPTH | FL_STENCIL);
-        mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
+        mode( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        // mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // Fl::gl_visual(32);
@@ -8480,7 +8481,7 @@ int main(int argc, char** argv) {
 	// OSD_Parallel::SetUseOcctThreads(1);
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
-	// Fl::visual(FL_DOUBLE | FL_INDEX);
+	Fl::visual(FL_DOUBLE | FL_INDEX);
 	// Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 // Fl::gl_visual(64);
 	Fl::scheme("oxy");	
