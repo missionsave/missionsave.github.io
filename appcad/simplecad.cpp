@@ -609,6 +609,7 @@ void initialize_opencascade_() {
 		Fl::wait();
 		make_current();
 		while(!valid())sleepms(200);
+		sleepms(2000);
 		HWND hwnd = (HWND)fl_xid(this);
 		Handle(WNT_Window) wind = new WNT_Window(hwnd);
 		m_display_connection = new Aspect_DisplayConnection("");
