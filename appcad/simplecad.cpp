@@ -434,20 +434,30 @@ struct OCC_Viewer : public flwindow {
 	gp_Trsf Origintrsf;
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
-        // Try to request 32-bit depth buffer
-		#if FL_ABI_VERSION<10500
-		#define FL_DEPTH32 FL_DEPTH
+		// Try to request a 32-bit depth buffer when available
+		#if FL_ABI_VERSION < 10500
+		#  define FL_DEPTH32 FL_DEPTH
 		#endif
-		mode( FL_RGB8|FL_ALPHA | FL_DOUBLE | FL_ABI_VERSION>=10500?FL_DEPTH32:FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE); 
-        if (!can_do(mode())) {
-            fprintf(stderr, "FL_DEPTH32 not supported, falling back to FL_DEPTH\n");
-            mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
-        }
 
+		int mode32 =
+			FL_RGB8 | FL_ALPHA | FL_DOUBLE |
+			(FL_ABI_VERSION >= 10500 ? FL_DEPTH32 : FL_DEPTH) |
+			FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE;
 
+		mode(mode32);
 
+		if (!can_do(mode32)) {
+			fprintf(stderr, "FL_DEPTH32 not supported, falling back to FL_DEPTH\n");
 
- // Request a 32-bit depth buffer if supported
+			int mode24 =
+				FL_RGB8 | FL_ALPHA | FL_DOUBLE |
+				FL_DEPTH |
+				FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE;
+
+			mode(mode24);
+		}
+
+		// Request a 32-bit depth buffer if supported
 		
         // cotm2(mode( FL_OPENGL3 | FL_DEPTH32 ));
 		// cotm2("mode")
@@ -5147,7 +5157,7 @@ void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool i
         m_context->Deactivate(visible_);
 		// visible_ = new AIS_Shape(transformedShape);
 		visible_->SetColor(Quantity_NOC_BLACK);
-		visible_->SetWidth(1.5);
+		visible_->SetWidth(2.2);
 		m_context->Display(visible_, false);
 
 		// Handle(Prs3d_LineAspect) lineAspect = new
