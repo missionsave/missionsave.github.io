@@ -8572,7 +8572,7 @@ int main(int argc, char** argv) {
 
 	win->maximize();
   
-	occv->initialize_opencascade(); 
+	// occv->initialize_opencascade(); 
 
 	lua_str(currfilename,1); //init
 	// lua_str(currfilename,1); //init
