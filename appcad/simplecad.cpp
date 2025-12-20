@@ -1062,9 +1062,12 @@ void setupProjection(int w, int h)
 void draw () 
 {
 	// m_view->Redraw();return;
-	// if (!m_initialized && valid()) {
-    //     initialize_opencascade();
-    // }
+	if (!m_initialized && valid()) {
+        initialize_opencascade();
+
+            // glEnable(GL_DEPTH_TEST);
+            // glViewport(0, 0, w(), h());
+    }
     if (!m_initialized) return;
 
     glEnable(GL_DEPTH_TEST);
@@ -8481,7 +8484,7 @@ int main(int argc, char** argv) {
 	// OSD_Parallel::SetUseOcctThreads(1);
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
-	Fl::visual(FL_DOUBLE | FL_INDEX);
+	// Fl::visual(FL_DOUBLE | FL_INDEX);
 	// Fl::gl_visual(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 // Fl::gl_visual(64);
 	Fl::scheme("oxy");	
