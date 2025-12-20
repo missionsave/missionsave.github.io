@@ -8576,17 +8576,19 @@ int main(int argc, char** argv) {
 	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
 	win->maximize();
-  return Fl::run();
 	// occv->initialize_opencascade(); 
 
-	lua_str(currfilename,1); //init
+  return Fl::run();
 	// lua_str(currfilename,1); //init
 	Fl::add_timeout(
 		0.7,
 		[](void* d) {
-		occv->m_view->FitAll();				
-		occv->sbt[6].occbtn->do_callback(); 
-		occv->m_view->FitAll();	
+		lua_str(currfilename,1); //init
+		Fl::add_timeout(0.2,[](void* d) {occv->m_view->FitAll();},0);				
+		Fl::add_timeout(0.6,[](void* d) {occv->sbt[6].occbtn->do_callback(); },0);				
+		Fl::add_timeout(0.8,[](void* d) {occv->m_view->FitAll(); },0);				
+		 
+		
 		},
 		0);  
 		// checkdepthbit();
