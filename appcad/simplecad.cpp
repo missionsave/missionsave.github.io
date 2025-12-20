@@ -65,7 +65,7 @@
 
 #include "fl_browser_msv.hpp"
 #define flwindow Fl_Window  
-#define flwindow Fl_Gl_Window  
+// #define flwindow Fl_Gl_Window  
 
 #define cotm2(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
 #define cotm1(...) 
@@ -462,7 +462,7 @@ struct OCC_Viewer : public flwindow {
         // cotm2(mode( FL_OPENGL3 | FL_DEPTH32 ));
 		// cotm2("mode")
         // mode( FL_DEPTH | FL_STENCIL);
-        mode( FL_RGB8 | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        // mode( FL_RGB8 | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
@@ -653,7 +653,7 @@ void initialize_opencascade_() {
 #endif
 		m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
 
-m_graphic_driver->ChangeOptions().buffersNoSwap = Standard_True;
+// m_graphic_driver->ChangeOptions().buffersNoSwap = Standard_True;
 	
 		m_viewer = new V3d_Viewer(m_graphic_driver);
 		m_viewer->SetDefaultLights();
@@ -1064,8 +1064,10 @@ void setupProjection(int w, int h)
 void draw () 
 {
 	// m_view->Redraw();return;
-	if (!m_initialized && !valid()) {
-		valid(1);
+	// if (!m_initialized && !valid()) {
+	// 	valid(1);
+	if (!m_initialized) {
+		// valid(1);
             glViewport(0, 0, w(), h());
         initialize_opencascade();
 
@@ -8487,7 +8489,7 @@ int main(int argc, char** argv) {
 	// OSD_Parallel::SetUseOcctThreads(1);
 	std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads() << std::endl;
 
-	// Fl::visual(FL_DOUBLE | FL_INDEX);
+	Fl::visual(FL_DOUBLE | FL_INDEX);
 	Fl::gl_visual(FL_RGB8 | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
 // Fl::gl_visual(64);
 	Fl::scheme("oxy");	
