@@ -1050,12 +1050,12 @@ void setupProjection(int w, int h)
 
 //     glDisable(GL_POLYGON_OFFSET_LINE);
 // }
-void show() override {
-    Fl_Gl_Window::show();
-    if (!m_initialized) {
-        initialize_opencascade();
-    }
-}
+// void show() override {
+//     Fl_Gl_Window::show();
+//     if (!m_initialized) {
+//         initialize_opencascade();
+//     }
+// }
 void draw () 
 {
 	// m_view->Redraw();return;
@@ -8564,9 +8564,9 @@ int main(int argc, char** argv) {
 	woccbtn->flush(); 
 	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
-	// win->maximize();
+	win->maximize();
   
-	// occv->initialize_opencascade(); 
+	occv->initialize_opencascade(); 
 
 	lua_str(currfilename,1); //init
 	// lua_str(currfilename,1); //init
