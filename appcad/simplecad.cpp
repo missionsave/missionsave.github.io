@@ -592,7 +592,7 @@ void initialize_opencascade_() {
 	void initialize_opencascade() {
 // Fl::wait();
 // pausa
-		make_current();
+		// make_current();
 // GLint depthBits = 0;
 // glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
 //                                       GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
@@ -608,6 +608,7 @@ void initialize_opencascade_() {
 #ifdef _WIN32
 		Fl::wait();
 		make_current();
+		while(!valid())sleepms(200);
 		HWND hwnd = (HWND)fl_xid(this);
 		Handle(WNT_Window) wind = new WNT_Window(hwnd);
 		m_display_connection = new Aspect_DisplayConnection("");
