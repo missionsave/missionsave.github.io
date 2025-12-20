@@ -3696,8 +3696,9 @@ void ev_highlight() {
 // Handle(SelectMgr_ViewerSelector) viewerSel = m_context->MainSelector();
 // viewerSel->GetManager().AllowOverlapDetection(0);
 
+static Handle(AIS_Shape) highlight;
 
-
+if (!highlight.IsNull())m_context->Remove(highlight, 1);
 
     clearHighlight();
 
@@ -3856,25 +3857,7 @@ void ev_highlight() {
     }
 // break;
     case TopAbs_EDGE: {
-//         TopoDS_Edge edge = TopoDS::Edge(detected);
-// 		GProp_GProps props;
-// 		BRepGProp::LinearProperties(edge, props);
-// 		double length = props.Mass();
-// 		string pname="Edge length: "+to_string_trim(length);
-// 		if(pname!=help.edge){help.edge=pname;help.upd();}
-// 		//here want highlight is visible
-// 		if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
-// 		// highlight modes must ALSO be moved to topmost
-// // m_context->SetZLayer(visible_, Graphic3d_ZLayerId_Topmost,
-// //                      Prs3d_TypeOfHighlight_LocalDynamic);
-// // m_context->SetZLayer(visible_, Graphic3d_ZLayerId_Topmost,
-// //                      Prs3d_TypeOfHighlight_Selected);
-// 		// m_context->SetDisplayPriority(visible_, -1);
-// 		//here want that highlight keep visible
 
-
-// // m_context->SetDisplayPriority(visible_, 1);
-// redraw();
 		
 
 // 	static	Handle(AIS_Shape) highlight = new AIS_Shape(edge);
@@ -3920,12 +3903,16 @@ if (pname != help.edge)
     help.upd();
 }
 
-static Handle(AIS_Shape) highlight = new AIS_Shape(edge);
+if (highlight.IsNull())highlight = new AIS_Shape(edge);
+
+if(hlr_on){
 
 if (m_context->IsDisplayed(highlight))
     m_context->Remove(highlight, Standard_False);
 
+
 highlight->Set(edge);
+m_context->Deactivate(highlight);
 highlight->SetDisplayMode(AIS_WireFrame);
 
 Handle(Prs3d_LineAspect) la =
@@ -3941,18 +3928,48 @@ highlight->Attributes()->SetVectorAspect(la);
 highlight->Attributes()->SetSectionAspect(la);
 highlight->Attributes()->SetSeenLineAspect(la);
 
-highlight->SetZLayer(Graphic3d_ZLayerId_Topmost);
+highlight->SetZLayer(Graphic3d_ZLayerId_TopOSD);
 
 if (m_context->IsDisplayed(highlight))
     m_context->Redisplay(highlight, Standard_True);
 else
     m_context->Display(highlight, Standard_True);
-
-// redraw();
+m_context->Deactivate(highlight);
+redraw();
 
 
 		// redraw();
 		return;
+}
+
+	if(!hlr_on){
+
+if (m_context->IsDisplayed(highlight))
+    m_context->Remove(highlight, Standard_False);
+
+m_context->Deactivate(highlight);
+
+        TopoDS_Edge edge = TopoDS::Edge(detected);
+		GProp_GProps props;
+		BRepGProp::LinearProperties(edge, props);
+		double length = props.Mass();
+		string pname="Edge length: "+to_string_trim(length);
+		if(pname!=help.edge){help.edge=pname;help.upd();}
+		//here want highlight is visible
+		// if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+		// highlight modes must ALSO be moved to topmost
+// m_context->SetZLayer(visible_, Graphic3d_ZLayerId_Topmost,
+//                      Prs3d_TypeOfHighlight_LocalDynamic);
+// m_context->SetZLayer(visible_, Graphic3d_ZLayerId_Topmost,
+//                      Prs3d_TypeOfHighlight_Selected);
+		// m_context->SetDisplayPriority(visible_, -1);
+		//here want that highlight keep visible
+
+
+// m_context->SetDisplayPriority(visible_, 1);
+redraw();
+return;
+		}
 		break;
 	}
     case TopAbs_FACE: {
