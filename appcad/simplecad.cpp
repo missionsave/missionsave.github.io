@@ -462,7 +462,7 @@ struct OCC_Viewer : public flwindow {
         // cotm2(mode( FL_OPENGL3 | FL_DEPTH32 ));
 		// cotm2("mode")
         // mode( FL_DEPTH | FL_STENCIL);
-        mode( FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        mode( FL_RGB8 | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // mode( FL_RGB8|FL_ALPHA | FL_DOUBLE |FL_DEPTH | FL_ACCUM | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_ALPHA | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
@@ -1064,10 +1064,10 @@ void draw ()
 	// m_view->Redraw();return;
 	if (!m_initialized && !valid()) {
 		valid(1);
+            glViewport(0, 0, w(), h());
         initialize_opencascade();
 
             // glEnable(GL_DEPTH_TEST);
-            // glViewport(0, 0, w(), h());
     }
     if (!m_initialized) return;
 
