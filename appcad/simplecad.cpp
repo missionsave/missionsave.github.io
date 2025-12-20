@@ -8578,7 +8578,7 @@ int main(int argc, char** argv) {
 	win->maximize();
 	// occv->initialize_opencascade(); 
 
-  return Fl::run();
+//   return Fl::run();
 	// lua_str(currfilename,1); //init
 	Fl::add_timeout(
 		0.7,
