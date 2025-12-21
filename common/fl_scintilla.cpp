@@ -531,7 +531,9 @@ void fl_scintilla::update_menu(){
 
 fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
 // fmb->add("Options/test",0,menu_cb);
-fmb->add("Help",0,0);
+fmb->add("Help",0,0,0,0);
+fmb->add("testing",0,0,0,0);
+fmb->add("testing2",0,0,0,0);
  
 // fmb->add("Options/Enable feature A", 0, menu_cb, (void*)"A",FL_MENU_TOGGLE);
 // fmb->add("Options/Enable feature B", 0, menu_cb, (void*)"B",FL_MENU_TOGGLE);

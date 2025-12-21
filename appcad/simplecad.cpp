@@ -3692,6 +3692,7 @@ bool IsPointVisible_Picking(const Handle(AIS_InteractiveContext)& ctx,
 // }
 
 void ev_highlight() {
+	if(!m_initialized)return;
 // m_context->SetViewAffinity((Standard_False);
 // Handle(SelectMgr_ViewerSelector) viewerSel = m_context->MainSelector();
 // viewerSel->GetManager().AllowOverlapDetection(0);
@@ -8441,44 +8442,44 @@ static Fl_Menu_Item items[] = {
 	{"&File", 0, 0, 0, FL_SUBMENU},
 	{"&Open", FL_ALT + 'o', ([](Fl_Widget*, void* v) { open_cb(); }), (void*)menu},
 
-	{"Pause", 0, ([](Fl_Widget* fw, void* v) {
-		 if (!occv) cotm("notok") occv->m_view->SetProj(V3d_XposYposZpos);
-		 // occv->animate_flip_view(occv);
-		 // Fl_Menu_Item* btpause=
-		 // const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&File/Pause"));
-		 // if(btpause->value()>0)
-		 // // 	lop(i,0,pool.size())
-		 // // 		pool[i]->pause=1;
-		 // // else
-		 // // 	lop(i,0,pool.size())
-		 // // 		pool[i]->pause=0;
+	// {"Pause", 0, ([](Fl_Widget* fw, void* v) {
+	// 	 if (!occv) cotm("notok") occv->m_view->SetProj(V3d_XposYposZpos);
+	// 	 // occv->animate_flip_view(occv);
+	// 	 // Fl_Menu_Item* btpause=
+	// 	 // const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&File/Pause"));
+	// 	 // if(btpause->value()>0)
+	// 	 // // 	lop(i,0,pool.size())
+	// 	 // // 		pool[i]->pause=1;
+	// 	 // // else
+	// 	 // // 	lop(i,0,pool.size())
+	// 	 // // 		pool[i]->pause=0;
 
-		 // cot1(btpause->value());
-	 }),
-	 (void*)menu, FL_MENU_TOGGLE},
+	// 	 // cot1(btpause->value());
+	//  }),
+	//  (void*)menu, FL_MENU_TOGGLE},
 
-	{"&Get view", FL_COMMAND + 'g', ([](Fl_Widget*, void* v) {
-		 occv->m_view->SetProj(1, 1, 1);
-		 // // ve[0]->rotate(Vec3f(0,0,1),45);
-		 // getview();
-		 // // Break=1;
+	// {"&Get view", FL_COMMAND + 'g', ([](Fl_Widget*, void* v) {
+	// 	 occv->m_view->SetProj(1, 1, 1);
+	// 	 // // ve[0]->rotate(Vec3f(0,0,1),45);
+	// 	 // getview();
+	// 	 // // Break=1;
 
-		 // 	// ve[0]->rotate( 10);
-		 // 	// cot(*ve[1]->axisbegin );
-		 // 	// cot(*ve[1]->axisend );
-	 }),
-	 (void*)menu},
+	// 	 // 	// ve[0]->rotate( 10);
+	// 	 // 	// cot(*ve[1]->axisbegin );
+	// 	 // 	// cot(*ve[1]->axisend );
+	//  }),
+	//  (void*)menu},
 
-	{"Inverse kinematics", 0, ([](Fl_Widget*, void* v) {
-		 Standard_Real dx, dy, dz, ux, uy, uz;
-		 occv->m_view->Proj(dx, dy, dz);
-		 occv->m_view->Up(ux, uy, uz);
-		 cotm("draw", dx, dy, dz, ux, uy, uz);
-		 // // ve[ve.size()-1]->rotate_posk(10);
-		 // // dbg_pos(); /////
-		 // ve[3]->posik(vec3(150,150,-150));
-	 }),
-	 (void*)menu},
+	// {"Inverse kinematics", 0, ([](Fl_Widget*, void* v) {
+	// 	 Standard_Real dx, dy, dz, ux, uy, uz;
+	// 	 occv->m_view->Proj(dx, dy, dz);
+	// 	 occv->m_view->Up(ux, uy, uz);
+	// 	 cotm("draw", dx, dy, dz, ux, uy, uz);
+	// 	 // // ve[ve.size()-1]->rotate_posk(10);
+	// 	 // // dbg_pos(); /////
+	// 	 // ve[3]->posik(vec3(150,150,-150));
+	//  }),
+	//  (void*)menu},
 
 	{"Quit", 0, ([](Fl_Widget*, void* v) {
 		 cotm("exit");
@@ -8520,121 +8521,74 @@ static Fl_Menu_Item items[] = {
 	 }),
 	 (void*)menu, FL_MENU_TOGGLE},
 
-	{"&test", 0, ([](Fl_Widget*, void* v) {
-		//  perf();
-		//  lop(i, 0, 40) occv->test(i * 5);
-		//  perf("test");
-		 {
-			occv->test(0);
-			 occv->draw_objs();
-			 perf("draw");
-			 // occv->m_view->FitAll();
-			 occv->redraw();
-			 occv->colorisebtn();
+	// {"&test", 0, ([](Fl_Widget*, void* v) {
+	// 	//  perf();
+	// 	//  lop(i, 0, 40) occv->test(i * 5);
+	// 	//  perf("test");
+	// 	 {
+	// 		occv->test(0);
+	// 		 occv->draw_objs();
+	// 		 perf("draw");
+	// 		 // occv->m_view->FitAll();
+	// 		 occv->redraw();
+	// 		 occv->colorisebtn();
 
-			 // occv->m_view->Redraw();
-			 perf("draw");
+	// 		 // occv->m_view->Redraw();
+	// 		 perf("draw");
 
-			 // occv->m_view->Update();
-		 }
-	 }),
-	 (void*)menu},
-
-	{"Robot visible", 0, ([](Fl_Widget*, void* v) {
-		 glFlush();
-		 glFinish();
-	 }),
-	 (void*)menu, FL_MENU_DIVIDER},
-
-	{"Time debug", 0, ([](Fl_Widget*, void* v) {
-		 // // Config cfg =  serialize(pool);
-		 // // cot(cfg);
-		 // time_f();
-		 // pressuref=4;
-		 // try{
-		 // 	elevator_go(3);
-		 // }catch(...){}
-	 }),
-	 (void*)menu},
-
-	{"Fit", 0, ([](Fl_Widget*, void* v) {
-		 // ViewerFLTK* view=osggl;
-		 // if ( view->getCamera() ){
-		 // 	// http://ahux.narod.ru/olderfiles/1/OSG3_Cookbook.pdf
-		 // 	double _distance=-1; float _offsetX=0, _offsetY=0;
-		 // 	osg::Vec3d eye, center, up;
-		 // 	view->getCamera()->getViewMatrixAsLookAt( eye, center,
-		 // 	up );
-
-		 // 	osg::Vec3d lookDir = center - eye; lookDir.normalize();
-		 // 	osg::Vec3d side = lookDir ^ up; side.normalize();
-
-		 // 	const osg::BoundingSphere& bs =
-		 // view->getSceneData()->getBound(); 	if ( _distance<0.0 ) _distance =
-		 // bs.radius() * 3.0; 	center = bs.center(); 	center -= (side *
-		 // _offsetX
-		 // + up * _offsetY) * 0.1; 	fix_center_bug=center;
-		 // 	// up={0,1,0};
-		 // 	osggl->tmr->setHomePosition( center-lookDir*_distance, center,
-		 // up ); 	osggl->setCameraManipulator(osggl->tmr); 	getview();
-		 // }
-	 }),
-	 (void*)menu},
-	{0},
-
-	// {"&Help", 0, 0, 0, FL_SUBMENU},
-	// {"&About v2", 0, ([](Fl_Widget*, void* v) {
-	// 	 // // lua_init();
-	// 	 // // getallsqlitefuncs();
-	// 	 // string val=getfunctionhelp();
-	// 	 // cot1(val);
-	// 	 // fl_message(val.c_str());
+	// 		 // occv->m_view->Update();
+	// 	 }
 	//  }),
 	//  (void*)menu},
-	// {0},
 
+
+	{0},
 
 	{"&Help", 0, ([](Fl_Widget*, void* v) { 
 		// win->begin();
 		Fl_Group::current(nullptr);  // clear current group
 
-static Fl_Window* fhelp = new Fl_Window(
-    win->x() + win->w()/4,   // position relative to parent
-    win->y() + win->h()/4,
-    win->w()/2, win->h()/2,
-    "Help"
-);
-// fhelp->set_menu_window();
+		static Fl_Window* fhelp = new Fl_Window(
+			win->x() + win->w()/4,   // position relative to parent
+			win->y() + win->h()/4,
+			win->w()/2, win->h()/2,
+			"Help"
+		);
+		// fhelp->set_menu_window();
 
-// make it a child of 'parent' so no new taskbar icon
-fhelp->set_modal();   // owned by parent, not independent
+		// make it a child of 'parent' so no new taskbar icon
+		fhelp->set_modal();   // owned by parent, not independent
 
-static Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
-fh->textfont(0);
-// if(string(fh->value()).size()<10) fh->value("<html><body>
-if(fh->value()==0) fh->value("<html><body>\
-<h2>Keys:</h2>\
-<p><b>Ctrl + Mouse Click </b> Go to the code of the Part under the mouse cursor\
-<p><p>\ 
-<h2>Commands:</h2>\
-<p><b>Origin(x,y,z) </b> Move all subsequent Parts to the specified (x,y,z) relative to world coordinates until another Origin is defined\
-<p><b>Part [label] </b> Create a new Part with a label of your choice\
-<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
-<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square\
-<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. Offset -3  = offset 3 inside, Offset 3  = offset 3 outside\
-<p><b>Extrude ([height]) </b> \
-<p><b>Fuse () </b> \ Fuse the 2 last solids from same Part \
-</body></html>");
+		static Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
+		fh->textfont(0);
+		// if(string(fh->value()).size()<10) fh->value("<html><body>
+		if(fh->value()==0) fh->value("<html><body>\
+		<h2>Keys:</h2>\
+		<p><b>Ctrl + Mouse Click </b> Go to the code of the Part under the mouse cursor\
+		<p><p>\ 
+		<h2>Commands:</h2>\
+		<p><b>Origin(x,y,z) </b> Move all subsequent Parts to the specified (x,y,z) relative to world coordinates until another Origin is defined\
+		<p><b>Part [label] </b> Create a new Part with a label of your choice\
+		<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
+		<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square\
+		<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. Offset -3  = offset 3 inside, Offset 3  = offset 3 outside\
+		<p><b>Extrude ([height]) </b> \
+		<p><b>Fuse () </b> \ Fuse the 2 last solids from same Part \
+		<p><b>Movel (x,y,z) </b> \ Move last solid from Part \
+		<p><b>Rotatelx (angle) </b> \ Rotate x on point relative to 0,0,0 of last solid from Part \
+		<p><b>Rotately (angle) </b> \ Rotate y on point relative to 0,0,0 of last solid from Part \
+		<p><b>Rotatelz (angle) </b> \ Rotate z on point relative to 0,0,0 of last solid from Part \
+		</body></html>");
 
 
-fhelp->end();
-fhelp->show();
+		fhelp->end();
+		fhelp->show();
 
 	 }),
-	 (void*)menu},
+	 (void*)menu,FL_MENU_DIVIDER},
 	{0},
 
-	{"&test", 0, ([](Fl_Widget*, void* v) {
+	{"test", 0, ([](Fl_Widget*, void* v) {
 		 cotm("test")
 		//  WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test.stl");
 		 // // lua_init();
@@ -8643,7 +8597,7 @@ fhelp->show();
 		 // cot1(val);
 		 // fl_message(val.c_str());
 	 }),
-	 (void*)menu},
+	 (void*)menu,FL_MENU_DIVIDER},
 	{0},
 
 
