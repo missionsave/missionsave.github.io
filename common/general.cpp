@@ -283,6 +283,11 @@ void perf1(string p){
     if(p==""){perfinit1.pclock=std::chrono::steady_clock::now();return;}
     perfinit1.p(p.c_str());
 } 
+performance perfinit2;
+void perf2(string p){
+    if(p==""){perfinit2.pclock=std::chrono::steady_clock::now();return;}
+    perfinit2.p(p.c_str());
+} 
 
 
  

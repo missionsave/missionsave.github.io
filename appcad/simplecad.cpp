@@ -68,6 +68,7 @@
 // #define flwindow Fl_Gl_Window  
 
 #define cotm2(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
+#define cotm1(...) cotm_function(#__VA_ARGS__, get_args_string(__VA_ARGS__)); 
 #define cotm1(...) 
 #define cotm(...)
 // #ifdef __linux__
@@ -1676,6 +1677,9 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 			occv->m_context->Display(ashape, 0);
 			occv->ulua[name] = this;
 			occv->vlua.push_back(this);
+
+				Origin=occv->Origin; 
+				ashape->SetLocalTransformation(Origin.Transformation());
 		}
  
 
@@ -1727,9 +1731,9 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 
 			
 			if(orupd==0 ){//&& !occv->Origin.IsIdentity()){
-				orupd=1;
-				Origin=occv->Origin; 
-				ashape->SetLocalTransformation(Origin.Transformation());
+				// orupd=1;
+				// Origin=occv->Origin; 
+				// ashape->SetLocalTransformation(Origin.Transformation());
 			}
 
 
@@ -4955,20 +4959,34 @@ m_context->Display(aShape, 0);
 
 	void fillvectopo() {
 		vshapes.clear();
+		//vshapes is not in sync vector
 		// cotm(vaShape.size(), vshapes.size());
 		for (int i = 0; i < vaShape.size(); i++) {
 			if (!m_context->IsDisplayed(vaShape[i]) || !vlua[i]->visible_hardcoded) continue;
-			vshapes.push_back(vaShape[i]->Shape());
+
+			TopoDS_Shape s=vaShape[i]->Shape();
+			if (!vlua[i]->Origin.IsIdentity()) {
+
+				s = s.Located(TopLoc_Location(
+					vlua[i]->Origin.Transformation()
+				));
+			}
+
+			vshapes.push_back(s); //not in sync
+
+			// vshapes.push_back(vaShape[i]->Shape());
 		}
 		// cotm(vaShape.size(), vshapes.size());
 	}
 	void projectAndDisplayWithHLR(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false){
 		if (!hlr_on)return;
-		// perf1();
-		projectAndDisplayWithHLR_P(shapes,isDragonly); 
-		// projectAndDisplayWithHLR_lp(shapes,isDragonly);
+		perf2();
+		// projectAndDisplayWithHLR_lp_prev(shapes); 
+		// projectAndDisplayWithHLR_P(shapes,isDragonly); 
+		projectAndDisplayWithHLR_lp(shapes,isDragonly);
+		// projectAndDisplayWithHLR_SilhouetteFast(shapes);
 		// projectAndDisplayWithHLR_ntw(shapes,isDragonly);
-		// perf1("hlr");
+		perf2("p2 hlr");
 	}
 
 
@@ -5037,13 +5055,184 @@ static Handle(AIS_InteractiveObject) visible_v;
 
 }
 
+void projectAndDisplayWithHLR_Fastest(
+    const std::vector<TopoDS_Shape>& shapes,
+    bool forceRebuild = false)
+{
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull())
+        return;
+
+    static TopoDS_Shape cachedEdges;     // camera-space
+    static bool built = false;
+
+    const Handle(Graphic3d_Camera)& cam = m_view->Camera();
+
+    // =========================================================
+    // 1) EXACT HLR — RUN ONCE (or when geometry changes)
+    // =========================================================
+    if (!built || forceRebuild)
+    {
+        gp_Dir viewDir = -cam->Direction();
+        gp_Dir viewRight = cam->Up().Crossed(viewDir);
+
+        gp_Ax3 camAx(cam->Center(), viewDir, viewRight);
+        gp_Trsf camTrsf;
+        camTrsf.SetTransformation(camAx);
+
+        HLRAlgo_Projector projector(
+            camTrsf,
+            !cam->IsOrthographic(),
+            cam->Scale()
+        );
+
+        Handle(HLRBRep_Algo) algo = new HLRBRep_Algo();
+        for (const auto& s : shapes)
+            if (!s.IsNull())
+                algo->Add(s, 0);
+
+        algo->Projector(projector);
+        algo->Update();
+        algo->Hide();
+
+        HLRBRep_HLRToShape toShape(algo);
+        cachedEdges = toShape.VCompound();  // stored in camera space
+
+        built = true;
+    }
+
+    // =========================================================
+    // 2) ULTRA-FAST REDRAW — ONLY TRANSFORM
+    // =========================================================
+    gp_Dir viewDir = -cam->Direction();
+    gp_Dir viewRight = cam->Up().Crossed(viewDir);
+
+    gp_Ax3 camAx(cam->Center(), viewDir, viewRight);
+    gp_Trsf camTrsf;
+    camTrsf.SetTransformation(camAx);
+
+    gp_Trsf inv = camTrsf.Inverted();
+
+    TopoDS_Shape result =
+        BRepBuilderAPI_Transform(cachedEdges, inv).Shape();
+
+    // =========================================================
+    // 3) DISPLAY
+    // =========================================================
+    if (visible_)
+        m_context->Remove(visible_, Standard_False);
+
+    visible_ = new AIS_NonSelectableShape(result);
+    visible_->SetColor(Quantity_NOC_BLACK);
+    visible_->SetWidth(2.2);
+
+    m_context->Display(visible_, Standard_False);
+    visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+    m_context->Deactivate(visible_);
+}
+void projectAndDisplayWithHLR_SilhouetteFast(
+    const std::vector<TopoDS_Shape>& shapes)
+{
+    if (!hlr_on || m_context.IsNull() || m_view.IsNull())
+        return;
+
+    static TopoDS_Shape cachedResult;
+    static gp_Dir lastDir(0, 0, 1);
+    static bool initialized = false;
+
+    const Handle(Graphic3d_Camera)& cam = m_view->Camera();
+
+    // ---------------------------------------------------------
+    // 1) Detect meaningful rotation (silhouette change)
+    // ---------------------------------------------------------
+    gp_Dir viewDir = -cam->Direction();
+    Standard_Real ang =
+        initialized ? viewDir.Angle(lastDir) : M_PI;
+
+    // threshold ~ 0.3°  (tune: 0.2–1.0)
+    const Standard_Real ROT_EPS = 0.005;
+
+    const bool needRebuild = !initialized || ang > ROT_EPS;
+
+    // ---------------------------------------------------------
+    // 2) Rebuild HLR only when needed
+    // ---------------------------------------------------------
+    if (needRebuild)
+    {
+        // copy + clean + mesh (safe)
+        Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+
+        for (const auto& s : shapes)
+        {
+            if (s.IsNull()) continue;
+
+            TopoDS_Shape copy =
+                BRepBuilderAPI_Copy(s).Shape();
+
+            BRepTools::Clean(copy);
+
+            BRepMesh_IncrementalMesh(
+                copy,
+                0.1,      // deflection
+                Standard_False,
+                0.5,
+                Standard_True
+            );
+
+            algo->Load(copy);
+        }
+
+        // camera-aligned projection
+        gp_Dir right = cam->Up().Crossed(viewDir);
+        gp_Ax3 ax(cam->Center(), viewDir, right);
+
+        gp_Trsf viewTrsf;
+        viewTrsf.SetTransformation(ax);
+
+        HLRAlgo_Projector projector(
+            viewTrsf,
+            !cam->IsOrthographic(),
+            cam->Scale()
+        );
+
+        algo->Projector(projector);
+        algo->Update();
+
+        HLRBRep_PolyHLRToShape toShape;
+        toShape.Update(algo);
+
+        cachedResult =
+            BRepBuilderAPI_Transform(
+                toShape.VCompound(),
+                viewTrsf.Inverted()).Shape();
+
+        lastDir = viewDir;
+        initialized = true;
+    }
+
+    // ---------------------------------------------------------
+    // 3) Ultra-fast display (no recompute)
+    // ---------------------------------------------------------
+    if (visible_)
+        m_context->Remove(visible_, Standard_False);
+
+    visible_ = new AIS_NonSelectableShape(cachedResult);
+    visible_->SetColor(Quantity_NOC_BLACK);
+    visible_->SetWidth(2.2);
+
+    m_context->Display(visible_, Standard_False);
+    visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+    m_context->Deactivate(visible_);
+}
 
 
 	// Fastest stable version for OCCT 7.9.x (PolyHLR with max internal parallelism)
+	bool is_first=0;
 void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool isDragonfly = false) {
     if (!hlr_on || m_context.IsNull() || m_view.IsNull()) return;
 
-    // 1. Camera transformation setup (kept your working version)
+	if (visible_) m_context->Remove(visible_, 0);
+    
+	// 1. Camera transformation setup (kept your working version)
     const Handle(Graphic3d_Camera)& camera = m_view->Camera();
     gp_Dir viewDir = -camera->Direction();
     gp_Dir viewUp = camera->Up();
@@ -5060,17 +5249,41 @@ void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool i
     // 3. Meshing - use OCCT's built-in parallel mode (fastest & thread-safe)
     // Tune deflection higher (e.g. 0.01 - 0.1) for much faster meshing + HLR Update()
     // Lower values = more precision, many more polygons → slower Update()
-    Standard_Real deflection = 0.02;  // Adjust this for your speed/quality tradeoff
+    Standard_Real deflection = 0.2;  // Adjust this for your speed/quality tradeoff
 
     Standard_Real angularDeflection = 0.5;  // radians, controls curve discretization
 
-    for (const auto& s : shapes) {
+// std::vector<TopoDS_Shape> cpyshapes;
+// cpyshapes.reserve(shapes.size());
+
+// for (const auto& s : shapes)
+// {
+//     if (s.IsNull()) continue;
+//     cpyshapes.push_back(
+//         BRepBuilderAPI_Copy(s).Shape()
+//     );
+// }
+
+// perf();
+
+	// int ailoci=0;
+	// if(!is_first){is_first=1;
+    for (  auto& s : shapes) {
         if (!s.IsNull()) {
+			BRepTools::Clean(s);
+
+
+
+
+
+
             // Optional: skip if already meshed sufficiently (your commented check)
             // For maximum speed, you can force remesh or skip check
             BRepMesh_IncrementalMesh(s, deflection, Standard_False, angularDeflection, Standard_True);
         }
     }
+// }
+// perf("brepclean");
 
     // 4. HLR computation (sequential - no parallelism available in OCCT HLR)
     Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
@@ -5087,10 +5300,24 @@ void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool i
     // 5. Extract visible edges and transform back
     HLRBRep_PolyHLRToShape hlrToShape;
     hlrToShape.Update(algo);
+	algo.Nullify();
 
     TopoDS_Shape vEdges = hlrToShape.VCompound();  // Visible sharp edges (adjust for other types if needed)
     BRepBuilderAPI_Transform visT(vEdges, invTrsf);
     TopoDS_Shape result = visT.Shape();
+
+
+		visible_ = new AIS_NonSelectableShape(result); 
+		visible_->SetColor(Quantity_NOC_BLACK);
+		visible_->SetWidth(2.2);
+		m_context->Display(visible_, false);
+		visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+        m_context->Deactivate(visible_);
+		return;
+
+
+
+
 
     // 6. Display / update AIS_Shape
     if (!visible_.IsNull()) {
@@ -5110,6 +5337,8 @@ void projectAndDisplayWithHLR_lp(const std::vector<TopoDS_Shape>& shapes, bool i
         visible_->SetInfiniteState(true);
         m_context->Display(visible_, false);
     }
+	visible_->SetZLayer(Graphic3d_ZLayerId_Topmost);
+	m_context->Deactivate(visible_);
 }
 	// #define ENABLE_PARALLEL 1
 	void projectAndDisplayWithHLR_ntw(const std::vector<TopoDS_Shape>& shapes, bool isDragonly = false) {
@@ -6184,7 +6413,7 @@ static void animation_update(void* userdata)
     occv->redraw();
 
     // 30 FPS
-    Fl::repeat_timeout(1.0 / 30.0, animation_update, userdata);
+    Fl::repeat_timeout(1.0 / 16.0, animation_update, userdata);
 }
 
 
@@ -8126,6 +8355,8 @@ void lua_str(const string &str, bool isfile) {
             std::string src((std::istreambuf_iterator<char>(f)), {});
             code = translate_shorthand(src);
 			// code+="\nrobot1()";
+			// cotm2(str)
+			// cotm2(code.data())
             status = luaL_loadbuffer(L, code.data(), code.size(), str.c_str());
         } else {
             code = translate_shorthand(str);
@@ -8496,7 +8727,7 @@ static Fl_Menu_Item items[] = {
 		 // const_cast<Fl_Menu_Item*>(((Fl_Menu_Bar*)fw)->find_item("&View/Transparent"));
 		 Fl_Menu_* menu = static_cast<Fl_Menu_*>(mnu);
 		 const Fl_Menu_Item* item = menu->mvalue();	 // This gets the actually clicked item
-		 occv->fillvectopo();
+		//  occv->fillvectopo();
 		 if (!item->value()) {
 			 occv->toggle_shaded_transp(AIS_WireFrame);
 		 } else {

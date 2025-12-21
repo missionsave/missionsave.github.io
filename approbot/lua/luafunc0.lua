@@ -1,3 +1,16 @@
+function foo(x)
+print("lua test 2")
+do return end
+print("x is", x)
+end
+
+foo(-9)
+print(_VERSION)
+error()
+
+
+
+
 common=require "common"
 for i = 100,1,-1 do
 	common.test()

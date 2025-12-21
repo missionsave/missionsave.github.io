@@ -451,6 +451,7 @@ mapwifi(){
 # ALGO=lz4
 # PERCENT=50
 # EOF'
+	# nmap -sn 192.168.1.* | grep \(1
 	nmap -sL 192.168.1.* | grep \(1
 }
 

@@ -1,3 +1,12 @@
+function foo(x)
+print("lua test 2")
+do return end
+print("x is", x)
+end
+
+foo(-9)
+
+
 
 function test8()
 	--error()
@@ -118,7 +127,7 @@ Pl 0,0 70,0 @0,70 @-70,0
 Offset 6
 Extrude 70
 Rotatelx(90)
-Movel(-71,170,-70-15)
+Movel(-70-6,170,-70-15)
 --Fuse()
 --FilletToAllEdges(2)
 
@@ -132,11 +141,12 @@ Part robot_arm_1
 Pl 0,0 70,66 @70,-66 @70,66 @70,-80
 Offset 7
 Extrude (56) 
+do return end
 Movel(-285,170-7,-100)
-error()
+
 --FilletToAllEdges(2)
 Rotatelx(90)
---
+--error()
 --Movel(-285,170-7,-100)
 Pl 0,0 280,0 @0,6 @-280,0 0,0
 Extrude 56
@@ -160,7 +170,7 @@ Fuse()
 --Extrude 600
 --Fuse()
 
-
+return
 end
   --robot1()
 
@@ -470,11 +480,11 @@ Part rail
 Clone sketch_profile
 Extrude(container_long-fcompartment-50)
 Rotatelz(-90)
-Movel(container_width/3 , tunel_height+120*2+20,-container_long+50)
+Movel(container_width/4-120/2 , tunel_height+120*2+20,-container_long+50)
 
 Part rail_right
 Clone(rail,1)
-Movel(container_width/3)
+Movel(container_width/4*2)
 
 Part rail_clones
 Clone(rail,1)
@@ -497,7 +507,7 @@ end
 
  struct()
 
---robot1()
+robot1()
 
 function elevator()
 Part elv
@@ -505,7 +515,7 @@ Clone sketch_profile
 Extrude(container_height)
 Rotatelx(-90)
 Rotately(-90)
-Movel(container_midle,0,-fcompartment)
+Movel(container_midle-120/2,0,-fcompartment)
 
 
 end
