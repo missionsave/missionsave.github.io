@@ -74,6 +74,35 @@
 // #ifdef __linux__
 // #define flwindow Fl_Double_Window
 // #endif
+void PrintLocation(const TopLoc_Location& loc)
+{
+    if (loc.IsIdentity()) {
+        std::cout << "Location: Identity" << std::endl;
+        return;
+    }
+
+    const gp_Trsf& t = loc.Transformation();
+
+    // Translation
+    gp_XYZ tr = t.TranslationPart();
+    std::cout << "Translation: "
+              << tr.X() << ", "
+              << tr.Y() << ", "
+              << tr.Z() << std::endl;
+
+    // Rotation matrix
+    gp_Mat r = t.VectorialPart();
+    std::cout << "Rotation: " ;
+    for (int i = 1; i <= 3; ++i) {
+        std::cout << "  ";
+        for (int j = 1; j <= 3; ++j)
+            std::cout << r.Value(i, j) << ",";
+        std::cout << " ";
+    }
+
+    // Scale
+    std::cout << "Scale: " << t.ScaleFactor() << std::endl;
+}
 
 TopoDS_Shape FixShape(const TopoDS_Shape& s) {
     ShapeFix_Shape fixer(s);
@@ -1679,6 +1708,8 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 			occv->vlua.push_back(this);
 
 				Origin=occv->Origin; 
+				// Origin = TopLoc_Location(occv->Origin.Transformation());
+
 				ashape->SetLocalTransformation(Origin.Transformation());
 		}
  
@@ -2603,6 +2634,7 @@ catch (...) {
 			// bool closed = ((vpoints[0].X() == vpoints.back().X()) &&
 			// 			   (vpoints[0].Y() == vpoints.back().Y()));
 			// cotm(closed);
+			// bool outward = dist>0?-1:1;
 			bool outward = 1;
 			const size_t N = vpoints.size();
 			if (N < 2) return TopoDS_Wire();
@@ -3908,7 +3940,21 @@ if (pname != help.edge)
     help.upd();
 }
 
-if (highlight.IsNull())highlight = new AIS_Shape(edge);
+if (highlight.IsNull())
+	    highlight = new AIS_Shape(edge);
+// {
+//     TopoDS_Shape moved = edge;
+//     moved.Location(ldd->Origin);   // apply TopLoc_Location
+
+//     highlight->SetShape(moved);
+
+	// highlight = new AIS_Shape(edge);
+	// if(ldd && !ldd->Origin.IsIdentity())
+	{
+    	highlight->SetLocalTransformation(ldd->Origin.Transformation());
+		// cotm2("ldd->Origin.Transformation()")
+		// PrintLocation(ldd->Origin);
+}
 
 if(hlr_on){
 
@@ -8802,7 +8848,7 @@ static Fl_Menu_Item items[] = {
 		<p><b>Part [label] </b> Create a new Part with a label of your choice\
 		<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
 		<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square\
-		<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. Offset -3  = offset 3 inside, Offset 3  = offset 3 outside\
+		<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. (closed polyline) Offset -3  = offset 3 inside, Offset 3  = offset 3 outside. e.g. (opened polyline) Offset -3  = offset 3 to right, Offset 3  = offset 3 to left\
 		<p><b>Extrude ([height]) </b> \
 		<p><b>Fuse () </b> \ Fuse the 2 last solids from same Part \
 		<p><b>Movel (x,y,z) </b> \ Move last solid from Part \
@@ -8995,9 +9041,9 @@ int main(int argc, char** argv) {
 
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0);  
-	int x, y, _w, _h;
-	Fl::screen_work_area(x, y, _w, _h);
-	win->resize(x, y+22, _w, _h-22); 
+	// int x, y, _w, _h;
+	// Fl::screen_work_area(x, y, _w, _h);
+	// win->resize(x, y+22, _w, _h-22); 
 	win->show(); 
 	// win->show(argc, argv); 
 

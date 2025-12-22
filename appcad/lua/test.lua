@@ -1,11 +1,28 @@
-function foo(x)
-print("lua test 2")
-do return end
-print("x is", x)
-end
+--function foo(x)
+--print("lua test 2")
 
-foo(-9)
+----Part robot_ar
+----Pl 0,0 70,0 @0,70 @-70,0
+----Offset 6
 
+--Part robot_a
+--Pl 0,40 @50,0
+--Offset -6
+--Extrude 7
+
+ --
+
+--Part sketch_profile1
+--Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
+--Offset (-2)
+
+
+--do return end
+--print("x is", x)
+--end
+
+--foo(-9)
+--do return end
 
 
 function test8()
@@ -84,7 +101,7 @@ Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
 
 Part sketch_profile
 Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
-Offset -2
+Offset (-2)
 
 
 
@@ -98,7 +115,7 @@ Pl 0,0 220,0 @0,170 @-220,0 0,0
 
 Part robot_body
 Clone sketch_body
-Offset 6
+Offset -6
 Extrude -100
 Clone sketch_body
 Extrude -6
@@ -112,7 +129,7 @@ Pl 0,0, 220,0 @0,100 @-220,0 0,0
 Part robot_bucket
 --Visible(0)
 Clone sketch_bucket
-Offset 5.2
+Offset -5.2
 Extrude 170-50
 Rotatelx(90)
 Movel(0,170-50,1)
@@ -122,31 +139,37 @@ Rotatelx(90)
 Movel(0,0,1)
 Fuse()
 
+Part servo70
+Pl 0,0 66,0 @0,40 @8,0 @0,4 @-8,0 @0,6 @-12,7 @-43,0 @-11,-5 @0,-8 @-8,0 @0,-4 @8,0 0,0
+Extrude 30
+--to implement axle (adjust x)
+Movel(220/2-15,170-57-6,-30-6)
+
 Part robot_arm
 Pl 0,0 70,0 @0,70 @-70,0
-Offset 6
+Offset(6)
 Extrude 70
 Rotatelx(90)
-Movel(-70-6,170,-70-15)
+Movel(-70-0,170,-70-15)
 --Fuse()
 --FilletToAllEdges(2)
 
 
-Part sketch_arm_1
-Pl 0,0 280,0 @0,6 @-280,0 0,0
-Visible(0)
-
-Origin(0,0,0)
+--Part sketch_arm_1
+--Pl 0,0 280,0 @0,6 @-280,0 0,0
+--Visible(0)
+--do return end
+--Origin(0,0,0)
 Part robot_arm_1
 Pl 0,0 70,66 @70,-66 @70,66 @70,-80
-Offset 7
+Offset 6
 Extrude (56) 
-do return end
-Movel(-285,170-7,-100)
+--do return end
+Movel(-285,170-7,-70)
 
 --FilletToAllEdges(2)
 Rotatelx(90)
---error()
+error()
 --Movel(-285,170-7,-100)
 Pl 0,0 280,0 @0,6 @-280,0 0,0
 Extrude 56
