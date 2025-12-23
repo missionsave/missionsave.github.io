@@ -107,7 +107,7 @@ Offset (-2)
 
 
 function robot1()
-Origin(container_width-800,600,-fcompartment)
+Origin(container_width/4*3-220/2,580,-fcompartment)
 --Origin(0,0,0)
 
 Part sketch_body
@@ -139,11 +139,31 @@ Rotatelx(90)
 Movel(0,0,1)
 Fuse()
 
+
+
 Part servo70
 Pl 0,0 66,0 @0,40 @8,0 @0,4 @-8,0 @0,6 @-12,7 @-43,0 @-11,-5 @0,-8 @-8,0 @0,-4 @8,0 0,0
 Extrude 30
---to implement axle (adjust x)
+Circle(4)
+--to implement tube with offset
+--Offset 2
+Extrude (10)
+Rotatelx(-90)
+Movel(15,57,15) 
+Fuse()
 Movel(220/2-15,170-57-6,-30-6)
+
+
+
+
+Part servo70_arm
+Clone (servo70)
+Rotately(180)
+Rotatelz(90)
+Movel(57+6,170-6-8,-6)
+
+
+
 
 Part robot_arm
 Pl 0,0 70,0 @0,70 @-70,0
@@ -169,7 +189,7 @@ Movel(-285,170-7,-70)
 
 --FilletToAllEdges(2)
 Rotatelx(90)
-error()
+--error()
 --Movel(-285,170-7,-100)
 Pl 0,0 280,0 @0,6 @-280,0 0,0
 Extrude 56
@@ -250,7 +270,7 @@ end
 end
 
 end
---mosaics()
+mosaics()
 
 function struct()
 
@@ -528,11 +548,9 @@ Movel(0,tunel_height*2)
 end
 
 
- struct()
-
-robot1()
 
 function elevator()
+Origin(0,0,0)
 Part elv
 Clone sketch_profile
 Extrude(container_height)
@@ -542,8 +560,13 @@ Movel(container_midle-120/2,0,-fcompartment)
 
 
 end
+
+
+ struct()
+
 elevator()
 
+robot1()
 
 
 

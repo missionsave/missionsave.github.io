@@ -516,9 +516,11 @@ void fl_scintilla::toggle_comment() {
 }
 
 
+ 
 
 
-void fl_scintilla::update_menu(){
+
+void fl_scintilla::update_menu(){ 
 	    window()->begin(); 
 		fmb=new fl_scintilla::MyMenuBar(x(),y(),w(),22,0,this);
 		size(w(),h()-22);
@@ -531,7 +533,7 @@ void fl_scintilla::update_menu(){
 
 fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
 // fmb->add("Options/test",0,menu_cb);
-fmb->add("Help",0,0,0,0);
+fmb->add("Help",0,0,0,FL_MENU_DIVIDER);
 fmb->add("testing",0,0,0,0);
 fmb->add("testing2",0,0,0,0);
  
@@ -563,14 +565,25 @@ fmb->add("testing2",0,0,0,0);
 	// 	editor->bfiles->add(fs::path(f.filename).filename().string().c_str());
     //     // std::cout << f.filename << " - " << std::asctime(std::localtime(&f.modified));
     // }
-
-	//open first last modified
+	string fn=folder;
+	replace_All(fn,"/","∕");
+	fn="Files/"+fn+" folder recents";
+	fmb->add(fn.c_str(),0, 0,0,FL_MENU_DIVIDER | FL_MENU_INACTIVE);
+	bool is_first=0;
     std::sort(files.begin(), files.end());
     for (const auto& f : files) {
 		string str=(fs::path(f.filename).filename().string());
-		cotm("FICH", folder+str);
-		setscint(this,folder+str);
-		break;
+		cotm(str);
+		// cotm("FICH", folder+str);
+		//open first last modified
+		if(!is_first){
+			setscint(this,folder+str);
+			is_first=1;
+		}
+		string fl = std::string("Files/") + str;
+
+    	fmb->add(fl.c_str(),0, menu_callback,0);
+		// break;
 
 
         // std::cout << std::asctime(std::localtime(&f.modified)) << " " << f.filename << '\n';
@@ -1275,6 +1288,7 @@ bool sortByFilename(const FileEntry& a, const FileEntry& b) {
     return a.filename < b.filename;
 }
 
+//sorted by last modified
 std::vector<FileEntry> fl_scintilla::list_files_in_dir(const std::string path) {
     std::vector<FileEntry> entries;
 

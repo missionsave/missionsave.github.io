@@ -895,7 +895,7 @@ std::cout << "FBO depth bits = " << depthSize << std::endl;
 		m_view->FitAll();
 
 		SetupHighlightLineType(m_context);
-		m_initialized = true;
+		// m_initialized = true;
 
 
 
@@ -965,6 +965,7 @@ m_view->ChangeRenderingParams().ToEnableDepthPrepass = Standard_True;
 				l->value("");
 			},
 			helpv); 
+			m_initialized = true;
 	}
 	static void idle_refresh_cb(void*) {
 		// clear gpu usage each 10 secs
@@ -2385,7 +2386,7 @@ bool replaceLastWireWithFace(TopoDS_Compound& cshape) {
 void extrude(float qtd = 0) {
     cotm1("Extrude", name);
 
-	cotm1("onex",ShapeTypeName(shape));
+	cotm2("onex",ShapeTypeName(shape));
     // bool replaced = replaceLastWireWithFace(cshape);
     // std::cout << "replaceLastWireWithFace: " << replaced << std::endl;
 
@@ -2403,13 +2404,12 @@ void extrude(float qtd = 0) {
 
 try {
 
-	cotm1("extr",ShapeTypeName(shape));
+	cotm2("extr",ShapeTypeName(shape));
     BRepPrimAPI_MakePrism mkPrism(shape, extrusionVec);
 
     if (!mkPrism.IsDone()) {
         throw std::runtime_error("Extrusion failed: prism builder not done.");
     }
-
     extrudedShape = mkPrism.Shape();
 }
 catch (Standard_Failure& e) {
@@ -2421,6 +2421,7 @@ catch (...) {
     return;
 }
     mergeShape(cshape, extrudedShape);
+	cotm2("extr2")
 }
 
 		// void mergeShape(TopoDS_Shape& target, const TopoDS_Shape &toAdd) {
@@ -4304,6 +4305,7 @@ pickedFace.Location(origLoc);
 	
 	
 	int handle(int event) override {
+		if(!m_initialized)return Fl_Window::handle(event);
 static auto last_event = std::chrono::steady_clock::now();
 auto now = std::chrono::steady_clock::now();
 auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_event);
@@ -6011,6 +6013,7 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 			auto* wrapper = static_cast<sbts*>(data);
 			auto& occv = wrapper->occv;
 			auto& m_view = wrapper->occv->m_view;
+			cotm2("an1")
 			if (wrapper->is_setview) {
 				// cotm(1);
 				// m_view->SetProj(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz);
@@ -6019,8 +6022,10 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 
 				occv->end_proj_global = gp_Vec(wrapper->v.dx, wrapper->v.dy, wrapper->v.dz);
 				occv->end_up_global = gp_Vec(wrapper->v.ux, wrapper->v.uy, wrapper->v.uz);
+			cotm2("an2")
 				occv->colorisebtn(wrapper->idx);
 				occv->start_animation(occv);
+			cotm2("an3")
 				// occv->animate_flip_view(occv);
 			}
 			if (wrapper && wrapper->func) wrapper->func();
@@ -6030,7 +6035,7 @@ void FitViewToShape(const Handle(V3d_View)& aView,
 			// Standard_Real dx, dy, dz, ux, uy, uz;
 			// m_view->Proj(dx, dy, dz);
 			// m_view->Up(ux, uy, uz);
-			// cotm(dx, dy, dz, ux, uy, uz);
+			cotm(dx, dy, dz, ux, uy, uz);
 		}
 
 		// 🔍 Find a pointer to sbts by label: sbts* found =
@@ -6252,11 +6257,13 @@ static gp_Pnt shapeCentroidWorld(const TopoDS_Shape& shp)
     return gp_Pnt((pmin.X()+pmax.X())*0.5, (pmin.Y()+pmax.Y())*0.5, (pmin.Z()+pmax.Z())*0.5);
 }
 
+
+//was crashing and its not better
 static gp_Pnt computeVisibleCenter(OCC_Viewer* occv)
 {
     Handle(V3d_View) view = occv->m_view;
     Handle(AIS_InteractiveContext) ctx = occv->m_context;
-    if (view.IsNull() || ctx.IsNull())
+    // if (view.IsNull() || ctx.IsNull())
         return view->Camera()->Center();
 
     // Tamanho da viewport
@@ -6265,7 +6272,9 @@ static gp_Pnt computeVisibleCenter(OCC_Viewer* occv)
         view->Window()->Size(winW, winH);
     } else {
         winW = 1920; winH = 1080;
+        winW = 1920; winH = 1080;
     }
+
     const Standard_Integer cx = winW / 2, cy = winH / 2;
 
     // Pick no centro
@@ -6297,6 +6306,7 @@ static gp_Pnt computeVisibleCenter(OCC_Viewer* occv)
                 if (!ais.IsNull()) shp = ais->Shape();
             }
             selector->Clear();
+	cotm2(winW,winH)
 
             if (!shp.IsNull())
                 return shapeCentroidWorld(shp);
@@ -6359,6 +6369,7 @@ Handle(AIS_AnimationCamera) CurrentAnimation;
 void start_animation(void* userdata)
 {
     auto* occv = static_cast<OCC_Viewer*>(userdata);
+	// auto& occv = userdata->occv;
     Handle(V3d_View) m_view = occv->m_view;
 
     // Stop any existing animation
@@ -6371,9 +6382,10 @@ void start_animation(void* userdata)
     // Current camera
     Handle(Graphic3d_Camera) currentCamera = m_view->Camera();
 
+			cotm2("an11")
     // Pivot = center of currently visible shapes in viewport (robust)
     gp_Pnt center = computeVisibleCenter(occv);
-cotm(center.X());
+cotm2(center.X());
 // gp_Pnt center(2400,0,0);
     // Keep same eye-to-center distance to avoid "flying away"
     const gp_Pnt oldEye = currentCamera->Eye();
@@ -6459,7 +6471,7 @@ static void animation_update(void* userdata)
     occv->redraw();
 
     // 30 FPS
-    Fl::repeat_timeout(1.0 / 16.0, animation_update, userdata);
+    Fl::repeat_timeout(1.0 / 30.0, animation_update, userdata);
 }
 
 
@@ -7089,6 +7101,7 @@ lua.set_function("Origin", [occv](Standard_Real x=0,Standard_Real y=0,Standard_R
 
 });
 lua.set_function("Fuse", [&]() { 
+		cotm2("fuse fail")
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
     
@@ -7101,6 +7114,7 @@ lua.set_function("Fuse", [&]() {
     }
 
     if (solids.size() < 2) {
+
 		throw std::runtime_error(lua_error_with_line(L, "Need at least two solids to fuse..."));
 		// lua_error_with_line(L,"Need at least two solids to fuse.");
         // throw std::runtime_error("Need at least two solids to fuse..");
@@ -7180,6 +7194,35 @@ lua.set_function("Subtract", [&]() {
     current_part->cshape = result;
 });
 
+lua.set_function("Circle", [&](float radius, float x, float y) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    if (radius <= 0)
+        luaL_error(lua.lua_state(), "Circle radius must be > 0.");
+
+    // Define center point
+    gp_Pnt center(x, y, 0.0);
+
+    // Define circle in XY plane
+    gp_Ax2 axis(center, gp::DZ());  // Normal = Z axis
+
+    // Build OCC circle
+    gp_Circ circ(axis, radius);
+
+// Build edge 
+TopoDS_Edge edge = BRepBuilderAPI_MakeEdge(circ); 
+// Build wire 
+TopoDS_Wire wire = BRepBuilderAPI_MakeWire(edge); 
+// Build face (planar) 
+TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+
+	// TopoDS_Shape res=current_part->solidify_wire_to_face();
+
+    // Add to current part
+    current_part->mergeShape(current_part->cshape,face);
+});
+
 
 lua.set_function("Pl", [&, parse_coords](const std::string& coords) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
@@ -7241,7 +7284,7 @@ for (int ic = 1; ic <= fillet.NbContours(); ++ic) {
 // current_part->ashape->Attributes()->SetFaceBoundaryDraw(false);
 });
 
-lua.set_function("Extrude", [&](double val) {
+lua.set_function("Extrude", [&](float val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->extrude(val);
 });
@@ -8370,6 +8413,7 @@ void RefineAISShapes(std::vector<Handle(AIS_Shape)>& shapes,
 void lua_str(const string &str, bool isfile) {
     // thread([](string str, bool isfile, OCC_Viewer* occv) {
         lua_mtx.lock();
+		// std::lock_guard<std::mutex> lock(lua_mtx);
 		perf();
         luainit();
 
@@ -8412,14 +8456,15 @@ void lua_str(const string &str, bool isfile) {
 
         if (status == LUA_OK) {
             if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
-                std::cerr << "runtime error: " << lua_tostring(L, -1) << std::endl;
+                std::cerr << "runtimer error: " << lua_tostring(L, -1) << std::endl;
                 lua_pop(L, 1);
+				// lua_mtx.unlock(); return;
             }
 			perf("lua");
 
             Fl::awake(fillbrowser);
 
-
+			cotm2("awake(fillbrowser)")
 
 
 
@@ -8441,7 +8486,7 @@ void lua_str(const string &str, bool isfile) {
 //     aisShape->SetLocalTransformation(scaleTrsf * aisShape->LocalTransformation());
 // }
 
-
+			//error?
 			RefineAISShapes(occv->vaShape,0.1,1);
 
 
@@ -8849,7 +8894,8 @@ static Fl_Menu_Item items[] = {
 		<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
 		<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square\
 		<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. (closed polyline) Offset -3  = offset 3 inside, Offset 3  = offset 3 outside. e.g. (opened polyline) Offset -3  = offset 3 to right, Offset 3  = offset 3 to left\
-		<p><b>Extrude ([height]) </b> \
+		<p><b>Circle (radius,x,y) </b>  \
+		<p><b>Extrude ([height]) </b> Must be before Movel or Rotatel* and after polyline or circle \
 		<p><b>Fuse () </b> \ Fuse the 2 last solids from same Part \
 		<p><b>Movel (x,y,z) </b> \ Move last solid from Part \
 		<p><b>Rotatelx (angle) </b> \ Rotate x on point relative to 0,0,0 of last solid from Part \
@@ -9041,9 +9087,9 @@ int main(int argc, char** argv) {
 
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0);  
-	// int x, y, _w, _h;
-	// Fl::screen_work_area(x, y, _w, _h);
-	// win->resize(x, y+22, _w, _h-22); 
+	int x, y, _w, _h;
+	Fl::screen_work_area(x, y, _w, _h);
+	win->resize(x, y+22, _w, _h-22); 
 	win->show(); 
 	// win->show(argc, argv); 
 
@@ -9057,19 +9103,12 @@ int main(int argc, char** argv) {
 	win->maximize();
 	// occv->initialize_opencascade(); 
 
-//   return Fl::run();
-	// lua_str(currfilename,1); //init
-	Fl::add_timeout(
-		0.7,
-		[](void* d) {
-		lua_str(currfilename,1); //init
-		Fl::add_timeout(0.2,[](void* d) {occv->m_view->FitAll();},0);				
-		Fl::add_timeout(0.6,[](void* d) {occv->sbt[6].occbtn->do_callback(); },0);				
-		Fl::add_timeout(0.8,[](void* d) {occv->m_view->FitAll(); },0);				
-		 
-		
-		},
-		0);  
+
+		Fl::add_timeout(0.7,[](void* d) {lua_str(currfilename,1);},0);				
+		Fl::add_timeout(0.9,[](void* d) {occv->m_view->FitAll();},0);				
+		Fl::add_timeout(1.5,[](void* d) {occv->sbt[6].occbtn->do_callback(); },0);				
+		Fl::add_timeout(1.8,[](void* d) {occv->m_view->FitAll(); },0);				
+ 
 		// checkdepthbit();
 	return Fl::run();
 }
