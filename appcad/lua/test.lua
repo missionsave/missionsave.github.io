@@ -93,15 +93,7 @@ globals()
 --c40()
 
 
-Part sketch_upn40x20
-Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
 
-
-
-
-Part sketch_profile
-Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
-Offset (-2)
 
 
 
@@ -165,55 +157,92 @@ Movel(57+6,170-6-8,-6)
 
 
 
-Part robot_arm
-Pl 0,0 70,0 @0,70 @-70,0
+Part robot_arm_0
+Pl 0,0 90,0 @0,70 @-90,0
 Offset(6)
-Extrude 70
-Rotatelx(90)
-Movel(-70-0,170,-70-15)
---Fuse()
---FilletToAllEdges(2)
-
-
---Part sketch_arm_1
---Pl 0,0 280,0 @0,6 @-280,0 0,0
---Visible(0)
---do return end
---Origin(0,0,0)
-Part robot_arm_1
-Pl 0,0 70,66 @70,-66 @70,66 @70,-80
-Offset 6
-Extrude (56) 
---do return end
-Movel(-285,170-7,-70)
-
---FilletToAllEdges(2)
-Rotatelx(90)
---error()
---Movel(-285,170-7,-100)
-Pl 0,0 280,0 @0,6 @-280,0 0,0
-Extrude 56
-Clone sketch_arm_1
-Extrude 56
---FilletToAllEdges(2)
-Rotatelx(90)
-Movel(-285,170-7,-100)
---Fuse()
-Clone sketch_arm_1
-Extrude 56 
-Rotatelx(90)
-Movel(0,0,70)
-Movel(-285,170-7,-100)
+Extrude(30+6)
+Pl 0,0 90,0 @0,70 @-90,0 0,0
+Extrude(6)
 Fuse()
+Circle(10,-15,70/2)
+Movel(0,0,80)
+Extrude(15)
+Rotately(90)
+--Rotatelz(-90)
+--Rotatelz(90)
+Fuse()
+Rotatelx(90)
+Movel(-70-10,170,-70-15)
+--Movel(-70-0,170-70,-70-15)
+--Fuse()
+--FilletToAllEdges(2)
+--Rotatelx(45)
+local gap=2
+Movel(-10-gap,-14,29)
 
---Part test
---Pl 0,0 100,100 @200,100 @0,100 0,0
---Extrude 20
---Pl 0,0 100,1000 @100,100 0,0
---Extrude 600
+
+
+Part servo70_arm0
+Clone (servo70,0)
+Rotately(-90)
+Rotatelz(90)
+Rotately(-90)
+Rotatelz(180)
+Movel(-66-8-6-gap,170-6-14-30,14-6)
+
+
+
+Part robot_arm1
+Pl 0,0 280,0 @0,6 @-280,0 0,0
+Rotatelx(-90)
+--Movel(-280-30,170-36-21/2,14+6)
+Movel(-280-30,170-40-10,14+6)
+Extrude(36)
+Dup()
+Movel(0,0,-70-6)
+Circle(10)
+Movel(-290,170-14-36/2)
+Extrude 100
+do return end
+
+----Part sketch_arm_1
+----Pl 0,0 280,0 @0,6 @-280,0 0,0
+----Visible(0)
+----do return end
+----Origin(0,0,0)
+--Part robot_arm_11
+--Pl 0,0 70,66 @70,-66 @70,66 @70,-80
+--Offset 6
+--Extrude (56) 
+--Movel(-285,170-7,-70)
+
+----FilletToAllEdges(2)
+--Rotatelx(90)
+----error()
+----Movel(-285,170-7,-100)
+--Pl 0,0 280,0 @0,6 @-280,0 0,0
+--Extrude 56
+--Clone sketch_arm_1
+--Extrude 56
+----FilletToAllEdges(2)
+--Rotatelx(90)
+--Movel(-285,170-7,-100)
+----Fuse()
+--Clone sketch_arm_1
+--Extrude 56 
+--Rotatelx(90)
+--Movel(0,0,70)
+--Movel(-285,170-7,-100)
 --Fuse()
 
-return
+----Part test
+----Pl 0,0 100,100 @200,100 @0,100 0,0
+----Extrude 20
+----Pl 0,0 100,1000 @100,100 0,0
+----Extrude 600
+----Fuse()
+
+--return
 end
   --robot1()
 
@@ -270,11 +299,21 @@ end
 end
 
 end
-mosaics()
 
 function struct()
 
 Origin(0,0,0)
+
+Part sketch_upn40x20
+Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
+
+
+
+
+Part sketch_profile
+Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
+Offset (-2)
+
 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
@@ -562,11 +601,6 @@ Movel(container_midle-120/2,0,-fcompartment)
 end
 
 
- struct()
-
-elevator()
-
-robot1()
 
 
 
@@ -666,3 +700,26 @@ end
 --Connect("p2 2 -1,0,0 100,50,300 60000")
 --Connect("p2 1 -0,1,0 50,-100,300 60000")
 --Revolution p1 90
+
+
+
+function circletest()
+Part ctest
+Circle(5)
+Movel(5,5,0)
+Extrude(10)
+--Rotatelx(90)
+
+
+end
+--circletest()
+
+
+struct()
+
+--elevator()
+
+--mosaics()
+
+robot1()
+

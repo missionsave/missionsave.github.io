@@ -134,6 +134,7 @@ struct fl_scintilla : public Fl_Scintilla {
 	std::string floaded = "";
 	bool show_browser = 1;
 	std::string folder = "lua/";
+	std::vector<std::string> tail_functions;
 	sptr_t curr_file_pointer = 0;
 	std::string comment;
 	void toggle_comment();
@@ -166,7 +167,7 @@ struct fl_scintilla : public Fl_Scintilla {
 	vstring vlinestring;
 	vstring vtoggled;
 	vstring getfuncs();
-	std::string sfunctions="";
+	std::string sfunctions = "";
 
 	void navigatorSetUpdated();
 	std::vector<FileEntry> lfiles;
@@ -180,35 +181,37 @@ struct fl_scintilla : public Fl_Scintilla {
 
 	   protected:
 		static void item_cb(Fl_Widget* w, void* data) {
-			Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;			
+			Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;
 			fl_scintilla* editor = (fl_scintilla*)data;
 			Fl_Menu_Item* item = (Fl_Menu_Item*)menu->mvalue();
 			//  printf("selected: %s\n", static_cast<char*>(data));
 			bool clicked_on_checkbox = (Fl::event_x() <= 25);
 			// item->set();
-			// cotm(item->value())
+			cotm(item->value(),Fl::event_x())
 			if (clicked_on_checkbox) {
 				menu->play_menu(item);
-			// 	lop(i,0,editor->vtoggled.size()){
-
-			// 	}
+				cotm(7)
+					lop(i,0,editor->vtoggled.size()){
+						cotm(editor->vtoggled[i])
+					}
 				return;
 			}
 
-    // Walk the flat menu array
-{    // Full path of the selected item, e.g. "File/Open"
-    char path[256];
-    menu->item_pathname(path, sizeof(path));  // e.g. "File/Open"
+			// Walk the flat menu array
+			{  // Full path of the selected item, e.g. "File/Open"
+				char path[256];
+				menu->item_pathname(path, sizeof(path));  // e.g. "File/Open"
 
-    printf("Path: %s\n", path);
+				printf("Path: %s\n", path);
 
-    const char* slash = strchr(path, '/');
-    if (slash) {
-        printf("Submenu: %.*s\n", (int)(slash - path), path);
-        printf("Item: %s\n", slash + 1);
-    } else {
-        printf("Item: %s\n", path);
-    }}
+				const char* slash = strchr(path, '/');
+				if (slash) {
+					printf("Submenu: %.*s\n", (int)(slash - path), path);
+					printf("Item: %s\n", slash + 1);
+				} else {
+					printf("Item: %s\n", path);
+				}
+			}
 
 			// Functions
 			// fl_scintilla* editor = (fl_scintilla*)data;

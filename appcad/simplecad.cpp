@@ -7,6 +7,7 @@
 #include <OpenGl_Workspace.hxx>
 #include <BRepBndLib.hxx>
 #include <Bnd_Box.hxx>
+#include <Geom_Circle.hxx>
 
 #include <BRepFilletAPI_MakeFillet.hxx>
 
@@ -102,6 +103,32 @@ void PrintLocation(const TopLoc_Location& loc)
 
     // Scale
     std::cout << "Scale: " << t.ScaleFactor() << std::endl;
+}
+void rotateShapeByMouse(
+    Handle(AIS_Shape) toRotate,
+    Handle(AIS_InteractiveContext) context,
+    const gp_Pnt& center,
+    const gp_Dir& axisDir,
+    float dx,
+    float dy)
+{
+    if (toRotate.IsNull() || context.IsNull())
+        return;
+
+    double angle = dx * 0.002;
+
+    gp_Ax1 axis(center, axisDir);
+
+    gp_Trsf trsf;
+    trsf.SetRotation(axis, angle);
+
+    TopoDS_Shape original = toRotate->Shape();
+    BRepBuilderAPI_Transform op(original, trsf, true);
+    TopoDS_Shape rotated = op.Shape();
+
+    toRotate->Set(rotated);
+
+    context->Redisplay(toRotate, true);
 }
 
 TopoDS_Shape FixShape(const TopoDS_Shape& s) {
@@ -346,7 +373,15 @@ lua_State* L;
 static std::unique_ptr<sol::state> G;
 
 extern string currfilename;
+ 
+bool studyRotation=0;
+gp_Pnt pickcenterforstudyrotation;
+gp_Dir pickcenteraxisDir ; // circle normal
+gp_Trsf initLoc;
+Handle(AIS_Shape) study_trg;
 
+
+ 
 #pragma endregion globals
 
 #pragma region help 
@@ -527,8 +562,8 @@ void initialize_opencascade_() {
     m_view->SetWindow(wind);
 
     // Rendering quality settings
-    m_context->SetDeviationCoefficient(0.01);
-    m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
+    // m_context->SetDeviationCoefficient(0.01);
+    // m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
 
     // Immediate mode off for better control
     m_view->SetImmediateUpdate(Standard_False);
@@ -695,8 +730,8 @@ void initialize_opencascade_() {
 		// m_view->SetZSize(0.00000000001); // refine near/far ratio
 		m_view->SetWindow(wind);
 
-			m_context->SetDeviationCoefficient(0.01);
-			m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
+			// m_context->SetDeviationCoefficient(0.01);
+			// m_context->SetDeviationAngle(0.5 * M_PI / 180.0);
 
 if(0){
 GLenum err = glewInit();
@@ -820,7 +855,7 @@ std::cout << "FBO depth bits = " << depthSize << std::endl;
 
 
 }
-		m_context->SetDeviationCoefficient(0.5);
+		// m_context->SetDeviationCoefficient(0.5);
 		// m_context->DefaultDrawer()->SetHiddenLineRemoval(Standard_True);
 
 // m_viewer->SetZClippingType(V3d_ZClippingType_UserDefined);
@@ -3882,6 +3917,35 @@ if (!highlight.IsNull())m_context->Remove(highlight, 1);
 
     switch (detected.ShapeType()) {
     case TopAbs_VERTEX: {
+
+
+if(0){
+    Standard_Real f, l;
+	try{
+	TopoDS_Edge edge = TopoDS::Edge(detected);
+        cotm2("✅ This IS a circle fe")
+    Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, f, l);
+
+    if (!curve.IsNull() &&
+        curve->IsKind(STANDARD_TYPE(Geom_Circle)))    {
+		Handle(Geom_Circle) circ = Handle(Geom_Circle)::DownCast(curve);
+
+		if (!circ.IsNull()){
+			gp_Pnt center = circ->Location();   // ✅ CENTER HERE
+			double radius = circ->Radius();
+			TopoDS_Vertex v = BRepBuilderAPI_MakeVertex(center);
+			highlightVertex(v, ldd);
+		}
+		return;
+    }
+}catch(...){}
+}
+
+
+
+
+
+
         TopoDS_Vertex v = TopoDS::Vertex(detected);
 
 		gp_Pnt vertexPnt = BRep_Tool::Pnt(v);
@@ -3929,6 +3993,37 @@ if (!highlight.IsNull())m_context->Remove(highlight, 1);
 
 
 TopoDS_Edge edge = TopoDS::Edge(detected);
+
+// if(0)
+{
+    Standard_Real f, l;
+    Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, f, l);
+
+    if (!curve.IsNull() &&
+        curve->IsKind(STANDARD_TYPE(Geom_Circle)))    {
+		Handle(Geom_Circle) circ = Handle(Geom_Circle)::DownCast(curve);
+
+		if (!circ.IsNull()){
+			gp_Pnt center = circ->Location();   // ✅ CENTER HERE
+			bool ctrlDown = (Fl::event_state() & FL_CTRL) != 0;
+			if(ctrlDown){
+				pickcenterforstudyrotation=center;
+				pickcenteraxisDir = circ->Circ().Axis().Direction(); // circle normal
+				studyRotation=1;
+        		cotm2(studyRotation)
+			}
+			double radius = circ->Radius();
+			TopoDS_Vertex v = BRepBuilderAPI_MakeVertex(center);
+			highlightVertex(v, ldd);
+		}
+        cotm2("✅ This IS a circle")
+    }
+}
+
+
+
+
+
 
 GProp_GProps props;
 BRepGProp::LinearProperties(edge, props);
@@ -4329,6 +4424,44 @@ if (event == FL_DRAG && isRotating && m_initialized) {
     // cotm("out");
     return 0;
 }
+
+bool ctrlDown = (Fl::event_state() & FL_CTRL) != 0;
+if(ctrlDown && studyRotation==1 ){
+	
+	cotm2(vaShape.size())
+	rotateShapeByMouse(ulua[help.pname]->ashape, m_context, pickcenterforstudyrotation, pickcenteraxisDir, Fl::event_x(), Fl::event_y());
+	study_trg=ulua[help.pname]->ashape;
+}
+// if(studyRotation && !ctrlDown){
+// initLoc = study_trg->LocalTransformation(); // save AIS location
+// case FL_RELEASE: if (dragging) { toRotate->SetLocalTransformation(initLoc);   context->Redisplay(toRotate, true); dragging = false; } return 1;
+// }
+// case FL_DRAG:
+//     if (dragging) {
+//         float dx = Fl::event_x() - lastX;
+
+//         double angle = dx * 0.002;  // slow rotation
+
+//         gp_Ax1 axis(center, axisDir);
+
+//         gp_Trsf rot;
+//         rot.SetRotation(axis, angle);
+
+//         // Combine: original location + new rotation
+//         gp_Trsf newLoc = initLoc * rot;
+
+//         toRotate->SetLocalTransformation(newLoc);
+//         context->Redisplay(toRotate, true);
+
+//         lastX = Fl::event_x();
+//         lastY = Fl::event_y();
+//     }
+//     return 1;
+
+
+
+
+
 
 if(event== FL_PUSH && (Fl::event_state() & FL_CTRL)){
 	if(help.pname!=""){
@@ -7101,7 +7234,7 @@ lua.set_function("Origin", [occv](Standard_Real x=0,Standard_Real y=0,Standard_R
 
 });
 lua.set_function("Fuse", [&]() { 
-		cotm2("fuse fail")
+		// cotm2("fuse fail")
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
     
@@ -7192,6 +7325,53 @@ lua.set_function("Subtract", [&]() {
     builder.Add(result, cut);
 
     current_part->cshape = result;
+});
+lua.set_function("Circle_v1", [&](float radius, float x, float y) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    if (radius <= 0)
+        luaL_error(lua.lua_state(), "Circle radius must be > 0.");
+
+    // Center
+    gp_Pnt center(x, y, 0.0);
+
+    // Circle in XY plane
+    gp_Ax2 axis(center, gp::DZ());
+    gp_Circ circ(axis, radius);
+
+    // Edge → wire → face
+    TopoDS_Edge edge = BRepBuilderAPI_MakeEdge(circ);
+    TopoDS_Wire wire = BRepBuilderAPI_MakeWire(edge);
+    TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+
+    // // Merge face
+    // current_part->mergeShape(current_part->cshape, face);
+
+    // -------------------------------
+    // Add helper vertices (snap points)
+    // -------------------------------
+    // auto addVertex = [&](double vx, double vy, double vz)
+    // {
+    //     TopoDS_Vertex v =
+    //         BRepBuilderAPI_MakeVertex(gp_Pnt(vx, vy, vz));
+    //     current_part->mergeShape(current_part->cshape, v);
+    // };
+
+    // const double z = 0.0;
+
+    // // Center
+    // addVertex(x,         y,         z);
+
+    // // Quadrants
+    // addVertex(x + radius, y,          z); // +X
+    // addVertex(x - radius, y,          z); // -X
+    // addVertex(x,          y + radius, z); // +Y
+    // addVertex(x,          y - radius, z); // -Y
+
+
+    // Merge face
+    current_part->mergeShape(current_part->cshape, face);
 });
 
 lua.set_function("Circle", [&](float radius, float x, float y) {
@@ -7284,7 +7464,57 @@ for (int ic = 1; ic <= fillet.NbContours(); ++ic) {
 // current_part->ashape->Attributes()->SetFaceBoundaryDraw(false);
 });
 
-lua.set_function("Extrude", [&](float val) {
+lua.set_function("Dup", [&](){
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Shape baseShape = current_part->shape;
+    if (baseShape.IsNull())
+        luaL_error(lua.lua_state(), "Current part has no shape.");
+	current_part->mergeShape(current_part->cshape, baseShape);
+});
+lua.set_function("Extrude", [&](float val){
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Shape baseShape = current_part->shape;
+    if (baseShape.IsNull())
+        luaL_error(lua.lua_state(), "Current part has no shape.");
+
+    // 1) Get transformation
+    TopLoc_Location loc = baseShape.Location();
+    gp_Trsf trsf = loc.Transformation();
+
+    // 2) Extract rotation ONLY (ignore translation completely)
+    gp_Mat rot = trsf.VectorialPart();   // pure rotation matrix
+
+    // 3) Rotate local Z using rotation matrix only
+    gp_Dir localZ(0.0, 0.0, 1.0);
+    gp_Dir worldZ(
+        rot.Value(1,1)*localZ.X() + rot.Value(1,2)*localZ.Y() + rot.Value(1,3)*localZ.Z(),
+        rot.Value(2,1)*localZ.X() + rot.Value(2,2)*localZ.Y() + rot.Value(2,3)*localZ.Z(),
+        rot.Value(3,1)*localZ.X() + rot.Value(3,2)*localZ.Y() + rot.Value(3,3)*localZ.Z()
+    );
+
+    // 4) Build extrusion vector
+    gp_Vec extrusionVec(worldZ);
+    extrusionVec *= val;
+
+    // 5) Extrude
+    BRepPrimAPI_MakePrism prism(baseShape, extrusionVec, Standard_False);
+    prism.Build();
+
+    if (!prism.IsDone())
+        luaL_error(lua.lua_state(), "Extrusion failed.");
+
+    TopoDS_Shape extruded = prism.Shape();
+
+    // 6) DO NOT reapply location (angle already respected, position irrelevant)
+    current_part->mergeShape(current_part->cshape, extruded);
+});
+
+
+lua.set_function("Extrude_v1", [&](float val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->extrude(val);
 });
@@ -8487,7 +8717,7 @@ void lua_str(const string &str, bool isfile) {
 // }
 
 			//error?
-			RefineAISShapes(occv->vaShape,0.1,1);
+			// RefineAISShapes(occv->vaShape,0.1,1);
 
 
 
@@ -8895,7 +9125,8 @@ static Fl_Menu_Item items[] = {
 		<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square\
 		<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. (closed polyline) Offset -3  = offset 3 inside, Offset 3  = offset 3 outside. e.g. (opened polyline) Offset -3  = offset 3 to right, Offset 3  = offset 3 to left\
 		<p><b>Circle (radius,x,y) </b>  \
-		<p><b>Extrude ([height]) </b> Must be before Movel or Rotatel* and after polyline or circle \
+		<p><b>Extrude ([height]) </b> Extrusion of last polyline or circle from Part \
+		<p><b>Dup () </b> Duplicates last shape from Part, so the new be moved or rotated \
 		<p><b>Fuse () </b> \ Fuse the 2 last solids from same Part \
 		<p><b>Movel (x,y,z) </b> \ Move last solid from Part \
 		<p><b>Rotatelx (angle) </b> \ Rotate x on point relative to 0,0,0 of last solid from Part \
@@ -9087,9 +9318,9 @@ int main(int argc, char** argv) {
 
 	// win->position(Fl::w()/2-win->w()/2,10);
 	win->position(0, 0);  
-	int x, y, _w, _h;
-	Fl::screen_work_area(x, y, _w, _h);
-	win->resize(x, y+22, _w, _h-22); 
+	// int x, y, _w, _h;
+	// Fl::screen_work_area(x, y, _w, _h);
+	// win->resize(x, y+22, _w, _h-22); 
 	win->show(); 
 	// win->show(argc, argv); 
 
@@ -9100,7 +9331,7 @@ int main(int argc, char** argv) {
 	woccbtn->flush(); 
 	// woccbtn->damage(FL_DAMAGE_VALUE); 
 
-	win->maximize();
+	// win->maximize();
 	// occv->initialize_opencascade(); 
 
 

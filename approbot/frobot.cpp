@@ -26,6 +26,7 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/CompositeViewer>
 #include <osgViewer/ViewerEventHandlers>
+#include <osgGA/OrbitManipulator>
 #include <osgGA/TrackballManipulator>
 #include <osgDB/ReadFile>
 #include <osg/Material>
@@ -143,7 +144,18 @@ int _lastDragX = 0, _lastDragY = 0;
         // mode(FL_OPENGL3 |FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_ALPHA | FL_DEPTH | FL_DOUBLE);
 
-        _gw = new osgViewer::GraphicsWindowEmbedded(x, y, w, h);
+        // _gw = new osgViewer::GraphicsWindowEmbedded(x, y, w, h);
+		// In your window/camera setup (constructor or init), create the embedded graphics window
+osg::GraphicsContext::Traits* traits = new osg::GraphicsContext::Traits;
+traits->x = 0;
+traits->y = 0;
+traits->width = this->w();
+traits->height = this->h();
+traits->windowDecoration = false;
+traits->doubleBuffer = true;
+traits->sharedContext = 0;
+
+_gw = new osgViewer::GraphicsWindowEmbedded(traits);
 
         
 
@@ -159,7 +171,8 @@ int _lastDragX = 0, _lastDragY = 0;
 
         getCamera()->setReadBuffer(GL_BACK);
 
-		getCamera()->setClearColor(osg::Vec4(1.0f, 0.5f, 0.5f, 0.5f)); // RGBA
+		getCamera()->setClearColor(osg::Vec4(1.0f, 1.0f, 1.0f, 0.0f)); // RGBA
+		// getCamera()->setClearColor(osg::Vec4(1.0f, 0.5f, 0.5f, 0.5f)); // RGBA
 
 		// getCamera()->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
@@ -184,6 +197,7 @@ osg::BoundingSphere boundingSphere=computeSceneBoundingSphere();
 // Set the center of rotation to the bounding sphere center
 tmr->setCenter(boundingSphere.center()); 
         setCameraManipulator(tmr);
+// setCameraManipulator(nullptr);
 
 		
 
@@ -290,429 +304,209 @@ void updateRotationCenter() {
         // tmr->home(0); // 0 for no animation
     }
 }
-    int handle(int event) override {
-
-        if (event == FL_SHOW && is_minimized){
-            last_event = std::chrono::steady_clock::now(); 
-            is_minimized=0;
-        }
-
-        if(is_minimized)
-            return Fl_Gl_Window::handle(event);
-
-// 		if(event==FL_RELEASE)
-// tmr->setCenter(computeSceneBoundingSphere().center()); 
-
-        if (event == FL_KEYUP || event == FL_KEYDOWN) {
-            if (Fl::event_key() == FL_Escape) {
-                cotm("esco")
-                return 0;
-            }
-        }
-
-        if (event == FL_PUSH) {
-            Fl::focus(this);
-        }
-
-	//zoom
-	if (event == FL_MOUSEWHEEL) {
-		int dy = Fl::event_dy();
-		if (dy == 0) return 0;
-
-		int mouseX = Fl::event_x();
-		int mouseY = Fl::event_y();
-		int windowWidth = w();
-		int windowHeight = h();
-
-		// OSG coordinates (invert Y)
-		int osgMouseY = windowHeight - mouseY - 1;
-
-		// Get current camera transform
-		osg::Vec3d eye, center, up;
-		tmr->getTransformation(eye, center, up);
-
-		osg::Matrixd viewMatrix = getCamera()->getViewMatrix();
-		osg::Matrixd projMatrix = getCamera()->getProjectionMatrix();
-		osg::Matrixd inverseVP = osg::Matrixd::inverse(viewMatrix * projMatrix);
-
-		// Mouse in NDC
-		double ndcX = (2.0 * mouseX) / windowWidth - 1.0;
-		double ndcY = (2.0 * osgMouseY) / windowHeight - 1.0;
-
-		// Ray in world space
-		osg::Vec3d nearPoint = osg::Vec3d(ndcX, ndcY, -1.0) * inverseVP;
-		osg::Vec3d farPoint = osg::Vec3d(ndcX, ndcY, 1.0) * inverseVP;
-		osg::Vec3d rayDir = farPoint - nearPoint;
-		rayDir.normalize();
-
-		// View direction and distance
-		osg::Vec3d viewDir = center - eye;
-		double distance = viewDir.length();
-		viewDir.normalize();
-
-		// Zoom factor
-		double zoomFactor = (dy > 0) ? 1.1 : 0.9;
-		double scale = (1.0 - zoomFactor);
-
-		// Get camera right and up vectors from view matrix
-		osg::Matrixd invView = osg::Matrixd::inverse(viewMatrix);
-		osg::Vec3d camRight(invView(0, 0), invView(0, 1), invView(0, 2));
-		osg::Vec3d camUp(invView(1, 0), invView(1, 1), invView(1, 2));
-
-		// Pan in screen pixels (mouse position from center)
-		double px = mouseX - windowWidth * 0.5;
-		double py = windowHeight * 0.5 - mouseY;  // invert Y to match screen coords
-
-		// Compute pan in world units
-		double fovy, aspectRatio, zNear, zFar;
-		projMatrix.getPerspective(fovy, aspectRatio, zNear, zFar);
-		double tanHalfFovy = tan(osg::DegreesToRadians(fovy * 0.5));
-		double pixelSize = 2.0 * distance * tanHalfFovy / windowHeight;
-
-		osg::Vec3d panOffset = camRight * (px * pixelSize * scale) +
-							camUp * (py * pixelSize * scale);
-
-		osg::Vec3d zoomOffset = viewDir * distance * scale;
-
-		osg::Vec3d newEye = eye + zoomOffset + panOffset;
-		osg::Vec3d newCenter = center + zoomOffset + panOffset;
-
-		tmr->setTransformation(newEye, newCenter, up);
-		return 1;
-	}
+    bool _rotating = false;
+    osg::Vec3d _eye0;
+    osg::Vec3d _center0;
+    osg::Vec3d _up0;
+    osg::Vec3d _arcballV0;
+    int _vpW = 1;
+    int _vpH = 1;
 
 
-		//rotation
-// 		if (event==FL_PUSH && Fl::event_button() == FL_LEFT_MOUSE){
+	static osg::Vec3d projectToArcball(int x, int y, int w, int h)
+{
+    double nx = (2.0 * x - w) / w;
+    double ny = (h - 2.0 * y) / h;
 
-// const osg::BoundingSphere& bs = group->getBound();
+    double len2 = nx*nx + ny*ny;
+    double nz = (len2 <= 1.0) ? std::sqrt(1.0 - len2) : 0.0;
 
-// // 2) Configure o manipulador para “olhar para” esse centro:
-// osg::Vec3d center = bs.center();
-// double   dist   = bs.radius() * 3.0; // ou um fator que ache melhor
-
-// // Define posição do olho (eye), centro (center) e up vector:
-// osg::Vec3d eye( center.x(), center.y() - dist, center.z() );
-// osg::Vec3d up ( 0.0, 0.0, 1.0 );
-
-// // 3) Ajusta o home e o pivot do trackball:
-// tmr->setHomePosition(eye, center, up);
-// tmr->home(0.0);            // reposiciona imediatamente na “home”
-// tmr->setCenter(center);    // define o ponto fixo de rotação
-// tmr->setDistance(dist);     // distância inicial da câmera
-
-
-static int _lastMouseX = 0, _lastMouseY = 0;
-
-if (event == FL_PUSH && Fl::event_button() == FL_LEFT_MOUSE) {
-	if (_gw.valid()) _gw->getEventQueue()->mouseButtonPress(Fl::event_x(), Fl::event_y(), Fl::event_button());
-    _lastMouseX = Fl::event_x();
-    _lastMouseY = Fl::event_y();
-    return 1;
+    osg::Vec3d v(nx, ny, nz);
+    v.normalize();
+    return v;
 }
 
-if (event == FL_DRAG && Fl::event_button() == FL_LEFT_MOUSE) {
-	
-    osg::Vec3d _rotationCenter = _pivot;
-
-    int currentX = Fl::event_x();
-    int currentY = Fl::event_y();
-
-	float percentX = float(_lastMouseX) / float(w());
-if (percentX > 0.95f) {
-    float dy = currentY - _lastMouseY;
-	_lastMouseY=currentY;
-
-    // Invert and reduce sensitivity
-    float angle = osg::DegreesToRadians(-dy * 0.1f);
-
-    osg::Vec3d eye, center, up;
-    tmr->getTransformation(eye, center, up);
-    osg::Vec3d viewDir = center - eye;
-    viewDir.normalize();
-
-    osg::Quat roll(angle, viewDir);
-    osg::Vec3d newUp = roll * up;
-
-    tmr->setTransformation(eye, center, newUp);
-    return 1;
-}
-
-
-    // Mouse delta
-    float dx = currentX - _lastMouseX;
-    float dy = currentY - _lastMouseY;
-    _lastMouseX = currentX;
-    _lastMouseY = currentY;
-
-    // Get camera basis
-    osg::Vec3d eye, center, up;
-    tmr->getTransformation(eye, center, up);
-
-    osg::Vec3d viewDir = center - eye;
-    viewDir.normalize();
-    osg::Vec3d right = viewDir ^ up;
-    right.normalize();
-
-    // Adjust angles and fix direction
-    float rotX = osg::DegreesToRadians(-dx * 0.2f);
-    float rotY = osg::DegreesToRadians(-dy * 0.2f);
-
-    osg::Quat rotH(rotX, up);
-    osg::Quat rotV(rotY, right);
-    osg::Quat totalRot = rotH * rotV;
-
-    // Rotate around pivot
-    osg::Vec3d eyeOffset = eye - _rotationCenter;
-    osg::Vec3d centerOffset = center - _rotationCenter;
-
-    eyeOffset = totalRot * eyeOffset;
-    centerOffset = totalRot * centerOffset;
-
-    osg::Vec3d newEye = _rotationCenter + eyeOffset;
-    osg::Vec3d newCenter = _rotationCenter + centerOffset;
-
-    tmr->setTransformation(newEye, newCenter, totalRot*up);
-    return 1;
-}
-
-
-// 		if (event==FL_PUSH && Fl::event_button() == FL_LEFT_MOUSE){
-// 			// if (_gw.valid()) _gw->getEventQueue()->mouseButtonPress(Fl::event_x(), Fl::event_y(), Fl::event_button());
-// 			return 1;
-// 		}
-
-
-// // Modified mouse drag handler:
-// if (event == FL_DRAG && Fl::event_button() == FL_LEFT_MOUSE) {
-// 	static int _lastMouseX, _lastMouseY;
-// 	osg::Vec3d _rotationCenter=_pivot;
-//     int currentX = Fl::event_x();
-//     int currentY = Fl::event_y();
-    
-//     // Calculate mouse movement delta
-//     float dx = currentX - _lastMouseX;
-//     float dy = currentY - _lastMouseY;
-//     _lastMouseX = currentX;
-//     _lastMouseY = currentY;
-    
-//     // Get current camera position
-//     osg::Vec3d eye, center, up;
-//     tmr->getTransformation(eye, center, up);
-    
-//     // Calculate rotation angles (adjust sensitivity as needed)
-//     float rotX = osg::DegreesToRadians(dx * 0.5f);
-//     float rotY = osg::DegreesToRadians(dy * 0.5f);
-    
-//     // Create rotation quaternions
-//     osg::Quat rotXQuat(rotX, up);
-//     osg::Vec3d right = (center-eye)^up;
-//     right.normalize();
-//     osg::Quat rotYQuat(rotY, right);
-    
-//     // Combine rotations
-//     osg::Quat totalRot = rotXQuat * rotYQuat;
-    
-//     // Rotate around scene center
-//     osg::Vec3d eyeOffset = eye - _rotationCenter;
-//     osg::Vec3d centerOffset = center - _rotationCenter;
-    
-//     eyeOffset = totalRot * eyeOffset;
-//     centerOffset = totalRot * centerOffset;
-    
-//     // Apply new positions
-//     tmr->setTransformation(_rotationCenter + eyeOffset, 
-//                           _rotationCenter + centerOffset, 
-//                           totalRot * up);
-    
-//     return 1;
-// }				
-		// if (event==FL_RELEASE && Fl::event_button() == FL_LEFT_MOUSE) {
-		// 	// Pass other mouse releases to OSG
-		// 	if (_gw.valid()) _gw->getEventQueue()->mouseButtonRelease(Fl::event_x(), Fl::event_y(), Fl::event_button());
-		// 	return 1;
-		// }
-
-
-		// if (event==FL_PUSH && Fl::event_button() == FL_LEFT_MOUSE){
-		// 	if (_gw.valid()) _gw->getEventQueue()->mouseButtonPress(Fl::event_x(), Fl::event_y(), Fl::event_button());
-		// 	return 1;
-		// }
-		// if (event==FL_DRAG && Fl::event_button() == FL_LEFT_MOUSE){
-		// 	// Pass other mouse movements to OSG
-		// 	if (_gw.valid()) _gw->getEventQueue()->mouseMotion(Fl::event_x(), Fl::event_y());
-		// 	return 1;
-		// }				
-		if (event==FL_RELEASE && Fl::event_button() == FL_LEFT_MOUSE) {
-			// Pass other mouse releases to OSG
-			if (_gw.valid()) _gw->getEventQueue()->mouseButtonRelease(Fl::event_x(), Fl::event_y(), Fl::event_button());
-			return 1;
-		}
-
-		//pan
-		if (event==FL_PUSH && Fl::event_button() == FL_RIGHT_MOUSE) {
-			// Handle right mouse for panning - don't pass to OSG
-			rightMousePressed = true;
-			lastMouseX = Fl::event_x();
-			lastMouseY = Fl::event_y();
-			return 1;
-		}
-		if (event==FL_DRAG && rightMousePressed && Fl::event_button() == FL_RIGHT_MOUSE) {
-				// Handle right mouse drag for panning
-				int deltaX = Fl::event_x() - lastMouseX;
-				int deltaY = Fl::event_y() - lastMouseY;                    
-
-				// Get current transformation
-				osg::Vec3d eye, center, up;
-				tmr->getTransformation(eye, center, up);                 
-
-				// Calculate pan vectors in screen space
-				osg::Vec3d viewDir = center - eye;
-				viewDir.normalize();
-				osg::Vec3d right = viewDir ^ up;
-				right.normalize();
-				osg::Vec3d trueUp = right ^ viewDir;
-				trueUp.normalize();                    
-
-				// Pan sensitivity factor
-				double panFactor = (center - eye).length() * 0.001;                    
-
-				// Apply panning
-				osg::Vec3d panOffset = right * (-deltaX * panFactor) + trueUp * (deltaY * panFactor);
-				osg::Vec3d newEye = eye + panOffset;
-				osg::Vec3d newCenter = center + panOffset;
-				tmr->setTransformation(newEye, newCenter, up);
-				lastMouseX = Fl::event_x();
-				lastMouseY = Fl::event_y();
-				return 1;
-			}                 
-			if (event==FL_RELEASE && Fl::event_button() == FL_RIGHT_MOUSE) {
-				// Handle right mouse release for panning
-				rightMousePressed = false;
-				return 1;
-			}
-
-
-
-
-
-// if (event == FL_PUSH && Fl::event_button() == FL_LEFT_MOUSE) {
-//     _leftDown = true;
-//     _lastDragX = Fl::event_x();
-//     _lastDragY = Fl::event_y();
-//     return 1;
-// }
-
-// if (event == FL_DRAG && _leftDown) {
-//     int x = Fl::event_x(), y = Fl::event_y();
-//     float dx = float(x - _lastDragX) / float(w());
-//     float dy = float(y - _lastDragY) / float(h());
-//     _lastDragX = x;
-//     _lastDragY = y;
-
-//     osg::Vec3d eye, center, up;
-//     if (tmr) tmr->getTransformation(eye, center, up);
-
-//     osg::Vec3d viewDir = center - eye; viewDir.normalize();
-//     osg::Vec3d right = viewDir ^ up; right.normalize();
-
-//     const float angleScale = osg::PI * 2.0f;
-//     osg::Quat rotH(dx * angleScale, up);
-//     osg::Quat rotV(dy * angleScale, right);
-//     osg::Quat rot = rotH * rotV;
-
-//     // aplica rotação em torno do pivot local (sem drift acumulado)
-//     osg::Matrix M = _rootXform->getMatrix();
-//     osg::Matrix R = 
-//         osg::Matrix::translate(_pivot_local) *
-//         osg::Matrix::rotate(rot) *
-//         osg::Matrix::translate(-_pivot_local);
-
-//     _rootXform->setMatrix(R * M);  // acumula suavemente
-//     return 1;
-// }
-
-
-
-// if (event == FL_RELEASE && Fl::event_button() == FL_LEFT_MOUSE) {
-//     _leftDown = false;
-//     return 1;
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// 			if (event == FL_PUSH && Fl::event_button() == FL_LEFT_MOUSE) {
-//     _pivot = calculateWorldIntersectionPivot(Fl::event_x(), Fl::event_y(), this);
-//     _leftDown = true;
-//     _lastDragX = Fl::event_x();
-//     _lastDragY = Fl::event_y();
-//     return 1;
-// }
-
-// if (event == FL_DRAG && _leftDown) {
-//     int x = Fl::event_x(), y = Fl::event_y();
-//     float dx = float(x - _lastDragX) / float(w());
-//     float dy = float(y - _lastDragY) / float(h());
-//     _lastDragX = x;
-//     _lastDragY = y;
-
-//     osg::Vec3d eye, center, up;
-//     tmr->getTransformation(eye, center, up);
-//     osg::Vec3d viewDir = center - eye; viewDir.normalize();
-//     osg::Vec3d right = viewDir ^ up; right.normalize();
-
-//     const float angleScale = osg::PI * 2.0f;
-//     osg::Quat rotH(dx * angleScale, up);
-//     osg::Quat rotV(dy * angleScale, right);
-//     osg::Quat rot = rotH * rotV;
-
-//     // Atenção: como o _pivot está em coordenadas de mundo, temos que
-//     // converter a rotação em uma matriz de transformação no mundo também.
-
-//     // osg::Matrix local = _rootXform->getMatrix();
-// // 1. Inverte a matriz atual (de mundo) para converter o pivot para o espaço local:
-// osg::Matrixd invLocal = osg::Matrixd::inverse(_rootXform->getMatrix());
-// osg::Vec3d localPivot = _pivot * invLocal;
-
-// // 2. Aplica a rotação ao redor do pivot agora no espaço local:
-// osg::Matrix rotation =
-//     osg::Matrix::translate(localPivot) *
-//     osg::Matrix::rotate(rot) *
-//     osg::Matrix::translate(-localPivot);
-
-// // 3. Aplica à transformação existente:
-// osg::Matrix local = _rootXform->getMatrix();
-// _rootXform->setMatrix(local * rotation);
-
-
-//     return 1;
-// }
-
-// if (event == FL_RELEASE && Fl::event_button() == FL_LEFT_MOUSE) {
-//     _leftDown = false;
-//     return 1;
-// }
-
-
-
-
-
-
-
-		return Fl_Gl_Window::handle(event);
+int handle(int event) override
+{
+    if (event == FL_SHOW && is_minimized) {
+        last_event = std::chrono::steady_clock::now();
+        is_minimized = 0;
     }
 
+    if (is_minimized)
+        return Fl_Gl_Window::handle(event);
+
+    if (event == FL_KEYUP || event == FL_KEYDOWN) {
+        if (Fl::event_key() == FL_Escape)
+            return 0;
+    }
+
+    if (event == FL_PUSH)
+        Fl::focus(this);
+
+    if (event == FL_MOUSEWHEEL) {
+        int dy = Fl::event_dy();
+        if (dy == 0) return 0;
+
+        int mouseX = Fl::event_x();
+        int mouseY = Fl::event_y();
+        int windowWidth = w();
+        int windowHeight = h();
+
+        osg::Vec3d eye, center, up;
+        tmr->getTransformation(eye, center, up);
+
+        osg::Matrixd viewMatrix = getCamera()->getViewMatrix();
+        osg::Matrixd projMatrix = getCamera()->getProjectionMatrix();
+
+        osg::Vec3d viewDir = center - eye;
+        double distance = viewDir.length();
+        viewDir.normalize();
+
+        double zoomFactor = (dy > 0) ? 1.1 : 0.9;
+        double scale = (1.0 - zoomFactor);
+
+        osg::Matrixd invView = osg::Matrixd::inverse(viewMatrix);
+        osg::Vec3d camRight(invView(0,0), invView(0,1), invView(0,2));
+        osg::Vec3d camUp   (invView(1,0), invView(1,1), invView(1,2));
+
+        double px = mouseX - windowWidth * 0.5;
+        double py = windowHeight * 0.5 - mouseY;
+
+        double fovy, aspectRatio, zNear, zFar;
+        projMatrix.getPerspective(fovy, aspectRatio, zNear, zFar);
+        double pixelSize = 2.0 * distance * tan(osg::DegreesToRadians(fovy * 0.5)) / windowHeight;
+
+        osg::Vec3d panOffset =
+            camRight * (px * pixelSize * scale) +
+            camUp    * (py * pixelSize * scale);
+
+        osg::Vec3d zoomOffset = viewDir * distance * scale;
+
+        tmr->setTransformation(
+            eye    + zoomOffset + panOffset,
+            center + zoomOffset + panOffset,
+            up
+        );
+        return 1;
+    }
+
+    static int _lastMouseX = 0, _lastMouseY = 0;
+
+    if (event == FL_PUSH && Fl::event_button() == FL_LEFT_MOUSE) {
+        if (_gw.valid())
+            _gw->getEventQueue()->mouseButtonPress(Fl::event_x(), Fl::event_y(), Fl::event_button());
+
+        _lastMouseX = Fl::event_x();
+        _lastMouseY = Fl::event_y();
+
+        int mx = _lastMouseX;
+        int my = _lastMouseY;
+        int winH = h();
+        int osgMouseY = winH - 1 - my;
+
+        osg::Vec3d pivotWorld = calculateWorldIntersectionPivot(mx, osgMouseY, this);
+        osggl->_pivot = pivotWorld;
+
+        return 1;
+    }
+
+    if (event == FL_DRAG && Fl::event_button() == FL_LEFT_MOUSE) {
+        osg::Vec3d rotationCenter = osggl->_pivot;
+
+        int currentX = Fl::event_x();
+        int currentY = Fl::event_y();
+
+        float percentX = float(_lastMouseX) / float(w());
+        if (percentX > 0.95f) {
+            float dy = currentY - _lastMouseY;
+            _lastMouseY = currentY;
+            float angle = osg::DegreesToRadians(-dy * 0.1f);
+
+            osg::Vec3d eye, center, up;
+            tmr->getTransformation(eye, center, up);
+            osg::Vec3d viewDir = center - eye;
+            viewDir.normalize();
+
+            osg::Quat roll(angle, viewDir);
+            tmr->setTransformation(eye, center, roll * up);
+            return 1;
+        }
+
+        float dx = currentX - _lastMouseX;
+        float dy = currentY - _lastMouseY;
+        _lastMouseX = currentX;
+        _lastMouseY = currentY;
+
+        osg::Vec3d eye, center, up;
+        tmr->getTransformation(eye, center, up);
+
+        osg::Vec3d viewDir = center - eye;
+        viewDir.normalize();
+        osg::Vec3d right = viewDir ^ up;
+        right.normalize();
+
+        osg::Quat rotH(osg::DegreesToRadians(-dx * 0.2f), up);
+        osg::Quat rotV(osg::DegreesToRadians(-dy * 0.2f), right);
+        osg::Quat totalRot = rotH * rotV;
+
+        osg::Vec3d eyeOffset    = eye    - rotationCenter;
+        osg::Vec3d centerOffset = center - rotationCenter;
+
+        tmr->setTransformation(
+            rotationCenter + totalRot * eyeOffset,
+            rotationCenter + totalRot * centerOffset,
+            totalRot * up
+        );
+        return 1;
+    }
+
+    if (event == FL_RELEASE && Fl::event_button() == FL_LEFT_MOUSE) {
+        if (_gw.valid())
+            _gw->getEventQueue()->mouseButtonRelease(Fl::event_x(), Fl::event_y(), Fl::event_button());
+        return 1;
+    }
+
+    if (event == FL_PUSH && Fl::event_button() == FL_RIGHT_MOUSE) {
+        rightMousePressed = true;
+        lastMouseX = Fl::event_x();
+        lastMouseY = Fl::event_y();
+        return 1;
+    }
+
+    if (event == FL_DRAG && rightMousePressed && Fl::event_button() == FL_RIGHT_MOUSE) {
+        int dx = Fl::event_x() - lastMouseX;
+        int dy = Fl::event_y() - lastMouseY;
+
+        osg::Vec3d eye, center, up;
+        tmr->getTransformation(eye, center, up);
+
+        osg::Vec3d viewDir = center - eye;
+        viewDir.normalize();
+        osg::Vec3d right = viewDir ^ up;
+        right.normalize();
+        osg::Vec3d trueUp = right ^ viewDir;
+        trueUp.normalize();
+
+        double panFactor = (center - eye).length() * 0.001;
+        osg::Vec3d pan =
+            right  * (-dx * panFactor) +
+            trueUp * ( dy * panFactor);
+
+        tmr->setTransformation(eye + pan, center + pan, up);
+
+        lastMouseX = Fl::event_x();
+        lastMouseY = Fl::event_y();
+        return 1;
+    }
+
+    if (event == FL_RELEASE && Fl::event_button() == FL_RIGHT_MOUSE) {
+        rightMousePressed = false;
+        return 1;
+    }
+
+    return Fl_Gl_Window::handle(event);
+}
 
 
     void draw() override {  
@@ -761,7 +555,7 @@ void wmove(){
 	osggl->tmr->setHomePosition( eye, center, up );
 	// tm->home(0.0);
 	// tm->setPivot(Vec3f(0,0,0));
-	osggl->setCameraManipulator(osggl->tmr);
+	// osggl->setCameraManipulator(osggl->tmr);
 	fix_center_bug=center;
 }
 int OnKeyPress(int Key, Fl_Window *MyWindow) { 
@@ -1156,7 +950,7 @@ int main() {
     int w=1024;
 	int h=576;
 	// cotm(w,h);
-    Fl::scheme("gleam");	
+    Fl::scheme("oxy");	
 	// Fl::visual(FL_RGB | FL_DOUBLE | FL_DEPTH); 
 	Fl::use_high_res_GL(0);  
 	win=new Fl_Double_Window(0,0,w,h,"frobot");     
@@ -1283,7 +1077,7 @@ if(0){
   
 	// win->clear_visible_focus(); 	 
 	// win->color(0x7AB0CfFF);
-	win->color(FL_RED);
+	// win->color(FL_RED);
 	win->resizable(content);
 	 
 	
