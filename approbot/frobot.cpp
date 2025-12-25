@@ -28,6 +28,10 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <osgGA/OrbitManipulator>
 #include <osgGA/TrackballManipulator>
+#include <osg/PolygonMode>
+#include <osg/LineWidth>
+#include <osg/Material>
+
 #include <osgDB/ReadFile>
 #include <osg/Material>
 #include <osg/BlendFunc>
@@ -37,6 +41,7 @@
 #include <osg/Depth>
 #include <osg/Version>
 
+#include <osgFX/Outline>
 // #include "fl_scintilla.hpp"
 #include "frobot.hpp"
 
@@ -118,7 +123,57 @@ int _lastDragX = 0, _lastDragY = 0;
         Fl::repeat_timeout(1.0 / 10, Timer_CB, nullptr);
 
     } 
+osg::ref_ptr<osgFX::Outline> _outlineEffect;
 
+void applyGlobalGhostedEdges(bool on=1)
+{
+    if (on)
+    {
+        if (!_outlineEffect)
+        {
+            _outlineEffect = new osgFX::Outline;
+            _outlineEffect->setWidth(2.0f);                     // espessura da edge
+            _outlineEffect->setColor(osg::Vec4(0,0,0,1));       // cor da edge (preto)
+        }
+
+        // Mover cena para dentro do efeito
+        if (_outlineEffect->getNumChildren() == 0)
+        {
+            while (_rootXform->getNumChildren() > 0)
+            {
+                osg::ref_ptr<osg::Node> child = _rootXform->getChild(0);
+                _rootXform->removeChild(child);
+                _outlineEffect->addChild(child);
+            }
+
+            _rootXform->addChild(_outlineEffect);
+        }
+
+        // Faces brancas opacas
+        osg::StateSet* ss = _outlineEffect->getOrCreateStateSet();
+
+        osg::ref_ptr<osg::Material> mat = new osg::Material;
+        mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1,1,1,1));   // branco opaco
+        mat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(0.9,0.9,0.9,1));
+
+        ss->setAttributeAndModes(mat, osg::StateAttribute::ON);
+        ss->setMode(GL_BLEND, osg::StateAttribute::OFF);       // sem transparência
+        ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+    }
+    else
+    {
+        if (_outlineEffect && _outlineEffect->getNumChildren() > 0)
+        {
+            for (unsigned i = 0; i < _outlineEffect->getNumChildren(); ++i)
+                _rootXform->addChild(_outlineEffect->getChild(i));
+
+            _outlineEffect->removeChildren(0, _outlineEffect->getNumChildren());
+        }
+
+        if (_outlineEffect)
+            _rootXform->removeChild(_outlineEffect);
+    }
+}
 
 
     ViewerFLTK(int x, int y, int w, int h, const char* label = 0): Fl_Gl_Window(x, y, w, h, label), osgViewer::Viewer(), rightMousePressed(false) {  // Ensure osgViewer::Viewer constructor is called
@@ -1083,6 +1138,7 @@ if(0){
 	
 	win->position(0,0);
 	// win->position(Fl::w()/2-win->w()/2,10);
+	osggl->applyGlobalGhostedEdges();
 	osggl->setbar5per();
 	win->show(); 
 

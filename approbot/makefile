@@ -78,7 +78,7 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+= `fltk-config --ldflags` 
 	LDFLAGS+= -L../common/scintilla_370 -l:libscintl.a	
 	CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src
-	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
+	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgFX -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 	
 	LDFLAGS+= -lturbojpeg -lwebsockets
