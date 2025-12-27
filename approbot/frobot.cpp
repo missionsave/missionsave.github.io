@@ -563,6 +563,27 @@ void applyOCCStyleEdges(bool on = true)
     }
 }
 
+
+struct FixNearPlane : public osg::Camera::DrawCallback
+{
+    virtual void operator()(osg::RenderInfo& ri) const override
+    {
+        osg::Camera* cam = ri.getCurrentCamera();
+        if (!cam) return;
+
+        double fovy, aspect, zNear, zFar;
+        if (cam->getProjectionMatrixAsPerspective(fovy, aspect, zNear, zFar))
+        {
+            // Force a safe near plane every frame
+            cam->setProjectionMatrixAsPerspective(
+                fovy, aspect,
+                0.5,      // <-- THIS fixes the Z=0 diagonals
+                zFar
+            );
+        }
+    }
+};
+
     ViewerFLTK(int x, int y, int w, int h, const char* label = 0): Fl_Gl_Window(x, y, w, h, label), osgViewer::Viewer(), rightMousePressed(false) {  // Ensure osgViewer::Viewer constructor is called
 
 
@@ -583,7 +604,8 @@ void applyOCCStyleEdges(bool on = true)
             
 
         // mode(FL_OPENGL3 |FL_RGB );
-        mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        mode(FL_OPENGL3 |FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_OPENGL3 |FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_ALPHA | FL_DEPTH | FL_DOUBLE);
 
@@ -604,15 +626,27 @@ void applyOCCStyleEdges(bool on = true)
 
         getCamera()->setViewport(new osg::Viewport(0, 0, w, h));
 
-        getCamera()->setProjectionMatrixAsPerspective(
+        // getCamera()->setProjectionMatrixAsPerspective(
 
-            30.0f, static_cast<double>(w) / static_cast<double>(h), 1.0f, 10000.0f);
+        //     30.0f, static_cast<double>(w) / static_cast<double>(h), 1.0f, 10000.0f);
 
         getCamera()->setGraphicsContext(_gw);
 
         getCamera()->setDrawBuffer(GL_BACK);
 
         getCamera()->setReadBuffer(GL_BACK);
+
+		getCamera()->setProjectionMatrixAsPerspective(
+    45.0,
+    static_cast<double>(w) / static_cast<double>(h),
+    0.5,      // near plane
+    50000.0   // far plane
+);
+
+
+getCamera()->setPostDrawCallback(new FixNearPlane);
+
+
 
 		// getCamera()->setClearColor(osg::Vec4(1.0f, 1.0f, 1.0f, 0.0f)); // RGBA
 		// getCamera()->setClearColor(osg::Vec4(1.0f, 0.5f, 0.5f, 0.5f)); // RGBA
@@ -1754,7 +1788,7 @@ if(0){
 	win->position(0,0);
 	// win->position(Fl::w()/2-win->w()/2,10);
 	// osggl->applyOCCStyleEdges();
-	osggl->applyGlobalGhostedEdges_v1();
+	// osggl->applyGlobalGhostedEdges_v1();
 
 
 

@@ -14,7 +14,7 @@
 #include <vector>
 #include <array>
 
-void WriteBinarySTL(const TopoDS_Shape& shape, const std::string& filename)
+void WriteBinarySTL_v1(const TopoDS_Shape& shape, const std::string& filename)
 {
     BRepMesh_IncrementalMesh mesh(shape, 0.1);
 
@@ -82,7 +82,7 @@ Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
 }
 
 
-void WriteBinarySTL_v1(const TopoDS_Shape& shape, const std::string& filename) {
+void WriteBinarySTL(const TopoDS_Shape& shape, const std::string& filename) {
     // Mesh the shape
     BRepMesh_IncrementalMesh mesh(shape, 0.1);
 

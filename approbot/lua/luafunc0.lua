@@ -9,7 +9,7 @@ print(_VERSION)
 --error()
 
 
-
+movz(-700)
 
 common=require "common"
 for i = 100,1,-1 do

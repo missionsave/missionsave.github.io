@@ -303,6 +303,7 @@ end
 function struct()
 
 Origin(0,0,0)
+--Origin(0,0,-1000)
 
 Part sketch_upn40x20
 Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
@@ -589,7 +590,7 @@ end
 
 
 function elevator()
-Origin(0,0,0)
+--Origin(0,0,0)
 Part elv
 Clone sketch_profile
 Extrude(container_height)

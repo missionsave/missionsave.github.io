@@ -105,6 +105,36 @@ struct initmut{
 // vector<osgdr*> ve;
 osgdr* carril; 
 // vector<std::mutex> mut=vector<std::mutex>(10);
+
+
+struct ZShift : public osg::NodeVisitor
+{
+    float dz;
+
+    ZShift(float shift)
+        : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), dz(shift) {}
+
+    void apply(osg::Geode& geode) override
+    {
+        for (unsigned i = 0; i < geode.getNumDrawables(); ++i)
+        {
+            osg::Geometry* g = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+            if (!g) continue;
+
+            osg::Vec3Array* v = dynamic_cast<osg::Vec3Array*>(g->getVertexArray());
+            if (!v) continue;
+
+            for (auto& p : *v)
+                p.z() += dz;
+
+            v->dirty();
+            g->dirtyBound();
+        }
+    }
+};
+
+
+// https://copilot.microsoft.com/chats/6D21xf7MfHhAwjq37r6yK
 osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
 {
     if (!model)
@@ -158,7 +188,7 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
     };
 
     struct EdgeInfo {
-        osg::Vec3 normalSum;
+        osg::Vec3 n1, n2;
         unsigned count = 0;
     };
 
@@ -180,13 +210,26 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
                 unsigned c = (*idx)[i+2];
 
                 osg::Vec3 n = ((*v)[b] - (*v)[a]) ^ ((*v)[c] - (*v)[a]);
+                if (n.length2() < 1e-5f)
+                    continue;
                 n.normalize();
 
                 EdgeKey e1(a,b), e2(b,c), e3(c,a);
 
-                edgeMap[e1].normalSum += n; edgeMap[e1].count++;
-                edgeMap[e2].normalSum += n; edgeMap[e2].count++;
-                edgeMap[e3].normalSum += n; edgeMap[e3].count++;
+                auto& i1 = edgeMap[e1];
+                if (i1.count == 0) i1.n1 = n;
+                else if (i1.count == 1) i1.n2 = n;
+                i1.count++;
+
+                auto& i2 = edgeMap[e2];
+                if (i2.count == 0) i2.n1 = n;
+                else if (i2.count == 1) i2.n2 = n;
+                i2.count++;
+
+                auto& i3 = edgeMap[e3];
+                if (i3.count == 0) i3.n1 = n;
+                else if (i3.count == 1) i3.n2 = n;
+                i3.count++;
             }
         }
 
@@ -211,25 +254,13 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
                         new osg::DrawElementsUInt(GL_TRIANGLES);
 
                     if (auto* u = dynamic_cast<osg::DrawElementsUInt*>(ps))
-                    {
-                        for (unsigned i = 0; i < u->size(); ++i)
-                            tmp->push_back((*u)[i]);
-                    }
+                        for (unsigned i = 0; i < u->size(); ++i) tmp->push_back((*u)[i]);
                     else if (auto* s = dynamic_cast<osg::DrawElementsUShort*>(ps))
-                    {
-                        for (unsigned i = 0; i < s->size(); ++i)
-                            tmp->push_back((*s)[i]);
-                    }
+                        for (unsigned i = 0; i < s->size(); ++i) tmp->push_back((*s)[i]);
                     else if (auto* b = dynamic_cast<osg::DrawElementsUByte*>(ps))
-                    {
-                        for (unsigned i = 0; i < b->size(); ++i)
-                            tmp->push_back((*b)[i]);
-                    }
+                        for (unsigned i = 0; i < b->size(); ++i) tmp->push_back((*b)[i]);
                     else if (auto* a = dynamic_cast<osg::DrawArrays*>(ps))
-                    {
-                        for (int i = 0; i < a->getCount(); ++i)
-                            tmp->push_back(a->getFirst() + i);
-                    }
+                        for (int i = 0; i < a->getCount(); ++i) tmp->push_back(a->getFirst() + i);
 
                     addTriangles(v, tmp.get());
                 }
@@ -269,7 +300,7 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
     vertices = vav.result;
 
     if (!vertices)
-        return root; // no geometry found
+        return root;
 
     /* ============================================================
        BUILD EDGE GEOMETRY
@@ -279,11 +310,16 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
         new osg::DrawElementsUInt(GL_LINES);
 
     const float featureAngle = osg::DegreesToRadians(30.0f);
+    const float coplanarEps  = 0.9995f;
+    const float zPlaneEps    = 1e-6f;   // plane proximity for z≈0 filter
 
     for (auto& kv : edgeMap)
     {
         const EdgeKey& e = kv.first;
         const EdgeInfo& info = kv.second;
+
+        const osg::Vec3& va = (*vertices)[e.a];
+        const osg::Vec3& vb = (*vertices)[e.b];
 
         if (info.count == 1)
         {
@@ -293,13 +329,18 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
         }
         else if (info.count == 2)
         {
-            // feature edge?
-            osg::Vec3 n = info.normalSum;
-            n.normalize();
+            // SPECIAL CASE: kill internal edges lying on z≈0 plane
+            if (std::fabs(va.z()) < zPlaneEps && std::fabs(vb.z()) < zPlaneEps)
+                continue;
 
-            float dot = n * n; // sum of two normals
+            float dot = info.n1 * info.n2;
+
+            if (dot > coplanarEps)
+                continue; // coplanar, drop diagonal
+
             if (dot < std::cos(featureAngle))
             {
+                // true feature edge
                 lines->push_back(e.a);
                 lines->push_back(e.b);
             }
@@ -311,15 +352,35 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
     edgeGeom->addPrimitiveSet(lines.get());
     edgeGeode->addDrawable(edgeGeom.get());
 
+    /* ============================================================
+       EDGE RENDER STATE (NO HIDING, NO FLICKER)
+       ============================================================ */
+
     osg::StateSet* es = edgeGeode->getOrCreateStateSet();
     es->clear();
     es->removeAttribute(osg::StateAttribute::PROGRAM);
 
+    // Depth test ON, depth write OFF
+    osg::ref_ptr<osg::Depth> depth = new osg::Depth(osg::Depth::LEQUAL, 0, 1, false);
+    es->setAttributeAndModes(depth.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    // Render edges after faces
+    es->setRenderBinDetails(1, "RenderBin");
+
+    // Polygon offset & line mode
+    osg::ref_ptr<osg::PolygonOffset> po = new osg::PolygonOffset;
+    po->setFactor(-1.0f);
+    po->setUnits(-1.0f);
+    es->setAttributeAndModes(po.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_POLYGON_OFFSET_LINE,
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
     es->setMode(GL_LIGHTING,  osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
     es->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 
-    osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth;
-    lw->setWidth(1.8f);
+    osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(1.8f);
     es->setAttributeAndModes(lw.get(),
         osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
@@ -329,7 +390,6 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
     edgeMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
     edgeMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
     edgeMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
-
     es->setAttributeAndModes(edgeMat.get(),
         osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
@@ -1311,6 +1371,8 @@ void loadstl(Group* group){
     // maquete = osgDB::readRefNodeFile("stl/test.stl");
 
     maquete = osgDB::readRefNodeFile("stl/test2.stl");
+ZShift shifter(-0.0000001f);
+maquete->accept(shifter);
 
 osg::ref_ptr<osg::Node> cadNode = makeCadStyleNode(maquete);
 group->addChild(cadNode.get());
