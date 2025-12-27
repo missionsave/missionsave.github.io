@@ -31,6 +31,11 @@
 #include <osgViewer/CompositeViewer>
 #include <osg/Vec3> 
 
+
+#include <osgUtil/SmoothingVisitor>
+#include <osgUtil/Optimizer>
+#include <osg/PolygonMode>
+
 #include <thread>
 #include <mutex>
 #include "frobot.hpp"
@@ -100,12 +105,316 @@ struct initmut{
 // vector<osgdr*> ve;
 osgdr* carril; 
 // vector<std::mutex> mut=vector<std::mutex>(10);
+osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
+{
+    if (!model)
+        return nullptr;
 
-void settranparency(Node* model,bool val=1){
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+
+    /* ============================================================
+       PASS 1: WHITE SHADED FACES
+       ============================================================ */
+
+    osg::ref_ptr<osg::Node> faceNode =
+        dynamic_cast<osg::Node*>(model->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+    osg::StateSet* fs = faceNode->getOrCreateStateSet();
+    fs->clear();
+    fs->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    fs->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_CULL_FACE,      osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_ARRAY,    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> faceMat = new osg::Material;
+    faceMat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(0.95f,0.95f,0.95f,1));
+    faceMat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0.95f,0.95f,0.95f,1));
+    faceMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    fs->setAttributeAndModes(faceMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(faceNode.get());
+
+    /* ============================================================
+       PASS 2: CAD EDGES (BOUNDARY + FEATURE)
+       ============================================================ */
+
+    osg::ref_ptr<osg::Geode> edgeGeode = new osg::Geode;
+
+    struct EdgeKey {
+        unsigned a, b;
+        EdgeKey(unsigned x=0, unsigned y=0) {
+            if (x < y) { a = x; b = y; }
+            else       { a = y; b = x; }
+        }
+        bool operator<(const EdgeKey& o) const {
+            return a < o.a || (a == o.a && b < o.b);
+        }
+    };
+
+    struct EdgeInfo {
+        osg::Vec3 normalSum;
+        unsigned count = 0;
+    };
+
+    std::map<EdgeKey, EdgeInfo> edgeMap;
+
+    struct Extractor : public osg::NodeVisitor
+    {
+        std::map<EdgeKey, EdgeInfo>& edgeMap;
+
+        Extractor(std::map<EdgeKey, EdgeInfo>& m)
+            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), edgeMap(m) {}
+
+        void addTriangles(osg::Vec3Array* v, osg::DrawElementsUInt* idx)
+        {
+            for (unsigned i = 0; i + 2 < idx->size(); i += 3)
+            {
+                unsigned a = (*idx)[i];
+                unsigned b = (*idx)[i+1];
+                unsigned c = (*idx)[i+2];
+
+                osg::Vec3 n = ((*v)[b] - (*v)[a]) ^ ((*v)[c] - (*v)[a]);
+                n.normalize();
+
+                EdgeKey e1(a,b), e2(b,c), e3(c,a);
+
+                edgeMap[e1].normalSum += n; edgeMap[e1].count++;
+                edgeMap[e2].normalSum += n; edgeMap[e2].count++;
+                edgeMap[e3].normalSum += n; edgeMap[e3].count++;
+            }
+        }
+
+        void apply(osg::Geode& geode) override
+        {
+            for (unsigned i = 0; i < geode.getNumDrawables(); ++i)
+            {
+                osg::Geometry* g =
+                    dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+                if (!g) continue;
+
+                osg::Vec3Array* v =
+                    dynamic_cast<osg::Vec3Array*>(g->getVertexArray());
+                if (!v) continue;
+
+                for (unsigned p = 0; p < g->getNumPrimitiveSets(); ++p)
+                {
+                    osg::PrimitiveSet* ps = g->getPrimitiveSet(p);
+                    if (ps->getMode() != GL_TRIANGLES) continue;
+
+                    osg::ref_ptr<osg::DrawElementsUInt> tmp =
+                        new osg::DrawElementsUInt(GL_TRIANGLES);
+
+                    if (auto* u = dynamic_cast<osg::DrawElementsUInt*>(ps))
+                    {
+                        for (unsigned i = 0; i < u->size(); ++i)
+                            tmp->push_back((*u)[i]);
+                    }
+                    else if (auto* s = dynamic_cast<osg::DrawElementsUShort*>(ps))
+                    {
+                        for (unsigned i = 0; i < s->size(); ++i)
+                            tmp->push_back((*s)[i]);
+                    }
+                    else if (auto* b = dynamic_cast<osg::DrawElementsUByte*>(ps))
+                    {
+                        for (unsigned i = 0; i < b->size(); ++i)
+                            tmp->push_back((*b)[i]);
+                    }
+                    else if (auto* a = dynamic_cast<osg::DrawArrays*>(ps))
+                    {
+                        for (int i = 0; i < a->getCount(); ++i)
+                            tmp->push_back(a->getFirst() + i);
+                    }
+
+                    addTriangles(v, tmp.get());
+                }
+            }
+        }
+    };
+
+    Extractor ex(edgeMap);
+    model->accept(ex);
+
+    /* ============================================================
+       FIND ANY VERTEX ARRAY
+       ============================================================ */
+
+    osg::Vec3Array* vertices = nullptr;
+
+    struct VAVisitor : public osg::NodeVisitor {
+        osg::Vec3Array* result = nullptr;
+        VAVisitor() : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN) {}
+        void apply(osg::Geode& geode) override {
+            for (unsigned i = 0; i < geode.getNumDrawables(); ++i)
+            {
+                if (auto* g = dynamic_cast<osg::Geometry*>(geode.getDrawable(i)))
+                {
+                    if (auto* v = dynamic_cast<osg::Vec3Array*>(g->getVertexArray()))
+                    {
+                        result = v;
+                        return;
+                    }
+                }
+            }
+        }
+    };
+
+    VAVisitor vav;
+    faceNode->accept(vav);
+    vertices = vav.result;
+
+    if (!vertices)
+        return root; // no geometry found
+
+    /* ============================================================
+       BUILD EDGE GEOMETRY
+       ============================================================ */
+
+    osg::ref_ptr<osg::DrawElementsUInt> lines =
+        new osg::DrawElementsUInt(GL_LINES);
+
+    const float featureAngle = osg::DegreesToRadians(30.0f);
+
+    for (auto& kv : edgeMap)
+    {
+        const EdgeKey& e = kv.first;
+        const EdgeInfo& info = kv.second;
+
+        if (info.count == 1)
+        {
+            // boundary edge
+            lines->push_back(e.a);
+            lines->push_back(e.b);
+        }
+        else if (info.count == 2)
+        {
+            // feature edge?
+            osg::Vec3 n = info.normalSum;
+            n.normalize();
+
+            float dot = n * n; // sum of two normals
+            if (dot < std::cos(featureAngle))
+            {
+                lines->push_back(e.a);
+                lines->push_back(e.b);
+            }
+        }
+    }
+
+    osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
+    edgeGeom->setVertexArray(vertices);
+    edgeGeom->addPrimitiveSet(lines.get());
+    edgeGeode->addDrawable(edgeGeom.get());
+
+    osg::StateSet* es = edgeGeode->getOrCreateStateSet();
+    es->clear();
+    es->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    es->setMode(GL_LIGHTING,  osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth;
+    lw->setWidth(1.8f);
+    es->setAttributeAndModes(lw.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> edgeMat = new osg::Material;
+    edgeMat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    es->setAttributeAndModes(edgeMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(edgeGeode.get());
+
+    return root;
+}
+
+void settranparency(Node* model,bool val=1){  
+return;
+osg::StateSet* ss = model->getOrCreateStateSet();
+
+ss->setMode(
+    GL_LIGHTING,
+    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE
+);
+
+osg::ref_ptr<osg::Material> mat = new osg::Material;
+
+osg::Vec4 nearWhite(0.95f, 0.95f, 0.95f, 1.0f);
+
+mat->setDiffuse (osg::Material::FRONT_AND_BACK, nearWhite);
+mat->setAmbient (osg::Material::FRONT_AND_BACK, nearWhite);
+mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+mat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+mat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+ss->setAttributeAndModes(
+    mat.get(),
+    osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+);
+
+ss->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+ss->removeAttribute(osg::StateAttribute::MATERIAL);
+
+
+
+
+
+
+
+
+
+return;
+	osg::StateSet* state2 = model->getOrCreateStateSet();
+	state2->clear();
+	
+	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth;
+lw->setWidth(1.8f);
+
+state2->setAttributeAndModes(
+    lw.get(),
+    osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+);
+
+state2->setMode(
+    GL_LINE_SMOOTH,
+    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE
+);
+
+state2->setMode(
+    GL_DEPTH_TEST,
+    osg::StateAttribute::ON
+);
+
+
+return;
+
+	// osg::ref_ptr<osg::Material> mat2 = new osg::Material;
+	// // mat2->setAlpha(osg::Material::FRONT_AND_BACK, 0.5); //Making alpha channel
+	// state2->setAttributeAndModes( mat2.get() ,osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	if(!val)return;
+	osg::BlendFunc* bf = new osg::BlendFunc(osg::BlendFunc::SRC_ALPHA,osg::BlendFunc::ONE_MINUS_DST_COLOR );
+	state2->setAttributeAndModes(bf);  
+	model->getStateSet()->setMode( GL_BLEND, osg::StateAttribute::ON );
+	model->getStateSet()->setRenderingHint( osg::StateSet::TRANSPARENT_BIN );
+}
+
+void settranparency_v1(Node* model,bool val=1){ 
 	osg::StateSet* state2 = model->getOrCreateStateSet();
 	state2->clear();	
 	osg::ref_ptr<osg::Material> mat2 = new osg::Material;
-	mat2->setAlpha(osg::Material::FRONT_AND_BACK, 0.5); //Making alpha channel
+	// mat2->setAlpha(osg::Material::FRONT_AND_BACK, 0.5); //Making alpha channel
 	state2->setAttributeAndModes( mat2.get() ,osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	if(!val)return;
 	osg::BlendFunc* bf = new osg::BlendFunc(osg::BlendFunc::SRC_ALPHA,osg::BlendFunc::ONE_MINUS_DST_COLOR );
@@ -321,6 +630,26 @@ void osgdr::newdr(vec3 _axisbegin,vec3 _axisend){
     
     lop(i,0,nodesstr.size()){
         nodes.push_back(osgDB::readRefNodeFile(nodesstr[i]));
+
+ 
+    osg::StateSet* ss = nodes[i]->getOrCreateStateSet();
+
+    // // 1) Disable lighting completely
+    // ss->setMode(GL_LIGHTING,
+    //             osg::StateAttribute::OFF |
+    //             osg::StateAttribute::OVERRIDE |
+    //             osg::StateAttribute::PROTECTED);
+
+    // // 2) Also disable cull, just in case
+    // ss->setMode(GL_CULL_FACE,
+    //             osg::StateAttribute::OFF |
+    //             osg::StateAttribute::OVERRIDE |
+    //             osg::StateAttribute::PROTECTED);
+
+ 
+
+
+
         settranparency(nodes[i].get(),0);
         transform->addChild(nodes[i].get());
         // transform->accept(*cbv);
@@ -696,6 +1025,7 @@ void geraeixos(Group* group){
 	idx=0;
 	ve.resize(idx+1);
 	ve[idx]=new osgdr(group); 
+	// ve[idx]->nodesstr.push_back("stl/test2.stl");
 	ve[idx]->nodesstr.push_back("stl/robot morango_corpo.stl");
 	ve[idx]->nodesstr.push_back("stl/robot morango_balde.stl");
 	ve[idx]->nodesstr.push_back("stl/robot morango_servospt70.stl"); 
@@ -819,13 +1149,219 @@ void bound_box(){
 	cot(intersects);
 }
 
+#include <osg/PolygonMode>
+
+#include <osgFX/Scribe>
+void loadstlfile(osg::Group* group, const std::string& fname)
+{
+    // 1. Load STL
+    osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(fname);
+    if (!node)
+    {
+        std::cout << "Failed to load STL: " << fname << std::endl;
+        return;
+    }
+
+    // ------------------------------------------------------------
+    // 2. Recursively remove ALL normals
+    // ------------------------------------------------------------
+
+    std::function<void(osg::Node*)> stripNormals = [&](osg::Node* n)
+    {
+        osg::Geode* geode = dynamic_cast<osg::Geode*>(n);
+        if (geode)
+        {
+            for (unsigned int i = 0; i < geode->getNumDrawables(); ++i)
+            {
+                osg::Geometry* geom = dynamic_cast<osg::Geometry*>(geode->getDrawable(i));
+                if (geom)
+                {
+                    geom->setNormalArray(nullptr);
+                    geom->setNormalBinding(osg::Geometry::BIND_OFF);
+
+                    for (unsigned int a = 0; a < geom->getNumVertexAttribArrays(); ++a)
+                        geom->setVertexAttribArray(a, nullptr);
+                }
+            }
+        }
+
+        osg::Group* g = n->asGroup();
+        if (g)
+        {
+            for (unsigned int i = 0; i < g->getNumChildren(); ++i)
+                stripNormals(g->getChild(i));
+        }
+    };
+
+    stripNormals(node);
+
+    // ------------------------------------------------------------
+    // 3. Merge vertices
+    // ------------------------------------------------------------
+    osgUtil::Optimizer opt;
+    opt.optimize(node,
+        osgUtil::Optimizer::MERGE_GEOMETRY |
+        osgUtil::Optimizer::VERTEX_POSTTRANSFORM);
+
+    // ------------------------------------------------------------
+    // 4. Recompute normals with crease angle
+    // ------------------------------------------------------------
+    osgUtil::SmoothingVisitor sv;
+    sv.setCreaseAngle(osg::DegreesToRadians(30.0f));
+    node->accept(sv);
+
+    // ------------------------------------------------------------
+    // 5. Force lighting ON
+    // ------------------------------------------------------------
+    osg::StateSet* ss = node->getOrCreateStateSet();
+    ss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+    ss->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    // ------------------------------------------------------------
+    // 6. Add a material
+    // ------------------------------------------------------------
+    osg::ref_ptr<osg::Material> mat = new osg::Material;
+    mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1,1,1,1));
+    mat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(0.2,0.2,0.2,1));
+    mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0.1,0.1,0.1,1));
+    ss->setAttributeAndModes(mat, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    // ------------------------------------------------------------
+    // 7. Add silhouette edges (NO diagonals)
+    // ------------------------------------------------------------
+    osg::ref_ptr<osgFX::Scribe> scribe = new osgFX::Scribe;
+    scribe->setWireframeColor(osg::Vec4(0,0,0,1));   // black outline
+    scribe->setWireframeLineWidth(1.5f);
+    scribe->addChild(node);
+
+    // ------------------------------------------------------------
+    // 8. Attach to scene
+    // ------------------------------------------------------------
+    group->addChild(scribe);
+}
+
+
+
+osg::ref_ptr<osg::Group> makeCleanNode(osg::Node* child)
+{
+    osg::ref_ptr<osg::Group> g = new osg::Group;
+    osg::StateSet* ss = g->getOrCreateStateSet();
+
+    // ------------------------------------------------------------
+    // 1. Clear all inherited states (critical!)
+    // ------------------------------------------------------------
+    ss->clear();
+
+    // ------------------------------------------------------------
+    // 2. Disable backface culling (fixes black interior)
+    // ------------------------------------------------------------
+    ss->setMode(GL_CULL_FACE,
+                osg::StateAttribute::OFF |
+                osg::StateAttribute::OVERRIDE |
+                osg::StateAttribute::PROTECTED);
+
+    // ------------------------------------------------------------
+    // 3. Enable two-sided lighting (OSG < 3.6 compatible)
+    // ------------------------------------------------------------
+    ss->setMode(GL_LIGHTING,
+                osg::StateAttribute::ON |
+                osg::StateAttribute::OVERRIDE |
+                osg::StateAttribute::PROTECTED);
+
+    ss->setMode(GL_LIGHT_MODEL_TWO_SIDE,
+                osg::StateAttribute::ON |
+                osg::StateAttribute::OVERRIDE |
+                osg::StateAttribute::PROTECTED);
+
+    // ------------------------------------------------------------
+    // 4. Normalize normals (fixes negative scales / transforms)
+    // ------------------------------------------------------------
+    ss->setMode(GL_NORMALIZE,
+                osg::StateAttribute::ON |
+                osg::StateAttribute::OVERRIDE |
+                osg::StateAttribute::PROTECTED);
+
+    // ------------------------------------------------------------
+    // 5. Apply a clean material (front & back)
+    // ------------------------------------------------------------
+    osg::ref_ptr<osg::Material> mat = new osg::Material;
+    mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1,1,1,1));
+    mat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(0.3,0.3,0.3,1));
+    mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    mat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    ss->setAttributeAndModes(mat,
+        osg::StateAttribute::ON |
+        osg::StateAttribute::OVERRIDE |
+        osg::StateAttribute::PROTECTED);
+
+    // ------------------------------------------------------------
+    // 6. Attach the STL node under this clean wrapper
+    // ------------------------------------------------------------
+    g->addChild(child);
+
+    return g;
+}
+
 
 void loadstl(Group* group){
 	
+	// loadstlfile(group,"stl/test2.stl");
+
     // maquete = osgDB::readRefNodeFile("stl/test.stl");
-    maquete = osgDB::readRefNodeFile("stl/maquete.stl");
-	settranparency(maquete.get(),1);
-	group->addChild(maquete.get());
+
+    maquete = osgDB::readRefNodeFile("stl/test2.stl");
+
+osg::ref_ptr<osg::Node> cadNode = makeCadStyleNode(maquete);
+group->addChild(cadNode.get());
+
+
+
+
+// auto clean = makeCleanNode(maquete.get()); group->addChild(clean.get());
+
+
+
+
+    // // maquete = osgDB::readRefNodeFile("stl/maquete.stl");
+    // // maquete = osgDB::readRefNodeFile("stl/all_shapes_fused.stl");
+	// cotm("readn");
+	// settranparency(maquete.get(),0);
+	// group->addChild(maquete.get());
+// osg::StateSet* ss = maquete->getOrCreateStateSet();
+
+// ss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+// ss->setMode(GL_LIGHT0, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+// osg::ref_ptr<osg::Material> mat = new osg::Material;
+// mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1,1,1,1));
+// mat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(0.2,0.2,0.2,1));
+// ss->setAttributeAndModes(mat, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+// osgUtil::SmoothingVisitor sv;
+// sv.setCreaseAngle(osg::DegreesToRadians(30.0f));
+// maquete->accept(sv);
+
+
+// osg::ref_ptr<osg::Light> light = new osg::Light;
+// light->setLightNum(0);
+// light->setPosition(osg::Vec4(0,0,0,1));
+// light->setDirection(osg::Vec3(0,0,-1));
+
+// osg::ref_ptr<osg::LightSource> ls = new osg::LightSource;
+// ls->setLight(light);
+
+// // Add to scene graph, not the render camera
+// group->addChild(ls);
+
+// // Enable the light
+// group->getOrCreateStateSet()->setMode(GL_LIGHT0, osg::StateAttribute::ON);
+
+// // Ensure normals exist
+// osgUtil::SmoothingVisitor sv;
+// maquete->accept(sv);
+ 
+
 	
 	
     ucs_icon = osgDB::readRefNodeFile("stl/3DUCSICON2.stl");

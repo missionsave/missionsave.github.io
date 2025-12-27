@@ -9144,7 +9144,7 @@ static Fl_Menu_Item items[] = {
 
 	{"test", 0, ([](Fl_Widget*, void* v) {
 		 cotm("test")
-		//  WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test.stl");
+		//  WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test2.stl");
 		 // // lua_init();
 		 // // getallsqlitefuncs();
 		 // string val=getfunctionhelp();
@@ -9231,7 +9231,125 @@ int checkdepthbit()
 #endif
     return 0;
 }
+static void ExtractSolids(const TopoDS_Shape& shape, TopoDS_Compound& outComp, BRep_Builder& B)
+{
+    if (shape.IsNull()) return;
 
+    TopAbs_ShapeEnum t = shape.ShapeType();
+
+    if (t == TopAbs_SOLID)
+    {
+        B.Add(outComp, shape);
+        return;
+    }
+
+    if (t == TopAbs_COMPOUND || t == TopAbs_COMPSOLID || t == TopAbs_SHELL)
+    {
+        for (TopoDS_Iterator it(shape); it.More(); it.Next())
+        {
+            ExtractSolids(it.Value(), outComp, B);
+        }
+    }
+}
+TopoDS_Shape FixFaceOrientation(const TopoDS_Shape& shape)
+{
+    BRep_Builder B;
+    TopoDS_Compound result;
+    B.MakeCompound(result);
+
+    for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next())
+    {
+        TopoDS_Face face = TopoDS::Face(exp.Current());
+
+        // Fix wire orientation
+        ShapeFix_Wire fixWire;
+        fixWire.Load(BRepTools::OuterWire(face));
+        fixWire.Perform();
+
+        // Fix face orientation
+        ShapeFix_Face fixFace;
+        fixFace.Init(face);
+        fixFace.Perform();
+
+        B.Add(result, fixFace.Face());
+    }
+
+    return result;
+}
+
+void fill_menu(){
+menu->add("File/Export/test", 0,
+    [](Fl_Widget*, void* ud){
+        OCC_Viewer* v = (OCC_Viewer*)(ud);
+		
+		 WriteBinarySTL(occv->ulua["corner"]->shape,"../approbot/stl/test2.stl");
+    },
+    occv, 0);
+
+
+menu->add("File/Export/Single solid", 0,
+    [](Fl_Widget*, void* ud){
+        OCC_Viewer* v = (OCC_Viewer*)(ud);
+
+        // Create a single compound
+        BRep_Builder B;
+        TopoDS_Compound comp;
+        B.MakeCompound(comp);
+
+        bool added = false;
+
+        for (int i = 0; i < v->vaShape.size(); i++) {
+
+            if (!v->m_context->IsDisplayed(v->vaShape[i]) ||
+                !v->vlua[i]->visible_hardcoded)
+                continue;
+
+            TopoDS_Shape s = v->vlua[i]->cshape;
+            // TopoDS_Shape s = v->vaShape[i]->Shape();
+            if (s.IsNull()) continue;
+
+            if (!v->vlua[i]->Origin.IsIdentity()) {
+                s = s.Located(TopLoc_Location(
+                    v->vlua[i]->Origin.Transformation()
+                ));
+            }
+
+            // B.Add(comp, s);
+			ExtractSolids(s,comp,B);
+            added = true;
+        }
+
+        if (!added) {
+            fl_alert("No visible shapes to export.");
+            return;
+        }
+
+        // Force triangulation of the entire compound
+        // BRepMesh_IncrementalMesh(comp, 0.05, false);
+
+TopoDS_Shape oriented = comp.Reversed();
+
+
+
+// Export STL
+WriteBinarySTL(oriented, "../approbot/stl/test2.stl");
+
+
+
+
+
+		// WriteBinarySTL(fixed, "../approbot/stl/test2.stl");
+		// WriteBinarySTL(comp, "../approbot/stl/all_shapes_fused");
+        // Now write STL from the triangulated compound
+        // StlAPI_Writer writer;
+        // writer.ASCIIMode() = false;
+        // writer.Write(comp, "../approbot/stl/all_shapes_fused.stl");
+    },
+    occv, 0);
+
+
+
+}
 int main(int argc, char** argv) {
 	test();
 	// pausa
@@ -9313,6 +9431,9 @@ int main(int argc, char** argv) {
     </font> 
 </html>
 )"); 
+
+	
+	fill_menu();
 
 	win->resizable(content); 
 

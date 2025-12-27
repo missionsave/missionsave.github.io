@@ -717,9 +717,9 @@ end
 
 struct()
 
---elevator()
+elevator()
 
---mosaics()
+mosaics()
 
 robot1()
 

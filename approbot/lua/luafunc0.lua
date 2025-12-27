@@ -6,7 +6,7 @@ end
 
 foo(-9)
 print(_VERSION)
-error()
+--error()
 
 
 
