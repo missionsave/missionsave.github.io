@@ -164,10 +164,10 @@ Extrude(30+6)
 Pl 0,0 90,0 @0,70 @-90,0 0,0
 Extrude(6)
 Fuse()
-Circle(10,-15,70/2)
-Movel(0,0,80)
-Extrude(15)
+Circle(10)
+Movel(90-8,70/2,36/2)
 Rotately(90)
+Extrude(15)
 --Rotatelz(-90)
 --Rotatelz(90)
 Fuse()
@@ -193,20 +193,66 @@ Movel(-66-8-6-gap,170-6-14-30,14-6)
 
 
 Part robot_arm1
-Pl 0,0 280,0 @0,6 @-280,0 0,0
+Pl 0,0 80,0 @20,-6 @180,0
+Offset (6)
+--Pl 0,12 280,0 @0,6 @-280,0 0,12
 Rotatelx(-90)
 --Movel(-280-30,170-36-21/2,14+6)
-Movel(-280-30,170-40-10,14+6)
+Movel(-280-30,170-40-10,14+6-6)
 Extrude(36)
 Dup()
-Movel(0,0,-70-6)
-Circle(10)
-Movel(-290,170-14-36/2)
-Extrude 100
-do return end
+Rotatelx(180)
+Movel(0,36,-70)
+Fuse()
+--Movel(-280-30,170-40-10,14+6-6)
+--Circle(10)
+--Movel(-290,170-14-36/2,-70)
+--Extrude 100
 
-----Part sketch_arm_1
-----Pl 0,0 280,0 @0,6 @-280,0 0,0
+
+Part servo70_arm1
+Clone (servo70_arm0,1) 
+--Rotatelz(-90)
+Movel(-220)
+
+
+
+
+Part robot_arm2
+Pl 0,0 240,0 @0,6 @-240,0 0,0
+--DebugShape("ds1")
+Movel(-280-30,-(0-156),20-6*0)
+--DebugShape("ds2")
+Rotatelz(-90)
+Rotately(90)
+--DebugShape("ds2b")    -- <--- add this
+Extrude(36)
+--DebugShape("ds3")
+Dup()
+--DebugShape("ds4")
+Movel(0,0,-70-6)
+--Rotately(-90)
+DebugShape("ds5")
+
+
+
+
+--Part robot_arm2
+--Pl 0,0 240,0 @0,6 @-240,0 0,0
+--DebugShape("ds1")
+--Movel(-280-30,-(0-156),20-6*0)
+--DebugShape("ds2")
+--Rotatelz(-90)
+--Rotately(90)
+--Extrude(36)
+--DebugShape("ds3")
+--Dup()
+--DebugShape("ds4")
+----Movel(0,0,0)
+--Movel(0,0,-70-6)
+--Rotately(90)
+--DebugShape("ds5")
+
 ----Visible(0)
 ----do return end
 ----Origin(0,0,0)
@@ -216,6 +262,7 @@ do return end
 --Extrude (56) 
 --Movel(-285,170-7,-70)
 
+do return end
 ----FilletToAllEdges(2)
 --Rotatelx(90)
 ----error()

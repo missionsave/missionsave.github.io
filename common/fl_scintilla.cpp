@@ -802,9 +802,9 @@ void fl_scintilla::set_lua(){
 	// const char* fntname="";
 
 	int fntsize=9;
-	#ifdef _WIN32
-	fntsize=8;
-	#endif
+	// #ifdef _WIN32
+	// fntsize=8;
+	// #endif
 
 	// const char* fntname="Cascadia Code";
     SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0); //allways when opening new file
@@ -864,9 +864,9 @@ SendEditor(SCI_SETEXTRADESCENT, -2);
 	comment="--";
 
     SendEditor(SCI_STYLESETFONT, SCE_LUA_COMMENTLINE, (sptr_t)fntname); 
-    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTLINE, fntsize-2);
-    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENT, fntsize-2);
-    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTDOC, fntsize-2);
+    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTLINE, fntsize-0);
+    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENT, fntsize-0);
+    SendEditor(SCI_STYLESETSIZE, SCE_LUA_COMMENTDOC, fntsize-0);
 	SendEditor(SCI_STYLESETFORE, SCE_LUA_COMMENT, 0x00008000);
     SendEditor(SCI_STYLESETFORE, SCE_LUA_COMMENTLINE, 0x00008000);
     SendEditor(SCI_STYLESETFORE, SCE_LUA_COMMENTDOC, 0x00008000);

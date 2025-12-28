@@ -135,7 +135,7 @@ struct ZShift : public osg::NodeVisitor
 
 
 // https://copilot.microsoft.com/chats/6D21xf7MfHhAwjq37r6yK
-osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
+osg::ref_ptr<osg::Node> makeCadStyleNode_v1(osg::Node* model)
 {
     if (!model)
         return nullptr;
@@ -1363,6 +1363,259 @@ osg::ref_ptr<osg::Group> makeCleanNode(osg::Node* child)
     return g;
 }
 
+osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
+{
+    if (!model)
+        return nullptr;
+
+    osg::ref_ptr<osg::Group> root = new osg::Group;
+
+    /* ============================================================
+       PASS 1: WHITE SHADED FACES
+       ============================================================ */
+
+    osg::ref_ptr<osg::Node> faceNode =
+        dynamic_cast<osg::Node*>(model->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+    osg::StateSet* fs = faceNode->getOrCreateStateSet();
+    fs->clear();
+    fs->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    fs->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_CULL_FACE,      osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_ARRAY,    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> faceMat = new osg::Material;
+    faceMat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(0.95f,0.95f,0.95f,1));
+    faceMat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0.95f,0.95f,0.95f,1));
+    faceMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    fs->setAttributeAndModes(faceMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(faceNode.get());
+
+    /* ============================================================
+       PASS 2: CAD EDGES (BOUNDARY + FEATURE)
+       ============================================================ */
+
+    osg::ref_ptr<osg::Geode> edgeGeode = new osg::Geode;
+
+    struct EdgeKey {
+        unsigned a, b;
+        EdgeKey(unsigned x=0, unsigned y=0) {
+            if (x < y) { a = x; b = y; }
+            else       { a = y; b = x; }
+        }
+        bool operator<(const EdgeKey& o) const {
+            return a < o.a || (a == o.a && b < o.b);
+        }
+    };
+
+    struct EdgeInfo {
+        osg::Vec3 normalSum;
+        unsigned count = 0;
+    };
+
+    std::map<EdgeKey, EdgeInfo> edgeMap;
+
+    struct Extractor : public osg::NodeVisitor
+    {
+        std::map<EdgeKey, EdgeInfo>& edgeMap;
+
+        Extractor(std::map<EdgeKey, EdgeInfo>& m)
+            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), edgeMap(m) {}
+
+        void addTriangles(osg::Vec3Array* v, osg::DrawElementsUInt* idx)
+        {
+            for (unsigned i = 0; i + 2 < idx->size(); i += 3)
+            {
+                unsigned a = (*idx)[i];
+                unsigned b = (*idx)[i+1];
+                unsigned c = (*idx)[i+2];
+
+                osg::Vec3 n = ((*v)[b] - (*v)[a]) ^ ((*v)[c] - (*v)[a]);
+                n.normalize();
+
+                EdgeKey e1(a,b), e2(b,c), e3(c,a);
+
+                edgeMap[e1].normalSum += n; edgeMap[e1].count++;
+                edgeMap[e2].normalSum += n; edgeMap[e2].count++;
+                edgeMap[e3].normalSum += n; edgeMap[e3].count++;
+            }
+        }
+
+        void apply(osg::Geode& geode) override
+        {
+            for (unsigned i = 0; i < geode.getNumDrawables(); ++i)
+            {
+                osg::Geometry* g =
+                    dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+                if (!g) continue;
+
+                osg::Vec3Array* v =
+                    dynamic_cast<osg::Vec3Array*>(g->getVertexArray());
+                if (!v) continue;
+
+                for (unsigned p = 0; p < g->getNumPrimitiveSets(); ++p)
+                {
+                    osg::PrimitiveSet* ps = g->getPrimitiveSet(p);
+                    if (ps->getMode() != GL_TRIANGLES) continue;
+
+                    osg::ref_ptr<osg::DrawElementsUInt> tmp =
+                        new osg::DrawElementsUInt(GL_TRIANGLES);
+
+                    if (auto* u = dynamic_cast<osg::DrawElementsUInt*>(ps))
+                    {
+                        for (unsigned i = 0; i < u->size(); ++i)
+                            tmp->push_back((*u)[i]);
+                    }
+                    else if (auto* s = dynamic_cast<osg::DrawElementsUShort*>(ps))
+                    {
+                        for (unsigned i = 0; i < s->size(); ++i)
+                            tmp->push_back((*s)[i]);
+                    }
+                    else if (auto* b = dynamic_cast<osg::DrawElementsUByte*>(ps))
+                    {
+                        for (unsigned i = 0; i < b->size(); ++i)
+                            tmp->push_back((*b)[i]);
+                    }
+                    else if (auto* a = dynamic_cast<osg::DrawArrays*>(ps))
+                    {
+                        for (int i = 0; i < a->getCount(); ++i)
+                            tmp->push_back(a->getFirst() + i);
+                    }
+
+                    addTriangles(v, tmp.get());
+                }
+            }
+        }
+    };
+
+    Extractor ex(edgeMap);
+    model->accept(ex);
+
+    /* ============================================================
+       FIND ANY VERTEX ARRAY
+       ============================================================ */
+
+    osg::Vec3Array* vertices = nullptr;
+
+    struct VAVisitor : public osg::NodeVisitor {
+        osg::Vec3Array* result = nullptr;
+        VAVisitor() : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN) {}
+        void apply(osg::Geode& geode) override {
+            for (unsigned i = 0; i < geode.getNumDrawables(); ++i)
+            {
+                if (auto* g = dynamic_cast<osg::Geometry*>(geode.getDrawable(i)))
+                {
+                    if (auto* v = dynamic_cast<osg::Vec3Array*>(g->getVertexArray()))
+                    {
+                        result = v;
+                        return;
+                    }
+                }
+            }
+        }
+    };
+
+    VAVisitor vav;
+    faceNode->accept(vav);
+    vertices = vav.result;
+
+    if (!vertices)
+        return root; // no geometry found
+
+    /* ============================================================
+       BUILD EDGE GEOMETRY
+       ============================================================ */
+
+    osg::ref_ptr<osg::DrawElementsUInt> lines =
+        new osg::DrawElementsUInt(GL_LINES);
+
+    const float featureAngle = osg::DegreesToRadians(30.0f);
+
+    for (auto& kv : edgeMap)
+    {
+        const EdgeKey& e = kv.first;
+        const EdgeInfo& info = kv.second;
+
+        if (info.count == 1)
+        {
+            // boundary edge
+            lines->push_back(e.a);
+            lines->push_back(e.b);
+        }
+        else if (info.count == 2)
+        {
+            // feature edge?
+            osg::Vec3 n = info.normalSum;
+            n.normalize();
+
+            float dot = n * n; // sum of two normals
+            if (dot < std::cos(featureAngle))
+            {
+                lines->push_back(e.a);
+                lines->push_back(e.b);
+            }
+        }
+    }
+
+    osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
+    edgeGeom->setVertexArray(vertices);
+    edgeGeom->addPrimitiveSet(lines.get());
+    edgeGeode->addDrawable(edgeGeom.get());
+
+    osg::StateSet* es = edgeGeode->getOrCreateStateSet();
+    es->clear();
+    es->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    es->setMode(GL_LIGHTING,  osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth;
+    lw->setWidth(1.8f);
+    es->setAttributeAndModes(lw.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> edgeMat = new osg::Material;
+    edgeMat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    es->setAttributeAndModes(edgeMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(edgeGeode.get());
+
+    return root;
+}
+struct StripNormalsAndColors : public osg::NodeVisitor
+{
+    StripNormalsAndColors() : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN) {}
+
+    void apply(osg::Geode& geode) override
+    {
+        for (unsigned i = 0; i < geode.getNumDrawables(); ++i)
+        {
+            osg::Geometry* g = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+            if (!g) continue;
+
+            // Remove normals
+            g->setNormalArray(nullptr);
+            g->setNormalBinding(osg::Geometry::BIND_OFF);
+
+            // Remove any Inventor per-vertex color garbage
+            g->setColorArray(nullptr);
+            g->setColorBinding(osg::Geometry::BIND_OFF);
+        }
+    }
+};
 
 void loadstl(Group* group){
 	
@@ -1370,11 +1623,20 @@ void loadstl(Group* group){
 
     // maquete = osgDB::readRefNodeFile("stl/test.stl");
 
+    // maquete = osgDB::readRefNodeFile("stl/maquete.stl");
     maquete = osgDB::readRefNodeFile("stl/test2.stl");
-ZShift shifter(-0.0000001f);
-maquete->accept(shifter);
+// ZShift shifter(-0.0000001f);
+// maquete->accept(shifter);
 
-osg::ref_ptr<osg::Node> cadNode = makeCadStyleNode(maquete);
+
+
+StripNormalsAndColors cleaner;
+maquete->accept(cleaner);
+
+
+
+
+osg::ref_ptr<osg::Node> cadNode = makeCadStyleNode_v1(maquete);
 group->addChild(cadNode.get());
 
 

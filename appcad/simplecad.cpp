@@ -7463,6 +7463,59 @@ for (int ic = 1; ic <= fillet.NbContours(); ++ic) {
 );
 // current_part->ashape->Attributes()->SetFaceBoundaryDraw(false);
 });
+lua.set_function("DebugShape", [&](const std::string& label){
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Shape& s = current_part->shape;
+
+    gp_Trsf tr = s.Location().Transformation();
+    gp_XYZ t = tr.TranslationPart();
+    gp_Mat m = tr.VectorialPart();
+
+    std::cout << "=== " << label << " ===\n";
+    std::cout << "Translation: ("
+              << t.X() << ", " << t.Y() << ", " << t.Z() << ")\n";
+
+    std::cout << "Rotation matrix:\n";
+    std::cout << "  [" << m.Value(1,1) << " " << m.Value(1,2) << " " << m.Value(1,3) << "]\n";
+    std::cout << "  [" << m.Value(2,1) << " " << m.Value(2,2) << " " << m.Value(2,3) << "]\n";
+    std::cout << "  [" << m.Value(3,1) << " " << m.Value(3,2) << " " << m.Value(3,3) << "]\n";
+});
+
+lua.set_function("Extrude", [&](float val){
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    TopoDS_Shape baseShape = current_part->shape;
+    if (baseShape.IsNull())
+        luaL_error(lua.lua_state(), "Current part has no shape.");
+
+    // 1) Save current transform (Movel + Rotatel)
+    TopLoc_Location savedLoc = baseShape.Location();
+
+    // 2) Work on pure local geometry (no Location)
+    TopoDS_Shape localShape = baseShape;
+    localShape.Location(TopLoc_Location());
+
+    // 3) Extrude along local Z (perpendicular to the sketch plane)
+    gp_Vec extrusionVec(0.0, 0.0, val);
+    BRepPrimAPI_MakePrism prism(localShape, extrusionVec, Standard_False);
+    prism.Build();
+    if (!prism.IsDone())
+        luaL_error(lua.lua_state(), "Extrusion failed.");
+
+    TopoDS_Shape extrudedLocal = prism.Shape();
+
+    // 4) Restore the original transform chain
+    TopoDS_Shape extruded = extrudedLocal;
+    extruded.Location(savedLoc);
+
+    // 5) Add and make it the current shape
+    current_part->mergeShape(current_part->cshape, extruded);
+    current_part->shape = extruded;
+});
+
 
 lua.set_function("Dup", [&](){
     if (!current_part)
@@ -7473,7 +7526,7 @@ lua.set_function("Dup", [&](){
         luaL_error(lua.lua_state(), "Current part has no shape.");
 	current_part->mergeShape(current_part->cshape, baseShape);
 });
-lua.set_function("Extrude", [&](float val){
+lua.set_function("Extrude_vw", [&](float val){
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part.");
 
