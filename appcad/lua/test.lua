@@ -99,7 +99,7 @@ globals()
 
 
 function robot1()
-Origin(container_width/4*3-220/2,580,-fcompartment)
+Origin(container_width/4*1-220/2,580,-fcompartment)
 --Origin(0,0,0)
 
 
@@ -340,8 +340,9 @@ end
 function mosaics()
 Part mosaic
 Pl 0,0 203,0 @0,203 @-203,0 0,0
-Extrude(200)
+Extrude(150)
 Rotatelx(-90)
+Movel(0,240,0)
 
 Part mosaic_clones
 for i=0, ttmosaics do

@@ -19,7 +19,7 @@ end
 function common.test()
 	zamov=200
 	za=-1200
-	posa ( 0 , 1  ,20 , 120, 90)
+	posa ( 0 , 0  ,20 , 120, 90)
 	side=0
 	hi=260
 	za=-160
@@ -38,7 +38,43 @@ function common.test()
 		if za>0 then break end
 	end
 end
+function common.stand_pose()
+	posa ( 0 , -70  ,40 , 30, 0)
+end
+function common.center()
+	common.stand_pose()
+	posa(m,m,0,m,m)
+	posa(m,0,m,m,m)
+	do return end
+	for i=0,10 do
+	posa ( 0 , 0  ,40-i*2 , 30-i*2, 0)
+	end
+	--posa ( 0 , 0  ,-60 , -30, 0)
+end
 
-common.test()
+function common.test2()
+	local x=2438/12*11
+	local z=-1000-203*3-203/2
+	common.stand_pose()
+	movz(z)
+	posa(180,0,m,m,m)
+	posaik(x,450,z)
+	--posa(90,0,m,m,m)
+
+	--for i = 100,1,-1  do
+		--f12(za,side,hi) 
+		--za=za+zamov
+		--if za>0 then break end
+	--end
+	
+
+
+
+end
+
+
+
+common.center()
+--common.test2()
 
 return common

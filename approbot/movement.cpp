@@ -1551,7 +1551,8 @@ void osgdr::newdr(vec3 _axisbegin,vec3 _axisend){
     lop(i,0,nodesstr.size()){
         nodes.push_back(osgDB::readRefNodeFile(nodesstr[i]));
 
-		makeCadStyleNode_vw1(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
+		makeCadStyleNode_vt(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
+		// makeCadStyleNode_vw1(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
 		// makeCadStyleNode(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
     // osg::StateSet* ss = nodes[i]->getOrCreateStateSet();
 
@@ -1917,7 +1918,7 @@ void arm_len_fill(){
 void geraeixos(Group* group){ 
 
 	//robot Origin from cad
-	vec3 offset(1718.5,580,-1000);
+	vec3 offset(499.5,580,-1000);
 
 
 	int idx;
