@@ -58,7 +58,7 @@ ifeq ($(OS_NAME), Windows)
 	# LDFLAGS+=  -L../common/fltk-1.5.x-20250606-5293beea6f7b/bldw/lib 
 	# CXXFLAGS+=  -I../common/fltk-1.5.x-20250606-5293beea6f7b/bldw -I../common/fltk-1.5.x-20250606-5293beea6f7b 
 	LDFLAGS+= -l:libfltk_gl.a -l:libfltk.a    -l:libglew32.a -lopengl32 -lgdi32 -lglu32 -lWs2_32 -lwinspool  
-	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
+	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgFX -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 	LDFLAGS+= -l:liblua.a
 	LDFLAGS+=  -l:libsqlite3.a
@@ -109,7 +109,7 @@ ifeq ($(OS_NAME), Arm)
 	CXXFLAGS+= -I../common 
 	LDFLAGS+= -L../common/scintilla_370 -l:libscintla.a	
 	CXXFLAGS+= -I../common/scintilla_370/include -I../common/scintilla_370/fltk -I../common/scintilla_370/lexlib -I../common/scintilla_370/lexers -I../common/scintilla_370/src
-	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
+	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgFX -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 
 	
