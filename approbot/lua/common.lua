@@ -39,13 +39,21 @@ function common.test()
 	end
 end
 function common.stand_pose()
+	posa ( 0 , -70  ,0 , 30, 0)
 	posa ( 0 , -70  ,40 , 30, 0)
 end
 function common.center()
 	common.stand_pose()
+	movz(-1000-203/2-203*1)
 	posa(m,m,0,m,m)
 	posa(m,0,m,m,m)
+	posa(m,0,m,0,m)
+	for i=1,3 do
+	posa(m,m,i*10,i*-10,m)
+	end
 	do return end
+	common.stand_pose()
+	posa(180,m,m,m,m)
 	for i=0,10 do
 	posa ( 0 , 0  ,40-i*2 , 30-i*2, 0)
 	end

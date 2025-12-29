@@ -351,15 +351,15 @@ Movel(0,0,-203*i-fcompartment)
 end
 
 
-for j=1, 6 do
-Part mosaic_clones_adv
-Clone(mosaic_clones,1)
-Movel(203*(j-1)*2+203,0,-203/2)
-if(j<6) then 
-Clone(mosaic_clones,1)
-Movel(203*j*2,0,0)
-end
-end
+--for j=1, 6 do
+--Part mosaic_clones_adv
+--Clone(mosaic_clones,1)
+--Movel(203*(j-1)*2+203,0,-203/2)
+--if(j<6) then 
+--Clone(mosaic_clones,1)
+--Movel(203*j*2,0,0)
+--end
+--end
 
 end
 
@@ -779,11 +779,11 @@ end
 --circletest()
 
 
---struct()
+struct()
 
---elevator()
+elevator()
 
---mosaics()
+mosaics()
 
 robot1()
 

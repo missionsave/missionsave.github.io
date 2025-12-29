@@ -1998,7 +1998,7 @@ void geraeixos(Group* group){
 
 		vec3 v1(offset.x() + axle_point.x(), offset.y() + axle_point.y(), offset.z() + axle_point.z());
 		vec3 v2=v1;
-		v2.x()+=50;
+		v2.y()-=50;
 		ve[idx]->newdr(v1, v2);
 	}
 
