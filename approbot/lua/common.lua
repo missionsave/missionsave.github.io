@@ -19,7 +19,7 @@ end
 function common.test()
 	zamov=200
 	za=-600
-	posa ( 0 , 90  ,20 , 120, 90)
+	posa ( 0 , 1  ,20 , 120, 90)
 	side=0
 	hi=260
 	za=-160

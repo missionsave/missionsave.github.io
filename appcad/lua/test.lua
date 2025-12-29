@@ -102,8 +102,12 @@ function robot1()
 Origin(container_width/4*3-220/2,580,-fcompartment)
 --Origin(0,0,0)
 
+
 Part sketch_body
 Pl 0,0 220,0 @0,170 @-220,0 0,0
+
+
+
 
 Part robot_body
 Clone sketch_body
@@ -113,6 +117,8 @@ Clone sketch_body
 Extrude -6
 Fuse()
 
+
+DebugShape("Robot Origin")
 
 Part sketch_bucket
 Pl 0,0, 220,0 @0,100 @-220,0 0,0
@@ -157,7 +163,7 @@ Movel(57+6,170-6-8,-6)
 
 
 
-Part robot_arm_0
+Part robot_arm0
 Pl 0,0 90,0 @0,70 @-90,0
 Offset(6)
 Extrude(30+6)
@@ -221,7 +227,7 @@ Movel(-220)
 Part robot_arm2
 Pl 0,0 240,0 @0,6 @-240,0 0,0
 --DebugShape("ds1")
-Movel(-280-30,-(0-156),20-6*0)
+Movel(-280-7-36/2,-(0-156),20-6*0)
 --DebugShape("ds2")
 Rotatelz(-90)
 Rotately(90)
@@ -232,10 +238,19 @@ Dup()
 --DebugShape("ds4")
 Movel(0,0,-70-6)
 --Rotately(-90)
-DebugShape("ds5")
+--DebugShape("ds5")
 
 
-
+Part robot_wrist
+Pl 0,0 36,0 @0,-60 @-36,0 0,0
+Movel(-305,-84,20)
+Extrude(-82)
+Circle(20)
+--Pl 0,0 100,0 @0,20 @-100,0 0,0
+Movel(-305,-84,20)
+Rotatelx(90)
+Movel(36/2,0,-82/2)
+Extrude(-2)
 
 --Part robot_arm2
 --Pl 0,0 240,0 @0,6 @-240,0 0,0
@@ -763,11 +778,11 @@ end
 --circletest()
 
 
-struct()
+--struct()
 
-elevator()
+--elevator()
 
-mosaics()
+--mosaics()
 
 robot1()
 

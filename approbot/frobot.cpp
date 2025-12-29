@@ -605,7 +605,7 @@ struct FixNearPlane : public osg::Camera::DrawCallback
 
         // mode(FL_OPENGL3 |FL_RGB );
         // mode(FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
-        // mode(FL_OPENGL3 |FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
+        mode(FL_OPENGL3 |FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_OPENGL3 |FL_RGB | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
         // mode(FL_RGB | FL_ALPHA | FL_DEPTH | FL_DOUBLE);
 
@@ -648,7 +648,7 @@ getCamera()->setPostDrawCallback(new FixNearPlane);
 
 
 
-		// getCamera()->setClearColor(osg::Vec4(1.0f, 1.0f, 1.0f, 0.0f)); // RGBA
+		// getCamera()->setClearColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)); // RGBA
 		// getCamera()->setClearColor(osg::Vec4(1.0f, 0.5f, 0.5f, 0.5f)); // RGBA
 
 		// getCamera()->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
@@ -1655,7 +1655,7 @@ int main() {
 	// cotm(w,h);
     Fl::scheme("oxy");	
 	// Fl::visual(FL_RGB | FL_DOUBLE | FL_DEPTH); 
-	Fl::use_high_res_GL(0);  
+	Fl::use_high_res_GL(1);  
 	win=new Fl_Double_Window(0,0,w,h,"frobot");     
     win->callback([](Fl_Widget *widget, void* ){		
 		if (Fl::event()==FL_SHORTCUT && Fl::event_key()==FL_Escape) 

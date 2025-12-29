@@ -7232,6 +7232,8 @@ lua.set_function("Origin", [occv](Standard_Real x=0,Standard_Real y=0,Standard_R
 		tr.SetTranslation(gp_Vec(x, y, z));
 		occv->Origin=TopLoc_Location(tr);
 
+	// sol::protected_function Rotatel = lua["Rotatel"];
+	cout<<"Origin "<<x<<","<<y<<","<<z<<"\n";
 });
 lua.set_function("Fuse", [&]() { 
 		// cotm2("fuse fail")
@@ -9331,16 +9333,16 @@ TopoDS_Shape FixFaceOrientation(const TopoDS_Shape& shape)
 }
 
 void fill_menu(){
-menu->add("File/Export/test", 0,
-    [](Fl_Widget*, void* ud){
-        OCC_Viewer* v = (OCC_Viewer*)(ud);
+// menu->add("File/Export/test", 0,
+//     [](Fl_Widget*, void* ud){
+//         OCC_Viewer* v = (OCC_Viewer*)(ud);
 		
-		 WriteBinarySTL(occv->ulua["corner"]->shape,"../approbot/stl/test2.stl");
-    },
-    occv, 0);
+// 		 WriteBinarySTL(occv->ulua["corner"]->shape,"../approbot/stl/test2.stl");
+//     },
+//     occv, 0);
 
 
-menu->add("File/Export/Single solid", 0,
+menu->add("File/Export visible solids/STL Single solid", 0,
     [](Fl_Widget*, void* ud){
         OCC_Viewer* v = (OCC_Viewer*)(ud);
 
@@ -9385,6 +9387,7 @@ TopoDS_Shape oriented = comp.Reversed();
 
 
 // Export STL
+// WriteBinarySTL(comp, "../approbot/stl/test2.stl");
 WriteBinarySTL(oriented, "../approbot/stl/test2.stl");
 
 
@@ -9400,6 +9403,55 @@ WriteBinarySTL(oriented, "../approbot/stl/test2.stl");
     },
     occv, 0);
 
+menu->add("File/Export visible solids/STL Multiple solids", 0,
+    [](Fl_Widget*, void* ud){
+        OCC_Viewer* v = (OCC_Viewer*)(ud);
+
+        bool exported_any = false;
+
+        for (int i = 0; i < v->vaShape.size(); i++) {
+
+            if (!v->m_context->IsDisplayed(v->vaShape[i]) ||
+                !v->vlua[i]->visible_hardcoded)
+                continue;
+
+            TopoDS_Shape s = v->vlua[i]->cshape;
+            if (s.IsNull()) continue;
+
+            // Apply origin transform if needed
+            if (!v->vlua[i]->Origin.IsIdentity()) {
+                s = s.Located(TopLoc_Location(
+                    v->vlua[i]->Origin.Transformation()
+                ));
+            }
+
+            // Build a compound for this single part (in case it contains multiple solids)
+            BRep_Builder B;
+            TopoDS_Compound comp;
+            B.MakeCompound(comp);
+
+            ExtractSolids(s, comp, B);
+
+            // Reverse orientation if you want consistent normals
+            TopoDS_Shape oriented = comp.Reversed();
+
+            // Build filename
+            std::string fname = "../approbot/stl/";
+            fname += v->vlua[i]->name;
+            fname += ".stl";
+
+            // Export STL
+            WriteBinarySTL(oriented, fname.c_str());
+
+            exported_any = true;
+        }
+
+        if (!exported_any) {
+            fl_alert("No visible shapes to export.");
+            return;
+        }
+    },
+    occv, 0);
 
 
 }

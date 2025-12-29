@@ -9,13 +9,14 @@ print(_VERSION)
 --error()
 
 
-movz(-700)
+-- movz(-700)
 
 common=require "common"
 for i = 100,1,-1 do
 	common.test()
 end
-close()
+do return end
+--close()
 
 --posa 0:170 1:100 2:0 3:100 4:90
 

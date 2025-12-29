@@ -40,6 +40,12 @@
 #include <mutex>
 #include "frobot.hpp"
 
+// void makeCadStyleNode(osg::ref_ptr<osg::Group> root,osg::Node* model);
+// void makeCadStyleNode(
+//     osg::ref_ptr<osg::Group> root,
+//     osg::Node* model,
+//     const osg::Vec4& edgeColor=
+// );
 
 // Struct to represent one full sector (512 bytes)
 struct LogEntry {
@@ -133,14 +139,238 @@ struct ZShift : public osg::NodeVisitor
     }
 };
 
+void makeCadStyleNode(
+    osg::ref_ptr<osg::Group> root,
+    osg::Node* model,
+    const osg::Vec4& faceColor = osg::Vec4(0.95f, 0.95f, 0.95f, 1.0f)
+)
+{
+    if (!root || !model)
+        return;
+
+    /* ============================================================
+       PASS 1: SHADED FACES (CAD SOLID)
+       ============================================================ */
+
+    osg::ref_ptr<osg::Node> faceNode =
+        dynamic_cast<osg::Node*>(model->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+    osg::StateSet* fs = faceNode->getOrCreateStateSet();
+    fs->clear();
+    fs->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    fs->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_CULL_FACE,      osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_ARRAY,    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> faceMat = new osg::Material;
+    faceMat->setDiffuse (osg::Material::FRONT_AND_BACK, faceColor);
+    faceMat->setAmbient (osg::Material::FRONT_AND_BACK, faceColor);
+    faceMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    fs->setAttributeAndModes(
+        faceMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+    );
+
+    root->addChild(faceNode.get());
+
+    /* ============================================================
+       EDGE EXTRACTION (ROBUST, POSITION-BASED)
+       ============================================================ */
+
+    struct EdgeKey {
+        osg::Vec3 a, b;
+        EdgeKey(const osg::Vec3& p, const osg::Vec3& q) {
+            if (p.x()<q.x() || (p.x()==q.x() && (p.y()<q.y() || (p.y()==q.y() && p.z()<q.z()))))
+            { a=p; b=q; }
+            else
+            { a=q; b=p; }
+        }
+        bool operator<(const EdgeKey& o) const {
+            if (a.x()!=o.a.x()) return a.x()<o.a.x();
+            if (a.y()!=o.a.y()) return a.y()<o.a.y();
+            if (a.z()!=o.a.z()) return a.z()<o.a.z();
+            if (b.x()!=o.b.x()) return b.x()<o.b.x();
+            if (b.y()!=o.b.y()) return b.y()<o.b.y();
+            return b.z()<o.b.z();
+        }
+    };
+
+    struct EdgeInfo {
+        osg::Vec3 normalSum;
+        unsigned count = 0;
+    };
+
+    std::map<EdgeKey, EdgeInfo> edgeMap;
+
+    struct Extractor : public osg::NodeVisitor {
+        std::map<EdgeKey, EdgeInfo>& edgeMap;
+        Extractor(std::map<EdgeKey, EdgeInfo>& m)
+            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), edgeMap(m) {}
+
+        void addTriangles(osg::Vec3Array* v, osg::DrawElementsUInt* idx)
+        {
+            for (unsigned i=0;i+2<idx->size();i+=3)
+            {
+                const osg::Vec3& a = (*v)[(*idx)[i]];
+                const osg::Vec3& b = (*v)[(*idx)[i+1]];
+                const osg::Vec3& c = (*v)[(*idx)[i+2]];
+
+                osg::Vec3 n = (b-a) ^ (c-a);
+                if (n.length2() < 1e-12f)
+                    continue;
+                n.normalize();
+
+                edgeMap[EdgeKey(a,b)].normalSum += n;
+                edgeMap[EdgeKey(a,b)].count++;
+
+                edgeMap[EdgeKey(b,c)].normalSum += n;
+                edgeMap[EdgeKey(b,c)].count++;
+
+                edgeMap[EdgeKey(c,a)].normalSum += n;
+                edgeMap[EdgeKey(c,a)].count++;
+            }
+        }
+
+        void apply(osg::Geode& geode) override
+        {
+            for (unsigned i=0;i<geode.getNumDrawables();++i)
+            {
+                osg::Geometry* g =
+                    dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+                if (!g) continue;
+
+                osg::Vec3Array* v =
+                    dynamic_cast<osg::Vec3Array*>(g->getVertexArray());
+                if (!v) continue;
+
+                for (unsigned p=0;p<g->getNumPrimitiveSets();++p)
+                {
+                    osg::PrimitiveSet* ps = g->getPrimitiveSet(p);
+                    if (ps->getMode()!=GL_TRIANGLES) continue;
+
+                    osg::ref_ptr<osg::DrawElementsUInt> tmp =
+                        new osg::DrawElementsUInt(GL_TRIANGLES);
+
+                    if (auto* u = dynamic_cast<osg::DrawElementsUInt*>(ps))
+                        for (auto i:*u) tmp->push_back(i);
+                    else if (auto* s = dynamic_cast<osg::DrawElementsUShort*>(ps))
+                        for (auto i:*s) tmp->push_back(i);
+                    else if (auto* b = dynamic_cast<osg::DrawElementsUByte*>(ps))
+                        for (auto i:*b) tmp->push_back(i);
+                    else if (auto* a = dynamic_cast<osg::DrawArrays*>(ps))
+                        for (int i=0;i<a->getCount();++i)
+                            tmp->push_back(a->getFirst()+i);
+
+                    addTriangles(v,tmp.get());
+                }
+            }
+        }
+    };
+
+    Extractor ex(edgeMap);
+    model->accept(ex);
+
+    /* ============================================================
+       BUILD EDGE GEOMETRY
+       ============================================================ */
+
+    osg::ref_ptr<osg::Vec3Array> edgeVerts = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUInt> lines =
+        new osg::DrawElementsUInt(GL_LINES);
+
+    const float featureAngle = osg::DegreesToRadians(30.0f);
+    const float cosFeature   = std::cos(featureAngle);
+    const float coplanarEps  = 0.9999f;
+
+    for (const auto& kv : edgeMap)
+    {
+        const EdgeKey& e = kv.first;
+        const EdgeInfo& info = kv.second;
+
+        if (info.count == 1)
+        {
+            lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.a);
+            lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.b);
+        }
+        else
+        {
+            osg::Vec3 avg = info.normalSum;
+            avg.normalize();
+
+            float dot = avg * (info.normalSum / (float)info.count);
+            if (dot > coplanarEps)
+                continue;
+
+            if (dot < cosFeature)
+            {
+                lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.a);
+                lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.b);
+            }
+        }
+    }
+
+    osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
+    edgeGeom->setVertexArray(edgeVerts.get());
+    edgeGeom->addPrimitiveSet(lines.get());
+
+    osg::ref_ptr<osg::Geode> edgeGeode = new osg::Geode;
+    edgeGeode->addDrawable(edgeGeom.get());
+
+    /* ============================================================
+       EDGE RENDER STATE (BLACK)
+       ============================================================ */
+
+    osg::StateSet* es = edgeGeode->getOrCreateStateSet();
+    es->clear();
+    es->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    osg::ref_ptr<osg::Depth> depth =
+        new osg::Depth(osg::Depth::LEQUAL,0,1,false);
+    es->setAttributeAndModes(depth.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    es->setRenderBinDetails(1,"RenderBin");
+
+    osg::ref_ptr<osg::PolygonOffset> po = new osg::PolygonOffset(-1,-1);
+    es->setAttributeAndModes(po.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_POLYGON_OFFSET_LINE,
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    es->setMode(GL_LIGHTING,  osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(1.8f);
+    es->setAttributeAndModes(lw.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> edgeMat = new osg::Material;
+    edgeMat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    es->setAttributeAndModes(edgeMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(edgeGeode.get());
+}
+
 
 // https://copilot.microsoft.com/chats/6D21xf7MfHhAwjq37r6yK
-osg::ref_ptr<osg::Node> makeCadStyleNode_v1(osg::Node* model)
+// osg::ref_ptr<osg::Node> makeCadStyleNode_v1(osg::Node* model)
+void makeCadStyleNode_v1(osg::ref_ptr<osg::Group> root,osg::Node* model)
 {
     if (!model)
-        return nullptr;
+        return;// nullptr;
 
-    osg::ref_ptr<osg::Group> root = new osg::Group;
+    // osg::ref_ptr<osg::Group> root = new osg::Group;
 
     /* ============================================================
        PASS 1: WHITE SHADED FACES
@@ -300,7 +530,7 @@ osg::ref_ptr<osg::Node> makeCadStyleNode_v1(osg::Node* model)
     vertices = vav.result;
 
     if (!vertices)
-        return root;
+        return;// root;
 
     /* ============================================================
        BUILD EDGE GEOMETRY
@@ -395,7 +625,7 @@ osg::ref_ptr<osg::Node> makeCadStyleNode_v1(osg::Node* model)
 
     root->addChild(edgeGeode.get());
 
-    return root;
+    // return root;
 }
 
 void settranparency(Node* model,bool val=1){  
@@ -691,8 +921,8 @@ void osgdr::newdr(vec3 _axisbegin,vec3 _axisend){
     lop(i,0,nodesstr.size()){
         nodes.push_back(osgDB::readRefNodeFile(nodesstr[i]));
 
- 
-    osg::StateSet* ss = nodes[i]->getOrCreateStateSet();
+		makeCadStyleNode(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
+    // osg::StateSet* ss = nodes[i]->getOrCreateStateSet();
 
     // // 1) Disable lighting completely
     // ss->setMode(GL_LIGHTING,
@@ -710,8 +940,8 @@ void osgdr::newdr(vec3 _axisbegin,vec3 _axisend){
 
 
 
-        settranparency(nodes[i].get(),0);
-        transform->addChild(nodes[i].get());
+        // settranparency(nodes[i].get(),0);
+        // transform->addChild(nodes[i].get());
         // transform->accept(*cbv);
     }
     // arm_len_fill();
@@ -1054,6 +1284,95 @@ void arm_len_fill(){
 }
 
 void geraeixos(Group* group){ 
+
+	//robot Origin from cad
+	vec3 offset(1718.5,580,-1000);
+
+
+	int idx;
+	{
+		idx=0;
+		ve.resize(idx+1);
+		ve[idx]=new osgdr(group);  
+		ve[idx]->nodesstr.push_back("stl/servo70.stl"); 
+		ve[idx]->nodesstr.push_back("stl/servo70_arm.stl"); 
+		ve[idx]->nodesstr.push_back("stl/robot_body.stl");
+		ve[idx]->nodesstr.push_back("stl/robot_bucket.stl");
+		ve[idx]->axis=vec3(0,1,0);
+		ve[idx]->anglemax=230;
+		ve[idx]->anglemin=-90;
+		vec3 axle_point(110,174,-21);
+
+		vec3 v1(offset.x() + axle_point.x(), offset.y() + axle_point.y(), offset.z() + axle_point.z());
+		vec3 v2=v1;
+		v2.z()+=50;
+		ve[idx]->newdr(v1, v2);
+	}
+	{
+		idx=1;
+		ve.resize(idx+1);
+		ve[idx]=new osgdr(group);  
+		ve[idx]->nodesstr.push_back("stl/robot_arm0.stl");
+		ve[idx]->nodesstr.push_back("stl/servo70_arm0.stl");
+		ve[idx]->axis=vec3(1,0,0);
+		ve[idx]->anglemin=-110;
+		ve[idx]->anglemax=110;
+		vec3 axle_point(5,138,-21);
+
+		vec3 v1(offset.x() + axle_point.x(), offset.y() + axle_point.y(), offset.z() + axle_point.z());
+		vec3 v2=v1;
+		v2.y()+=50;
+		ve[idx]->newdr(v1, v2);
+	}
+	{
+		idx=2;
+		ve.resize(idx+1);
+		ve[idx]=new osgdr(group);  
+		ve[idx]->nodesstr.push_back("stl/robot_arm1.stl"); 
+		ve[idx]->axis=vec3(0,0,1); 
+		ve[idx]->anglemin=0;
+		ve[idx]->anglemax=90;
+		vec3 axle_point(-67,135,-59);
+
+		vec3 v1(offset.x() + axle_point.x(), offset.y() + axle_point.y(), offset.z() + axle_point.z());
+		vec3 v2=v1;
+		v2.x()+=50;
+		ve[idx]->newdr(v1, v2);
+	}
+	{
+		idx=3;
+		ve.resize(idx+1);
+		ve[idx]=new osgdr(group);  
+		ve[idx]->nodesstr.push_back("stl/robot_arm2.stl"); 
+		ve[idx]->axis=vec3(0,0,1);
+		ve[idx]->anglemin=-60;
+		ve[idx]->anglemax=60;
+		vec3 axle_point(-287,135,-59);
+
+		vec3 v1(offset.x() + axle_point.x(), offset.y() + axle_point.y(), offset.z() + axle_point.z());
+		vec3 v2=v1;
+		v2.x()+=50;
+		ve[idx]->newdr(v1, v2);
+	}
+	{
+		idx=4;
+		ve.resize(idx+1);
+		ve[idx]=new osgdr(group);  
+		ve[idx]->nodesstr.push_back("stl/robot_wrist.stl"); 
+		ve[idx]->axis=vec3(0,1,0);
+		ve[idx]->anglemin=0;
+		ve[idx]->anglemax=170;
+		vec3 axle_point(-287,-82,-21);
+
+		vec3 v1(offset.x() + axle_point.x(), offset.y() + axle_point.y(), offset.z() + axle_point.z());
+		vec3 v2=v1;
+		v2.x()+=50;
+		ve[idx]->newdr(v1, v2);
+	}
+
+
+}
+void geraeixos_v1(Group* group){ 
 	
 	// vec3* offset=new vec3(0,0,0);
 	//robot offset
@@ -1363,12 +1682,12 @@ osg::ref_ptr<osg::Group> makeCleanNode(osg::Node* child)
     return g;
 }
 
-osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
+void makeCadStyleNode_v0(osg::ref_ptr<osg::Group> root,osg::Node* model)
 {
     if (!model)
-        return nullptr;
+        return;// nullptr;
 
-    osg::ref_ptr<osg::Group> root = new osg::Group;
+    // osg::ref_ptr<osg::Group> root = new osg::Group;
 
     /* ============================================================
        PASS 1: WHITE SHADED FACES
@@ -1527,7 +1846,8 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
     vertices = vav.result;
 
     if (!vertices)
-        return root; // no geometry found
+        return; // no geometry found
+        // return root; // no geometry found
 
     /* ============================================================
        BUILD EDGE GEOMETRY
@@ -1593,7 +1913,7 @@ osg::ref_ptr<osg::Node> makeCadStyleNode(osg::Node* model)
 
     root->addChild(edgeGeode.get());
 
-    return root;
+    // return root;
 }
 struct StripNormalsAndColors : public osg::NodeVisitor
 {
@@ -1633,11 +1953,11 @@ void loadstl(Group* group){
 StripNormalsAndColors cleaner;
 maquete->accept(cleaner);
 
+makeCadStyleNode(group,maquete,osg::Vec4(0.95f, 0.95f, 0.95f, 0.5f));
 
 
-
-osg::ref_ptr<osg::Node> cadNode = makeCadStyleNode_v1(maquete);
-group->addChild(cadNode.get());
+// osg::ref_ptr<osg::Node> cadNode = makeCadStyleNode_v1(maquete);
+// group->addChild(cadNode.get());
 
 
 
