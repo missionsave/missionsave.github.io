@@ -136,432 +136,6 @@ int _lastDragX = 0, _lastDragY = 0;
     } 
 osg::ref_ptr<osgFX::Outline> _outlineEffect;
 
-void applyGlobalGhostedEdges_v1(bool on=1)
-{
-    if (on)
-    {
-        if (!_outlineEffect)
-        {
-            _outlineEffect = new osgFX::Outline;
-            _outlineEffect->setWidth(2.0f);                     // espessura da edge
-            _outlineEffect->setColor(osg::Vec4(0,0,0,1));       // cor da edge (preto)
-        }
-
-        // Mover cena para dentro do efeito
-        if (_outlineEffect->getNumChildren() == 0)
-        {
-            while (_rootXform->getNumChildren() > 0)
-            {
-                osg::ref_ptr<osg::Node> child = _rootXform->getChild(0);
-                _rootXform->removeChild(child);
-                _outlineEffect->addChild(child);
-            }
-
-            _rootXform->addChild(_outlineEffect);
-        }
-
-        // Faces brancas opacas
-        osg::StateSet* ss = _outlineEffect->getOrCreateStateSet();
-
-        osg::ref_ptr<osg::Material> mat = new osg::Material;
-        mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1,1,1,1));   // branco opaco
-        mat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(0.9,0.9,0.9,1));
-
-        ss->setAttributeAndModes(mat, osg::StateAttribute::ON);
-        ss->setMode(GL_BLEND, osg::StateAttribute::OFF);       // sem transparência
-        ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
-    }
-    else
-    {
-        if (_outlineEffect && _outlineEffect->getNumChildren() > 0)
-        {
-            for (unsigned i = 0; i < _outlineEffect->getNumChildren(); ++i)
-                _rootXform->addChild(_outlineEffect->getChild(i));
-
-            _outlineEffect->removeChildren(0, _outlineEffect->getNumChildren());
-        }
-
-        if (_outlineEffect)
-            _rootXform->removeChild(_outlineEffect);
-    }
-}
-
-void applyGlobalGhostedEdges_v2(bool on = true)
-{
-    if (on)
-    {
-        // --------------------------------------------------------------------
-        // 1) Create outline effect if needed
-        // --------------------------------------------------------------------
-        if (!_outlineEffect)
-        {
-            _outlineEffect = new osgFX::Outline;
-            _outlineEffect->setWidth(1.8f);
-            _outlineEffect->setColor(osg::Vec4(0, 0, 0, 1));
-        }
-
-        // --------------------------------------------------------------------
-        // 2) Move all children under outline (only once)
-        // --------------------------------------------------------------------
-        if (_outlineEffect->getNumChildren() == 0)
-        {
-            while (_rootXform->getNumChildren() > 0)
-            {
-                osg::ref_ptr<osg::Node> child = _rootXform->getChild(0);
-                _rootXform->removeChild(child);
-                _outlineEffect->addChild(child);
-            }
-
-            _rootXform->addChild(_outlineEffect);
-        }
-
-        // --------------------------------------------------------------------
-        // 3) Ensure valid normals (fixes black faces)
-        // --------------------------------------------------------------------
-        osgUtil::SmoothingVisitor smoother;
-        _outlineEffect->accept(smoother);
-
-        // --------------------------------------------------------------------
-        // 4) Robust global render state
-        // --------------------------------------------------------------------
-        osg::StateSet* ss = _outlineEffect->getOrCreateStateSet();
-
-        // --- Lighting ON
-        ss->setMode(GL_LIGHTING, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // --- Two-sided lighting (fix back faces)
-        osg::ref_ptr<osg::LightModel> lm = new osg::LightModel;
-        lm->setTwoSided(true);
-        ss->setAttributeAndModes(lm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // --- Normalize normals (fix negative scales)
-        ss->setMode(GL_NORMALIZE, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // --------------------------------------------------------------------
-        // 5) Solid white material (driver-safe)
-        // --------------------------------------------------------------------
-        osg::ref_ptr<osg::Material> mat = new osg::Material;
-        mat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(1, 1, 1, 1));
-        // mat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0.85f, 0.85f, 0.85f, 1));
-        mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0, 0, 0, 1));
-        mat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
-
-        ss->setAttributeAndModes(mat, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // --------------------------------------------------------------------
-        // 6) Force opaque rendering (no ghost transparency)
-        // --------------------------------------------------------------------
-        ss->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-        ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
-
-        // --------------------------------------------------------------------
-        // 7) Guarantee at least one light source
-        // --------------------------------------------------------------------
-        osg::ref_ptr<osg::Light> light = new osg::Light;
-        light->setLightNum(0);
-        light->setPosition(osg::Vec4(0, 0, 10, 1));
-        light->setDiffuse(osg::Vec4(1, 1, 1, 1));
-        light->setAmbient(osg::Vec4(0.4f, 0.4f, 0.4f, 1));
-
-        osg::ref_ptr<osg::LightSource> ls = new osg::LightSource;
-        ls->setLight(light);
-
-        if (!_outlineEffect->containsNode(ls))
-            _outlineEffect->addChild(ls);
-    }
-    else
-    {
-        // --------------------------------------------------------------------
-        // Restore original scene
-        // --------------------------------------------------------------------
-        if (_outlineEffect)
-        {
-            for (unsigned i = 0; i < _outlineEffect->getNumChildren(); ++i)
-                _rootXform->addChild(_outlineEffect->getChild(i));
-
-            _outlineEffect->removeChildren(0, _outlineEffect->getNumChildren());
-            _rootXform->removeChild(_outlineEffect);
-        }
-    }
-}
-// osg::ref_ptr<osgFX::Outline> _outlineEffect;
-osg::ref_ptr<osg::Group> _wireOverlay;
-
-void applyGlobalGhostedEdges_v3(bool on = true)
-{
-    if (on)
-    {
-        // --- Create outline effect if needed ---
-        if (!_outlineEffect)
-        {
-            _outlineEffect = new osgFX::Outline;
-            _outlineEffect->setWidth(2.0f);
-            _outlineEffect->setColor(osg::Vec4(0,0,0,1));
-        }
-
-        // --- Move scene under outline once ---
-        if (_outlineEffect->getNumChildren() == 0)
-        {
-            while (_rootXform->getNumChildren() > 0)
-            {
-                osg::ref_ptr<osg::Node> c = _rootXform->getChild(0);
-                _rootXform->removeChild(c);
-                _outlineEffect->addChild(c);
-            }
-            _rootXform->addChild(_outlineEffect);
-        }
-
-        // --- Ensure normals are valid ---
-        osgUtil::SmoothingVisitor sv;
-        _outlineEffect->accept(sv);
-
-        // --- Solid white material ---
-        osg::StateSet* ss = _outlineEffect->getOrCreateStateSet();
-        osg::ref_ptr<osg::Material> m = new osg::Material;
-        m->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1,1,1,1));
-        m->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(0.85f,0.85f,0.85f,1));
-        ss->setAttributeAndModes(m, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // --- Add wireframe overlay for full edges ---
-        if (!_wireOverlay)
-        {
-            osg::ref_ptr<osg::PolygonMode> pm = new osg::PolygonMode;
-            pm->setMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE);
-
-            osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(1.0f);
-
-            osg::ref_ptr<osg::PolygonOffset> po = new osg::PolygonOffset(-1.0f, -1.0f);
-
-            osg::StateSet* wss = new osg::StateSet;
-            wss->setAttributeAndModes(pm, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-            wss->setAttributeAndModes(lw, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-            wss->setAttributeAndModes(po, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-            _wireOverlay = new osg::Group;
-            _wireOverlay->setStateSet(wss);
-
-            // share children (no clones)
-            for (unsigned i = 0; i < _outlineEffect->getNumChildren(); ++i)
-                _wireOverlay->addChild(_outlineEffect->getChild(i));
-
-            _outlineEffect->addChild(_wireOverlay);
-        }
-    }
-    else
-    {
-        // --- Restore original scene ---
-        if (_outlineEffect)
-        {
-            for (unsigned i = 0; i < _outlineEffect->getNumChildren(); ++i)
-                if (_outlineEffect->getChild(i) != _wireOverlay)
-                    _rootXform->addChild(_outlineEffect->getChild(i));
-
-            _outlineEffect->removeChildren(0, _outlineEffect->getNumChildren());
-            _rootXform->removeChild(_outlineEffect);
-            _wireOverlay = nullptr;
-        }
-    }
-}
-
-void applyGlobalGhostedEdges(bool on = true)
-{
-    if (on)
-    {
-        // 1. Create outline effect if needed
-        if (!_outlineEffect)
-        {
-            _outlineEffect = new osgFX::Outline;
-            _outlineEffect->setWidth(3.0f); // Thicker for visibility
-            _outlineEffect->setColor(osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f)); // Pure black
-        }
-
-        // 2. Move children under outline (only once)
-        if (_outlineEffect->getNumChildren() == 0)
-        {
-            while (_rootXform->getNumChildren() > 0)
-            {
-                osg::ref_ptr<osg::Node> child = _rootXform->getChild(0);
-                _rootXform->removeChild(child);
-                _outlineEffect->addChild(child);
-            }
-            _rootXform->addChild(_outlineEffect);
-        }
-
-        // 3. Configure state for sharp, persistent edges
-        osg::StateSet* ss = _outlineEffect->getOrCreateStateSet();
-
-        // Disable lighting (for pure outline color)
-        ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-
-        // Disable depth test (to avoid occlusion)
-        ss->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-
-        // Enable polygon offset (to avoid depth fighting)
-        ss->setMode(GL_POLYGON_OFFSET_FILL, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-        ss->setAttributeAndModes(new osg::PolygonOffset(1.0f, 1.0f), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // Disable blending (for sharp edges)
-        ss->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-
-        // Force opaque rendering and late render bin
-        ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
-        ss->setRenderBinDetails(11, "RenderBin");
-
-        // Use a flat material (to avoid color overrides)
-        osg::ref_ptr<osg::Material> mat = new osg::Material;
-        mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-        mat->setAmbient(osg::Material::FRONT_AND_BACK, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-        mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0.0f, 0.0f, 0.0f, 1.0f));
-        mat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
-        ss->setAttributeAndModes(mat, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // Disable line smoothing (for sharp edges)
-        ss->setMode(GL_LINE_SMOOTH, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-    }
-    else
-    {
-        // Restore original scene
-        if (_outlineEffect)
-        {
-            for (unsigned i = 0; i < _outlineEffect->getNumChildren(); ++i)
-                _rootXform->addChild(_outlineEffect->getChild(i));
-            _outlineEffect->removeChildren(0, _outlineEffect->getNumChildren());
-            _rootXform->removeChild(_outlineEffect);
-        }
-    }
-}
-
-void applyOCCStyleEdges(bool on = true)
-{
-    static osg::ref_ptr<osg::Group> cadRoot;
-    static osg::ref_ptr<osg::Group> faceGroup;
-    static osg::ref_ptr<osg::Group> edgeGroup;
-
-    if (on)
-    {
-        if (!cadRoot)
-        {
-            cadRoot  = new osg::Group;
-            faceGroup = new osg::Group;
-            edgeGroup = new osg::Group;
-
-            cadRoot->addChild(faceGroup);
-            cadRoot->addChild(edgeGroup);
-        }
-
-        // ------------------------------------------------------------
-        // Move original scene under CAD root
-        // ------------------------------------------------------------
-        if (cadRoot->getNumChildren() == 2 && faceGroup->getNumChildren() == 0)
-        {
-            while (_rootXform->getNumChildren() > 0)
-            {
-                osg::ref_ptr<osg::Node> n = _rootXform->getChild(0);
-                _rootXform->removeChild(n);
-                faceGroup->addChild(n);
-            }
-            _rootXform->addChild(cadRoot);
-        }
-
-        // ------------------------------------------------------------
-        // FACE PASS (flat white, depth-correct)
-        // ------------------------------------------------------------
-        osg::StateSet* fs = faceGroup->getOrCreateStateSet();
-
-        fs->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-        fs->setMode(GL_BLEND, osg::StateAttribute::OFF);
-
-        osg::ref_ptr<osg::Material> fmat = new osg::Material;
-        fmat->setDiffuse(osg::Material::FRONT_AND_BACK,
-                         osg::Vec4(1,1,1,1));
-        fs->setAttributeAndModes(fmat,
-            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        osg::ref_ptr<osg::PolygonOffset> fpo = new osg::PolygonOffset;
-        fpo->setFactor(1.0f);
-        fpo->setUnits(1.0f);
-        fs->setAttributeAndModes(fpo,
-            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        fs->setRenderingHint(osg::StateSet::OPAQUE_BIN);
-
-        // ------------------------------------------------------------
-        // EDGE PASS (OCCT-style visible edges)
-        // ------------------------------------------------------------
-        osg::StateSet* es = edgeGroup->getOrCreateStateSet();
-
-        es->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-        es->setMode(GL_BLEND, osg::StateAttribute::OFF);
-
-        osg::ref_ptr<osg::Depth> depth = new osg::Depth;
-        depth->setFunction(osg::Depth::LEQUAL);
-        depth->setWriteMask(false); // critical
-        es->setAttributeAndModes(depth,
-            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth;
-        lw->setWidth(2.0f);  // visually similar to OCCT
-        es->setAttributeAndModes(lw,
-            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        osg::ref_ptr<osg::Material> emat = new osg::Material;
-        emat->setDiffuse(osg::Material::FRONT_AND_BACK,
-                         osg::Vec4(0,0,0,1));
-        es->setAttributeAndModes(emat,
-            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
-        // ------------------------------------------------------------
-        // Extract edges from geometry (once)
-        // ------------------------------------------------------------
-        if (edgeGroup->getNumChildren() == 0)
-        {
-            struct EdgeExtractor : public osg::NodeVisitor
-            {
-                osg::Group* target;
-
-                EdgeExtractor(osg::Group* g)
-                    : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), target(g) {}
-
-                void apply(osg::Geode& geode) override
-                {
-                    for (unsigned i = 0; i < geode.getNumDrawables(); ++i)
-                    {
-                        osg::Geometry* src =
-                            dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
-                        if (!src) continue;
-
-                        osg::ref_ptr<osg::Geometry> edges =
-                            new osg::Geometry(*src, osg::CopyOp::DEEP_COPY_ALL);
-
-                        edges->getPrimitiveSetList().clear();
-                        edges->addPrimitiveSet(
-                            new osg::DrawArrays(GL_LINES, 0,
-                                edges->getVertexArray()->getNumElements()));
-
-                        osg::ref_ptr<osg::Geode> eg = new osg::Geode;
-                        eg->addDrawable(edges);
-                        target->addChild(eg);
-                    }
-                }
-            };
-
-            EdgeExtractor ex(edgeGroup);
-            faceGroup->accept(ex);
-        }
-    }
-    else
-    {
-        if (cadRoot)
-        {
-            while (faceGroup->getNumChildren() > 0)
-                _rootXform->addChild(faceGroup->getChild(0));
-
-            faceGroup->removeChildren(0, faceGroup->getNumChildren());
-            edgeGroup->removeChildren(0, edgeGroup->getNumChildren());
-            _rootXform->removeChild(cadRoot);
-        }
-    }
-}
 
 
 struct FixNearPlane : public osg::Camera::DrawCallback
@@ -771,16 +345,7 @@ void setbar5per() {
     hudRoot->addChild(barGeode);
 }
 
-void updateRotationCenter() {
-    osg::BoundingSphere boundingSphere;
-    // Compute bounding sphere of your scene here
-    
-    if (tmr) {
-        tmr->setCenter(boundingSphere.center());
-        // Optional: recalculate home position
-        // tmr->home(0); // 0 for no animation
-    }
-}
+
     bool _rotating = false;
     osg::Vec3d _eye0;
     osg::Vec3d _center0;
@@ -788,20 +353,6 @@ void updateRotationCenter() {
     osg::Vec3d _arcballV0;
     int _vpW = 1;
     int _vpH = 1;
-
-
-	static osg::Vec3d projectToArcball(int x, int y, int w, int h)
-{
-    double nx = (2.0 * x - w) / w;
-    double ny = (h - 2.0 * y) / h;
-
-    double len2 = nx*nx + ny*ny;
-    double nz = (len2 <= 1.0) ? std::sqrt(1.0 - len2) : 0.0;
-
-    osg::Vec3d v(nx, ny, nz);
-    v.normalize();
-    return v;
-}
 
 int handle(int event) override
 {
@@ -820,53 +371,93 @@ int handle(int event) override
 
     if (event == FL_PUSH)
         Fl::focus(this);
+if (event == FL_MOUSEWHEEL)
+{
+    int dy = -Fl::event_dy();
+    if (dy == 0) return 0;
 
-    if (event == FL_MOUSEWHEEL) {
-        int dy = Fl::event_dy();
-        if (dy == 0) return 0;
+    const int mouseX = Fl::event_x();
+    const int mouseY = Fl::event_y();
+    const int W = w();
+    const int H = h();
 
-        int mouseX = Fl::event_x();
-        int mouseY = Fl::event_y();
-        int windowWidth = w();
-        int windowHeight = h();
+    osg::Vec3d eye, center, up;
+    tmr->getTransformation(eye, center, up);
 
-        osg::Vec3d eye, center, up;
-        tmr->getTransformation(eye, center, up);
+    osg::Camera* cam = getCamera();
+    osg::Matrixd view = cam->getViewMatrix();
+    osg::Matrixd proj = cam->getProjectionMatrix();
 
-        osg::Matrixd viewMatrix = getCamera()->getViewMatrix();
-        osg::Matrixd projMatrix = getCamera()->getProjectionMatrix();
+    osg::Matrixd invView = osg::Matrixd::inverse(view);
+    osg::Vec3d camRight(invView(0,0), invView(0,1), invView(0,2));
+    osg::Vec3d camUp   (invView(1,0), invView(1,1), invView(1,2));
+    osg::Vec3d viewDir = center - eye;
+    double distance = viewDir.length();
+    viewDir.normalize();
 
-        osg::Vec3d viewDir = center - eye;
-        double distance = viewDir.length();
-        viewDir.normalize();
+    // Fine zoom step (CAD-like)
+    const double zoomStep = 0.02;
+    const double zoomScale = (dy > 0) ? (1.0 - zoomStep) : (1.0 + zoomStep);
 
-        double zoomFactor = (dy > 0) ? 1.1 : 0.9;
-        double scale = (1.0 - zoomFactor);
+    // Mouse position relative to center
+    const double px = mouseX - W * 0.5;
+    const double py = H * 0.5 - mouseY;
 
-        osg::Matrixd invView = osg::Matrixd::inverse(viewMatrix);
-        osg::Vec3d camRight(invView(0,0), invView(0,1), invView(0,2));
-        osg::Vec3d camUp   (invView(1,0), invView(1,1), invView(1,2));
+    // ------------------------------------------------------------------
+    // PERSPECTIVE
+    // ------------------------------------------------------------------
+    double fovy, aspect, zNear, zFar;
+    if (proj.getPerspective(fovy, aspect, zNear, zFar))
+    {
+        const double pixelSize =
+            2.0 * distance * tan(osg::DegreesToRadians(fovy * 0.5)) / H;
 
-        double px = mouseX - windowWidth * 0.5;
-        double py = windowHeight * 0.5 - mouseY;
+        osg::Vec3d pan =
+            camRight * (px * pixelSize * (1.0 - zoomScale)) +
+            camUp    * (py * pixelSize * (1.0 - zoomScale));
 
-        double fovy, aspectRatio, zNear, zFar;
-        projMatrix.getPerspective(fovy, aspectRatio, zNear, zFar);
-        double pixelSize = 2.0 * distance * tan(osg::DegreesToRadians(fovy * 0.5)) / windowHeight;
-
-        osg::Vec3d panOffset =
-            camRight * (px * pixelSize * scale) +
-            camUp    * (py * pixelSize * scale);
-
-        osg::Vec3d zoomOffset = viewDir * distance * scale;
+        osg::Vec3d zoom = viewDir * (distance * (1.0 - zoomScale));
 
         tmr->setTransformation(
-            eye    + zoomOffset + panOffset,
-            center + zoomOffset + panOffset,
+            eye    + zoom + pan,
+            center + zoom + pan,
             up
         );
         return 1;
     }
+
+    // ------------------------------------------------------------------
+    // ORTHOGRAPHIC
+    // ------------------------------------------------------------------
+    double left, right, bottom, top, zn, zf;
+    if (proj.getOrtho(left, right, bottom, top, zn, zf))
+    {
+        const double width  = right - left;
+        const double height = top - bottom;
+
+        const double dx = px / W;
+        const double dy = py / H;
+
+        // New scaled extents
+        const double newW = width  * zoomScale;
+        const double newH = height * zoomScale;
+
+        const double cx = (left + right) * 0.5;
+        const double cy = (bottom + top) * 0.5;
+
+        // Cursor-centered compensation
+        left   = cx - newW * 0.5 + dx * (width  - newW);
+        right  = cx + newW * 0.5 + dx * (width  - newW);
+        bottom = cy - newH * 0.5 + dy * (height - newH);
+        top    = cy + newH * 0.5 + dy * (height - newH);
+
+        cam->setProjectionMatrixAsOrtho(left, right, bottom, top, zn, zf);
+        return 1;
+    }
+
+    return 0;
+}
+
 
     static int _lastMouseX = 0, _lastMouseY = 0;
 

@@ -18,7 +18,7 @@ end
 
 function common.test()
 	zamov=200
-	za=-600
+	za=-1200
 	posa ( 0 , 1  ,20 , 120, 90)
 	side=0
 	hi=260
@@ -39,6 +39,6 @@ function common.test()
 	end
 end
 
---common.test()
+common.test()
 
 return common

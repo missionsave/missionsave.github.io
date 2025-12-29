@@ -391,11 +391,29 @@ bool flag=0;
 
 
 
-
 void menu_callback(Fl_Widget* w, void* data) {
-    Fl_Menu_Item* item = (Fl_Menu_Item*)w;
-    printf("You selected: %s\n", item->label());
+    Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;
+    fl_scintilla* vs = (fl_scintilla*)data;
+    const Fl_Menu_Item* m = menu->mvalue();  // the selected item
+
+    if (m && m->label()) {
+        printf("You selected: %s\n", m->label());
+		
+		stringstream strm;
+		strm<<vs->folder<<m->label();
+		string str=strm.str();
+		if (!str.empty() && str.back() == '*') {
+			str.pop_back();
+		}
+        setscint(vs,str);
+		// vs->bfilesmodified->deselect();
+		vs->getfuncs();
+
+    } else {
+        printf("No menu item selected.\n");
+    }
 }
+
 
 class FixedHeight_Menu_Bar : public Fl_Menu_Bar {
 public:
@@ -582,7 +600,7 @@ fmb->add("testing2",0,0,0,0);
 		}
 		string fl = std::string("Files/") + str;
 
-    	fmb->add(fl.c_str(),0, menu_callback,0);
+    	fmb->add(fl.c_str(),0, menu_callback,this);
 		// break;
 
 

@@ -60,7 +60,7 @@ struct LogEntry {
 // #include <_usual.hpp> 
 #define cot
 #define cot1 
-#define cotm 
+// #define cotm 
 
  
 // import _usual;
@@ -139,7 +139,214 @@ struct ZShift : public osg::NodeVisitor
     }
 };
 
+
 void makeCadStyleNode(
+    osg::ref_ptr<osg::Group> root,
+    osg::Node* model,
+    const osg::Vec4& faceColor = osg::Vec4(0.95f, 0.95f, 0.95f, 1.0f)
+)
+{
+    if (!root || !model)
+        return;
+
+    bool isTransparent = faceColor.a() < 1.0f;
+
+    /* ============================================================
+       PASS 1: SHADED FACES (CAD SOLID)
+       ============================================================ */
+
+    osg::ref_ptr<osg::Node> faceNode =
+        dynamic_cast<osg::Node*>(model->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+    osg::StateSet* fs = faceNode->getOrCreateStateSet();
+    fs->clear();
+    fs->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    // Basic CAD Material State
+    fs->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_ARRAY,    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    // Transparency Handling
+    if (isTransparent) {
+        // 1. Enable Blending
+        fs->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+        
+        // 2. Move to the Transparent Bin (Sorted back-to-front)
+        // Bin 10 is the standard OSG bin for transparent objects
+        fs->setRenderBinDetails(10, "DepthSortedBin");
+
+        // 3. Disable Culling so we can see the "back" of the transparent object
+        fs->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    } else {
+        fs->setMode(GL_CULL_FACE, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+        fs->setRenderBinDetails(0, "RenderBin");
+    }
+
+    osg::ref_ptr<osg::Material> faceMat = new osg::Material;
+    faceMat->setDiffuse (osg::Material::FRONT_AND_BACK, faceColor);
+    faceMat->setAmbient (osg::Material::FRONT_AND_BACK, faceColor);
+    faceMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setAlpha(osg::Material::FRONT_AND_BACK, faceColor.a());
+    faceMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    fs->setAttributeAndModes(faceMat.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(faceNode.get());
+
+    /* ============================================================
+       EDGE EXTRACTION (ROBUST, POSITION-BASED)
+       ============================================================ */
+
+    struct EdgeKey {
+        osg::Vec3 a, b;
+        EdgeKey(const osg::Vec3& p, const osg::Vec3& q) {
+            if (p.x()<q.x() || (p.x()==q.x() && (p.y()<q.y() || (p.y()==q.y() && p.z()<q.z()))))
+            { a=p; b=q; }
+            else
+            { a=q; b=p; }
+        }
+        bool operator<(const EdgeKey& o) const {
+            if (a.x()!=o.a.x()) return a.x()<o.a.x();
+            if (a.y()!=o.a.y()) return a.y()<o.a.y();
+            if (a.z()!=o.a.z()) return a.z()<o.a.z();
+            if (b.x()!=o.b.x()) return b.x()<o.b.x();
+            if (b.y()!=o.b.y()) return b.y()<o.b.y();
+            return b.z()<o.b.z();
+        }
+    };
+
+    struct EdgeInfo {
+        osg::Vec3 normalSum;
+        unsigned count = 0;
+    };
+
+    std::map<EdgeKey, EdgeInfo> edgeMap;
+
+    struct Extractor : public osg::NodeVisitor {
+        std::map<EdgeKey, EdgeInfo>& edgeMap;
+        Extractor(std::map<EdgeKey, EdgeInfo>& m)
+            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), edgeMap(m) {}
+
+        void addTriangles(osg::Vec3Array* v, osg::DrawElementsUInt* idx)
+        {
+            for (unsigned i=0;i+2<idx->size();i+=3)
+            {
+                const osg::Vec3& a = (*v)[(*idx)[i]];
+                const osg::Vec3& b = (*v)[(*idx)[i+1]];
+                const osg::Vec3& c = (*v)[(*idx)[i+2]];
+                osg::Vec3 n = (b-a) ^ (c-a);
+                if (n.length2() < 1e-12f) continue;
+                n.normalize();
+                edgeMap[EdgeKey(a,b)].normalSum += n;
+                edgeMap[EdgeKey(a,b)].count++;
+                edgeMap[EdgeKey(b,c)].normalSum += n;
+                edgeMap[EdgeKey(b,c)].count++;
+                edgeMap[EdgeKey(c,a)].normalSum += n;
+                edgeMap[EdgeKey(c,a)].count++;
+            }
+        }
+
+        void apply(osg::Geode& geode) override
+        {
+            for (unsigned i=0;i<geode.getNumDrawables();++i)
+            {
+                osg::Geometry* g = dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+                if (!g) continue;
+                osg::Vec3Array* v = dynamic_cast<osg::Vec3Array*>(g->getVertexArray());
+                if (!v) continue;
+                for (unsigned p=0;p<g->getNumPrimitiveSets();++p)
+                {
+                    osg::PrimitiveSet* ps = g->getPrimitiveSet(p);
+                    if (ps->getMode()!=GL_TRIANGLES) continue;
+                    osg::ref_ptr<osg::DrawElementsUInt> tmp = new osg::DrawElementsUInt(GL_TRIANGLES);
+                    if (auto* u = dynamic_cast<osg::DrawElementsUInt*>(ps)) for (auto i:*u) tmp->push_back(i);
+                    else if (auto* s = dynamic_cast<osg::DrawElementsUShort*>(ps)) for (auto i:*s) tmp->push_back(i);
+                    else if (auto* b = dynamic_cast<osg::DrawElementsUByte*>(ps)) for (auto i:*b) tmp->push_back(i);
+                    else if (auto* a = dynamic_cast<osg::DrawArrays*>(ps)) for (int i=0;i<a->getCount();++i) tmp->push_back(a->getFirst()+i);
+                    addTriangles(v,tmp.get());
+                }
+            }
+        }
+    };
+
+    Extractor ex(edgeMap);
+    model->accept(ex);
+
+    /* ============================================================
+       BUILD EDGE GEOMETRY
+       ============================================================ */
+
+    osg::ref_ptr<osg::Vec3Array> edgeVerts = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUInt> lines = new osg::DrawElementsUInt(GL_LINES);
+
+    const float featureAngle = osg::DegreesToRadians(30.0f);
+    const float cosFeature   = std::cos(featureAngle);
+    const float coplanarEps  = 0.9999f;
+
+    for (const auto& kv : edgeMap)
+    {
+        const EdgeKey& e = kv.first;
+        const EdgeInfo& info = kv.second;
+        if (info.count == 1) {
+            lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.a);
+            lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.b);
+        } else {
+            osg::Vec3 avg = info.normalSum;
+            avg.normalize();
+            float dot = avg * (info.normalSum / (float)info.count);
+            if (dot > coplanarEps) continue;
+            if (dot < cosFeature) {
+                lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.a);
+                lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.b);
+            }
+        }
+    }
+
+    osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
+    edgeGeom->setVertexArray(edgeVerts.get());
+    edgeGeom->addPrimitiveSet(lines.get());
+
+    osg::ref_ptr<osg::Geode> edgeGeode = new osg::Geode;
+    edgeGeode->addDrawable(edgeGeom.get());
+
+    /* ============================================================
+       EDGE RENDER STATE
+       ============================================================ */
+
+    osg::StateSet* es = edgeGeode->getOrCreateStateSet();
+    es->clear();
+    es->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    // Ensure edges are drawn AFTER/OVER the transparent faces
+    // We put them in a later bin (11) than the faces (10)
+    es->setRenderBinDetails(11, "RenderBin");
+
+    osg::ref_ptr<osg::Depth> depth = new osg::Depth(osg::Depth::LEQUAL,0,1,true);
+    es->setAttributeAndModes(depth.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    // Offset the edges toward the camera to prevent "z-fighting" with the faces
+    osg::ref_ptr<osg::PolygonOffset> po = new osg::PolygonOffset(-1.0f, -1.0f);
+    es->setAttributeAndModes(po.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    es->setMode(GL_LIGHTING,  osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(1.8f);
+    es->setAttributeAndModes(lw.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> edgeMat = new osg::Material;
+    edgeMat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    es->setAttributeAndModes(edgeMat.get(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(edgeGeode.get());
+}
+
+
+//vw fine
+void makeCadStyleNode_vw1(
     osg::ref_ptr<osg::Group> root,
     osg::Node* model,
     const osg::Vec4& faceColor = osg::Vec4(0.95f, 0.95f, 0.95f, 1.0f)
@@ -176,6 +383,7 @@ void makeCadStyleNode(
         osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
     );
 
+ 
     root->addChild(faceNode.get());
 
     /* ============================================================
@@ -327,6 +535,9 @@ void makeCadStyleNode(
 
     osg::StateSet* es = edgeGeode->getOrCreateStateSet();
     es->clear();
+ 
+
+
     es->removeAttribute(osg::StateAttribute::PROGRAM);
 
     osg::ref_ptr<osg::Depth> depth =
@@ -335,6 +546,265 @@ void makeCadStyleNode(
         osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
     es->setRenderBinDetails(1,"RenderBin");
+
+    osg::ref_ptr<osg::PolygonOffset> po = new osg::PolygonOffset(-1,-1);
+    es->setAttributeAndModes(po.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_POLYGON_OFFSET_LINE,
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    es->setMode(GL_LIGHTING,  osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    es->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(1.8f);
+    es->setAttributeAndModes(lw.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> edgeMat = new osg::Material;
+    edgeMat->setDiffuse (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setAmbient (osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    edgeMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    es->setAttributeAndModes(edgeMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    root->addChild(edgeGeode.get());
+}
+void makeCadStyleNode_vt(
+    osg::ref_ptr<osg::Group> root,
+    osg::Node* model,
+    const osg::Vec4& faceColor = osg::Vec4(0.95f, 0.95f, 0.95f, 1.0f)
+)
+{
+    if (!root || !model)
+        return;
+
+    /* ============================================================
+       PASS 1: SHADED FACES (CAD SOLID)
+       ============================================================ */
+
+    osg::ref_ptr<osg::Node> faceNode =
+        dynamic_cast<osg::Node*>(model->clone(osg::CopyOp::DEEP_COPY_ALL));
+
+    osg::StateSet* fs = faceNode->getOrCreateStateSet();
+    fs->clear();
+    fs->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    fs->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_CULL_FACE,      osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_ARRAY,    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    fs->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    osg::ref_ptr<osg::Material> faceMat = new osg::Material;
+    faceMat->setDiffuse (osg::Material::FRONT_AND_BACK, faceColor);
+    faceMat->setAmbient (osg::Material::FRONT_AND_BACK, faceColor);
+    faceMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+    faceMat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+    fs->setAttributeAndModes(
+        faceMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+    );
+
+    /* ============================================================
+       TRANSPARENCY SUPPORT (WORKS CORRECTLY)
+       ============================================================ */
+
+    if (faceColor.a() < 1.0f)
+    {
+        // Enable blending
+        fs->setMode(GL_BLEND,
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+        osg::ref_ptr<osg::BlendFunc> bf =
+            new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        fs->setAttributeAndModes(bf.get(),
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+        // Depth test ON, depth write OFF (critical)
+        osg::ref_ptr<osg::Depth> d =
+            new osg::Depth(osg::Depth::LEQUAL, 0.0, 1.0, false);
+        fs->setAttributeAndModes(d.get(),
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+        // Transparent bin
+        fs->setRenderBinDetails(0, "TransparentBin");
+    }
+    else
+    {
+        // Opaque: depth write ON
+        osg::ref_ptr<osg::Depth> d =
+            new osg::Depth(osg::Depth::LEQUAL, 0.0, 1.0, true);
+        fs->setAttributeAndModes(d.get(),
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+        fs->setRenderBinDetails(0, "RenderBin");
+    }
+
+    root->addChild(faceNode.get());
+
+    /* ============================================================
+       EDGE EXTRACTION (unchanged)
+       ============================================================ */
+
+    struct EdgeKey {
+        osg::Vec3 a, b;
+        EdgeKey(const osg::Vec3& p, const osg::Vec3& q) {
+            if (p < q) { a=p; b=q; } else { a=q; b=p; }
+        }
+        bool operator<(const EdgeKey& o) const {
+            if (a.x()!=o.a.x()) return a.x()<o.a.x();
+            if (a.y()!=o.a.y()) return a.y()<o.a.y();
+            if (a.z()!=o.a.z()) return a.z()<o.a.z();
+            if (b.x()!=o.b.x()) return b.x()<o.b.x();
+            if (b.y()!=o.b.y()) return b.y()<o.b.y();
+            return b.z()<o.b.z();
+        }
+    };
+
+    struct EdgeInfo {
+        osg::Vec3 normalSum;
+        unsigned count = 0;
+    };
+
+    std::map<EdgeKey, EdgeInfo> edgeMap;
+
+    struct Extractor : public osg::NodeVisitor {
+        std::map<EdgeKey, EdgeInfo>& edgeMap;
+        Extractor(std::map<EdgeKey, EdgeInfo>& m)
+            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), edgeMap(m) {}
+
+        void addTriangles(osg::Vec3Array* v, osg::DrawElementsUInt* idx)
+        {
+            for (unsigned i=0;i+2<idx->size();i+=3)
+            {
+                const osg::Vec3& a = (*v)[(*idx)[i]];
+                const osg::Vec3& b = (*v)[(*idx)[i+1]];
+                const osg::Vec3& c = (*v)[(*idx)[i+2]];
+
+                osg::Vec3 n = (b-a) ^ (c-a);
+                if (n.length2() < 1e-12f)
+                    continue;
+                n.normalize();
+
+                edgeMap[EdgeKey(a,b)].normalSum += n;
+                edgeMap[EdgeKey(a,b)].count++;
+
+                edgeMap[EdgeKey(b,c)].normalSum += n;
+                edgeMap[EdgeKey(b,c)].count++;
+
+                edgeMap[EdgeKey(c,a)].normalSum += n;
+                edgeMap[EdgeKey(c,a)].count++;
+            }
+        }
+
+        void apply(osg::Geode& geode) override
+        {
+            for (unsigned i=0;i<geode.getNumDrawables();++i)
+            {
+                osg::Geometry* g =
+                    dynamic_cast<osg::Geometry*>(geode.getDrawable(i));
+                if (!g) continue;
+
+                osg::Vec3Array* v =
+                    dynamic_cast<osg::Vec3Array*>(g->getVertexArray());
+                if (!v) continue;
+
+                for (unsigned p=0;p<g->getNumPrimitiveSets();++p)
+                {
+                    osg::PrimitiveSet* ps = g->getPrimitiveSet(p);
+                    if (ps->getMode()!=GL_TRIANGLES) continue;
+
+                    osg::ref_ptr<osg::DrawElementsUInt> tmp =
+                        new osg::DrawElementsUInt(GL_TRIANGLES);
+
+                    if (auto* u = dynamic_cast<osg::DrawElementsUInt*>(ps))
+                        for (auto i:*u) tmp->push_back(i);
+                    else if (auto* s = dynamic_cast<osg::DrawElementsUShort*>(ps))
+                        for (auto i:*s) tmp->push_back(i);
+                    else if (auto* b = dynamic_cast<osg::DrawElementsUByte*>(ps))
+                        for (auto i:*b) tmp->push_back(i);
+                    else if (auto* a = dynamic_cast<osg::DrawArrays*>(ps))
+                        for (int i=0;i<a->getCount();++i)
+                            tmp->push_back(a->getFirst()+i);
+
+                    addTriangles(v,tmp.get());
+                }
+            }
+        }
+    };
+
+    Extractor ex(edgeMap);
+    model->accept(ex);
+
+    /* ============================================================
+       BUILD EDGE GEOMETRY
+       ============================================================ */
+
+    osg::ref_ptr<osg::Vec3Array> edgeVerts = new osg::Vec3Array;
+    osg::ref_ptr<osg::DrawElementsUInt> lines =
+        new osg::DrawElementsUInt(GL_LINES);
+
+    const float featureAngle = osg::DegreesToRadians(30.0f);
+    const float cosFeature   = std::cos(featureAngle);
+    const float coplanarEps  = 0.9999f;
+
+    for (const auto& kv : edgeMap)
+    {
+        const EdgeKey& e = kv.first;
+        const EdgeInfo& info = kv.second;
+
+        if (info.count == 1)
+        {
+            lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.a);
+            lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.b);
+        }
+        else
+        {
+            osg::Vec3 avg = info.normalSum;
+            avg.normalize();
+
+            float dot = avg * (info.normalSum / (float)info.count);
+            if (dot > coplanarEps)
+                continue;
+
+            if (dot < cosFeature)
+            {
+                lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.a);
+                lines->push_back(edgeVerts->size()); edgeVerts->push_back(e.b);
+            }
+        }
+    }
+
+    osg::ref_ptr<osg::Geometry> edgeGeom = new osg::Geometry;
+    edgeGeom->setVertexArray(edgeVerts.get());
+    edgeGeom->addPrimitiveSet(lines.get());
+
+    osg::ref_ptr<osg::Geode> edgeGeode = new osg::Geode;
+    edgeGeode->addDrawable(edgeGeom.get());
+
+    /* ============================================================
+       EDGE RENDER STATE (BLACK)
+       ============================================================ */
+
+    osg::StateSet* es = edgeGeode->getOrCreateStateSet();
+    es->clear();
+
+    es->setMode(GL_BLEND,
+        osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+    es->removeAttribute(osg::StateAttribute::PROGRAM);
+
+    osg::ref_ptr<osg::Depth> depth =
+        new osg::Depth(osg::Depth::LEQUAL,0,1,true); // depth write ON
+    es->setAttributeAndModes(depth.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+    // es->setRenderBinDetails(1,"RenderBin");
+es->setRenderBinDetails(11,"RenderBin");
 
     osg::ref_ptr<osg::PolygonOffset> po = new osg::PolygonOffset(-1,-1);
     es->setAttributeAndModes(po.get(),
@@ -627,77 +1097,237 @@ void makeCadStyleNode_v1(osg::ref_ptr<osg::Group> root,osg::Node* model)
 
     // return root;
 }
+#include <osg/Node>
+#include <osg/StateSet>
+#include <osg/Material>
+#include <osg/BlendFunc>
+//not working
+void setTransparency(osg::Node* model, bool val = true)
+{
+    if (!model) return;
 
-void settranparency(Node* model,bool val=1){  
-return;
-osg::StateSet* ss = model->getOrCreateStateSet();
+    osg::StateSet* state = model->getOrCreateStateSet();
 
-ss->setMode(
-    GL_LIGHTING,
-    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE
-);
+    // TURN TRANSPARENCY OFF
+    if (!val)
+    {
+        state->setMode(GL_BLEND, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+        state->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+        state->removeAttribute(osg::StateAttribute::MATERIAL);
+        state->removeAttribute(osg::StateAttribute::BLENDFUNC);
+        return;
+    }
 
-osg::ref_ptr<osg::Material> mat = new osg::Material;
+    // TURN TRANSPARENCY ON
 
-osg::Vec4 nearWhite(0.95f, 0.95f, 0.95f, 1.0f);
+    // 1) Material with alpha < 1
+    osg::ref_ptr<osg::Material> mat = new osg::Material;
+    mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
+    // white with alpha 0.5 – forces visible transparency
+    mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1.0f, 1.0f, 1.0f, 0.5f));
+    mat->setAlpha(osg::Material::FRONT_AND_BACK, 0.5f);
 
-mat->setDiffuse (osg::Material::FRONT_AND_BACK, nearWhite);
-mat->setAmbient (osg::Material::FRONT_AND_BACK, nearWhite);
-mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
-mat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
-mat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+    state->setAttributeAndModes(
+        mat.get(),
+        osg::StateAttribute::ON |
+        osg::StateAttribute::OVERRIDE
+    );
 
-ss->setAttributeAndModes(
-    mat.get(),
-    osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
-);
+    // 2) Standard alpha blending (this was wrong in your code)
+    osg::ref_ptr<osg::BlendFunc> bf =
+        new osg::BlendFunc(osg::BlendFunc::SRC_ALPHA,
+                           osg::BlendFunc::ONE_MINUS_SRC_ALPHA);
 
-ss->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    state->setAttributeAndModes(
+        bf.get(),
+        osg::StateAttribute::ON |
+        osg::StateAttribute::OVERRIDE
+    );
 
-ss->removeAttribute(osg::StateAttribute::MATERIAL);
+    // 3) Enable blending + transparent bin
+    state->setMode(GL_BLEND, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+    state->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+}
+
+void setCadFacesTransparency(osg::Group* cadRoot, float alpha)
+{
+    if (!cadRoot || cadRoot->getNumChildren() == 0)
+        return;
+
+    // We know makeCadStyleNode puts faces as first child
+    osg::Node* faceNode = cadRoot->getChild(0);
+    osg::StateSet* fs = faceNode->getOrCreateStateSet();
+
+    osg::ref_ptr<osg::Material> faceMat =
+        dynamic_cast<osg::Material*>(fs->getAttribute(osg::StateAttribute::MATERIAL));
+    if (!faceMat)
+    {
+        faceMat = new osg::Material;
+        // default white; you can store original color elsewhere if needed
+        faceMat->setDiffuse(osg::Material::FRONT_AND_BACK,
+                            osg::Vec4(0.95f, 0.95f, 0.95f, alpha));
+    }
+
+    osg::Vec4 d = faceMat->getDiffuse(osg::Material::FRONT_AND_BACK);
+    d.a() = alpha;
+    faceMat->setDiffuse(osg::Material::FRONT_AND_BACK, d);
+
+    fs->setAttributeAndModes(
+        faceMat.get(),
+        osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+    );
+
+    if (alpha < 1.0f)
+    {
+        osg::ref_ptr<osg::BlendFunc> bf =
+            new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        fs->setAttributeAndModes(
+            bf.get(),
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+        );
+
+        fs->setMode(GL_BLEND,
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+
+        osg::ref_ptr<osg::Depth> dstate =
+            new osg::Depth(osg::Depth::LEQUAL, 0.0, 1.0, false);
+        fs->setAttributeAndModes(
+            dstate.get(),
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+        );
+
+        fs->setRenderBinDetails(0, "TransparentBin");
+    }
+    else
+    {
+        // Back to opaque
+        fs->setMode(GL_BLEND,
+            osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+        fs->removeAttribute(osg::StateAttribute::BLENDFUNC);
+
+        osg::ref_ptr<osg::Depth> dstate =
+            new osg::Depth(osg::Depth::LEQUAL, 0.0, 1.0, true);
+        fs->setAttributeAndModes(
+            dstate.get(),
+            osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+        );
+
+        fs->setRenderBinDetails(0, "RenderBin");
+    }
+}
 
 
+void settranparency(osg::Node* model, bool enable = true)
+{
+	return;
+	cotm("transp")
+    osg::StateSet* ss = model->getOrCreateStateSet();
 
+    if (!enable)
+    {
+        // Disable transparency cleanly
+        ss->removeAttribute(osg::StateAttribute::MATERIAL);
+        ss->removeAttribute(osg::StateAttribute::BLENDFUNC);
+        ss->setMode(GL_BLEND, osg::StateAttribute::OFF);
+        ss->setRenderingHint(osg::StateSet::OPAQUE_BIN);
+        return;
+    }
 
+    // --- ENABLE TRANSPARENCY ---
+    osg::ref_ptr<osg::Material> mat = new osg::Material;
+    mat->setAlpha(osg::Material::FRONT_AND_BACK, 0.5f);
+    ss->setAttributeAndModes(mat, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
+    osg::ref_ptr<osg::BlendFunc> bf =
+        new osg::BlendFunc(osg::BlendFunc::SRC_ALPHA, osg::BlendFunc::ONE_MINUS_SRC_ALPHA);
+    ss->setAttributeAndModes(bf, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
+    ss->setMode(GL_BLEND, osg::StateAttribute::ON);
+    ss->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+}
 
-
-
-return;
+void settranparency_vold(Node* model,bool val=1){
 	osg::StateSet* state2 = model->getOrCreateStateSet();
-	state2->clear();
-	
-	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth;
-lw->setWidth(1.8f);
-
-state2->setAttributeAndModes(
-    lw.get(),
-    osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
-);
-
-state2->setMode(
-    GL_LINE_SMOOTH,
-    osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE
-);
-
-state2->setMode(
-    GL_DEPTH_TEST,
-    osg::StateAttribute::ON
-);
-
-
-return;
-
-	// osg::ref_ptr<osg::Material> mat2 = new osg::Material;
-	// // mat2->setAlpha(osg::Material::FRONT_AND_BACK, 0.5); //Making alpha channel
-	// state2->setAttributeAndModes( mat2.get() ,osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	state2->clear();	
+	osg::ref_ptr<osg::Material> mat2 = new osg::Material;
+	mat2->setAlpha(osg::Material::FRONT_AND_BACK, 0.5); //Making alpha channel
+	state2->setAttributeAndModes( mat2.get() ,osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 	if(!val)return;
 	osg::BlendFunc* bf = new osg::BlendFunc(osg::BlendFunc::SRC_ALPHA,osg::BlendFunc::ONE_MINUS_DST_COLOR );
 	state2->setAttributeAndModes(bf);  
 	model->getStateSet()->setMode( GL_BLEND, osg::StateAttribute::ON );
 	model->getStateSet()->setRenderingHint( osg::StateSet::TRANSPARENT_BIN );
+}
+void settranparency_vp(Node* model,bool val=1){  
+// return;
+// osg::StateSet* ss = model->getOrCreateStateSet();
+
+// ss->setMode(
+//     GL_LIGHTING,
+//     osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE
+// );
+
+// osg::ref_ptr<osg::Material> mat = new osg::Material;
+
+// osg::Vec4 nearWhite(0.95f, 0.95f, 0.95f, 1.0f);
+
+// mat->setDiffuse (osg::Material::FRONT_AND_BACK, nearWhite);
+// mat->setAmbient (osg::Material::FRONT_AND_BACK, nearWhite);
+// mat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+// mat->setEmission(osg::Material::FRONT_AND_BACK, osg::Vec4(0,0,0,1));
+// mat->setShininess(osg::Material::FRONT_AND_BACK, 0.0f);
+
+// ss->setAttributeAndModes(
+//     mat.get(),
+//     osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+// );
+
+// ss->setMode(GL_LIGHTING,       osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+// ss->setMode(GL_COLOR_MATERIAL, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+// ss->removeAttribute(osg::StateAttribute::MATERIAL);
+
+
+
+
+
+
+
+
+
+// return;
+// 	osg::StateSet* state2 = model->getOrCreateStateSet();
+// 	state2->clear();
+	
+// 	osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth;
+// lw->setWidth(1.8f);
+
+// state2->setAttributeAndModes(
+//     lw.get(),
+//     osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE
+// );
+
+// state2->setMode(
+//     GL_LINE_SMOOTH,
+//     osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE
+// );
+
+// state2->setMode(
+//     GL_DEPTH_TEST,
+//     osg::StateAttribute::ON
+// );
+
+
+// return;
+
+	// osg::ref_ptr<osg::Material> mat2 = new osg::Material;
+	// // mat2->setAlpha(osg::Material::FRONT_AND_BACK, 0.5); //Making alpha channel
+	// state2->setAttributeAndModes( mat2.get() ,osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+	// if(!val)return;
+	// osg::BlendFunc* bf = new osg::BlendFunc(osg::BlendFunc::SRC_ALPHA,osg::BlendFunc::ONE_MINUS_DST_COLOR );
+	// state2->setAttributeAndModes(bf);  
+	// model->getStateSet()->setMode( GL_BLEND, osg::StateAttribute::ON );
+	// model->getStateSet()->setRenderingHint( osg::StateSet::TRANSPARENT_BIN );
 }
 
 void settranparency_v1(Node* model,bool val=1){ 
@@ -921,7 +1551,8 @@ void osgdr::newdr(vec3 _axisbegin,vec3 _axisend){
     lop(i,0,nodesstr.size()){
         nodes.push_back(osgDB::readRefNodeFile(nodesstr[i]));
 
-		makeCadStyleNode(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
+		makeCadStyleNode_vw1(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
+		// makeCadStyleNode(transform,nodes[i],osg::Vec4(0.95f, 0.55f, 0.5f, 1.0f));
     // osg::StateSet* ss = nodes[i]->getOrCreateStateSet();
 
     // // 1) Disable lighting completely
@@ -1493,7 +2124,7 @@ void toggletransp(){
 	toggletranspbool=!toggletranspbool;
 	lop(i,0,ve.size()){
 		lop(j,0,ve[i]->nodes.size()){
-			settranparency(ve[i]->nodes[j],toggletranspbool);
+			setTransparency(ve[i]->nodes[j],toggletranspbool);
 		}
 	}
 
@@ -1953,8 +2584,9 @@ void loadstl(Group* group){
 StripNormalsAndColors cleaner;
 maquete->accept(cleaner);
 
-makeCadStyleNode(group,maquete,osg::Vec4(0.95f, 0.95f, 0.95f, 0.5f));
-
+makeCadStyleNode(group,maquete,osg::Vec4(0.95f, 0.95f, 0.95f, 0.85f));
+// makeCadStyleNode(group,maquete,osg::Vec4(0.95f, 0.95f, 0.95f, 1.0f));
+// setCadFacesTransparency(group,0.7);
 
 // osg::ref_ptr<osg::Node> cadNode = makeCadStyleNode_v1(maquete);
 // group->addChild(cadNode.get());
