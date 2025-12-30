@@ -779,11 +779,11 @@ end
 --circletest()
 
 
-struct()
+--struct()
 
-elevator()
+--elevator()
 
-mosaics()
+--mosaics()
 
 robot1()
 

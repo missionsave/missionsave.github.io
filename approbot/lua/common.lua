@@ -44,12 +44,13 @@ function common.stand_pose()
 end
 function common.center()
 	common.stand_pose()
-	movz(-1000-203/2-203*1)
+	local z=-1000-203/2-203*0 --<
+	movz(z)
 	posa(m,m,0,m,m)
 	posa(m,0,m,m,m)
 	posa(m,0,m,0,m)
 	for i=1,3 do
-	posa(m,m,i*10,i*-10,m)
+	posa(m,m,i*10,i*-10*2,m)
 	end
 	do return end
 	common.stand_pose()
@@ -62,7 +63,7 @@ end
 
 function common.test2()
 	local x=2438/12*11
-	local z=-1000-203*3-203/2
+	local z=-1000-203/2-203*4
 	common.stand_pose()
 	movz(z)
 	posa(180,0,m,m,m)
