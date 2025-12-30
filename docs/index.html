@@ -493,8 +493,10 @@ var lib;
 					<a href="?p=Self-sufficient_Greenhouse.html"
 						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Self-sufficient_Greenhouse.html"); window.scrollTo(0, 0); return false;'>Self-sufficient Greenhouse</a>
 
+					<!-- <a href="?p=Development.html"
+						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Development.html"); window.scrollTo(0, 0); return false;'>Development</a> -->
 					<a href="?p=Development.html"
-						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Development.html"); window.scrollTo(0, 0); return false;'>Development</a>
+						onclick='updateurl(this); loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url=https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub&nocache=3"); window.scrollTo(0, 0); return false;'>Development</a>
 			
 				<!-- </div>
 			</div> -->
@@ -1048,7 +1050,11 @@ if (pValue){ //replace "%2F" from p to "/"
 	} else {
 		// loadPage("pages/"+pValue);
 		// loadPage_v2("pages/"+pValue);
-		loadPage_v2("https://missionsave.github.io/pages/"+pValue);
+		console.log("pValue",pValue);
+		if(pValue=="Development.html"){
+			loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url=https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub&nocache=3");
+		}else
+			loadPage_v2("https://missionsave.github.io/pages/"+pValue);
 		setTimeout(function () {
 			onresizeFunction();
 		}, 600);

@@ -130,24 +130,57 @@ export default {
 
 
 
+    // 👇 manual trigger route
+    if (url.pathname === "/trigger-github") {
+      const resp = await fetch(
+        "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/daily.yml/dispatches",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "missionsave-worker" // 👈 required
+          },
+          body: JSON.stringify({ ref: "master" })
+        }
+      );
+
+      const text = await resp.text();
+      return new Response(
+        `GitHub API status: ${resp.status}\n\n${text}`,
+        { status: resp.ok ? 200 : 500 }
+      );
+    }
 
 
-    // --- Proxy everything else to GitHub Pages ---
-    const targetUrl = "https://missionsave.github.io" + url.pathname + url.search;
 
-    // Forward the incoming request to GitHub Pages
-    const response = await fetch(targetUrl, {
-      method: request.method,
-      headers: request.headers,
-      body: request.method !== "GET" && request.method !== "HEAD" ? await request.clone().arrayBuffer() : undefined,
-      redirect: "manual"
-    });
 
-    // Return the proxied response to the client
-    return new Response(response.body, {
-      status: response.status,
-      headers: response.headers
-    });
+
+// --- Proxy everything else to GitHub Pages ---
+let path = url.pathname;
+
+// If path looks like a "directory" (no extension, not just "/"), add trailing slash
+if (!path.endsWith("/") && !path.includes(".")) {
+  path = path + "/";
+}
+
+const targetUrl = "https://missionsave.github.io" + path + url.search;
+
+const response = await fetch(targetUrl, {
+  method: request.method,
+  headers: request.headers,
+  body: request.method !== "GET" && request.method !== "HEAD"
+    ? await request.clone().arrayBuffer()
+    : undefined,
+  redirect: "manual"
+});
+
+return new Response(response.body, {
+  status: response.status,
+  headers: response.headers
+});
+
   },
 
   // --- CRON trigger here ---
@@ -159,9 +192,10 @@ export default {
         headers: {
           "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
           "Accept": "application/vnd.github+json",
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "User-Agent": "missionsave-worker" // 👈 required
         },
-        body: JSON.stringify({ ref: "main" })
+        body: JSON.stringify({ ref: "master" })
       }
     ));
   }
