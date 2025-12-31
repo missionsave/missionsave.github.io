@@ -438,7 +438,15 @@ sshtprev() {
         -t 'tmux attach || tmux new' &
 }
 
+bat() {
+    ls /sys/class/power_supply/BAT0/
 
+    echo "Capacidade total (Wh):"
+    echo "$(cat /sys/class/power_supply/BAT0/charge_full) * $(cat /sys/class/power_supply/BAT0/voltage_now) / 1000000000000" | bc -l
+
+    echo "Consumo instantâneo (W):"
+    echo "$(cat /sys/class/power_supply/BAT0/current_now) * $(cat /sys/class/power_supply/BAT0/voltage_now) / 1000000000000" | bc -l
+}
 
 
 

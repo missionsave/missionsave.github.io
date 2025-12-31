@@ -251,22 +251,69 @@ Circle(20)
 Movel(-305,-84,20)
 Rotatelx(90)
 Movel(36/2,0,-82/2)
-Extrude(2)
-Subtract()
+Extrude(-2)
+Fuse()
+--Subtract()
 
 
 
 
-Part sk5
-Circle(19)
---Pl 0,0 240,0 @0,6 @-240,0 0,0
-Circle(10)
-Movel(-18)
+ --Part sk5
+ --Pl 0,0 77,0 @0,34 @-77,0 0,0
+ --Circle(15.8/2)
+ --Movel(18,20)
+ --Subtract()
+
+ --Circle(4.4/2)
+ --Movel(5,15)
+
+ --DebugShapes()
+ --Subtract()
+ --DebugShapes()
+
+ --Extrude(5)
+ --DebugShapes()
+
+--Part sk5
+--Pl 0,0 77,0 @0,34 @-77,0 0,0
+--Circle(15.8/2)
+--Movel(18,20)
+--Subtract()
+--Extrude(5)
+--Circle(4.4/2)
+--Movel(5,15)
 --DebugShapes()
-Subtract()
+--Extrude(5)
+--Subtract()
+--DebugShapes()
 --DebugShapes()
 --Fuse()
-Extrude(5)
+--Extrude(5)
+
+
+
+ Part sk5
+ Pl 0,0 77,0 @0,34 @-77,0 0,0
+ Circle(15.8/2)
+ Movel(10,20)
+ --Fuse()
+ --Subtract()
+ DebugShapes()
+ Subtract()
+
+ Circle(4.4/2)
+ Movel(5,5)
+
+ DebugShapes()
+ ----Fuse()
+ Subtract()
+ --
+ --DebugShapes()
+
+ Extrude(5)
+ --DebugShapes()
+
+
 
 --Part robot_arm2
 --Pl 0,0 240,0 @0,6 @-240,0 0,0
