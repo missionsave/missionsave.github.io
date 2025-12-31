@@ -44,7 +44,7 @@ function common.stand_pose()
 end
 function common.center()
 	common.stand_pose()
-	local z=-1000-203/2-203*0 --<
+	local z=-1000-203/2-203*11 --<
 	movz(z)
 	posa(m,m,0,m,m)
 	posa(m,0,m,m,m)

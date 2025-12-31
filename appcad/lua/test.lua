@@ -244,13 +244,29 @@ Movel(0,0,-70-6)
 Part robot_wrist
 Pl 0,0 36,0 @0,-60 @-36,0 0,0
 Movel(-305,-84,20)
+--Circle(10)
 Extrude(-82)
 Circle(20)
 --Pl 0,0 100,0 @0,20 @-100,0 0,0
 Movel(-305,-84,20)
 Rotatelx(90)
 Movel(36/2,0,-82/2)
-Extrude(-2)
+Extrude(2)
+Subtract()
+
+
+
+
+Part sk5
+Circle(19)
+--Pl 0,0 240,0 @0,6 @-240,0 0,0
+Circle(10)
+Movel(-18)
+--DebugShapes()
+Subtract()
+--DebugShapes()
+--Fuse()
+Extrude(5)
 
 --Part robot_arm2
 --Pl 0,0 240,0 @0,6 @-240,0 0,0
@@ -779,11 +795,11 @@ end
 --circletest()
 
 
-struct()
+--struct()
 
-elevator()
+--elevator()
 
-mosaics()
+--mosaics()
 
 robot1()
 

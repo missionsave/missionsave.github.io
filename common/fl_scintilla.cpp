@@ -432,11 +432,12 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	// floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 
 	floaded = Fl::get_font(FL_HELVETICA_BOLD);
-	cotm(floaded)
+	// cotm(floaded)
 	floaded = Fl::get_font_name(FL_HELVETICA);
+	// cotm(floaded)
 	floaded = Fl::get_font_name(FL_COURIER_BOLD);
 	// floaded = Fl::get_font_name(FL_HELVETICA_BOLD);
-	cotm(floaded)
+	// cotm(floaded)
 	// string fstd=load_app_font("DejaVuSans-Bold.ttf");
 	// string fstd=load_app_font("DejaVuSans.ttf");
 	// Fl::set_font(FL_HELVETICA, fstd.c_str());
@@ -543,17 +544,18 @@ void fl_scintilla::update_menu(){
 		fmb=new fl_scintilla::MyMenuBar(x(),y(),w(),22,0,this);
 		size(w(),h()-22);
 		position(x(),y()+22);
-    fmb->add("Files/Open folder",0, menu_callback);
+    // fmb->add("Files/Open folder",0, menu_callback);
 	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
 	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
 	    // Initial menu items
     // fmb->add("Files/Quit", 0, menu_callback);
 
+fmb->add("Files", 0, 0, 0, FL_SUBMENU);
 fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
 // fmb->add("Options/test",0,menu_cb);
-fmb->add("Help",0,0,0,FL_MENU_DIVIDER);
-fmb->add("testing",0,0,0,0);
-fmb->add("testing2",0,0,0,0);
+// fmb->add("Help",0,0,0,FL_MENU_DIVIDER);
+// fmb->add("testing",0,0,0,0);
+// fmb->add("testing2",0,0,0,0);
  
 // fmb->add("Options/Enable feature A", 0, menu_cb, (void*)"A",FL_MENU_TOGGLE);
 // fmb->add("Options/Enable feature B", 0, menu_cb, (void*)"B",FL_MENU_TOGGLE);
@@ -584,8 +586,16 @@ fmb->add("testing2",0,0,0,0);
     //     // std::cout << f.filename << " - " << std::asctime(std::localtime(&f.modified));
     // }
 	string fn=folder;
-	replace_All(fn,"/","∕");
-	fn="Files/"+fn+" folder recents";
+	replace_All(fn,"/","");
+
+
+
+
+	// replace_All(fn,"/","");
+	// fn="Files/"+fn+" folder recents";
+
+	fn="Files/Folder "+fn;
+
 	fmb->add(fn.c_str(),0, 0,0,FL_MENU_DIVIDER | FL_MENU_INACTIVE);
 	bool is_first=0;
     std::sort(files.begin(), files.end());

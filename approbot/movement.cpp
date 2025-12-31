@@ -1977,7 +1977,7 @@ void geraeixos(Group* group){
 		ve[idx]=new osgdr(group);  
 		ve[idx]->nodesstr.push_back("stl/robot_arm2.stl"); 
 		ve[idx]->axis=vec3(0,0,1);
-		ve[idx]->anglemin=-60;
+		ve[idx]->anglemin=-(320-60);
 		ve[idx]->anglemax=60;
 		vec3 axle_point(-287,135,-59);
 

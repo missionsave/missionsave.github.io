@@ -1796,6 +1796,8 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 			// shape=cshape; 
 			ashape->Set(cshape);
 
+
+
 			
 			if(orupd==0 ){//&& !occv->Origin.IsIdentity()){
 				// orupd=1;
@@ -5109,6 +5111,23 @@ m_context->Display(aShape, 0);
 
 
 
+			Handle(AIS_Shape)& highlight = vaShape[i];
+Handle(Prs3d_LineAspect) la =
+    new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 2.0);
+
+highlight->Attributes()->SetLineAspect(la);
+highlight->Attributes()->SetWireAspect(la);
+highlight->Attributes()->SetFreeBoundaryAspect(la);
+highlight->Attributes()->SetUnFreeBoundaryAspect(la);
+highlight->Attributes()->SetFaceBoundaryAspect(la);
+highlight->Attributes()->SetHiddenLineAspect(la);
+highlight->Attributes()->SetVectorAspect(la);
+highlight->Attributes()->SetSectionAspect(la);
+highlight->Attributes()->SetSeenLineAspect(la);
+
+
+
+
 
 			}
 			m_context->Redisplay(aShape, 0);
@@ -5152,6 +5171,8 @@ m_context->Display(aShape, 0);
 					vlua[i]->Origin.Transformation()
 				));
 			}
+
+
 
 			vshapes.push_back(s); //not in sync
 
@@ -7235,7 +7256,332 @@ lua.set_function("Origin", [occv](Standard_Real x=0,Standard_Real y=0,Standard_R
 	// sol::protected_function Rotatel = lua["Rotatel"];
 	cout<<"Origin "<<x<<","<<y<<","<<z<<"\n";
 });
-lua.set_function("Fuse", [&]() { 
+lua.set_function("Fuse", [&]() {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    const TopoDS_Compound& c = current_part->cshape;
+
+    // --- Collect solids (3D) ---
+    std::vector<TopoDS_Solid> solids;
+    for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+
+    // --- Collect wires (2D) ---
+    std::vector<TopoDS_Wire> wires;
+    for (TopExp_Explorer ex(c, TopAbs_WIRE); ex.More(); ex.Next()) {
+        wires.push_back(TopoDS::Wire(ex.Current()));
+    }
+
+    // --- Collect edges (2D, e.g. circles as single edges) ---
+    std::vector<TopoDS_Edge> edges;
+    for (TopExp_Explorer ex(c, TopAbs_EDGE); ex.More(); ex.Next()) {
+        const TopoDS_Shape& s = ex.Current();
+        // Skip edges that are already part of collected wires/solids if needed,
+        // but for now we just collect all edges.
+        edges.push_back(TopoDS::Edge(s));
+    }
+
+    const bool has3D = solids.size() >= 2;
+    bool has2D_wires = (!has3D && wires.size() >= 2);
+    bool has2D_edges = (!has3D && !has2D_wires && edges.size() >= 2);
+
+    if (!has3D && !has2D_wires && !has2D_edges) {
+        throw std::runtime_error(lua_error_with_line(
+            L, "Need at least two solids, two wires, or two edges to fuse."));
+    }
+
+    TopoDS_Shape fused;
+
+    // ============================================================
+    //                       3D FUSE
+    // ============================================================
+    if (has3D) {
+        const TopoDS_Solid& a = solids[solids.size() - 2];
+        const TopoDS_Solid& b = solids.back();
+
+        BRepAlgoAPI_Fuse fuseOp(a, b);
+        fuseOp.Build();
+        if (!fuseOp.IsDone()) {
+            throw std::runtime_error(lua_error_with_line(
+                L, "3D fuse operation failed."));
+        }
+
+        fused = fuseOp.Shape();
+    }
+
+    // ============================================================
+    //                       2D FUSE (WIRES)
+    // ============================================================
+    else if (has2D_wires) {
+        TopoDS_Wire w1 = wires[wires.size() - 2];
+        TopoDS_Wire w2 = wires.back();
+
+        if (!BRep_Tool::IsClosed(w1))
+            throw std::runtime_error(lua_error_with_line(L, "Wire 1 is not closed."));
+        if (!BRep_Tool::IsClosed(w2))
+            throw std::runtime_error(lua_error_with_line(L, "Wire 2 is not closed."));
+
+        TopoDS_Face f1 = BRepBuilderAPI_MakeFace(w1, true);
+        TopoDS_Face f2 = BRepBuilderAPI_MakeFace(w2, true);
+
+        BRepAlgoAPI_Fuse fuseOp(f1, f2);
+        fuseOp.Build();
+        if (!fuseOp.IsDone()) {
+            throw std::runtime_error(lua_error_with_line(
+                L, "2D fuse operation (wires) failed."));
+        }
+
+        // Keep full fused face shape (can be one or more faces)
+        fused = fuseOp.Shape();
+    }
+
+    // ============================================================
+    //                       2D FUSE (EDGES, e.g. circles)
+    // ============================================================
+    else if (has2D_edges) {
+        TopoDS_Edge e1 = edges[edges.size() - 2];
+        TopoDS_Edge e2 = edges.back();
+
+        // Build wires from edges (for circles, each edge is already closed)
+        BRepBuilderAPI_MakeWire mw1;
+        mw1.Add(e1);
+        if (!mw1.IsDone())
+            throw std::runtime_error(lua_error_with_line(
+                L, "Failed to build wire from edge 1."));
+        TopoDS_Wire w1 = mw1.Wire();
+
+        BRepBuilderAPI_MakeWire mw2;
+        mw2.Add(e2);
+        if (!mw2.IsDone())
+            throw std::runtime_error(lua_error_with_line(
+                L, "Failed to build wire from edge 2."));
+        TopoDS_Wire w2 = mw2.Wire();
+
+        if (!BRep_Tool::IsClosed(w1))
+            throw std::runtime_error(lua_error_with_line(L, "Edge 1 wire is not closed."));
+        if (!BRep_Tool::IsClosed(w2))
+            throw std::runtime_error(lua_error_with_line(L, "Edge 2 wire is not closed."));
+
+        TopoDS_Face f1 = BRepBuilderAPI_MakeFace(w1, true);
+        TopoDS_Face f2 = BRepBuilderAPI_MakeFace(w2, true);
+
+        BRepAlgoAPI_Fuse fuseOp(f1, f2);
+        fuseOp.Build();
+        if (!fuseOp.IsDone()) {
+            throw std::runtime_error(lua_error_with_line(
+                L, "2D fuse operation (edges) failed."));
+        }
+
+        // Keep full fused face shape
+        fused = fuseOp.Shape();
+    }
+
+    // ============================================================
+    //                GEOMETRY REFINEMENT (optional)
+    // ============================================================
+    {
+        ShapeUpgrade_UnifySameDomain refine(fused, true, true, true);
+        refine.Build();
+        TopoDS_Shape refined = refine.Shape();
+        if (!refined.IsNull()) {
+            fused = refined;
+        }
+    }
+
+    // ============================================================
+    //                REBUILD COMPOUND
+    // ============================================================
+    TopoDS_Compound result;
+    TopoDS_Builder builder;
+    builder.MakeCompound(result);
+
+    for (TopExp_Explorer ex(c, TopAbs_SHAPE); ex.More(); ex.Next()) {
+        const TopoDS_Shape& s = ex.Current();
+
+        if (has3D && s.ShapeType() == TopAbs_SOLID) {
+            const TopoDS_Solid sol = TopoDS::Solid(s);
+            if (sol.IsSame(solids.back()) || sol.IsSame(solids[solids.size() - 2]))
+                continue;
+        }
+
+        if (has2D_wires && s.ShapeType() == TopAbs_WIRE) {
+            const TopoDS_Wire w = TopoDS::Wire(s);
+            if (w.IsSame(wires.back()) || w.IsSame(wires[wires.size() - 2]))
+                continue;
+        }
+
+        if (has2D_edges && s.ShapeType() == TopAbs_EDGE) {
+            const TopoDS_Edge e = TopoDS::Edge(s);
+            if (e.IsSame(edges.back()) || e.IsSame(edges[edges.size() - 2]))
+                continue;
+        }
+
+        builder.Add(result, s);
+    }
+
+    builder.Add(result, fused);
+
+    current_part->cshape = result;
+    current_part->shape  = fused;
+});
+lua.set_function("Subtract", [&]() {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    const TopoDS_Compound& c = current_part->cshape;
+
+    // --- Collect solids (3D) ---
+    std::vector<TopoDS_Solid> solids;
+    for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+
+    // --- Collect wires (2D) ---
+    std::vector<TopoDS_Wire> wires;
+    for (TopExp_Explorer ex(c, TopAbs_WIRE); ex.More(); ex.Next()) {
+        wires.push_back(TopoDS::Wire(ex.Current()));
+    }
+
+    // --- Collect edges (2D, circles, arcs, lines) ---
+    std::vector<TopoDS_Edge> edges;
+    for (TopExp_Explorer ex(c, TopAbs_EDGE); ex.More(); ex.Next()) {
+        edges.push_back(TopoDS::Edge(ex.Current()));
+    }
+
+    bool has3D = solids.size() >= 2;
+    bool has2D_wires = (!has3D && wires.size() >= 2);
+    bool has2D_edges = (!has3D && !has2D_wires && edges.size() >= 2);
+
+    if (!has3D && !has2D_wires && !has2D_edges) {
+        throw std::runtime_error(lua_error_with_line(
+            L, "Need at least two solids, two wires, or two edges to subtract."));
+    }
+
+    TopoDS_Shape resultShape;
+
+    // ============================================================
+    //                       3D SUBTRACT
+    // ============================================================
+    if (has3D) {
+        const TopoDS_Solid& a = solids[solids.size() - 2];
+        const TopoDS_Solid& b = solids.back();
+
+        BRepAlgoAPI_Cut cutOp(a, b);
+        cutOp.Build();
+        if (!cutOp.IsDone())
+            throw std::runtime_error(lua_error_with_line(L, "3D subtract failed."));
+
+        resultShape = cutOp.Shape();
+    }
+
+    // ============================================================
+    //                       2D SUBTRACT (WIRES)
+    // ============================================================
+    else if (has2D_wires) {
+        TopoDS_Wire w1 = wires[wires.size() - 2];
+        TopoDS_Wire w2 = wires.back();
+
+        TopoDS_Face f1 = BRepBuilderAPI_MakeFace(w1, true);
+        TopoDS_Face f2 = BRepBuilderAPI_MakeFace(w2, true);
+
+        BRepAlgoAPI_Cut cutOp(f1, f2);
+        cutOp.Build();
+        if (!cutOp.IsDone())
+            throw std::runtime_error(lua_error_with_line(L, "2D subtract (wires) failed."));
+
+        resultShape = cutOp.Shape();
+    }
+
+    // ============================================================
+    //                       2D SUBTRACT (EDGES)
+    // ============================================================
+    else if (has2D_edges) {
+        TopoDS_Edge e1 = edges[edges.size() - 2];
+        TopoDS_Edge e2 = edges.back();
+
+        // Convert edges → wires
+        TopoDS_Wire w1 = BRepBuilderAPI_MakeWire(e1).Wire();
+        TopoDS_Wire w2 = BRepBuilderAPI_MakeWire(e2).Wire();
+
+        TopoDS_Face f1 = BRepBuilderAPI_MakeFace(w1, true);
+        TopoDS_Face f2 = BRepBuilderAPI_MakeFace(w2, true);
+
+        BRepAlgoAPI_Cut cutOp(f1, f2);
+        cutOp.Build();
+        if (!cutOp.IsDone())
+            throw std::runtime_error(lua_error_with_line(L, "2D subtract (edges) failed."));
+
+        resultShape = cutOp.Shape();
+    }
+
+    // ============================================================
+    //                GEOMETRY REFINEMENT
+    // ============================================================
+    {
+        ShapeUpgrade_UnifySameDomain refine(resultShape, true, true, true);
+        refine.Build();
+        if (!refine.Shape().IsNull())
+            resultShape = refine.Shape();
+    }
+
+    // ============================================================
+    //                REBUILD COMPOUND
+    // ============================================================
+    TopoDS_Compound newCompound;
+    TopoDS_Builder builder;
+    builder.MakeCompound(newCompound);
+
+    // Remove the two shapes we subtracted
+    for (TopExp_Explorer ex(c, TopAbs_SHAPE); ex.More(); ex.Next()) {
+        const TopoDS_Shape& s = ex.Current();
+
+        if (has3D && s.ShapeType() == TopAbs_SOLID) {
+            if (s.IsSame(solids.back()) || s.IsSame(solids[solids.size() - 2]))
+                continue;
+        }
+
+        if (has2D_wires && s.ShapeType() == TopAbs_WIRE) {
+            if (s.IsSame(wires.back()) || s.IsSame(wires[wires.size() - 2]))
+                continue;
+        }
+
+        if (has2D_edges && s.ShapeType() == TopAbs_EDGE) {
+            if (s.IsSame(edges.back()) || s.IsSame(edges[edges.size() - 2]))
+                continue;
+        }
+
+        builder.Add(newCompound, s);
+    }
+
+    builder.Add(newCompound, resultShape);
+
+    current_part->cshape = newCompound;
+    current_part->shape  = resultShape;
+});
+lua.set_function("DebugShapes", [&]() {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    const TopoDS_Compound& c = current_part->cshape;
+
+    int solids = 0, wires = 0, edges = 0, faces = 0;
+
+    for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next()) solids++;
+    for (TopExp_Explorer ex(c, TopAbs_WIRE);  ex.More(); ex.Next()) wires++;
+    for (TopExp_Explorer ex(c, TopAbs_EDGE);  ex.More(); ex.Next()) edges++;
+    for (TopExp_Explorer ex(c, TopAbs_FACE);  ex.More(); ex.Next()) faces++;
+
+    std::cout << "=== DebugShapes ===\n";
+    std::cout << "Solids: " << solids << "\n";
+    std::cout << "Wires:  " << wires  << "\n";
+    std::cout << "Edges:  " << edges  << "\n";
+    std::cout << "Faces:  " << faces  << "\n";
+});
+
+
+lua.set_function("Fuse_vw", [&]() { 
 		// cotm2("fuse fail")
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
@@ -7298,7 +7644,7 @@ lua.set_function("Fuse", [&]() {
 
 #include <BRepAlgoAPI_Cut.hxx>
 
-lua.set_function("Subtract", [&]() {
+lua.set_function("Subtract_vp", [&]() {
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
     const TopoDS_Compound& c = current_part->cshape;
@@ -9182,7 +9528,8 @@ static Fl_Menu_Item items[] = {
 		<p><b>Circle (radius,x,y) </b>  \
 		<p><b>Extrude ([height]) </b> Extrusion of last polyline or circle from Part \
 		<p><b>Dup () </b> Duplicates last shape from Part, so the new be moved or rotated \
-		<p><b>Fuse () </b> \ Fuse the 2 last solids from same Part \
+		<p><b>Fuse () </b> \ Fuse the 2 last solids or 2d in the same Part \
+		<p><b>Subtract () </b> \ Subtract the last solid or 2d from previous shape in the same Part \
 		<p><b>Movel (x,y,z) </b> \ Move last solid from Part \
 		<p><b>Rotatelx (angle) </b> \ Rotate x on point relative to 0,0,0 of last solid from Part \
 		<p><b>Rotately (angle) </b> \ Rotate y on point relative to 0,0,0 of last solid from Part \
@@ -9458,7 +9805,7 @@ menu->add("File/Export visible solids/STL Multiple solids", 0,
 int main(int argc, char** argv) {
 	test();
 	// pausa
-	Fl::set_font(FL_HELVETICA, "DejaVu Sans");
+	// Fl::set_font(FL_HELVETICA, "DejaVu Sans");
 	Fl::use_high_res_GL(1);
 	// setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
 	std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION << "." << FL_PATCH_VERSION
