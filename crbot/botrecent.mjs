@@ -1006,7 +1006,8 @@ export async function open_order(
   const oppositeSide = isLong ? "sell" : "buy";
 
   const { bid, ask } = await getBidAsk(symbol);
-  const entry = isLong ? bid : ask;
+  const entry = !isLong ? bid : ask;
+//   const entry = isLong ? bid : ask;
 
   // ----------------------------
   // Risk-based sizing (YOUR MODEL)
