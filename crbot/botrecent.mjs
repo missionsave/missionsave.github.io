@@ -175,14 +175,29 @@ async function fetchRedditPosts(keyword, limit = 30) {
   const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(keyword)}&sort=new&limit=${limit}`;
 
   try {
-    const res = await fetch(url, { timeout: 8000 });
-    const data = await res.json();
+    const res = await fetch(url, {
+      timeout: 8000,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; sentiment-bot/1.0)"
+      }
+    });
+
+    // Se o Reddit devolver HTML, abortar imediatamente
+    const text = await res.text();
+    if (text.trim().startsWith("<")) {
+      console.log("Reddit returned HTML instead of JSON (blocked)");
+      return [];
+    }
+
+    const data = JSON.parse(text);
     return data.data.children.map(p => p.data.title);
+
   } catch (e) {
     console.log("Reddit scrape failed:", e.message);
     return [];
   }
 }
+
 
 async function fetchRSSHeadlines() {
   try {
@@ -787,5 +802,5 @@ console.log("currentQty",currentQty);
     // console.log("Order result:", result);
   } catch (err) {
     console.error("ERROR:", err.message);
-  }
+  }finally { process.exit(0); }
 })();
