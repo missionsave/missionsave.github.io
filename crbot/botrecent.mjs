@@ -479,7 +479,413 @@ async function cancelExistingOco(symbol) {
       market: symbol,
       limit: 100
     });
+	// console.log(res);
 
+    const records = Array.isArray(res?.records) ? res.records : [];
+
+    for (const order of records) {
+      if (order.type === "oco" && order.id) {
+        await wbPost("/api/v4/order/oco-cancel", {
+          request: "/api/v4/order/oco-cancel",
+          nonce: Date.now().toString(),
+          market: symbol,
+          orderId: order.id
+        });
+
+        console.log(`Canceled OCO ID: ${order.id}`);
+      }
+    }
+  } catch (e) {
+    console.warn(
+      "Cancel OCO failed or no OCO (safe):",
+      e?.response?.data || e?.message || e
+    );
+  }
+}
+async function CancelOrdersNonOco(symbol) {
+  try {
+    // 1. Fetch OCO structure
+    const cond = await wbPost("/api/v4/conditional-orders", {
+      request: "/api/v4/conditional-orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    // Extract OCO child orderIds
+    const ocoChildIds = new Set();
+
+    if (Array.isArray(cond?.records)) {
+      for (const rec of cond.records) {
+        if (rec.stopLoss?.orderId) ocoChildIds.add(rec.stopLoss.orderId);
+        if (rec.takeProfit?.orderId) ocoChildIds.add(rec.takeProfit.orderId);
+      }
+    }
+
+    // 2. Fetch all active orders
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    const orders = Array.isArray(res) ? res : [];
+
+    // 3. Cancel only orders NOT part of OCO
+    for (const o of orders) {
+      if (!o.orderId) continue;
+
+      // ❌ Skip OCO children
+      if (ocoChildIds.has(o.orderId)) {
+        // console.log(`SKIP OCO order: ${o.orderId}`);
+        continue;
+      }
+
+      // ❌ Skip STOP-LIMIT activated: 0 (safety)
+      if (o.type === "margin stop limit" && o.activated === 0) {
+        // console.log(`SKIP activated=0: ${o.orderId}`);
+        continue;
+      }
+
+      // ✅ Cancel everything else
+      try {
+        await wbPost("/api/v4/order/cancel", {
+          request: "/api/v4/order/cancel",
+          nonce: Date.now().toString(),
+          market: symbol,
+          orderId: o.orderId
+        });
+
+        console.log(`CANCELED non filled: ${o.orderId}`);
+
+      } catch (err) {
+        if (err?.response?.data?.code === 2) {
+          console.log(`Already gone: ${o.orderId}`);
+          continue;
+        }
+        console.warn("Cancel failed:", err?.response?.data || err.message);
+      }
+    }
+
+  } catch (e) {
+    console.warn("CancelOrders failed:", e?.response?.data || e?.message);
+  }
+}
+
+async function CancelOrders(symbol) {
+  try {
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    const orders = Array.isArray(res) ? res : [];
+
+    for (const o of orders) {
+      if (!o.orderId) continue;
+
+      // ❌ NÃO apagar STOP-LIMIT activated: 0
+      if (o.type === "margin stop limit" && o.activated === 0) {
+        console.log(`IGNORED activated=0: ${o.orderId}`);
+        continue;
+      }
+
+      // ✅ Apagar tudo o resto
+      try {
+        await wbPost("/api/v4/order/cancel", {
+          request: "/api/v4/order/cancel",
+          nonce: Date.now().toString(),
+          market: symbol,
+          orderId: o.orderId
+        });
+
+        console.log(`CANCELED: ${o.orderId}`);
+
+      } catch (err) {
+        if (err?.response?.data?.code === 2) {
+          console.log(`Already gone: ${o.orderId}`);
+          continue;
+        }
+        console.warn("Cancel failed:", err?.response?.data || err.message);
+      }
+    }
+
+  } catch (e) {
+    console.warn("CancelOrders failed:", e?.response?.data || e?.message);
+  }
+}
+
+
+
+
+async function cancelNonOcoOrders(symbol) {
+  try {
+    // 1. Fetch OCO parent
+    const cond = await wbPost("/api/v4/conditional-orders", {
+      request: "/api/v4/conditional-orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    // OCO parent ID
+    const ocoParentIds = new Set(
+      Array.isArray(cond?.records)
+        ? cond.records.map(r => r.id)
+        : []
+    );
+
+    // 2. Fetch all active orders
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    const orders = Array.isArray(res) ? res : [];
+
+    for (const order of orders) {
+      if (!order.orderId) continue;
+
+      // ❌ DO NOT DELETE: STOP-LIMIT activated: 0
+      if (order.type === "margin stop limit" && order.activated === 0) {
+        console.log(`Skipping STOP-LIMIT child (activated=0): ${order.orderId}`);
+        continue;
+      }
+
+      // ❌ DO NOT DELETE: OCO parent (id from conditional-orders)
+      if (ocoParentIds.has(order.orderId)) {
+        console.log(`Skipping OCO parent: ${order.orderId}`);
+        continue;
+      }
+
+      // ✅ DELETE everything else
+      try {
+        await wbPost("/api/v4/order/cancel", {
+          request: "/api/v4/order/cancel",
+          nonce: Date.now().toString(),
+          market: symbol,
+          orderId: order.orderId
+        });
+
+        console.log(`Canceled NON-OCO order: ${order.orderId}`);
+
+      } catch (err) {
+        if (err?.response?.data?.code === 2) {
+          console.log(`Order ${order.orderId} already gone (safe)`);
+          continue;
+        }
+        console.warn("Cancel failed:", err?.response?.data || err.message);
+      }
+    }
+
+  } catch (e) {
+    console.warn(
+      "Cancel non-OCO orders failed (safe):",
+      e?.response?.data || e?.message || e
+    );
+  }
+}
+
+
+
+async function cancelNonOcoOrders_v2(symbol) {
+  try {
+    // 1. Obter IDs de OCO/OTO
+    const cond = await wbPost("/api/v4/conditional-orders", {
+      request: "/api/v4/conditional-orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    const ocoIds = new Set(
+      Array.isArray(cond?.records)
+        ? cond.records.map(o => o.id)
+        : []
+    );
+
+    // 2. Obter todas as ordens normais
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    const orders = Array.isArray(res) ? res : [];
+
+    // 3. Cancelar apenas as que NÃO são OCO/OTO
+    for (const order of orders) {
+      if (!order.orderId) continue;
+
+      // Se estiver na lista de OCO/OTO → ignorar
+      if (ocoIds.has(order.orderId)) {
+        console.log(`Skipping OCO/OTO ${order.orderId}`);
+        continue;
+      }
+
+      // Cancelar tudo o resto
+      try {
+        await wbPost("/api/v4/order/cancel", {
+          request: "/api/v4/order/cancel",
+          nonce: Date.now().toString(),
+          market: symbol,
+          orderId: order.orderId
+        });
+
+        console.log(`Canceled NON-OCO ORDER ID: ${order.orderId}`);
+
+      } catch (err) {
+        if (err?.response?.data?.code === 2) {
+          console.log(`Order ${order.orderId} already gone (safe)`);
+          continue;
+        }
+        console.warn("Cancel failed:", err?.response?.data || err.message);
+      }
+    }
+
+  } catch (e) {
+    console.warn(
+      "Cancel non-OCO orders failed (safe):",
+      e?.response?.data || e?.message || e
+    );
+  }
+}
+
+
+
+
+
+
+
+
+async function cancelNonOtoOrders(symbol) {
+  try {
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+	// console.log(res);
+    const orders = Array.isArray(res) ? res : [];
+	console.log(orders);
+	// return;
+    for (const order of orders) {
+      // Se for OTO/OCO, ignorar
+      if (order.type && order.type.toLowerCase().includes("oco")) continue;
+      if (order.type && order.type.toLowerCase().includes("oto")) continue;
+if (order.type === "margin stop limit" && order.activated === 0) { console.log(`Skipping STOP-LIMIT ${order.orderId} (auto-deleted with parent)`); continue; }
+      // Cancelar tudo o resto
+      if (order.orderId) {
+        try {
+          await wbPost("/api/v4/order/cancel", {
+            request: "/api/v4/order/cancel",
+            nonce: Date.now().toString(),
+            market: symbol,
+            orderId: order.orderId
+          });
+
+          console.log(`Canceled NON-OTO ORDER ID: ${order.orderId}`);
+
+        } catch (err) {
+          // Ignorar erro "order not found"
+          if (err?.response?.data?.code === 2) {
+            console.log(`Order ${order.orderId} already gone (safe)`);
+            continue;
+          }
+          console.warn("Cancel failed:", err?.response?.data || err.message);
+        }
+      }
+    }
+
+  } catch (e) {
+    console.warn(
+      "Cancel non-OTO orders failed (safe):",
+      e?.response?.data || e?.message || e
+    );
+  }
+}
+
+async function cancelExistingOrders(symbol) {
+  try {
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    const orders = Array.isArray(res) ? res : [];
+
+    for (const order of orders) {
+      if (!order.orderId) continue;
+
+      await wbPost("/api/v4/order/cancel", {
+        request: "/api/v4/order/cancel",
+        nonce: Date.now().toString(),
+        market: symbol,
+        orderId: order.orderId
+      });
+
+      console.log(`Canceled ORDER ID: ${order.orderId}`);
+    }
+
+  } catch (e) {
+    console.warn(
+      "Cancel OTO orders failed (safe):",
+      e?.response?.data || e?.message || e
+    );
+  }
+}
+
+async function cancelExistingOrders_v1(symbol) {
+  try {
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+
+    const orders = Array.isArray(res) ? res : [];
+
+    for (const order of orders) {
+      if (!order.orderId) continue;
+
+      await wbPost("/api/v4/order/cancel", {
+        request: "/api/v4/order/cancel",
+        nonce: Date.now().toString(),
+        market: symbol,
+        orderId: order.orderId
+      });
+
+      console.log(`Canceled ORDER ID: ${order.orderId}`);
+    }
+
+  } catch (e) {
+    console.warn(
+      "Cancel OTO orders failed (safe):",
+      e?.response?.data || e?.message || e
+    );
+  }
+}
+
+async function cancelExistingOto_v1(symbol) {
+  try {
+    const res = await wbPost("/api/v4/orders", {
+      request: "/api/v4/orders",
+      nonce: Date.now().toString(),
+      market: symbol,
+      limit: 100
+    });
+	console.log("res",res);
+	return;
     const records = Array.isArray(res?.records) ? res.records : [];
 
     for (const order of records) {
@@ -763,6 +1169,8 @@ console.log("currentQty",currentQty);
 /* =========================================================
    EXECUTION
    ========================================================= */
+
+
 (async () => {
   try {
     const equity = await get_equity();
@@ -780,11 +1188,17 @@ console.log("currentQty",currentQty);
 		let side="buy";
 		if(symbs[i].result.signal == "STRONG SELL" || symbs[i].result.signal == "SELL")
 			side="sell";
+		await CancelOrdersNonOco(symbs[i].wb); // erase limits not filled
 		const result = await open_order(symbs[i].wb, side, symbs[i].result.stopLossPercent, symbs[i].result.takeProfitPercent, equity/10.0);
 		console.log("Order result:", result);
 	}
 
-
+	// cancelExistingOco(symbs[0].wb);
+	// await cancelNonOtoOrders("PAXG_PERP");
+	// await CancelOrdersNonOco("PAXG_PERP");
+	// await debugOrders("PAXG_PERP");
+	// await cancelNonOcoOrders("PAXG_PERP");
+	// await cancelExistingOrders("PAXG_PERP");
 
     // const result = await open_order("BTC_PERP", "buy", 1, 1, 1000);
     // // const result = await open_order("BTC_PERP", "buy", 1, 1, equity);
