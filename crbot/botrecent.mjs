@@ -172,36 +172,25 @@ async function fetchTweets(keyword, limit = 50) {
 }
 
 async function fetchRedditPosts(keyword, limit = 30) {
-  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(keyword)}&sort=new&limit=${limit}`;
+  const url = `https://api.pushshift.io/reddit/search/submission/?q=${encodeURIComponent(keyword)}&size=${limit}`;
 
   try {
-    const res = await fetch(url, {
-      timeout: 8000,
-      headers: {
-		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-		"Accept": "application/json, text/plain, */*",
-		"Accept-Language": "en-US,en;q=0.9",
-		"Referer": "https://www.reddit.com/",
-		"Connection": "close"
-		}
+    const res = await fetch(url, { timeout: 8000 });
+    const data = await res.json();
 
-    });
-
-    // Se o Reddit devolver HTML, abortar imediatamente
-    const text = await res.text();
-    if (text.trim().startsWith("<")) {
-      console.log("Reddit returned HTML instead of JSON (blocked)");
+    if (!data.data || !Array.isArray(data.data)) {
+      console.log("Pushshift returned invalid data");
       return [];
     }
 
-    const data = JSON.parse(text);
-    return data.data.children.map(p => p.data.title);
+    return data.data.map(p => p.title).filter(Boolean);
 
   } catch (e) {
-    console.log("Reddit scrape failed:", e.message);
+    console.log("Pushshift Reddit fallback failed:", e.message);
     return [];
   }
 }
+
 
 
 async function fetchRSSHeadlines() {
