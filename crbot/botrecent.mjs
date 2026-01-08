@@ -171,25 +171,19 @@ async function fetchTweets(keyword, limit = 50) {
   }
 }
 
-async function fetchRedditPosts(keyword, limit = 30) {
-  const url = `https://api.pushshift.io/reddit/search/submission/?q=${encodeURIComponent(keyword)}&size=${limit}`;
+async function fetchNewsHeadlines(keyword, limit = 30) {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(keyword)}&hl=en-US&gl=US&ceid=US:en`;
 
   try {
-    const res = await fetch(url, { timeout: 8000 });
-    const data = await res.json();
-
-    if (!data.data || !Array.isArray(data.data)) {
-      console.log("Pushshift returned invalid data");
-      return [];
-    }
-
-    return data.data.map(p => p.title).filter(Boolean);
-
+    const feed = await parser.parseURL(url);
+    const titles = feed.items.map(i => i.title).slice(0, limit);
+    return titles;
   } catch (e) {
-    console.log("Pushshift Reddit fallback failed:", e.message);
+    console.log("Google News RSS failed:", e.message);
     return [];
   }
 }
+
 
 
 
@@ -217,28 +211,29 @@ function scoreSentiment(texts) {
 }
 
 // Retry + fallback chain per symbol
-async function getNewsScore(symbolName) {
-  const keyword = symbolName.toUpperCase();
+async function getNewsScore(symbol) {
+  const keyword = symbol.toUpperCase();
 
-  // 1. Twitter primary
+  // 1. Twitter (via Nitter)
   let tweets = await fetchTweets(keyword, 80);
   if (tweets.length > 5) return scoreSentiment(tweets);
 
-  // Retry Twitter once
+  // Retry Twitter
   tweets = await fetchTweets(keyword, 80);
   if (tweets.length > 5) return scoreSentiment(tweets);
 
-  // 2. Reddit fallback
-  const reddit = await fetchRedditPosts(keyword, 40);
-  if (reddit.length > 3) return scoreSentiment(reddit);
+  // 2. Google News (substitui Reddit)
+  const news = await fetchNewsHeadlines(keyword, 40);
+  if (news.length > 3) return scoreSentiment(news);
 
-  // 3. RSS fallback
+  // 3. Coindesk RSS fallback
   const rss = await fetchRSSHeadlines();
   if (rss.length > 3) return scoreSentiment(rss);
 
-  // 4. Total fallback
-  return 50; // neutral
+  // 4. fallback neutro
+  return 50;
 }
+
 
 // =========================
 // TECHNICAL + FUNDAMENTAL + NEWS BULLISH SCORE
