@@ -178,8 +178,13 @@ async function fetchRedditPosts(keyword, limit = 30) {
     const res = await fetch(url, {
       timeout: 8000,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; sentiment-bot/1.0)"
-      }
+		"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+		"Accept": "application/json, text/plain, */*",
+		"Accept-Language": "en-US,en;q=0.9",
+		"Referer": "https://www.reddit.com/",
+		"Connection": "close"
+		}
+
     });
 
     // Se o Reddit devolver HTML, abortar imediatamente
