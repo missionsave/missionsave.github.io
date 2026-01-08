@@ -104,6 +104,8 @@
 !crbot/crobot.js
 !crbot/crbot.cpp
 !crbot/crbot.js
+!crbot/botrecent.mjs
+!crbot/package.json
 crbot/crbot
 crbot/*6h_1000.json
 
@@ -112,6 +114,7 @@ crbot/*6h_1000.json
 !.github
 !.github/workflows
 !.github/workflows/daily*.*
+!.github/workflows/botrecent.yaml
 # !.github/workflows/crobot.js
 # !.github/workflows/crobot.js
 # !.github/**/**

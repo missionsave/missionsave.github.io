@@ -1,0 +1,29 @@
+name: Correr botrecent.mjs workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-js:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências
+        run: npm install
+        working-directory: ./crbot
+
+      - name: Executar bot
+        run: node botrecent.mjs
+        working-directory: ./crbot
+        env:
+          MEXC_KEY: ${{ secrets.MEXC_KEY }}
+          MEXC_SECRET: ${{ secrets.MEXC_SECRET }}
+          WB_KEY: ${{ secrets.WB_KEY }}
+          WB_SECRET: ${{ secrets.WB_SECRET }}
+          CG_KEY: ${{ secrets.CG_KEY }}

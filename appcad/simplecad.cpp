@@ -7585,6 +7585,98 @@ lua.set_function("Subtract", [&]() {
     current_part->cshape = newCompound;
     current_part->shape  = result;  // last result is the "active" shape
 });
+lua.set_function("Common", [&]() {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    if (compound.IsNull()) {
+        throw std::runtime_error("Current part's compound is null.");
+    }
+
+    // Collect top-level solids and faces
+    std::vector<TopoDS_Solid> solids;
+    std::vector<TopoDS_Face>  faces;
+
+    for (TopExp_Explorer ex(compound, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+    for (TopExp_Explorer ex(compound, TopAbs_FACE); ex.More(); ex.Next()) {
+        faces.push_back(TopoDS::Face(ex.Current()));
+    }
+
+    bool is3D = !solids.empty();
+    bool is2D = !is3D && !faces.empty();
+
+    size_t count = is3D ? solids.size() : faces.size();
+    if (count < 2) {
+        throw std::runtime_error("Common requires at least two objects (solids or faces).");
+    }
+
+    TopoDS_Shape object;
+    TopoDS_Shape tool;
+
+    if (is3D) {
+        object = solids[solids.size() - 2];
+        tool   = solids.back();
+    } else {
+        object = faces[faces.size() - 2];
+        tool   = faces.back();
+    }
+
+    // Boolean common (intersection)
+    BRepAlgoAPI_Common commonOp(object, tool);
+
+    // Same fuzzy tolerance as Subtract for numerical robustness
+    commonOp.SetFuzzyValue(1e-6);
+
+    commonOp.Build();
+
+    if (!commonOp.IsDone()) {
+        throw std::runtime_error("Boolean common (intersection) failed.");
+    }
+
+    TopoDS_Shape result = commonOp.Shape();
+    if (result.IsNull()) {
+        throw std::runtime_error("Boolean common produced null shape.");
+    }
+
+    // Cleanup: unify coincident edges/vertices
+    ShapeUpgrade_UnifySameDomain unifier(result, true, true, true);
+    unifier.Build();
+    if (!unifier.Shape().IsNull()) {
+        result = unifier.Shape();
+    }
+
+    // Rebuild compound: keep all except the last two, add the new result
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+
+    // Collect all top-level objects in order
+    TopTools_ListOfShape allShapes;
+    for (TopExp_Explorer ex(compound, is3D ? TopAbs_SOLID : TopAbs_FACE); ex.More(); ex.Next()) {
+        allShapes.Append(ex.Current());
+    }
+
+    // Convert to vector for indexing
+    std::vector<TopoDS_Shape> shapeVec;
+    for (TopTools_ListIteratorOfListOfShape it(allShapes); it.More(); it.Next()) {
+        shapeVec.push_back(it.Value());
+    }
+
+    // Add all except the last two
+    for (size_t i = 0; i < shapeVec.size() - 2; ++i) {
+        builder.Add(newCompound, shapeVec[i]);
+    }
+
+    // Add the result
+    builder.Add(newCompound, result);
+
+    // Update current part
+    current_part->cshape = newCompound;
+    current_part->shape  = result;
+});
 
 lua.set_function("Subtract_vw2", [&]() {
     if (!current_part)
@@ -8153,7 +8245,8 @@ lua.set_function("DebugShape", [&](const std::string& label){
     std::cout << "  [" << m.Value(3,1) << " " << m.Value(3,2) << " " << m.Value(3,3) << "]\n";
 });
 
-lua.set_function("Extrude", [&](float val){
+lua.set_function("Extrude", [&](float val=0){
+	if(val==0)luaL_error(lua.lua_state(), "Extrude must have a value, other than 0.");
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part.");
 

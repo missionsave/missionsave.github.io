@@ -40,7 +40,7 @@ function common.test()
 end
 function common.stand_pose()
 	posa ( 0 , -70  ,0 , 30, 0)
-	posa ( 0 , -70  ,40 , 30, 0)
+	posa ( 0 , -99  ,40 , 30, 0)
 end
 function common.center()
 	common.stand_pose()
