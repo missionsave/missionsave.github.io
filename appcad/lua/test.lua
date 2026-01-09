@@ -520,14 +520,14 @@ Part cupnref
 Clone sketch_upn40x20
 Extrude(400)
 Rotatelx(-90)
-Movel(2+1,crn_height+10,-120+80+2+10)
+Movel(2+1,crn_height+0,-120+80+2+10)
 
 Part cupnref1
 Clone(cupnref,1)
 Movel(0,0,-40-5)
 Clone(cupnref,1)
 Rotately(90)
-Movel(110,0,40-2*2)
+Movel(110,0,20)
 
 --error()
 
@@ -852,9 +852,9 @@ end
 
 struct()
 
-elevator()
+--elevator()
 
-mosaics()
+--mosaics()
 
-robot1()
+--robot1()
 

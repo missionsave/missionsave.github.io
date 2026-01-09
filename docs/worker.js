@@ -1,6 +1,7 @@
 const ALLOWED_ORIGINS = [
   "https://missionsave.github.io",
-  "https://missionsave.org"
+  "https://missionsave.org",
+  "http://127.0.0.1:8080"
 ];
 
 function cors(extra = {}, request) {
@@ -133,7 +134,7 @@ export default {
     // 👇 manual trigger route
     if (url.pathname === "/trigger-github") {
       const resp = await fetch(
-        "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/daily.yml/dispatches",
+        "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/botrecent.yaml/dispatches",
         {
           method: "POST",
           headers: {
@@ -152,6 +153,98 @@ export default {
         { status: resp.ok ? 200 : 500 }
       );
     }
+
+
+
+
+
+
+
+// --- Clean Google Docs published page with caching ---
+if (url.pathname === "/clean-doc") {
+  const docUrl = url.searchParams.get("url");
+  if (!docUrl) {
+    return new Response("Missing ?url=", { 
+      status: 400, 
+      headers: cors({}, request) 
+    });
+  }
+
+  const cache = caches.default;
+  const cacheKey = new Request(request.url, request);
+
+  // Try cache first
+  let cached = await cache.match(cacheKey);
+  if (cached) {
+    return new Response(cached.body, {
+      status: 200,
+      headers: {
+        ...cors({ "Content-Type": "text/html; charset=utf-8" }, request)
+      }
+    });
+  }
+
+  // Fetch Google Docs page
+  const res = await fetch(docUrl);
+  let html = await res.text();
+
+  // Strip everything before <div id="contents">
+  const marker = '<div id="contents">';
+  const idx = html.indexOf(marker);
+
+  if (idx === -1) {
+    return new Response("Could not find contents marker", { 
+      status: 500, 
+      headers: cors({}, request) 
+    });
+  }
+
+  let cleaned = html.substring(idx);
+
+  // Remove ALL <script> tags
+  cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, "");
+
+  // Remove ALL <style> tags
+  cleaned = cleaned.replace(/<style[\s\S]*?<\/style>/gi, "");
+
+  // Remove inline styles like style="padding:72pt"
+  cleaned = cleaned.replace(/style="[^"]*"/gi, "");
+
+  // Inject your own CSS
+  const styleFix = `
+  <style>
+    body, #contents {
+      margin: 0 !important;
+      padding: 0 !important;
+      max-width: 100% !important;
+    }
+    #contents > div {
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+  </style>
+  `;
+
+  const finalHtml = styleFix + cleaned;
+
+  const response = new Response(finalHtml, {
+    headers: {
+      ...cors({ "Content-Type": "text/html; charset=utf-8" }, request),
+      "Cache-Control": "public, max-age=21600"
+    }
+  });
+
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+
+  return response;
+}
+
+
+
+
+
+
+
 
 
 
@@ -186,7 +279,7 @@ return new Response(response.body, {
   // --- CRON trigger here ---
  async scheduled(event, env, ctx) {
     ctx.waitUntil(fetch(
-      "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/daily.yml/dispatches",
+      "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/botrecent.yaml/dispatches",
       {
         method: "POST",
         headers: {

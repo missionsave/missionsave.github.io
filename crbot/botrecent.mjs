@@ -1110,7 +1110,7 @@ console.log("currentQty",currentQty);
   // SAME SIDE → INCREASE
   // ----------------------------
   if (currentIsLong === isLong && targetQty > currentQty) {
-    const delta = Math.floor((targetQty - currentQty) / qtyStep) * qtyStep;
+    const delta = normalizeQty( Math.floor((targetQty - currentQty) / qtyStep) * qtyStep  , qtyStep);
 	console.log("SAME SIDE → INCREASE",delta);
 	const ismorethan5=delta*entry>5;
 	if (!ismorethan5){
@@ -1126,7 +1126,7 @@ console.log("currentQty",currentQty);
   // SAME SIDE → PARTIAL CLOSE
   // ----------------------------
   if (currentIsLong === isLong && targetQty < currentQty) { 
-    const delta = Math.floor((currentQty - targetQty) / qtyStep) * qtyStep;
+    const delta = normalizeQty(  Math.floor((currentQty - targetQty) / qtyStep) * qtyStep, qtyStep);
 	console.log("SAME SIDE → PARTIAL CLOSE",delta);
 	const ismorethan5=delta*entry>5;
 	if (!ismorethan5){
@@ -1190,7 +1190,7 @@ console.log("currentQty",currentQty);
 		if(symbs[i].result.signal == "STRONG SELL" || symbs[i].result.signal == "SELL")
 			side="sell";
 		await CancelOrdersNonOco(symbs[i].wb); // erase limits not filled
-		const result = await open_order(symbs[i].wb, side, symbs[i].result.stopLossPercent, symbs[i].result.takeProfitPercent, equity/10.0);
+		const result = await open_order(symbs[i].wb, side, symbs[i].result.stopLossPercent, symbs[i].result.takeProfitPercent, equity/1.0);
 		console.log("Order result:", result);
 	}
 
