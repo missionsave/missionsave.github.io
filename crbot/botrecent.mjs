@@ -15,9 +15,10 @@ const symbs = [
   { name: "Etherum", pair: "ETHUSDT", cg: "ethereum", wb: "ETH_PERP" },
   { name: "Sol", pair: "SOLUSDT", cg: "solana", wb: "SOL_PERP" },
   { name: "Xrp", pair: "XRPUSDT", cg: "ripple", wb: "XRP_PERP" },
-  { name: "Ada", pair: "ADAUSDT", cg: "cardano", wb: "ADA_PERP" },
+//   { name: "Ada", pair: "ADAUSDT", cg: "cardano", wb: "ADA_PERP" },
   { name: "Tron", pair: "TRXUSDT", cg: "tron", wb: "TRX_PERP" },
   { name: "PAX Gold", pair: "PAXGUSDT", cg: "pax-gold", wb: "PAXG_PERP" },
+  { name: "Dogecoin", pair: "DOGEUSDT", cg: "doge", wb: "DOGE_PERP" },
 ];
 
 // =========================
@@ -330,7 +331,7 @@ async function run() {
   }
 }
 
-await run();
+// await run();
 
 // =========================
 // WHITEBIT SECTION
@@ -978,7 +979,7 @@ async function placeOco_v1(symbol, qty, slTrigger, tpPrice, isLong) {
 /* =========================================================
    BID/ASK
    ========================================================= */
-async function getBidAsk(symbol) {
+async function getBidAsk_v1(symbol) {
   const res = await fetch(`${BASE}/api/v4/public/orderbook/${symbol}?depth=0`);
   if (!res.ok) throw new Error("Orderbook fetch failed");
   const data = await res.json();
@@ -987,10 +988,74 @@ async function getBidAsk(symbol) {
     ask: Number(data.asks[0][0])
   };
 }
+async function getBidAsk(symbol) {
+  const res = await fetch(`${BASE}/api/v4/public/orderbook/${symbol}?depth=0`);
+  if (!res.ok) throw new Error("Orderbook fetch failed");
+
+  const data = await res.json();
+  const bid = Number(data.bids[0][0]);
+  const ask = Number(data.asks[0][0]);
+
+  // Option A: spread relative to bid
+  const spreadPctBid = ((ask - bid) / bid) * 100;
+
+  // Option B: spread relative to mid-price
+  const mid = (ask + bid) / 2;
+  const spreadPctMid = ((ask - bid) / mid) * 100;
+
+  return {
+    bid,
+    ask,
+    spreadPctBid,
+    spreadPctMid
+  };
+}
 
 /* =========================================================
    MAIN LOGIC - Separate editable OCO + Precision
    ========================================================= */
+// async function getSortedPerpSpreads() {
+//   const url = "https://whitebit.com/api/v4/public/ticker";
+async function getSortedPerpSpreads() {
+  const marketsRes = await fetch(`${BASE}/api/v4/public/markets`);
+  if (!marketsRes.ok) throw new Error("Markets fetch failed");
+
+  const markets = await marketsRes.json();
+
+  // Filter only _PERP markets
+  const perpSymbols = markets
+    .filter(m => m.name.endsWith("_PERP"))
+    .map(m => m.name);
+
+  const results = [];
+
+  for (const symbol of perpSymbols) {
+    try {
+      const { bid, ask, spreadPctBid } = await getBidAsk(symbol);
+
+      if (!isFinite(bid) || !isFinite(ask)) continue;
+
+      results.push({
+        symbol,
+        bid,
+        ask,
+        spreadPct: spreadPctBid
+      });
+    } catch (err) {
+      // Skip markets with no orderbook
+      continue;
+    }
+  }
+
+  // Sort lowest spread first
+  results.sort((a, b) => a.spreadPct - b.spreadPct);
+
+  return results;
+}
+
+
+
+
 export async function open_order(
   symbol = "BTC_PERP",
   side = "buy",
@@ -1173,9 +1238,19 @@ console.log("currentQty",currentQty);
 
 
 (async () => {
+// await getSortedPerpSpreads().then(list => {
+//   console.table(list);
+// });
+// return;
+
+
+
+
   try {
+	await run();
+
     const equity = await get_equity();
-    console.log("Equity:", equity);
+    console.log("Equity:", equity.toFixed(2));
 
 	const args = process.argv.slice(2); 
 	if(args[0]=="equity"){
@@ -1185,6 +1260,11 @@ console.log("currentQty",currentQty);
 
 	for(let i=0;i<symbs.length;i++){
 		console.log(symbs[i].wb,symbs[i].result.signal,symbs[i].result.stopLossPercent,symbs[i].result.takeProfitPercent);
+
+		// const ba=await getBidAsk(symbs[i].wb);
+		// console.log(ba);
+		// continue;
+
 		if(symbs[i].result.signal=="HOLD")continue;
 		let side="buy";
 		if(symbs[i].result.signal == "STRONG SELL" || symbs[i].result.signal == "SELL")
