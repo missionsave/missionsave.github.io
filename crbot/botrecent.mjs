@@ -18,7 +18,9 @@ const symbs = [
 //   { name: "Ada", pair: "ADAUSDT", cg: "cardano", wb: "ADA_PERP" },
   { name: "Tron", pair: "TRXUSDT", cg: "tron", wb: "TRX_PERP" },
   { name: "PAX Gold", pair: "PAXGUSDT", cg: "pax-gold", wb: "PAXG_PERP" },
-  { name: "Dogecoin", pair: "DOGEUSDT", cg: "doge", wb: "DOGE_PERP" },
+  { name: "Dogecoin", pair: "DOGEUSDT", cg: "dogecoin", wb: "DOGE_PERP" },
+  { name: "Optimism", pair: "OPUSDT", cg: "optimism", wb: "OP_PERP" },
+
 ];
 
 // =========================
