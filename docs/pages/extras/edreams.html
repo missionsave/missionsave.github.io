@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+ 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+ 	<meta content="text/html; charset=UTF-8" http-equiv="content-type">
+  <title>Histórico rápido – EuroDreams / Euromilhões / Totoloto</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    pre { background:#f8f8f8; padding:16px; border-radius:6px; max-height:70vh; overflow:auto; }
+    button { padding:8px 16px; font-size:1rem; cursor:pointer; margin-right:8px; }
+    select { padding:6px 10px; font-size:1rem; }
+  </style>
+</head>
+<body>
+
+<h2>Histórico – EuroDreams / Euromilhões / Totoloto</h2>
+
+<label>
+  Jogo:
+  <select id="jogo">
+    <option value="eurodreams">EuroDreams</option>
+    <option value="euromilhoes">Euromilhões</option>
+    <option value="totoloto">Totoloto</option>
+  </select>
+</label>
+
+<button onclick="carregarHistorico()">Carregar histórico</button>
+
+<pre id="resultado">Escolhe o jogo e clica em "Carregar histórico"... </pre>
+
+<script>
+// -------------------------------------------------------
+// CONFIGURAÇÃO POR JOGO (GENÉRICO)
+// -------------------------------------------------------
+const WORKER = "https://superdb-api.superbem.workers.dev/gethtml";
+// se quiseres testar sem worker, podes usar corsproxy:
+const PROXY = url => "https://corsproxy.io/?" + encodeURIComponent(url);
+// const PROXY = url => WORKER + "?url=" + encodeURIComponent(url);
+
+const JOGOS = {
+  eurodreams: {
+    nome: "EuroDreams",
+    url: "https://www.jogossantacasa.pt/web/ResultsBoard/EuroDreams",
+    selectName: "selectContest",
+    // seletor da UL/LI onde está a chave
+    seletorChave: ".betMiddle.twocol.regPad .colums li",
+    // seletor onde está a data
+    seletorData: ".dataInfo",
+    // parse da chave: "n1 n2 n3 n4 n5 n6 + sorte"
+    parseChave: texto => {
+      if (!texto.includes("+")) return null;
+      const [nums, sorte] = texto.split("+");
+      return {
+        combinacao: nums.trim().split(/\s+/).map(Number),
+        extras: [parseInt(sorte.trim())]
+      };
+    },
+    numerosPrincipais: 6,
+    extrasLabel: "Número da sorte"
+  },
+
+  euromilhoes: {
+    nome: "Euromilhões",
+    url: "https://www.jogossantacasa.pt/web/SCCartazResult",
+    selectName: "selectContest",
+    // estes seletores podem precisar de ajuste fino conforme o HTML real
+    seletorChave: ".betMiddle .colums li",
+    seletorData: ".dataInfo",
+    // exemplo típico: "n1 n2 n3 n4 n5 + e1 e2"
+    parseChave: texto => {
+      if (!texto.includes("+")) return null;
+      const [nums, estrelas] = texto.split("+");
+      return {
+        combinacao: nums.trim().split(/\s+/).map(Number),
+        extras: estrelas.trim().split(/\s+/).map(Number)
+      };
+    },
+    numerosPrincipais: 5,
+    extrasLabel: "Estrelas"
+  },
+
+  totoloto: {
+    nome: "Totoloto",
+    url: "https://www.jogossantacasa.pt/web/SCCartazResult/totolotoNew",
+    selectName: "selectContest",
+    // também aqui os seletores podem precisar de ajuste
+    seletorChave: ".betMiddle .colums li",
+    seletorData: ".dataInfo",
+    // exemplo típico: "n1 n2 n3 n4 n5 n6 + suplente"
+    parseChave: texto => {
+      if (!texto.includes("+")) return null;
+      const [nums, suplente] = texto.split("+");
+      return {
+        combinacao: nums.trim().split(/\s+/).map(Number),
+        extras: [parseInt(suplente.trim())]
+      };
+    },
+    numerosPrincipais: 5,
+    extrasLabel: "Número extra"
+  }
+};
+
+// -------------------------------------------------------
+// FUNÇÕES GENÉRICAS
+// -------------------------------------------------------
+function limparData(texto) {
+  return texto
+    .replace(/(segunda|terça|terca|quarta|quinta|sexta|sábado|sabado)(?=Data)/i, "$1 ")
+    .trim();
+}
+
+async function fetchHTML_v1(url, postData = null) {
+  const target = PROXY(url);
+  const resp = await fetch(target, {
+    method: postData ? "POST" : "GET",
+    headers: postData
+      ? { "Content-Type": "application/x-www-form-urlencoded" }
+      : {},
+    body: postData
+  });
+  return await resp.text();
+}
+async function fetchHTML(url, postData = null) {
+  const target = PROXY(url);
+
+  const resp = await fetch(target, {
+    method: postData ? "POST" : "GET",
+    headers: postData
+      ? { "Content-Type": "application/x-www-form-urlencoded" }
+      : {},
+    body: postData
+  });
+
+  // Lê como binário
+  const buffer = await resp.arrayBuffer();
+
+  // Decodifica como ISO-8859-1 (ou Windows-1252)
+  const decoder = new TextDecoder("iso-8859-1");
+  return decoder.decode(buffer);
+}
+
+function parseHTML(html) {
+  return new DOMParser().parseFromString(html, "text/html");
+}
+
+function calcularChaveProvavelGenerica(historico) {
+  const freqNums = new Map();
+  const freqExtras = new Map();
+
+  for (const h of historico) {
+    for (const n of h.combinacao) {
+      freqNums.set(n, (freqNums.get(n) || 0) + 1);
+    }
+    for (const e of (h.extras || [])) {
+      if (!isNaN(e)) {
+        freqExtras.set(e, (freqExtras.get(e) || 0) + 1);
+      }
+    }
+  }
+
+  const numsOrdenados = [...freqNums.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    .map(([n]) => n);
+
+  const extrasOrdenados = [...freqExtras.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    .map(([n]) => n);
+
+  return {
+    numsOrdenados,
+    extrasOrdenados
+  };
+}
+
+// -------------------------------------------------------
+// FLUXO PRINCIPAL
+// -------------------------------------------------------
+async function carregarHistorico() {
+  const saida = document.getElementById("resultado");
+  const jogoKey = document.getElementById("jogo").value;
+  const cfg = JOGOS[jogoKey];
+
+  saida.textContent = `Jogo: ${cfg.nome}\nA carregar concursos...\n`;
+
+  // 1. Obter página principal
+  const htmlPrincipal = await fetchHTML(cfg.url);
+  const doc = parseHTML(htmlPrincipal);
+
+  // 2. Extrair concursos
+  const options = [...doc.querySelectorAll(`select[name="${cfg.selectName}"] option`)];
+  const concursos = options
+    .map(o => ({ id: o.value, texto: o.textContent.trim() }))
+    .filter(c => c.id);
+
+  saida.textContent += `Encontrados ${concursos.length} concursos.\n`;
+
+  const historico = [];
+
+  // 3. Loop pelos concursos
+  for (const c of concursos) {
+    // saida.textContent += `A extrair ${c.texto}...\n`;
+
+    const htmlConcurso = await fetchHTML(cfg.url, `${cfg.selectName}=${encodeURIComponent(c.id)}`);
+    const docC = parseHTML(htmlConcurso);
+
+    const chaveBruta = docC.querySelector(cfg.seletorChave)?.textContent.trim() || "";
+    let dataSorteio = (docC.querySelector(cfg.seletorData)?.textContent || "")
+      .trim()
+      .split("\n")
+      .pop()
+      .trim();
+	dataSorteio = limparData(dataSorteio);
+
+    const parsed = cfg.parseChave(chaveBruta);
+    if (parsed && parsed.combinacao && parsed.combinacao.length) {
+      historico.push({
+        concurso: c.texto,
+        data: dataSorteio,
+        combinacao: parsed.combinacao,
+        extras: parsed.extras || []
+      });
+    }
+  }
+
+  saida.textContent += `FINALIZADO! ${historico.length} sorteios extraídos.\n`;
+//   saida.textContent += JSON.stringify(historico, null, 2);
+
+// Converter histórico para linhas formatadas
+let linhas = historico.map(h => {
+  // Normalizar data para formato YYYY-MM-DD
+  let data = h.data;
+
+  // Extrair a data real (última parte)
+  let match = data.match(/(\d{2}\/\d{2}\/\d{4})/);
+  if (match) {
+    const [dia, mes, ano] = match[1].split("/");
+    data = `${ano}-${mes}-${dia}`;
+  }
+
+  const nums = h.combinacao.join(" ");
+  const extras = (h.extras || []).join(" ");
+
+  return `${data}  ${nums} + ${extras}`;
+}).join("\n");
+
+saida.textContent += "\n\n" + linhas + "\n";
+
+
+
+
+  // 4. Calcular chave empírica
+  const freq = calcularChaveProvavelGenerica(historico);
+
+  const combinacaoSugerida = freq.numsOrdenados
+    .slice(0, cfg.numerosPrincipais)
+    .sort((a, b) => a - b);
+
+  const extrasSugeridos = freq.extrasOrdenados.slice(0, (historico[0]?.extras || []).length);
+
+  saida.textContent +=
+    `\n\nCHAVE SUGERIDA (empírica, baseada no histórico):\n` +
+    `Números: ${combinacaoSugerida.join(" ")}\n` +
+    (extrasSugeridos.length
+      ? `${cfg.extrasLabel}: ${extrasSugeridos.join(" ")}\n`
+      : "");
+}
+</script>
+
+</body>
+</html>
