@@ -194,6 +194,7 @@ async function carregarHistorico() {
     .filter(c => c.id);
 
   saida.textContent += `Encontrados ${concursos.length} concursos.\n`;
+  saida.textContent += `Um momento por favor...\n`;
 
   const historico = [];
 
@@ -244,7 +245,7 @@ let linhas = historico.map(h => {
   return `${data}  ${nums} + ${extras}`;
 }).join("\n");
 
-saida.textContent += "\n\n" + linhas + "\n";
+saida.textContent += "\n" + linhas + "\n";
 
 
 
@@ -259,10 +260,10 @@ saida.textContent += "\n\n" + linhas + "\n";
   const extrasSugeridos = freq.extrasOrdenados.slice(0, (historico[0]?.extras || []).length);
 
   saida.textContent +=
-    `\n\nCHAVE SUGERIDA (empírica, baseada no histórico):\n` +
+    `\n\nCHAVE SUGERIDA\n (empírica, baseada no histórico):\n` +
     `Números: ${combinacaoSugerida.join(" ")}\n` +
     (extrasSugeridos.length
-      ? `${cfg.extrasLabel}: ${extrasSugeridos.join(" ")}\n`
+      ? `${cfg.extrasLabel}: ${extrasSugeridos.join(" ")}\n\n\n\n`
       : "");
 }
 </script>
