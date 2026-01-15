@@ -27,7 +27,7 @@
 
 <button onclick="carregarHistorico()">Carregar histórico</button>
 
-<pre id="resultado">Escolhe o jogo e clica em "Carregar histórico"... </pre>
+<pre id="resultado">Escolhe o jogo<br>e clica em "Carregar histórico"... </pre>
 
 <script>
 // -------------------------------------------------------
@@ -260,7 +260,7 @@ saida.textContent += "\n" + linhas + "\n";
   const extrasSugeridos = freq.extrasOrdenados.slice(0, (historico[0]?.extras || []).length);
 
   saida.textContent +=
-    `\n\nCHAVE SUGERIDA\n (empírica, baseada no histórico):\n` +
+    `\n\nCHAVE SUGERIDA\n(empírica, baseada no histórico):\n` +
     `Números: ${combinacaoSugerida.join(" ")}\n` +
     (extrasSugeridos.length
       ? `${cfg.extrasLabel}: ${extrasSugeridos.join(" ")}\n\n\n\n`
