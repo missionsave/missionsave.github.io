@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>French Roulette – Top 5 Predictor</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 20px;
+      background: #111;
+      color: #eee;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 0.5rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 6px;
+      margin-bottom: 1rem;
+    }
+    button.num {
+      padding: 8px 0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      background: #333;
+      color: #eee;
+      transition: background 0.15s, transform 0.05s;
+    }
+    button.num:hover {
+      background: #555;
+    }
+    button.num:active {
+      transform: scale(0.96);
+    }
+    button.zero {
+      background: #0a5c0a;
+    }
+    .panel {
+      margin-bottom: 1rem;
+      padding: 10px;
+      border-radius: 6px;
+      background: #1b1b1b;
+    }
+    .label {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .history {
+      font-size: 0.9rem;
+      word-wrap: break-word;
+    }
+    .predictions {
+      font-size: 0.95rem;
+    }
+    .predictions li {
+      margin-bottom: 4px;
+    }
+    .small {
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    input[type="number"] {
+      width: 70px;
+      padding: 3px 5px;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #111;
+      color: #eee;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #333;
+      font-size: 0.75rem;
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>French Roulette – Top 5 Predictor</h1>
+
+  <div class="panel">
+    <div class="label">Click numbers to add to history:</div>
+    <div class="grid" id="buttons-container"></div>
+    <div class="controls">
+      <button id="undo-btn">Undo last</button>
+      <button id="clear-btn">Clear history</button>
+      <label class="small">
+        Max history:
+        <input type="number" id="max-history" min="5" value="200" />
+      </label>
+    </div>
+    <div class="history">
+      <span class="label">History:</span>
+      <span id="history-display" class="small">(none yet)</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="label">
+      Top 5 predicted numbers
+      <span class="badge" id="count-badge"></span>
+    </div>
+    <ul id="predictions" class="predictions"></ul>
+    <div class="small">
+      Model: bigram + trigram transitions, exponential recency, wheel neighbor bias, frequency, with light smoothing.
+    </div>
+  </div>
+
+  <script>
+    // --- Core data structures (same as Node version) ---
+
+    const ALL = Array.from({ length: 37 }, (_, i) => i);
+
+    // French Roulette wheel order for neighbor bias
+    const WHEEL = [
+      0, 32, 15, 19, 4, 21, 2, 25, 17, 34,
+      6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
+      24, 16, 33, 1, 20, 14, 31, 9, 22, 18,
+      29, 7, 28, 12, 35, 3, 26
+    ];
+    const pos = {};
+    WHEEL.forEach((n, i) => pos[n] = i);
+
+    let history = [];
+
+    // --- UI setup ---
+
+    const buttonsContainer = document.getElementById("buttons-container");
+    const historyDisplay = document.getElementById("history-display");
+    const predictionsList = document.getElementById("predictions");
+    const undoBtn = document.getElementById("undo-btn");
+    const clearBtn = document.getElementById("clear-btn");
+    const maxHistoryInput = document.getElementById("max-history");
+    const countBadge = document.getElementById("count-badge");
+
+    function createButtons() {
+      for (let n = 0; n <= 36; n++) {
+        const btn = document.createElement("button");
+        btn.textContent = n;
+        btn.className = "num" + (n === 0 ? " zero" : "");
+        btn.addEventListener("click", () => {
+          addNumber(n);
+        });
+        buttonsContainer.appendChild(btn);
+      }
+    }
+
+    function addNumber(n) {
+      const maxHistory = parseInt(maxHistoryInput.value, 10) || 200;
+      history.push(n);
+      if (history.length > maxHistory) {
+        history = history.slice(history.length - maxHistory);
+      }
+      updateView();
+    }
+
+    function undoLast() {
+      history.pop();
+      updateView();
+    }
+
+    function clearHistory() {
+      history = [];
+      updateView();
+    }
+
+    undoBtn.addEventListener("click", undoLast);
+    clearBtn.addEventListener("click", clearHistory);
+
+    // --- Model implementation (browser port of your Node script) ---
+
+    function computePrediction(args) {
+      if (!args || args.length < 5) {
+        return [];
+      }
+
+      // Frequency model
+      const freq = {};
+      ALL.forEach(n => freq[n] = 0);
+      args.forEach(n => freq[n]++);
+
+      // Bigram transition model
+      const transitions1 = {};
+      ALL.forEach(n => transitions1[n] = {});
+      args.forEach((n, i) => {
+        if (i === 0) return;
+        const prev = args[i - 1];
+        transitions1[prev][n] = (transitions1[prev][n] || 0) + 1;
+      });
+
+      // Trigram transition model
+      const transitions2 = {};
+      args.forEach((n, i) => {
+        if (i < 2) return;
+        const prev_prev = args[i - 2];
+        const prev = args[i - 1];
+        const key = `${prev_prev}_${prev}`;
+        if (!transitions2[key]) transitions2[key] = {};
+        transitions2[key][n] = (transitions2[key][n] || 0) + 1;
+      });
+
+      // Normalize transitions with light Laplace smoothing
+      const normalize = (obj) => {
+        // Add small epsilon to avoid zero-probability traps
+        const eps = 0.0001;
+        let total = 0;
+        for (const k in obj) {
+          obj[k] += eps;
+          total += obj[k];
+        }
+        if (total === 0) return obj;
+        for (const k in obj) obj[k] /= total;
+        return obj;
+      };
+      for (const n in transitions1) normalize(transitions1[n]);
+      for (const key in transitions2) normalize(transitions2[key]);
+
+      // Exponential recency model (slightly adaptive decay)
+      const baseDecay = 0.95;
+      const len = args.length;
+      const decay = len > 80 ? 0.97 : len > 40 ? 0.96 : baseDecay;
+
+      const recency = {};
+      ALL.forEach(n => recency[n] = 0);
+      let sum_recency_weights = 0;
+      args.forEach((n, i) => {
+        const weight = Math.pow(decay, args.length - 1 - i);
+        recency[n] += weight;
+        sum_recency_weights += weight;
+      });
+
+      // Wheel neighbor bias model
+      let avg_pos = 0;
+      let sum_pos_weights = 0;
+      args.forEach((n, i) => {
+        const weight = Math.pow(decay, args.length - 1 - i);
+        avg_pos += weight * pos[n];
+        sum_pos_weights += weight;
+      });
+      avg_pos /= sum_pos_weights || 1;
+
+      const neigh_scores = {};
+      let sum_neigh = 0;
+      ALL.forEach(n => {
+        let dist = Math.abs(pos[n] - avg_pos);
+        dist = Math.min(dist, 37 - dist); // circular distance
+        const score = Math.exp(-dist / 5);
+        neigh_scores[n] = score;
+        sum_neigh += score;
+      });
+
+      // Last numbers
+      const last = args[args.length - 1];
+      let last_key = null;
+      if (args.length >= 2) {
+        const last_prev = args[args.length - 2];
+        last_key = `${last_prev}_${last}`;
+      }
+
+      // Dynamic weights (slightly tuned)
+      let w_trans2 = args.length >= 8 ? 0.38 : args.length >= 5 ? 0.33 : 0;
+      let w_trans1 = 0.25 + (args.length < 5 ? 0.15 : 0);
+      let w_rec = 0.15;
+      let w_neigh = 0.12;
+      let w_freq = 0.10;
+
+      // Normalize weights to 1
+      const wSum = w_trans2 + w_trans1 + w_rec + w_neigh + w_freq;
+      w_trans2 /= wSum;
+      w_trans1 /= wSum;
+      w_rec    /= wSum;
+      w_neigh  /= wSum;
+      w_freq   /= wSum;
+
+      // Hybrid scoring with breakdowns
+      const scores = {};
+      ALL.forEach(n => {
+        const freqScore = freq[n] / args.length;
+        const transScore1 = transitions1[last][n] || 0;
+        const transScore2 = last_key ? (transitions2[last_key]?.[n] ?? 0) : 0;
+        const recencyScore = sum_recency_weights > 0 ? recency[n] / sum_recency_weights : 0;
+        const neighScore = sum_neigh > 0 ? neigh_scores[n] / sum_neigh : 0;
+
+        const total =
+          (w_trans2 * transScore2) +
+          (w_trans1 * transScore1) +
+          (w_rec * recencyScore) +
+          (w_neigh * neighScore) +
+          (w_freq * freqScore);
+
+        scores[n] = {
+          total,
+          trans2: transScore2,
+          trans1: transScore1,
+          rec: recencyScore,
+          neigh: neighScore,
+          freq: freqScore
+        };
+      });
+
+      const sorted = Object.entries(scores)
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 5)
+        .map(([num, s]) => ({
+          number: Number(num),
+          ...s
+        }));
+
+      return sorted;
+    }
+
+    // --- View update ---
+
+    function updateView() {
+      if (history.length === 0) {
+        historyDisplay.textContent = "(none yet)";
+        predictionsList.innerHTML = "";
+        countBadge.textContent = "";
+        return;
+      }
+
+      historyDisplay.textContent = history.join(", ");
+      countBadge.textContent = history.length + " spins";
+
+      const preds = computePrediction(history);
+      predictionsList.innerHTML = "";
+
+      if (preds.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = "Need at least 5 numbers in history.";
+        predictionsList.appendChild(li);
+        return;
+      }
+
+      preds.forEach((item, i) => {
+        const li = document.createElement("li");
+        const rank = i + 1;
+        li.innerHTML =
+          `<strong>${rank}. ${item.number}</strong> ` +
+          `<span class="small">score: ${item.total.toFixed(5)} ` +
+          `| T3: ${item.trans2.toFixed(4)} ` +
+          `| T2: ${item.trans1.toFixed(4)} ` +
+          `| R: ${item.rec.toFixed(4)} ` +
+          `| N: ${item.neigh.toFixed(4)} ` +
+          `| F: ${item.freq.toFixed(4)}</span>`;
+        predictionsList.appendChild(li);
+      });
+    }
+
+    // Init
+    createButtons();
+    updateView();
+  </script>
+</body>
+</html>
