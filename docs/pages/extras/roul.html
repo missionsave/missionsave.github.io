@@ -1,484 +1,602 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>French Roulette – Robust Statistical Predictor</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 20px;
-      background: #121212;
-      color: #e0e0e0;
-    }
-    h1 {
-      font-size: 1.4rem;
-      margin-bottom: 0.5rem;
-      color: #fff;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(10, 1fr);
-      gap: 6px;
-      margin-bottom: 1rem;
-    }
-    button.num {
-      padding: 10px 0;
-      border: 1px solid #333;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.95rem;
-      background: #252525;
-      color: #eee;
-      transition: all 0.1s;
-      font-weight: 500;
-    }
-    button.num:hover { background: #444; border-color: #666; }
-    button.num:active { transform: scale(0.96); }
-    button.zero { background: #0a5c0a; border-color: #0f7a0f; }
-    button.red { color: #ff6b6b; } 
-    
-    .panel {
-      margin-bottom: 1rem;
-      padding: 15px;
-      border-radius: 8px;
-      background: #1e1e1e;
-      border: 1px solid #333;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    .label {
-      font-weight: 600;
-      margin-bottom: 8px;
-      display: block;
-      color: #bbb;
-    }
-    .history {
-      font-family: 'Courier New', monospace;
-      font-size: 0.9rem;
-      word-wrap: break-word;
-      color: #aaa;
-      line-height: 1.4;
-    }
-    .predictions li {
-      margin-bottom: 6px;
-      padding: 6px;
-      background: #2a2a2a;
-      border-radius: 4px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .pred-num { font-size: 1.1rem; font-weight: bold; width: 30px; }
-    .pred-stats { font-size: 0.75rem; color: #888; flex-grow: 1; text-align: right; }
-    
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      font-size: 0.85rem;
-      margin-top: 10px;
-    }
-    .stat-box {
-      background: #252525;
-      padding: 8px;
-      border-radius: 4px;
-    }
-    .stat-val { font-weight: bold; color: #fff; display: block; margin-top: 2px;}
+<meta charset="UTF-8" />
+<title>French Roulette – Advanced Predictor</title>
+<style>
+body {
+font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+margin: 20px;
+background: #121212;
+color: #e0e0e0;
+}
+h1 {
+font-size: 1.4rem;
+margin-bottom: 0.5rem;
+color: #fff;
+}
+.grid {
+display: grid;
+grid-template-columns: repeat(10, 1fr);
+gap: 6px;
+margin-bottom: 1rem;
+}
+button.num {
+padding: 10px 0;
+border: 1px solid #333;
+border-radius: 4px;
+cursor: pointer;
+font-size: 0.95rem;
+background: #252525;
+color: #eee;
+transition: all 0.1s;
+font-weight: 500;
+}
+button.num:hover { background: #444; border-color: #666; }
+button.num:active { transform: scale(0.96); }
+button.zero { background: #0a5c0a; border-color: #0f7a0f; }
+button.red { color: #ff6b6b; }
 
-    .controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin-bottom: 0.8rem;
-    }
-    input[type="number"] {
-      width: 60px;
-      padding: 4px 6px;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background: #111;
-      color: #eee;
-    }
-    button.ctrl {
-      padding: 5px 10px;
-      background: #333;
-      border: none;
-      color: #ccc;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button.ctrl:hover { background: #555; color: #fff; }
+.panel {
+margin-bottom: 1rem;
+padding: 15px;
+border-radius: 8px;
+background: #1e1e1e;
+border: 1px solid #333;
+box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+.label {
+font-weight: 600;
+margin-bottom: 8px;
+display: block;
+color: #bbb;
+}
+.history {
+font-family: 'Courier New', monospace;
+font-size: 0.9rem;
+word-wrap: break-word;
+color: #aaa;
+line-height: 1.4;
+}
+.predictions li {
+margin-bottom: 6px;
+padding: 6px;
+background: #2a2a2a;
+border-radius: 4px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+.pred-num { font-size: 1.1rem; font-weight: bold; width: 30px; }
+.pred-stats { font-size: 0.75rem; color: #888; flex-grow: 1; text-align: right; }
+.pred-bet { font-size: 0.85rem; color: #4caf50; margin-left: 10px; font-weight: bold; }
 
-    .badge {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: #333;
-      font-size: 0.75rem;
-      margin-left: 6px;
-      color: #888;
-    }
-    .red-txt { color: #ff6b6b; }
-    .black-txt { color: #eee; }
-    .green-txt { color: #4caf50; }
-  </style>
+.stats-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+gap: 10px;
+font-size: 0.85rem;
+margin-top: 10px;
+}
+.stat-box {
+background: #252525;
+padding: 8px;
+border-radius: 4px;
+}
+.stat-val { font-weight: bold; color: #fff; display: block; margin-top: 2px;}
+
+.controls {
+display: flex;
+gap: 10px;
+flex-wrap: wrap;
+align-items: center;
+margin-bottom: 0.8rem;
+}
+input[type="number"] {
+width: 60px;
+padding: 4px 6px;
+border-radius: 4px;
+border: 1px solid #444;
+background: #111;
+color: #eee;
+}
+button.ctrl {
+padding: 5px 10px;
+background: #333;
+border: none;
+color: #ccc;
+border-radius: 4px;
+cursor: pointer;
+}
+button.ctrl:hover { background: #555; color: #fff; }
+
+.badge {
+display: inline-block;
+padding: 2px 6px;
+border-radius: 4px;
+background: #333;
+font-size: 0.75rem;
+margin-left: 6px;
+color: #888;
+}
+.red-txt { color: #ff6b6b; }
+.black-txt { color: #eee; }
+.green-txt { color: #4caf50; }
+
+.balance-section {
+display: flex;
+align-items: center;
+gap: 10px;
+margin-bottom: 10px;
+}
+.balance-input {
+width: 100px;
+padding: 6px;
+border-radius: 4px;
+border: 1px solid #444;
+background: #111;
+color: #eee;
+}
+</style>
 </head>
 <body>
-  <h1>French Roulette – Robust Predictor</h1>
+<h1>French Roulette – Advanced Predictor</h1>
 
-  <div class="panel">
-    <div class="label">Input History:</div>
-    <div class="grid" id="buttons-container"></div>
-    
-    <div class="controls">
-      <button class="ctrl" id="undo-btn">Undo</button>
-      <button class="ctrl" id="clear-btn">Reset</button>
-      <label style="font-size:0.8rem; color:#888;">
-        Window: <input type="number" id="max-history" min="10" value="200" />
-      </label>
-    </div>
+<div class="panel">
+<div class="label">Input History:</div>
+<div class="grid" id="buttons-container"></div>
 
-    <div class="history">
-      <span class="label" style="display:inline;">Log:</span>
-      <span id="history-display">(waiting for data...)</span>
-    </div>
-  </div>
+<div class="controls">
+<button class="ctrl" id="undo-btn">Undo</button>
+<button class="ctrl" id="clear-btn">Reset</button>
+<label style="font-size:0.8rem; color:#888;">
+Max Stored: <input type="number" id="max-history" min="10" value="200" />
+</label>
+</div>
 
+<div class="history">
+<span class="label" style="display:inline;">Log:</span>
+<span id="history-display">(waiting for data...)</span>
+</div>
+</div>
 
-  <div class="panel">
-    <div class="label">
-      Top 5 Probabilities
-      <span class="badge" id="count-badge">0 spins</span>
-    </div>
-    <ul id="predictions" class="predictions"></ul>
-    <div style="font-size:0.75rem; color:#555; margin-top:8px;">
-      Algorithm: Vector Wheel Bias + Sector Weight + Pattern Matcher + N-Grams + Z-Score Freq.
-    </div>
-  </div>
+<div class="panel">
+<div class="balance-section">
+<label for="balance-input" style="color: #bbb; font-size: 0.9rem;">Balance:</label>
+<input type="number" id="balance-input" class="balance-input" value="1000" step="0.1" min="0" />
+</div>
 
+<div class="label">
+Top 5 Probabilities
+<span class="badge" id="count-badge">0 spins</span>
+</div>
+<ul id="predictions" class="predictions"></ul>
+<div style="font-size:0.75rem; color:#555; margin-top:8px;">
+Algorithm: Vector Wheel Bias + Sector Weight + Pattern Matcher + N-Grams + Z-Score Freq. + Entropy
+</div>
+</div>
 
-  <div class="panel">
-    <div class="label">Live Statistics</div>
-    <div class="stats-grid">
-      <div class="stat-box">
-        Hot Numbers (Z-Score)
-        <span class="stat-val" id="stat-hot">-</span>
-      </div>
-      <div class="stat-box">
-        Cold Numbers
-        <span class="stat-val" id="stat-cold">-</span>
-      </div>
-      <div class="stat-box">
-        Dominant Sector
-        <span class="stat-val" id="stat-sector">-</span>
-      </div>
-    </div>
-  </div>
-  <script>
-    // --- CONSTANTS & DATA ---
+<div class="panel">
+<div class="label">Live Statistics</div>
+<div class="stats-grid">
+<div class="stat-box">
+Hot Numbers (Z-Score)
+<span class="stat-val" id="stat-hot">-</span>
+</div>
+<div class="stat-box">
+Cold Numbers
+<span class="stat-val" id="stat-cold">-</span>
+</div>
+<div class="stat-box">
+Dominant Sector
+<span class="stat-val" id="stat-sector">-</span>
+</div>
+<div class="stat-box">
+Entropy (norm)
+<span class="stat-val" id="stat-entropy">-</span>
+</div>
+</div>
+</div>
 
-    const ALL = Array.from({ length: 37 }, (_, i) => i);
-    
-    // RED numbers in standard roulette
-    const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
-    
-    // Wheel Order (Clockwise starting 0)
-    const WHEEL = [
-      0, 32, 15, 19, 4, 21, 2, 25, 17, 34,
-      6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
-      24, 16, 33, 1, 20, 14, 31, 9, 22, 18,
-      29, 7, 28, 12, 35, 3, 26
-    ];
-    
-    // Map number to index on wheel (0..36)
-    const wheelIdx = {};
-    WHEEL.forEach((n, i) => wheelIdx[n] = i);
+<script>
+// --- CONSTANTS & DATA ---
+const ALL = Array.from({ length: 37 }, (_, i) => i);
+const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+const WHEEL = [
+0, 32, 15, 19, 4, 21, 2, 25, 17, 34,
+6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
+24, 16, 33, 1, 20, 14, 31, 9, 22, 18,
+29, 7, 28, 12, 35, 3, 26
+];
+const wheelIdx = {};
+WHEEL.forEach((n, i) => wheelIdx[n] = i);
+const SECTORS = {
+"Voisins": [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25],
+"Tiers": [27,13,36,11,30,8,23,10,5,24,16,33],
+"Orphelins": [1,20,14,31,9,17,34,6]
+};
 
-    // SECTORS
-    const SECTORS = {
-      "Voisins": [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25],
-      "Tiers": [27,13,36,11,30,8,23,10,5,24,16,33],
-      "Orphelins": [1,20,14,31,9,17,34,6]
-    };
+let history = [];
+let memoizedPatterns = {};
+let optimalWindowSize = 200;
 
-    let history = [];
+// --- UI INIT ---
+const buttonsContainer = document.getElementById("buttons-container");
+const historyDisplay = document.getElementById("history-display");
+const predictionsList = document.getElementById("predictions");
+const countBadge = document.getElementById("count-badge");
+const statHot = document.getElementById("stat-hot");
+const statCold = document.getElementById("stat-cold");
+const statSector = document.getElementById("stat-sector");
+const statEntropy = document.getElementById("stat-entropy");
+const balanceInput = document.getElementById("balance-input");
 
-    // --- UI INIT ---
+function createButtons() {
+for (let n = 0; n <= 36; n++) {
+const btn = document.createElement("button");
+btn.textContent = n;
+const isRed = REDS.includes(n);
+btn.className = "num" + (n === 0 ? " zero" : isRed ? " red" : "");
+btn.addEventListener("click", () => addNumber(n));
+buttonsContainer.appendChild(btn);
+}
+}
 
-    const buttonsContainer = document.getElementById("buttons-container");
-    const historyDisplay = document.getElementById("history-display");
-    const predictionsList = document.getElementById("predictions");
-    const countBadge = document.getElementById("count-badge");
-    const statHot = document.getElementById("stat-hot");
-    const statCold = document.getElementById("stat-cold");
-    const statSector = document.getElementById("stat-sector");
+// --- STATE MANAGEMENT ---
+function addNumber(n) {
+const maxHistory = parseInt(document.getElementById("max-history").value, 10) || 200;
+history.push(n);
+if (history.length > maxHistory) {
+history = history.slice(history.length - maxHistory);
+}
+updateView();
+}
 
-    function createButtons() {
-      for (let n = 0; n <= 36; n++) {
-        const btn = document.createElement("button");
-        btn.textContent = n;
-        const isRed = REDS.includes(n);
-        btn.className = "num" + (n === 0 ? " zero" : isRed ? " red" : "");
-        btn.addEventListener("click", () => addNumber(n));
-        buttonsContainer.appendChild(btn);
-      }
-    }
+document.getElementById("undo-btn").addEventListener("click", () => {
+history.pop();
+updateView();
+});
 
-    // --- STATE MANAGEMENT ---
+document.getElementById("clear-btn").addEventListener("click", () => {
+history = [];
+updateView();
+});
 
-    function addNumber(n) {
-      const maxHistory = parseInt(document.getElementById("max-history").value, 10) || 200;
-      history.push(n);
-      if (history.length > maxHistory) {
-        history = history.slice(history.length - maxHistory);
-      }
-      updateView();
-    }
+balanceInput.addEventListener("input", updateView);
 
-    document.getElementById("undo-btn").addEventListener("click", () => {
-      history.pop();
-      updateView();
+// --- ADVANCED MATH HELPERS ---
+function getCircularLikelihood(targetNum, targetAngleRad) {
+const numIdx = wheelIdx[targetNum];
+const numAngle = (numIdx / 37) * 2 * Math.PI;
+const dist = Math.cos(numAngle - targetAngleRad);
+return (dist + 1) / 2;
+}
+
+function getPatternScore(hist, num) {
+const key = hist.join(",");
+if (memoizedPatterns[key]?.[num] !== undefined) {
+return memoizedPatterns[key][num];
+}
+
+if (hist.length < 10) return 0;
+const limit = 8; // Increased for better pattern detection
+let matchScore = 0;
+
+for (let len = 1; len <= limit; len++) {
+if (hist.length < len + 1) break;
+const seq = hist.slice(hist.length - len);
+
+for (let i = 0; i < hist.length - len - 1; i++) {
+let match = true;
+for (let k = 0; k < len; k++) {
+if (hist[i+k] !== seq[k]) { match = false; break; }
+}
+if (match) {
+const after = hist[i + len];
+if (after === num) {
+matchScore += Math.pow(1.5, len); // Exponential weighting for longer patterns
+}
+}
+}
+}
+
+if (!memoizedPatterns[key]) memoizedPatterns[key] = {};
+memoizedPatterns[key][num] = matchScore;
+return matchScore;
+}
+
+function calculateOptimalWindow(hist) {
+if (hist.length < 16) return Math.min(hist.length, 16);
+const windowSizes = [16,17,18,19, 20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,45,50,60,70, 100, 150, 200, 250].filter(s => s <= hist.length);
+// const windowSizes = [8,9,10,11,12,13,14,15,16,17,18,19, 20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,45,50,60,70, 100, 150, 200, 250].filter(s => s <= hist.length);
+let maxMag = -1;
+let bestSize = 50;
+
+windowSizes.forEach(size => {
+  const window = hist.slice(-size);
+  let sinSum = 0, cosSum = 0, weightSum = 0;
+  const decay = 0.96;
+  window.forEach((n, i) => {
+    const w = Math.pow(decay, size - 1 - i);
+    const rad = (wheelIdx[n] / 37) * 2 * Math.PI;
+    sinSum += Math.sin(rad) * w;
+    cosSum += Math.cos(rad) * w;
+    weightSum += w;
+  });
+  const avgSin = sinSum / weightSum;
+  const avgCos = cosSum / weightSum;
+  const mag = Math.sqrt(avgSin * avgSin + avgCos * avgCos);
+  if (mag >= maxMag) {//
+    maxMag = mag;
+    bestSize = size;
+  }
+});
+return bestSize;
+}
+
+// --- DYNAMIC WEIGHTS ---
+function getDynamicWeights(windowedArgs) {
+  const M = windowedArgs.length;
+  if (M < 50) return { freq: 0.15, vec: 0.25, trans: 0.30, pat: 0.20, sec: 0.10 };
+
+  const components = ['freq', 'vec', 'trans', 'pat', 'sec'];
+  const hits = {};
+  components.forEach(c => hits[c] = 0);
+
+  const start = Math.max(20, M - 100); // Validate on recent 100 spins
+  const numTests = M - start;
+
+  for (let i = start; i < M; i++) {
+    const past = windowedArgs.slice(0, i);
+    const actual = windowedArgs[i];
+
+    components.forEach(c => {
+      const tempW = { freq: 0, vec: 0, trans: 0, pat: 0, sec: 0 };
+      tempW[c] = 1;
+      const ranked = getRankedScores(past, tempW);
+      const top5 = ranked.slice(0, 5).map(r => r.n);
+      if (top5.includes(actual)) hits[c]++;
     });
+  }
 
-    document.getElementById("clear-btn").addEventListener("click", () => {
-      history = [];
-      updateView();
+  const rates = {};
+  components.forEach(c => rates[c] = hits[c] / numTests);
+
+  const totalRate = Object.values(rates).reduce((a, b) => a + b, 0) || 1;
+  const weights = {};
+  components.forEach(c => weights[c] = rates[c] / totalRate);
+
+  return weights;
+}
+
+// --- PREDICTION ENGINE ---
+function getRankedScores(windowedArgs, weights) {
+  const N = windowedArgs.length;
+
+  // 1. Z-Score Frequency Analysis
+  const freq = {};
+  ALL.forEach(n => freq[n] = 0);
+  windowedArgs.forEach(n => freq[n]++);
+
+  const mean = N / 37;
+  const stdDev = Math.sqrt(N * (1/37) * (36/37));
+  const zScores = {};
+  ALL.forEach(n => {
+    zScores[n] = (freq[n] - mean) / (stdDev || 1);
+  });
+
+  // Entropy Calculation
+  let entropy = 0;
+  ALL.forEach(n => {
+    const p = freq[n] / N;
+    if (p > 0) entropy -= p * Math.log(p);
+  });
+  const normEntropy = entropy / Math.log(37);
+
+  // 2. Vector-Based Wheel Bias
+  let sinSum = 0, cosSum = 0, weightSum = 0;
+  const decay = 0.96;
+
+  windowedArgs.forEach((n, i) => {
+    const w = Math.pow(decay, N - 1 - i);
+    const idx = wheelIdx[n];
+    const rad = (idx / 37) * 2 * Math.PI;
+    sinSum += Math.sin(rad) * w;
+    cosSum += Math.cos(rad) * w;
+    weightSum += w;
+  });
+
+  const avgSin = sinSum / weightSum;
+  const avgCos = cosSum / weightSum;
+  const avgAngle = Math.atan2(avgSin, avgCos);
+
+  // 3. Sector Analysis
+  const sectorScores = { "Voisins": 0, "Tiers": 0, "Orphelins": 0 };
+  windowedArgs.slice(-20).forEach(n => {
+    for (let k in SECTORS) {
+      if (SECTORS[k].includes(n)) sectorScores[k]++;
+    }
+  });
+  let totalSec = 0;
+  for (let k in sectorScores) totalSec += sectorScores[k];
+
+  // 4. Transitions (Markov up to 4-grams)
+  const transitions = {};
+  const ngramCounts = { 2: {}, 3: {}, 4: {} };
+
+  for (let i = 4; i < N; i++) {
+    const curr = windowedArgs[i];
+    const prev1 = windowedArgs[i-1];
+    const prev2 = windowedArgs[i-2];
+    const prev3 = windowedArgs[i-3];
+
+    // Bigram
+    const bigramKey = `${prev1}`;
+    if (!ngramCounts[2][bigramKey]) ngramCounts[2][bigramKey] = {};
+    ngramCounts[2][bigramKey][curr] = (ngramCounts[2][bigramKey][curr] || 0) + 1;
+
+    // Trigram
+    const trigramKey = `${prev2}_${prev1}`;
+    if (!ngramCounts[3][trigramKey]) ngramCounts[3][trigramKey] = {};
+    ngramCounts[3][trigramKey][curr] = (ngramCounts[3][trigramKey][curr] || 0) + 1;
+
+    // 4-gram
+    const fourgramKey = `${prev3}_${prev2}_${prev1}`;
+    if (!ngramCounts[4][fourgramKey]) ngramCounts[4][fourgramKey] = {};
+    ngramCounts[4][fourgramKey][curr] = (ngramCounts[4][fourgramKey][curr] || 0) + 1;
+  }
+
+  // --- AGGREGATE SCORES ---
+  const scores = [];
+  ALL.forEach(num => {
+    // A. Frequency Score
+    const z = zScores[num];
+    let sFreq = 1 / (1 + Math.exp(-z));
+    sFreq *= (1 + (1 - normEntropy)); // Boost freq if low entropy (biased)
+
+    // B. Vector/Wheel Score
+    const sVector = getCircularLikelihood(num, avgAngle);
+
+    // C. Transition Score
+    let transRaw = 0;
+    const last = windowedArgs[N-1];
+    const prev = N > 1 ? windowedArgs[N-2] : null;
+    const prev2 = N > 2 ? windowedArgs[N-3] : null;
+    const prev3 = N > 3 ? windowedArgs[N-4] : null;
+
+    if (prev !== null) {
+      const bigramKey = `${last}`;
+      transRaw += (ngramCounts[2][bigramKey]?.[num] || 0) * 1;
+    }
+    if (prev2 !== null) {
+      const trigramKey = `${prev}_${last}`;
+      transRaw += (ngramCounts[3][trigramKey]?.[num] || 0) * 2;
+    }
+    if (prev3 !== null) {
+      const fourgramKey = `${prev2}_${prev}_${last}`;
+      transRaw += (ngramCounts[4][fourgramKey]?.[num] || 0) * 3;
+    }
+    const sTrans = Math.min(transRaw / 10, 1); // Normalized better
+
+    // D. Pattern Score
+    const patRaw = getPatternScore(windowedArgs, num);
+    const sPattern = Math.min(patRaw / 20, 1); // Adjusted for exponential
+
+    // E. Sector Score
+    let sSector = 0;
+    for (let k in SECTORS) {
+      if (SECTORS[k].includes(num)) {
+        sSector = sectorScores[k] / (totalSec || 1);
+      }
+    }
+
+    const total =
+      (sFreq * weights.freq) +
+      (sVector * weights.vec) +
+      (sTrans * weights.trans) +
+      (sPattern * weights.pat) +
+      (sSector * weights.sec);
+
+    scores.push({
+      n: num,
+      total: total,
+      z: z,
+      details: { V: sVector, T: sTrans, P: sPattern }
     });
+  });
 
-    // --- ADVANCED MATH HELPERS ---
+  return { ranked: scores.sort((a, b) => b.total - a.total), normEntropy };
+}
 
-    // 1. Vector Distance on Wheel (Circular Geometry)
-    // Returns a score 0.0 to 1.0 based on how close 'target' is to 'angle'
-    function getCircularLikelihood(targetNum, targetAngleRad) {
-      // Get angle of the target number
-      const numIdx = wheelIdx[targetNum];
-      const numAngle = (numIdx / 37) * 2 * Math.PI;
-      
-      // Cosine similarity 
-      const dist = Math.cos(numAngle - targetAngleRad); 
-      // Map -1..1 to 0..1 (approx)
-      return (dist + 1) / 2;
-    }
+// --- BET CALCULATION ---
+function calculateBets(ranked, balance) {
+  const totalWeight = ranked.slice(0, 5).reduce((sum, item) => sum + item.total, 0);
+  const bets = ranked.slice(0, 5).map(item => {
+    const weight = item.total / totalWeight;
+    const betAmount = Math.round(balance * weight * 0.05 * 10) / 10; // 5% of balance, rounded to 0.1
+    return { num: item.n, bet: betAmount };
+  });
+  return bets;
+}
 
-    // 2. Pattern Matcher (Longest Common Suffix)
-    function getPatternScore(hist, num) {
-      if (hist.length < 10) return 0;
-      const limit = 6; // Max pattern depth to check
-      let matchScore = 0;
-      
-      // Check patterns of length 2 to limit
-      for (let len = 1; len <= limit; len++) {
-        if (hist.length < len + 1) break;
-        const seq = hist.slice(hist.length - len);
-        
-        // Search history for this sequence (excluding the very last instance which is current)
-        for (let i = 0; i < hist.length - len - 1; i++) {
-           let match = true;
-           for (let k = 0; k < len; k++) {
-             if (hist[i+k] !== seq[k]) { match = false; break; }
-           }
-           if (match) {
-             // The number AFTER the sequence
-             const after = hist[i + len];
-             if (after === num) {
-               matchScore += (len * len); // Quadratic weight for longer matches
-             }
-           }
-        }
-      }
-      return matchScore;
-    }
+// --- VIEW UPDATE ---
+function updateView() {
+  // 1. History
+  if (history.length === 0) {
+    historyDisplay.textContent = "(waiting for data...)";
+    predictionsList.innerHTML = "";
+    countBadge.textContent = "0 spins";
+    statHot.textContent = "-";
+    statCold.textContent = "-";
+    statSector.textContent = "-";
+    statEntropy.textContent = "-";
+    return;
+  }
 
-    // --- PREDICTION ENGINE ---
+  const displayHist = history.map(n => {
+    const c = n === 0 ? 'green-txt' : REDS.includes(n) ? 'red-txt' : 'black-txt';
+    return `<span class="${c}">${n}</span>`;
+  }).join(", ");
+  historyDisplay.innerHTML = displayHist;
 
-    function computePrediction(args) {
-      if (!args || args.length < 5) return [];
+  optimalWindowSize = calculateOptimalWindow(history);
+  countBadge.textContent = `${history.length} spins (window: ${optimalWindowSize})`;
 
-      const N = args.length;
-      
-      // 1. Z-Score Frequency Analysis
-      const freq = {};
-      ALL.forEach(n => freq[n] = 0);
-      args.forEach(n => freq[n]++);
-      
-      const mean = N / 37;
-      // Standard Deviation for binomial distribution approx
-      const stdDev = Math.sqrt(N * (1/37) * (36/37)); 
-      
-      const zScores = {};
-      ALL.forEach(n => {
-        zScores[n] = (freq[n] - mean) / (stdDev || 1);
-      });
+  // 2. Calculations
+  const N = Math.min(history.length, optimalWindowSize);
+  const windowedArgs = history.slice(-N);
+  const weights = getDynamicWeights(windowedArgs);
+  const { ranked, normEntropy } = getRankedScores(windowedArgs, weights);
+  const balance = parseFloat(balanceInput.value) || 0;
+  const bets = calculateBets(ranked, balance);
 
-      // 2. Vector-Based Wheel Bias (Center of Gravity)
-      // Convert recent history to unit vectors
-      let sinSum = 0, cosSum = 0, weightSum = 0;
-      const decay = 0.96; // Recent spins matter more for bias
-      
-      args.forEach((n, i) => {
-        const w = Math.pow(decay, N - 1 - i);
-        const idx = wheelIdx[n];
-        const rad = (idx / 37) * 2 * Math.PI;
-        sinSum += Math.sin(rad) * w;
-        cosSum += Math.cos(rad) * w;
-        weightSum += w;
-      });
-      
-      const avgSin = sinSum / weightSum;
-      const avgCos = cosSum / weightSum;
-      const avgAngle = Math.atan2(avgSin, avgCos); // The "Hot Angle"
+  // 3. Predictions UI
+  predictionsList.innerHTML = "";
+  if (history.length < 5) {
+    predictionsList.innerHTML = "<li style='color:#888'>Enter at least 5 numbers...</li>";
+  } else {
+    ranked.slice(0, 5).forEach((item, i) => {
+      const li = document.createElement("li");
+      const colorClass = item.n === 0 ? "green-txt" : REDS.includes(item.n) ? "red-txt" : "black-txt";
+      const bet = bets.find(b => b.num === item.n)?.bet || 0;
 
-      // 3. Sector Analysis
-      const sectorScores = { "Voisins": 0, "Tiers": 0, "Orphelins": 0 };
-      args.slice(-20).forEach(n => {
-         for(let k in SECTORS) {
-           if(SECTORS[k].includes(n)) sectorScores[k]++;
-         }
-      });
-      let totalSec = 0;
-      for(let k in sectorScores) totalSec += sectorScores[k];
-      
-      // 4. Transitions (Markov)
-      const last = args[N-1];
-      const prev = N > 1 ? args[N-2] : null;
-      const transitions = {};
-      const bigramKey = prev !== null ? `${prev}_${last}` : null;
-      const trigramCounts = {};
-      
-      // Build transitions
-      for(let i=2; i<N; i++) {
-        const p = args[i-1];
-        const pp = args[i-2];
-        const curr = args[i];
-        
-        if (!transitions[p]) transitions[p] = {};
-        transitions[p][curr] = (transitions[p][curr] || 0) + 1;
-        
-        const key = `${pp}_${p}`;
-        if (!trigramCounts[key]) trigramCounts[key] = {};
-        trigramCounts[key][curr] = (trigramCounts[key][curr] || 0) + 1;
-      }
+      li.innerHTML = `
+        <div class="pred-num ${colorClass}">${item.n}</div>
+        <div class="pred-stats">
+          Score: <strong>${item.total.toFixed(3)}</strong>
+          (Seq:${item.details.T.toFixed(2)} | Wheel:${item.details.V.toFixed(2)} | Pat:${item.details.P.toFixed(2)})
+        </div>
+        <div class="pred-bet">Bet: ${bet.toFixed(1)}</div>
+      `;
+      predictionsList.appendChild(li);
+    });
+  }
 
-      // --- AGGREGATE SCORES ---
-      
-      const scores = [];
-      
-      // Weights
-      const W_FREQ = 0.15;
-      const W_VECTOR = 0.25;  // Wheel bias
-      const W_TRANS = 0.30;   // Markov
-      const W_PATTERN = 0.20; // Longest Match
-      const W_SECTOR = 0.10;
+  // 4. Update Stats Dashboard
+  if (history.length > 5) {
+    // Hot (High Z-Score)
+    const hot = ranked.slice().sort((a,b) => b.z - a.z).slice(0,3).map(x=>x.n).join(", ");
+    statHot.textContent = hot;
 
-      ALL.forEach(num => {
-        // A. Frequency Score (Sigmoid of Z-score)
-        const z = zScores[num];
-        const sFreq = 1 / (1 + Math.exp(-z)); // 0..1
+    // Cold (Low Z-Score)
+    const cold = ranked.slice().sort((a,b) => a.z - b.z).slice(0,3).map(x=>x.n).join(", ");
+    statCold.textContent = cold;
 
-        // B. Vector/Wheel Score
-        const sVector = getCircularLikelihood(num, avgAngle);
+    // Sectors
+    const sectorCounts = { "Voisins": 0, "Tiers": 0, "Orphelins": 0 };
+    history.slice(-20).forEach(n => {
+      for(let k in SECTORS) if(SECTORS[k].includes(n)) sectorCounts[k]++;
+    });
+    const sortedSec = Object.entries(sectorCounts).sort((a,b)=>b[1]-a[1]);
+    statSector.textContent = `${sortedSec[0][0]} (${Math.round(sortedSec[0][1]/Math.min(20, history.length)*100)}%)`;
 
-        // C. Transition Score
-        let transRaw = (transitions[last]?.[num] || 0);
-        if (bigramKey) transRaw += (trigramCounts[bigramKey]?.[num] || 0) * 2;
-        const sTrans = Math.min(transRaw, 5) / 5; // Normalize cap
+    // Entropy
+    statEntropy.textContent = normEntropy.toFixed(2);
+  }
+}
 
-        // D. Pattern Score
-        const patRaw = getPatternScore(args, num);
-        const sPattern = Math.min(patRaw, 10) / 10; 
-
-        // E. Sector Score
-        let sSector = 0;
-        for(let k in SECTORS) {
-          if (SECTORS[k].includes(num)) {
-            sSector = sectorScores[k] / (totalSec || 1);
-          }
-        }
-
-        const total = 
-          (sFreq * W_FREQ) + 
-          (sVector * W_VECTOR) + 
-          (sTrans * W_TRANS) + 
-          (sPattern * W_PATTERN) +
-          (sSector * W_SECTOR);
-
-        scores.push({
-          n: num,
-          total: total,
-          z: z,
-          details: { V: sVector, T: sTrans, P: sPattern }
-        });
-      });
-
-      return scores.sort((a, b) => b.total - a.total);
-    }
-
-    // --- VIEW UPDATE ---
-
-    function updateView() {
-      // 1. History
-      if (history.length === 0) {
-        historyDisplay.textContent = "(waiting for data...)";
-        predictionsList.innerHTML = "";
-        countBadge.textContent = "0 spins";
-        statHot.textContent = "-";
-        statCold.textContent = "-";
-        statSector.textContent = "-";
-        return;
-      }
-
-      const displayHist = history.map(n => {
-        const c = n === 0 ? 'green-txt' : REDS.includes(n) ? 'red-txt' : 'black-txt';
-        return `<span class="${c}">${n}</span>`;
-      }).join(", ");
-      historyDisplay.innerHTML = displayHist;
-      countBadge.textContent = `${history.length} spins`;
-
-      // 2. Calculations
-      const ranked = computePrediction(history);
-      
-      // 3. Predictions UI
-      predictionsList.innerHTML = "";
-      if (history.length < 5) {
-        predictionsList.innerHTML = "<li style='color:#888'>Enter at least 5 numbers...</li>";
-      } else {
-        ranked.slice(0, 5).forEach((item, i) => {
-          const li = document.createElement("li");
-          const colorClass = item.n === 0 ? "green-txt" : REDS.includes(item.n) ? "red-txt" : "black-txt";
-          
-          li.innerHTML = `
-            <div class="pred-num ${colorClass}">${item.n}</div>
-            <div class="pred-stats">
-               Score: <strong>${item.total.toFixed(3)}</strong> 
-               (Seq:${item.details.T.toFixed(2)} | Wheel:${item.details.V.toFixed(2)} | Pat:${item.details.P.toFixed(2)})
-            </div>
-          `;
-          predictionsList.appendChild(li);
-        });
-      }
-
-      // 4. Update Stats Dashboard
-      if (history.length > 5) {
-        // Hot (High Z-Score)
-        const hot = ranked.slice().sort((a,b) => b.z - a.z).slice(0,3).map(x=>x.n).join(", ");
-        statHot.textContent = hot;
-        
-        // Cold (Low Z-Score)
-        const cold = ranked.slice().sort((a,b) => a.z - b.z).slice(0,3).map(x=>x.n).join(", ");
-        statCold.textContent = cold;
-
-        // Sectors
-        const sectorCounts = { "Voisins": 0, "Tiers": 0, "Orphelins": 0 };
-        history.slice(-20).forEach(n => {
-          for(let k in SECTORS) if(SECTORS[k].includes(n)) sectorCounts[k]++;
-        });
-        const sortedSec = Object.entries(sectorCounts).sort((a,b)=>b[1]-a[1]);
-        statSector.textContent = `${sortedSec[0][0]} (${Math.round(sortedSec[0][1]/20*100)}%)`;
-      }
-    }
-
-    createButtons();
-    updateView();
-  </script>
+createButtons();
+updateView();
+</script>
 </body>
 </html>
