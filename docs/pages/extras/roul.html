@@ -3,425 +3,350 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta content="text/html; charset=UTF-8" http-equiv="content-type">
-<title>Precision Roulette Architect – Full Edition</title>
+<title>Precision Roulette Architect – V4.2 Edition</title>
 <style>
-/* FULL STYLE SHEET */
-body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    margin: 20px;
-    background: #121212;
-    color: #e0e0e0;
+:root {
+  --bg:#121212; --panel:#1e1e1e; --border:#333; --text:#e0e0e0;
+  --red:#ff6b6b; --green:#4caf50; --gold:#ffd700;
 }
-h1 {
-    font-size: 1.4rem;
-    margin-bottom: 0.5rem;
-    color: #fff;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.grid {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 6px;
-    margin-bottom: 1rem;
-}
-button.num {
-    padding: 10px 0;
-    border: 1px solid #333;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    background: #252525;
-    color: #eee;
-    transition: all 0.1s;
-    font-weight: 500;
-}
-button.num:hover { background: #444; border-color: #666; }
-button.num:active { transform: scale(0.96); }
-button.zero { background: #0a5c0a; border-color: #0f7a0f; }
-button.red { color: #ff6b6b; }
-
-.panel {
-    margin-bottom: 1rem;
-    padding: 15px;
-    border-radius: 8px;
-    background: #1e1e1e;
-    border: 1px solid #333;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-}
-.label {
-    font-weight: 600;
-    margin-bottom: 8px;
-    display: block;
-    color: #bbb;
-}
-.history {
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-    word-wrap: break-word;
-    color: #aaa;
-    line-height: 1.4;
-    max-height: 60px;
-    overflow-y: auto;
-}
-.predictions li {
-    margin-bottom: 6px;
-    padding: 8px;
-    background: #2a2a2a;
-    border-radius: 4px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-left: 3px solid transparent;
-}
-.predictions li.top-pick {
-    border-left: 3px solid #ffd700;
-    background: #332b00;
-}
-.pred-num { font-size: 1.2rem; font-weight: bold; width: 40px; }
-.pred-stats { font-size: 0.75rem; color: #888; flex-grow: 1; text-align: right; }
-.pred-bet { font-size: 0.9rem; color: #4caf50; margin-left: 10px; font-weight: bold; min-width: 60px; text-align: right; }
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 10px;
-    font-size: 0.8rem;
-    margin-top: 10px;
-}
-.stat-box {
-    background: #252525;
-    padding: 8px;
-    border-radius: 4px;
-    text-align: center;
-}
-.stat-val { font-weight: bold; color: #fff; display: block; margin-top: 4px; font-size: 1rem;}
-
-.controls {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-bottom: 0.8rem;
-}
-input[type="number"] {
-    width: 60px;
-    padding: 4px 6px;
-    border-radius: 4px;
-    border: 1px solid #444;
-    background: #111;
-    color: #eee;
-}
-button.ctrl {
-    padding: 6px 12px;
-    background: #333;
-    border: none;
-    color: #ccc;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-}
-button.ctrl:hover { background: #555; color: #fff; }
-
-.badge {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: #333;
-    font-size: 0.75rem;
-    margin-left: 6px;
-    color: #888;
-}
-.red-txt { color: #ff6b6b; }
-.black-txt { color: #eee; }
-.green-txt { color: #4caf50; }
-
-.balance-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    background: #181818;
-    padding: 10px;
-    border-radius: 6px;
-}
-.confidence-meter {
-    height: 4px;
-    background: #333;
-    border-radius: 2px;
-    margin-top: 4px;
-    width: 100%;
-    overflow: hidden;
-}
-.confidence-fill {
-    height: 100%;
-    background: #4caf50;
-    width: 0%;
-    transition: width 0.5s;
-}
-
-.status-pill {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: bold;
-    text-transform: uppercase;
-}
-.status-wait { background: #551a1a; color: #ff9999; }
-.status-bet { background: #1a551a; color: #99ff99; }
-.neighbor-hint {
-    font-size: 0.7rem;
-    color: #aaa;
-    margin-top: 2px;
-}
+body{font-family:system-ui,sans-serif;margin:16px;background:var(--bg);color:var(--text);line-height:1.4}
+h1{font-size:1.4rem;margin:0 0 .6rem;display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:1rem}
+button.num{padding:10px 0;border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:.95rem;background:#252525;color:#eee;transition:all .13s;font-weight:500}
+button.num:hover{background:#444;border-color:#666}
+button.num:active{transform:scale(.97)}
+button.zero{background:#0a5c0a;border-color:#0f7a0f}
+button.red{color:var(--red)}
+.panel{margin-bottom:1rem;padding:14px;border-radius:8px;background:var(--panel);border:1px solid var(--border);box-shadow:0 3px 10px #0003}
+.label{font-weight:600;color:#bbb;margin-bottom:8px;display:block}
+.history{font-family:ui-monospace,'Courier New',monospace;font-size:.9rem;color:#aaa;max-height:64px;overflow-y:auto;letter-spacing:.5px}
+.predictions li{margin-bottom:6px;padding:8px 10px;background:#2a2a2a;border-radius:5px;display:flex;justify-content:space-between;align-items:center;border-left:3px solid transparent}
+.predictions li.top-pick{border-left-color:var(--gold);background:#332b00}
+.pred-num{font-size:1.25rem;font-weight:bold;width:38px;text-align:center}
+.pred-stats{font-size:.78rem;color:#888;flex:1;text-align:right}
+.pred-bet{font-size:.92rem;color:var(--green);font-weight:600;min-width:60px;text-align:right}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;font-size:.82rem}
+.stat-box{background:#252525;padding:8px;border-radius:5px;text-align:center}
+.stat-val{font-weight:bold;color:#fff;font-size:1.05rem;margin-top:3px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}
+input[type=number]{width:64px;padding:5px 7px;border:1px solid #444;border-radius:5px;background:#111;color:#eee}
+button.ctrl{padding:6px 14px;background:#333;border:none;color:#ddd;border-radius:5px;font-weight:600;cursor:pointer}
+button.ctrl:hover{background:#555;color:#fff}
+.badge{padding:3px 7px;border-radius:10px;background:#333;font-size:.76rem;color:#aaa}
+.red-txt{color:var(--red)}.black-txt{color:#eee}.green-txt{color:var(--green)}
+.balance-section{display:flex;justify-content:space-between;align-items:center;background:#181818;padding:10px;border-radius:6px;margin-bottom:10px}
+.confidence-meter{height:5px;background:#333;border-radius:3px;overflow:hidden}
+.confidence-fill{height:100%;background:var(--green);width:0;transition:width .6s ease-out}
+.status-pill{padding:4px 12px;border-radius:1rem;font-size:.78rem;font-weight:bold;text-transform:uppercase}
+.status-wait{background:#551a1a;color:#ff9999}
+.status-bet{background:#1a551a;color:#99ff99}
+.neighbor-hint{font-size:.72rem;color:#999;margin-top:2px}
 </style>
 </head>
 <body>
+
 <h1>
-    <span>Precision Architect V3</span>
-    <span id="algo-status" class="status-pill status-wait">READY</span>
+  <span>Architect V4.2 Pro</span>
+  <span id="algo-status" class="status-pill status-wait">READY</span>
 </h1>
 
 <div class="panel">
-    <div class="label">Input History</div>
-    <div id="buttons-container" class="grid"></div>
-    <div class="controls">
-        <button id="undo-btn" class="ctrl">Undo</button>
-        <button id="clear-btn" class="ctrl">Reset All</button>
-        <label style="font-size:0.8rem; color:#888;">
-            Deep Memory: <input type="number" id="max-history" min="10" value="200" />
-        </label>
-    </div>
-    <div class="history">
-        <span id="history-display" style="letter-spacing: 1px;">(waiting for data...)</span>
-    </div>
+  <div class="label">Input History</div>
+  <div id="buttons-container" class="grid"></div>
+  <div class="controls">
+    <button id="undo-btn" class="ctrl">Undo</button>
+    <button id="clear-btn" class="ctrl">Reset All</button>
+    <label style="font-size:0.82rem;color:#888">
+      Memory: <input type="number" id="max-history" min="10" value="200" />
+    </label>
+  </div>
+  <div class="history">
+    <span id="history-display">(waiting for data...)</span>
+  </div>
 </div>
 
 <div class="panel">
-    <div class="balance-section">
-        <div>
-            <label for="balance-input" style="color: #bbb; font-size: 0.8rem;">Bankroll</label>
-            <input type="number" id="balance-input" style="width:80px" value="1000" step="1" />
-        </div>
-        <div style="text-align:right;">
-            <div style="font-size:0.8rem; color:#888;">System Confidence</div>
-            <div id="confidence-text" style="font-size:1.1rem; font-weight:bold;">0%</div>
-        </div>
+  <div class="balance-section">
+    <div>
+      <label for="balance-input" style="color:#bbb;font-size:0.8rem;">Bankroll</label>
+      <input type="number" id="balance-input" style="width:80px" value="1000" step="1" />
     </div>
-    <div class="confidence-meter"><div id="confidence-bar" class="confidence-fill"></div></div>
-    <div class="label" style="margin-top:15px; display:flex; justify-content:space-between;">
-        <span>Top 5 Probabilities</span>
-        <span id="count-badge" class="badge">0 spins</span>
+    <div style="text-align:right">
+      <div style="font-size:0.8rem;color:#888">Consensus Score</div>
+      <div id="confidence-text" style="font-size:1.1rem;font-weight:bold">0%</div>
     </div>
-    <ul id="predictions" class="predictions"></ul>
+  </div>
+  <div class="confidence-meter"><div id="confidence-bar" class="confidence-fill"></div></div>
+  <div class="label" style="margin-top:15px;display:flex;justify-content:space-between">
+    <span>Calculated Strike Points</span>
+    <span id="count-badge" class="badge">0 spins</span>
+  </div>
+  <ul id="predictions" class="predictions"></ul>
 </div>
 
 <div class="panel">
-    <div class="label">Analysis Telemetry</div>
-    <div class="stats-grid">
-        <div class="stat-box">Momentum<span id="stat-hot" class="stat-val">-</span></div>
-        <div class="stat-box">Hot Sector<span id="stat-sector" class="stat-val">-</span></div>
-        <div class="stat-box">Active Window<span id="stat-cycle" class="stat-val">-</span></div>
-        <div class="stat-box">Signal Strength<span id="stat-entropy" class="stat-val">-</span></div>
-    </div>
+  <div class="label">Deep Analysis Telemetry</div>
+  <div class="stats-grid">
+    <div class="stat-box">Main Trend<span id="stat-hot" class="stat-val">-</span></div>
+    <div class="stat-box">Active Zone<span id="stat-sector" class="stat-val">-</span></div>
+    <div class="stat-box">Rhythm Stability<span id="stat-cycle" class="stat-val">-</span></div>
+    <div class="stat-box">Signal Strength<span id="stat-entropy" class="stat-val">-</span></div>
+    <div class="stat-box">Accuracy Track<span id="stat-backtest" class="stat-val">-</span></div>
+    <div class="stat-box">Neural Window<span id="stat-tuned" class="stat-val">-</span></div>
+  </div>
 </div>
 
 <script>
-// --- CONSTANTS ---
-const ALL = Array.from({ length: 37 }, (_, i) => i);
+// --- CORE CONSTANTS ---
+const ALL = Array.from({length:37}, (_,i)=>i);
 const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
-const WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 const wheelIdx = {};
-WHEEL.forEach((n, i) => wheelIdx[n] = i);
+WHEEL.forEach((n,i)=>wheelIdx[n]=i);
 
 const SECTORS = { 
-    "Voisins": [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25], 
-    "Tiers": [27,13,36,11,30,8,23,10,5,24,16,33], 
-    "Orphelins": [1,20,14,31,9,17,34,6] 
+  "Voisins": [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25], 
+  "Tiers": [27,13,36,11,30,8,23,10,5,24,16,33], 
+  "Orphelins": [1,20,14,31,9,17,34,6] 
 };
 
-// --- STATE & STORAGE ---
+// --- STATE ---
 let history = [];
 let lastTopPick = null;
+let currentParams = {
+  windowSize: 12,
+  recencyMult: 3.8,
+  momentumBase: 1.15,
+  sectorRadius: 1.35,
+  antiStallFactor: 0.55
+};
 
+// --- DOM ---
 const buttonsContainer = document.getElementById("buttons-container");
-const historyDisplay = document.getElementById("history-display");
-const predictionsList = document.getElementById("predictions");
-const countBadge = document.getElementById("count-badge");
-const balanceInput = document.getElementById("balance-input");
-const algoStatus = document.getElementById("algo-status");
-const confidenceBar = document.getElementById("confidence-bar");
-const confidenceText = document.getElementById("confidence-text");
-const statHot = document.getElementById("stat-hot");
-const statSector = document.getElementById("stat-sector");
-const statCycle = document.getElementById("stat-cycle");
-const statEntropy = document.getElementById("stat-entropy");
+const historyDisplay   = document.getElementById("history-display");
+const predictionsList  = document.getElementById("predictions");
+const countBadge       = document.getElementById("count-badge");
+const balanceInput     = document.getElementById("balance-input");
+const algoStatus       = document.getElementById("algo-status");
+const confidenceBar    = document.getElementById("confidence-bar");
+const confidenceText   = document.getElementById("confidence-text");
+const statHot          = document.getElementById("stat-hot");
+const statSector       = document.getElementById("stat-sector");
+const statCycle        = document.getElementById("stat-cycle");
+const statEntropy      = document.getElementById("stat-entropy");
+const statBacktest     = document.getElementById("stat-backtest");
+const statTuned        = document.getElementById("stat-tuned");
+const maxHistoryInput  = document.getElementById("max-history");
 
-// --- INITIALIZATION ---
+// --- LOCALSTORAGE (RETAINED & FIXED) ---
 function saveToLocal() {
-    localStorage.setItem('roulette_v3_history', JSON.stringify(history));
-    localStorage.setItem('roulette_v3_balance', balanceInput.value);
+  localStorage.setItem('roulette_v4_history', JSON.stringify(history));
+  localStorage.setItem('roulette_v4_balance', balanceInput.value);
 }
 
 function loadFromLocal() {
-    const h = localStorage.getItem('roulette_v3_history');
-    const b = localStorage.getItem('roulette_v3_balance');
-    if (h) history = JSON.parse(h);
-    if (b) balanceInput.value = b;
+  const h = localStorage.getItem('roulette_v4_history');
+  const b = localStorage.getItem('roulette_v4_balance');
+  if (h) history = JSON.parse(h);
+  if (b) balanceInput.value = b;
 }
 
 function createButtons() {
-    buttonsContainer.innerHTML = "";
-    for (let n = 0; n <= 36; n++) {
-        const btn = document.createElement("button");
-        btn.textContent = n;
-        btn.className = "num" + (n === 0 ? " zero" : REDS.includes(n) ? " red" : "");
-        btn.onclick = () => addNumber(n);
-        buttonsContainer.appendChild(btn);
-    }
+  buttonsContainer.innerHTML = "";
+  for (let n = 0; n <= 36; n++) {
+    const btn = document.createElement("button");
+    btn.textContent = n;
+    btn.className = "num" + (n===0 ? " zero" : REDS.includes(n) ? " red" : "");
+    btn.onclick = () => addNumber(n);
+    buttonsContainer.appendChild(btn);
+  }
 }
 
 function addNumber(n) {
-    const max = parseInt(document.getElementById("max-history").value) || 200;
-    history.push(n);
-    if (history.length > max) history.shift();
-    saveToLocal();
-    updateView();
+  const max = parseInt(maxHistoryInput.value) || 200;
+  history.push(n);
+  if (history.length > max) history.shift();
+  saveToLocal();
+  updateView();
 }
 
-document.getElementById("undo-btn").onclick = () => { history.pop(); saveToLocal(); updateView(); };
-document.getElementById("clear-btn").onclick = () => { 
-    if(confirm("Wipe history and reset balance?")) { 
-        history = []; 
-        lastTopPick = null; 
-        saveToLocal(); 
-        updateView(); 
-    } 
+document.getElementById("undo-btn").onclick = () => {
+  history.pop();
+  saveToLocal();
+  updateView();
 };
-balanceInput.onchange = saveToLocal;
 
-// --- MATH ENGINE ---
+document.getElementById("clear-btn").onclick = () => { 
+  if(confirm("Clear history and reset storage?")) { 
+    history = []; 
+    lastTopPick = null; 
+    saveToLocal(); 
+    updateView(); 
+  } 
+};
+
 function getNeighbors(num, count=1) {
-    const idx = wheelIdx[num];
-    const res = [];
-    for(let i=1; i<=count; i++) {
-        res.push(WHEEL[(idx + i) % 37], WHEEL[(idx - i + 37) % 37]);
-    }
-    return res;
+  const idx = wheelIdx[num];
+  const res = [];
+  for(let i=1; i<=count; i++) {
+    res.push(WHEEL[(idx + i) % 37], WHEEL[(idx - i + 37) % 37]);
+  }
+  return res;
 }
 
+// --- V4.2 ENGINE: CONSENSUS LOGIC ---
 function analyze(hist) {
-    if(hist.length === 0) return null;
-    const windowSize = Math.min(hist.length, 30);
-    const window = hist.slice(-windowSize);
-    const scores = new Array(37).fill(0);
+  if(hist.length < 6) return null;
 
-    // 1. Recency Weighted Frequency
-    window.forEach((n, i) => {
-        scores[n] += (1 + (i / windowSize)) * 3;
-    });
+  const windowSize = Math.min(hist.length, currentParams.windowSize);
+  const window = hist.slice(-windowSize);
+  const scores = new Array(37).fill(0);
 
-    // 2. Vector Momentum (Wheel Angle)
-    let vx = 0, vy = 0;
-    window.forEach((n, i) => {
-        const weight = Math.pow(1.12, i);
-        const rad = (wheelIdx[n]/37) * 2 * Math.PI;
-        vx += Math.cos(rad) * weight;
-        vy += Math.sin(rad) * weight;
-    });
-    const biasAngle = Math.atan2(vy, vx);
+  // 1. Cluster Intensity (Find where the ball likes to land)
+  window.forEach((n, i) => {
+    const recencyWeight = (1 + (i / windowSize)) * currentParams.recencyMult;
+    scores[n] += recencyWeight;
+    getNeighbors(n, 1).forEach(nb => scores[nb] += recencyWeight * 0.4);
+  });
 
-    ALL.forEach(n => {
-        const rad = (wheelIdx[n]/37) * 2 * Math.PI;
-        const diff = Math.abs(rad - biasAngle);
-        const dist = Math.min(diff, 2*Math.PI - diff);
-        // Add score for being in the "hot sector"
-        if (dist < 1.3) scores[n] += (1.3 - dist) * 12;
-        
-        // Anti-Stall: If pick didn't hit, lower its weight for next spin
-        if (lastTopPick === n && hist[hist.length-1] !== n && !getNeighbors(n,1).includes(hist[hist.length-1])) {
-            scores[n] *= 0.55;
-        }
-        // Subtle Tie-breaker
-        scores[n] += Math.random() * 0.1;
-    });
+  // 2. Physical Momentum (The "Dealer Signature" angle)
+  let vx = 0, vy = 0;
+  window.forEach((n, i) => {
+    const weight = Math.pow(currentParams.momentumBase, i);
+    const rad = (wheelIdx[n]/37) * 2 * Math.PI;
+    vx += Math.cos(rad) * weight;
+    vy += Math.sin(rad) * weight;
+  });
+  const biasAngle = Math.atan2(vy, vx);
 
-    const finalRanked = ALL.map(n => ({ n, s: scores[n] })).sort((a,b) => b.s - a.s);
+  // 3. Rhythm Stability (Standard Deviation Filter)
+  let jumps = [];
+  for(let i=1; i<window.length; i++) {
+    let d = wheelIdx[window[i]] - wheelIdx[window[i-1]];
+    if (d < 0) d += 37;
+    jumps.push(d);
+  }
+  const avgJump = jumps.reduce((a,b)=>a+b,0) / jumps.length;
+  const variance = jumps.slice(-8).reduce((a,b) => a + Math.pow(b - avgJump, 2), 0) / 8;
+  const stability = Math.max(0, 1 - (variance / 120)); // 1.0 = Laser precision rhythm
+
+  const lastIdx = wheelIdx[hist[hist.length-1]];
+
+  ALL.forEach(n => {
+    const nIdx = wheelIdx[n];
     
-    // Confidence Logic: How much higher is the Top 1 vs the Average?
-    const topScore = finalRanked[0].s;
-    const avgScore = finalRanked.reduce((a,b) => a + b.s, 0) / 37;
-    const strengthRatio = topScore / (avgScore || 1);
-    
-    // Scale confidence between 10% and 98%
-    let confidence = Math.min(98, Math.max(10, (strengthRatio - 1.5) * 45));
-    if (hist.length < 5) confidence = Math.max(10, hist.length * 5); // Start low
-
-    return { ranked: finalRanked, confidence, strengthRatio, windowSize };
-}
-
-// --- UI UPDATE ---
-function updateView() {
-    countBadge.textContent = `${history.length} spins`;
-    if(history.length === 0) {
-        historyDisplay.innerHTML = "(ready for input)";
-        predictionsList.innerHTML = "";
-        confidenceText.textContent = "0%";
-        confidenceBar.style.width = "0%";
-        return;
+    // Bias Score
+    const rad = (nIdx/37) * 2 * Math.PI;
+    const diff = Math.abs(rad - biasAngle);
+    const dist = Math.min(diff, 2*Math.PI - diff);
+    if (dist < currentParams.sectorRadius) {
+      scores[n] += (currentParams.sectorRadius - dist) * 18;
     }
 
-    historyDisplay.innerHTML = history.slice().reverse().slice(0, 15).map(n => 
-        `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`
-    ).join(" ");
+    // Rhythm Jump Score
+    const jumpTarget = (lastIdx + Math.round(avgJump)) % 37;
+    if (Math.abs(nIdx - jumpTarget) <= 1) {
+      scores[n] += (stability * 22); 
+    }
 
-    const data = analyze(history);
-    lastTopPick = data.ranked[0].n;
+    // Anti-Stall
+    if (lastTopPick === n && hist[hist.length-1] !== n) {
+      scores[n] *= currentParams.antiStallFactor;
+    }
+  });
 
-    // Confidence Display
-    const conf = data.confidence;
-    confidenceBar.style.width = `${conf}%`;
-    confidenceBar.style.backgroundColor = conf > 45 ? '#4caf50' : (conf > 25 ? '#e0aa00' : '#d32f2f');
-    confidenceText.textContent = `${Math.round(conf)}%`;
-    
-    algoStatus.className = "status-pill " + (conf > 45 ? "status-bet" : "status-wait");
-    algoStatus.textContent = conf > 45 ? "STRIKE ZONE" : "OBSERVING";
+  const ranked = ALL.map(n => ({ n, s: scores[n] })).sort((a,b) => b.s - a.s);
+  
+  // Consensus Check: Is the top pick supported by multiple factors?
+  const top = ranked[0];
+  const avg = ranked.reduce((a,b)=>a+b.s,0)/37;
+  const signalStrength = top.s / (avg || 1);
+  
+  let confidence = Math.min(99, (signalStrength - 1.3) * 40);
+  if (stability < 0.3) confidence *= 0.7; // Penalize if dealer is chaotic
 
-    // Telemetry
-    statCycle.textContent = data.windowSize;
-    statEntropy.textContent = data.strengthRatio.toFixed(2) + "x";
-    statHot.textContent = data.ranked[0].n;
-    
-    let sec = "-";
-    for(let k in SECTORS) if(SECTORS[k].includes(data.ranked[0].n)) sec = k;
-    statSector.textContent = sec;
+  return { ranked, confidence, signalStrength, stability, avgJump };
+}
 
-    // Predictions (Top 5 Always showing)
-    predictionsList.innerHTML = "";
-    const balance = parseFloat(balanceInput.value);
-    const baseUnit = balance * 0.01;
+function findBetterParams() {
+  if (history.length < 30) return;
+  const windows = [13,14,15,16,17,18,19,20,21,22,23,24,25, 26, 34, 42];
+  let bestW = currentParams.windowSize;
+  let maxHits = -1;
 
-    data.ranked.slice(0, 5).forEach((item, i) => {
-        const neighbors = getNeighbors(item.n, 1);
-        const li = document.createElement("li");
-        if(i === 0) li.className = "top-pick";
-        
-        const scoreNorm = (item.s / data.ranked[0].s) * 100;
-        // Bet amount depends on confidence and match percentage
-        const bet = (baseUnit * (scoreNorm/100) * (conf/50)).toFixed(1);
+  windows.forEach(w => {
+    let hits = 0;
+    for (let i=1; i<=8; i++) {
+      const idx = history.length - i;
+      const past = history.slice(0, idx);
+      const res = analyzeWithParams(past, w);
+      if (res && res.ranked.slice(0, 6).map(x=>x.n).includes(history[idx])) hits++;
+    }
+    if (hits > maxHits) { maxHits = hits; bestW = w; }
+  });
+  currentParams.windowSize = bestW;
+  statBacktest.textContent = ((maxHits / 8) * 100).toFixed(0) + "%";
+}
 
-        li.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center;">
-                <div class="pred-num ${item.n===0?'green-txt':REDS.includes(item.n)?'red-txt':'black-txt'}">${item.n}</div>
-                <div class="neighbor-hint">Cover: ${neighbors.join(", ")}</div>
-            </div>
-            <div class="pred-stats">Relative: ${scoreNorm.toFixed(0)}%</div>
-            <div class="pred-bet">Bet: ${bet}</div>
-        `;
-        predictionsList.appendChild(li);
-    });
+function analyzeWithParams(hist, w) {
+  if (hist.length < w) return null;
+  const window = hist.slice(-w);
+  const scores = new Array(37).fill(0);
+  window.forEach((n, i) => { scores[n] += (1 + (i / w)); });
+  return { ranked: ALL.map(n => ({ n, s: scores[n] })).sort((a,b) => b.s - a.s) };
+}
+
+function updateView() {
+  countBadge.textContent = `${history.length} spins`;
+  if(history.length === 0) {
+    historyDisplay.innerHTML = "(ready)";
+    return;
+  }
+
+  historyDisplay.innerHTML = history.slice().reverse().slice(0,18)
+    .map(n => `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`)
+    .join(" ");
+
+  findBetterParams();
+  const data = analyze(history);
+  if (!data) return;
+
+  lastTopPick = data.ranked[0].n;
+  const conf = data.confidence;
+  confidenceBar.style.width = `${conf}%`;
+  confidenceBar.style.backgroundColor = conf > 60 ? 'var(--green)' : (conf > 35 ? 'var(--gold)' : '#d32f2f');
+  confidenceText.textContent = `${Math.round(conf)}%`;
+  
+  algoStatus.className = `status-pill ${conf > 55 ? "status-bet" : "status-wait"}`;
+  algoStatus.textContent = conf > 55 ? "STRIKE ZONE" : "OBSERVING";
+
+  statCycle.textContent   = (data.stability * 100).toFixed(0) + "%";
+  statEntropy.textContent = data.signalStrength.toFixed(2);
+  statHot.textContent     = data.ranked[0].n;
+
+  let sec = "-";
+  for (let k in SECTORS) { if (SECTORS[k].includes(data.ranked[0].n)) { sec = k; break; } }
+  statSector.textContent = sec;
+  statTuned.textContent = `W:${currentParams.windowSize}`;
+
+  predictionsList.innerHTML = "";
+  const balance = parseFloat(balanceInput.value) || 1000;
+
+  data.ranked.slice(0,5).forEach((item, i) => {
+    const li = document.createElement("li");
+    if (i===0) li.className = "top-pick";
+    const betSize = ((balance * 0.01) * (conf / 50) * (1 - i * 0.1)).toFixed(1);
+
+    li.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center">
+        <div class="pred-num ${item.n===0?'green-txt':REDS.includes(item.n)?'red-txt':'black-txt'}">${item.n}</div>
+        <div class="neighbor-hint">Cover: ${getNeighbors(item.n,1).join(",")}</div>
+      </div>
+      <div class="pred-stats">V: ${item.s.toFixed(1)}</div>
+      <div class="pred-bet">Bet: ${Math.max(0, betSize)}</div>
+    `;
+    predictionsList.appendChild(li);
+  });
 }
 
 createButtons();
