@@ -3,95 +3,87 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Precision Architect V4.5 – Elite Edition</title>
+<title>Precision Architect V5.0 – Fusion Engine</title>
 <style>
 :root {
-  --bg:#0f0f0f; --panel:#1a1a1a; --border:#333; --text:#e0e0e0;
-  --red:#ff4d4d; --green:#00e676; --gold:#ffc107;
+  --bg:#0a0a0c; --panel:#16161a; --border:#2d2d33; --text:#ececed;
+  --red:#ff4d4d; --green:#00e676; --gold:#ffc107; --blue:#2979ff;
 }
-body{font-family:'Segoe UI',system-ui,sans-serif;margin:16px;background:var(--bg);color:var(--text);line-height:1.4}
-h1{font-size:1.3rem;margin:0 0 .8rem;display:flex;justify-content:space-between;align-items:center;color:var(--gold)}
-.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-bottom:1rem}
-button.num{padding:12px 0;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:1rem;background:#222;color:#eee;transition:all .1s;font-weight:bold}
-button.num:hover{background:#333;border-color:#888}
-button.num:active{transform:scale(0.92)}
-button.zero{background:#004d40;border-color:#00c853}
+body{font-family:'Inter',system-ui,sans-serif;margin:16px;background:var(--bg);color:var(--text);line-height:1.5}
+h1{font-size:1.2rem;margin:0 0 1rem;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px}
+.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-bottom:1rem}
+button.num{padding:12px 0;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:1rem;background:#1e1e24;color:#eee;transition:all 0.1s;font-weight:600}
+button.num:hover{background:#2d2d38}
+button.num:active{transform:scale(0.9)}
+button.zero{background:#004d40;border-color:var(--green)}
 button.red{color:var(--red)}
-.panel{margin-bottom:1rem;padding:15px;border-radius:10px;background:var(--panel);border:1px solid var(--border);box-shadow:0 4px 20px #000}
-.label{font-weight:700;color:#999;margin-bottom:10px;display:block;text-transform:uppercase;font-size:0.75rem;letter-spacing:1px}
-.history{font-family:monospace;font-size:1rem;color:#ccc;max-height:60px;overflow-y:auto;background:#111;padding:8px;border-radius:4px;border:1px solid #222}
-.predictions li{margin-bottom:8px;padding:10px 12px;background:#252525;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid transparent}
-.predictions li.top-pick{border-left-color:var(--gold);background:linear-gradient(90deg, #2c2400, #252525)}
-.pred-num{font-size:1.4rem;font-weight:800;width:45px;text-align:center}
-.pred-stats{font-size:.8rem;color:#777;flex:1;text-align:right;margin-right:15px}
-.pred-bet{font-size:1rem;color:var(--green);font-weight:700;min-width:70px;text-align:right}
-.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stat-box{background:#222;padding:10px;border-radius:6px;text-align:center;border:1px solid #2a2a2a}
+.panel{margin-bottom:1rem;padding:16px;border-radius:12px;background:var(--panel);border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+.label{font-weight:700;color:#71717a;margin-bottom:8px;display:block;text-transform:uppercase;font-size:0.7rem;letter-spacing:1.5px}
+.history{font-family:'JetBrains Mono',monospace;font-size:1.1rem;background:#000;padding:12px;border-radius:8px;border:1px solid #222;overflow-x:auto;white-space:nowrap}
+.predictions li{margin-bottom:8px;padding:12px;background:#212126;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid transparent;transition:0.3s}
+.predictions li.top-pick{border-left-color:var(--gold);background:linear-gradient(90deg, #2a240d, #212126)}
+.pred-num{font-size:1.5rem;font-weight:900;width:50px}
+.pred-stats{font-size:0.75rem;color:#a1a1aa;text-align:right;flex:1;margin-right:15px}
+.pred-bet{font-size:1.1rem;color:var(--green);font-weight:800;width:80px;text-align:right}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem}
+.stat-box{background:#1e1e24;padding:12px;border-radius:8px;text-align:center;border:1px solid var(--border)}
 .stat-val{font-weight:800;color:#fff;font-size:1.1rem;margin-top:4px;display:block}
-.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
-input[type=number]{width:70px;padding:6px;border:1px solid #444;border-radius:4px;background:#000;color:var(--green);font-weight:bold}
-button.ctrl{padding:8px 16px;background:#333;border:none;color:#fff;border-radius:4px;font-weight:600;cursor:pointer;flex-grow:1}
-button.ctrl:hover{background:#444}
-.badge{padding:2px 8px;border-radius:12px;background:#333;font-size:.7rem;color:#888}
+.controls{display:flex;gap:8px;margin-top:10px}
+input[type=number]{width:80px;padding:8px;border:1px solid #333;border-radius:6px;background:#000;color:var(--gold);font-weight:bold}
+button.ctrl{padding:10px;background:#2d2d38;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;flex:1}
+.confidence-meter{height:8px;background:#000;border-radius:4px;margin:12px 0;overflow:hidden;border:1px solid #222}
+.confidence-fill{height:100%;background:var(--blue);width:0;transition:width 1s ease-in-out}
+.status-pill{padding:6px 14px;border-radius:30px;font-size:0.7rem;font-weight:900;letter-spacing:1px}
+.status-wait{background:#271b1b;color:#ef4444;border:1px solid #451a1a}
+.status-bet{background:#142914;color:#22c55e;border:1px solid #166534}
 .red-txt{color:var(--red)}.black-txt{color:#fff}.green-txt{color:var(--green)}
-.confidence-meter{height:6px;background:#111;border-radius:3px;margin:10px 0;border:1px solid #222}
-.confidence-fill{height:100%;background:var(--green);width:0;transition:width 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)}
-.status-pill{padding:5px 12px;border-radius:20px;font-size:.75rem;font-weight:900}
-.status-wait{background:#3d0000;color:#ff8080}
-.status-bet{background:#003d00;color:#80ff80}
 </style>
 </head>
 <body>
 
 <h1>
-  <span>ARCHITECT V4.5 PRO</span>
-  <span id="algo-status" class="status-pill status-wait">STANDBY</span>
+  <span>ARCHITECT V5.0 <small style="font-size:0.6rem;opacity:0.5">FUSION ENGINE</small></span>
+  <span id="algo-status" class="status-pill status-wait">ANALYZING</span>
 </h1>
 
 <div class="panel">
-  <div class="label">Input Engine</div>
+  <div class="label">Wheel Input</div>
   <div id="buttons-container" class="grid"></div>
   <div class="controls">
-    <button id="undo-btn" class="ctrl">Undo Last</button>
-    <button id="clear-btn" class="ctrl" style="background:#421">Hard Reset</button>
-    <div style="display:flex;align-items:center;gap:10px;background:#111;padding:5px 12px;border-radius:6px">
-      <span style="font-size:0.7rem;color:#666">DEEP MEMORY</span>
-      <input type="number" id="max-history" min="10" value="250" />
-    </div>
+    <button id="undo-btn" class="ctrl">Undo</button>
+    <button id="clear-btn" class="ctrl">Reset Engine</button>
+    <input type="number" id="max-history" value="200" title="Deep Memory Size" />
   </div>
-  <div class="history" style="margin-top:10px">
-    <div id="history-display" style="letter-spacing:2px">...</div>
-  </div>
-</div>
-
-<div class="panel">
-  <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-    <span class="label">Bankroll & Confidence</span>
-    <input type="number" id="balance-input" value="1000" />
-  </div>
-  <div id="confidence-text" style="text-align:center;font-size:1.2rem;font-weight:900;color:var(--gold)">0%</div>
-  <div class="confidence-meter"><div id="confidence-bar" class="confidence-fill"></div></div>
-  
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:15px">
-    <span class="label">Top Probability Strikes</span>
-    <span id="count-badge" class="badge">0 SPINS</span>
-  </div>
-  <ul id="predictions" class="predictions"></ul>
+  <div class="history" id="history-display" style="margin-top:12px">...</div>
 </div>
 
 <div class="stats-grid">
-  <div class="stat-box"><span class="label">Hot Trend</span><span id="stat-hot" class="stat-val">-</span></div>
-  <div class="stat-box"><span class="label">Pocket Bias</span><span id="stat-sector" class="stat-val">-</span></div>
-  <div class="stat-box"><span class="label">Stability</span><span id="stat-cycle" class="stat-val">-</span></div>
+  <div class="stat-box"><span class="label">Hot Sector</span><span id="stat-sector" class="stat-val">-</span></div>
+  <div class="stat-box"><span class="label">Rhythm</span><span id="stat-cycle" class="stat-val">-</span></div>
+  <div class="stat-box"><span class="label">Stability</span><span id="stat-backtest" class="stat-val">-</span></div>
+</div>
+
+<div class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="flex:1">
+      <span class="label">Bankroll Management</span>
+      <input type="number" id="balance-input" value="1000" style="width:100%" />
+    </div>
+    <div style="flex:1;text-align:right">
+      <span class="label">Fusion Confidence</span>
+      <div id="confidence-text" style="font-size:1.4rem;font-weight:900;color:var(--blue)">0%</div>
+    </div>
+  </div>
+  <div class="confidence-meter"><div id="confidence-bar" class="confidence-fill"></div></div>
+  
+  <ul id="predictions" class="predictions" style="margin-top:15px;padding:0;list-style:none"></ul>
 </div>
 
 <script>
-// --- CONSTANTS ---
 const ALL = Array.from({length:37}, (_,i)=>i);
 const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
-const wheelIdx = {};
-WHEEL.forEach((n,i)=>wheelIdx[n]=i);
+const wheelIdx = {}; WHEEL.forEach((n,i)=>wheelIdx[n]=i);
 
 const SECTORS = { 
   "Voisins": [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25], 
@@ -99,204 +91,149 @@ const SECTORS = {
   "Orphelins": [1,20,14,31,9,17,34,6] 
 };
 
-// --- STATE ---
 let history = [];
-let lastTopPick = null;
-let currentParams = {
-  windowSize: 35,
-  recencyMult: 4.5,
-  momentumBase: 1.12,
-  sectorRadius: 1.5,
-  antiRepeatPenalty: 0.35 // Higher penalty for same-pocket repeats
-};
+let currentParams = { window: 35, recency: 4.2, momentum: 1.15, sectorWeight: 8 };
 
-const buttonsContainer = document.getElementById("buttons-container");
-const historyDisplay   = document.getElementById("history-display");
-const predictionsList  = document.getElementById("predictions");
-const countBadge       = document.getElementById("count-badge");
-const balanceInput     = document.getElementById("balance-input");
-const algoStatus       = document.getElementById("algo-status");
-const confidenceBar    = document.getElementById("confidence-bar");
-const confidenceText   = document.getElementById("confidence-text");
-const statHot          = document.getElementById("stat-hot");
-const statSector       = document.getElementById("stat-sector");
-const statCycle        = document.getElementById("stat-cycle");
-const maxHistoryInput  = document.getElementById("max-history");
-
-// --- PERSISTENCE ---
 function saveToLocal() {
-  localStorage.setItem('roulette_v45_history', JSON.stringify(history));
-  localStorage.setItem('roulette_v45_balance', balanceInput.value);
+  localStorage.setItem('roulette_v5_history', JSON.stringify(history));
+  localStorage.setItem('roulette_v5_balance', document.getElementById("balance-input").value);
 }
 
 function loadFromLocal() {
-  const h = localStorage.getItem('roulette_v45_history');
-  const b = localStorage.getItem('roulette_v45_balance');
+  const h = localStorage.getItem('roulette_v5_history');
+  const b = localStorage.getItem('roulette_v5_balance');
   if (h) history = JSON.parse(h);
-  if (b) balanceInput.value = b;
+  if (b) document.getElementById("balance-input").value = b;
 }
 
 function createButtons() {
-  buttonsContainer.innerHTML = "";
+  const container = document.getElementById("buttons-container");
+  container.innerHTML = "";
   for (let n = 0; n <= 36; n++) {
     const btn = document.createElement("button");
     btn.textContent = n;
     btn.className = "num" + (n===0 ? " zero" : REDS.includes(n) ? " red" : "");
-    btn.onclick = () => addNumber(n);
-    buttonsContainer.appendChild(btn);
+    btn.onclick = () => { history.push(n); if(history.length > 250) history.shift(); saveToLocal(); updateView(); };
+    container.appendChild(btn);
   }
 }
 
-function addNumber(n) {
-  const max = parseInt(maxHistoryInput.value) || 250;
-  history.push(n);
-  if (history.length > max) history.shift();
-  saveToLocal();
-  updateView();
-}
+document.getElementById("undo-btn").onclick = () => { history.pop(); saveToLocal(); updateView(); };
+document.getElementById("clear-btn").onclick = () => { if(confirm("Clear engine?")) { history = []; saveToLocal(); updateView(); } };
 
-document.getElementById("undo-btn").onclick = () => {
-  history.pop();
-  saveToLocal();
-  updateView();
-};
+// --- V5 CORE ENGINE ---
+function analyze() {
+  if (history.length < 5) return null;
 
-document.getElementById("clear-btn").onclick = () => { 
-  if(confirm("Wipe all data and restart session?")) { 
-    history = []; 
-    saveToLocal(); 
-    updateView(); 
-  } 
-};
-
-function getNeighbors(num, count=1) {
-  const idx = wheelIdx[num];
-  const res = [];
-  for(let i=1; i<=count; i++) {
-    res.push(WHEEL[(idx + i) % 37], WHEEL[(idx - i + 37) % 37]);
-  }
-  return res;
-}
-
-// --- V4.5 LOGIC: HOT FREQUENCY + POSITION DECAY ---
-function analyze(hist) {
-  if(hist.length < 4) return null;
-
-  const windowSize = Math.min(hist.length, currentParams.windowSize);
-  const window = hist.slice(-windowSize);
+  const win = history.slice(-currentParams.window);
   const scores = new Array(37).fill(0);
+  const lastNum = history[history.length-1];
 
-  // 1. Hot Number / Frequency Logic
-  const frequencyMap = {};
-  window.forEach((n, i) => {
-    frequencyMap[n] = (frequencyMap[n] || 0) + 1;
-    
-    // Recency Score (how long ago did it appear)
-    const recencyWeight = (i / windowSize) * currentParams.recencyMult;
-    scores[n] += (1 + recencyWeight);
+  // 1. Hot Frequency & Recency
+  win.forEach((n, i) => {
+    let weight = (i / win.length) * currentParams.recency;
+    scores[n] += (1 + weight);
   });
 
-  // Apply non-linear Frequency Bonus (Hot numbers get way more probability)
+  // 2. Sector Stability (Which slice of the wheel is active?)
+  let sectorHits = { Voisins: 0, Tiers: 0, Orphelins: 0 };
+  win.slice(-15).forEach(n => {
+    for (let s in SECTORS) if (SECTORS[s].includes(n)) sectorHits[s]++;
+  });
+  let activeSector = Object.keys(sectorHits).reduce((a, b) => sectorHits[a] > sectorHits[b] ? a : b);
+
+  // 3. Dealer Rhythm (Jump Logic)
+  let jumps = [];
+  for(let i=1; i < win.length; i++) {
+    let d = wheelIdx[win[i]] - wheelIdx[win[i-1]];
+    jumps.push(d < 0 ? d + 37 : d);
+  }
+  let avgJump = jumps.slice(-10).reduce((a,b)=>a+b,0) / 10;
+  
+  // Calculate Dispersion (Stability)
+  let variance = jumps.slice(-10).reduce((a,b) => a + Math.pow(b - avgJump, 2), 0) / 10;
+  let stability = Math.max(0, 100 - (variance * 2.5));
+
+  // 4. Final Convergence Scoring
   ALL.forEach(n => {
-    if (frequencyMap[n] > 1) {
-      scores[n] *= Math.pow(frequencyMap[n], 1.4); 
-    }
-  });
-
-  // 2. Physical Momentum (The Dealer Angle)
-  let vx = 0, vy = 0;
-  window.forEach((n, i) => {
-    const weight = Math.pow(currentParams.momentumBase, i);
-    const rad = (wheelIdx[n]/37) * 2 * Math.PI;
-    vx += Math.cos(rad) * weight;
-    vy += Math.sin(rad) * weight;
-  });
-  const biasAngle = Math.atan2(vy, vx);
-
-  // 3. Last Position Penalty (The logic: Numbers in the exact same physical spot repeat less often)
-  const lastNum = hist[hist.length-1];
-  const lastIdx = wheelIdx[lastNum];
-
-  ALL.forEach(n => {
-    const nIdx = wheelIdx[n];
+    // Sector Bonus
+    if (SECTORS[activeSector].includes(n)) scores[n] += currentParams.sectorWeight;
     
-    // Bias Score (Proximity to current physical momentum)
-    const rad = (nIdx/37) * 2 * Math.PI;
-    const diff = Math.abs(rad - biasAngle);
-    const dist = Math.min(diff, 2*Math.PI - diff);
-    if (dist < currentParams.sectorRadius) {
-      scores[n] += (currentParams.sectorRadius - dist) * 15;
-    }
+    // Rhythm alignment
+    let expectedIdx = (wheelIdx[lastNum] + Math.round(avgJump)) % 37;
+    let distToJump = Math.min(Math.abs(wheelIdx[n] - expectedIdx), 37 - Math.abs(wheelIdx[n] - expectedIdx));
+    if (distToJump <= 1) scores[n] += (stability / 10);
 
-    // POSITION PENALTY: Slash score if this is the exact pocket that just hit
-    if (nIdx === lastIdx) {
-      scores[n] *= currentParams.antiRepeatPenalty;
-    }
+    // Physical Position Decay (From User Request)
+    if (wheelIdx[n] === wheelIdx[lastNum]) scores[n] *= 0.4;
   });
 
   const ranked = ALL.map(n => ({ n, s: scores[n] })).sort((a,b) => b.s - a.s);
-  const avg = ranked.reduce((a,b)=>a+b.s,0)/37;
-  const strength = ranked[0].s / (avg || 1);
   
-  // Calculate Confidence based on Frequency Consensus
-  let topHits = frequencyMap[ranked[0].n] || 0;
-  let confidence = Math.min(99, (strength * 10) + (topHits * 8));
+  // Robust Confidence calculation
+  let topFiveAvg = ranked.slice(0,5).reduce((a,b)=>a+b.s, 0) / 5;
+  let totalAvg = ranked.reduce((a,b)=>a+b.s, 0) / 37;
+  let confidence = Math.min(99, ((topFiveAvg / totalAvg) - 1.2) * 45);
+  if (stability < 30) confidence *= 0.5; // Massive penalty for chaotic dealer
 
-  return { ranked, confidence, strength, lastNum };
+  return { ranked, confidence, activeSector, stability, avgJump };
 }
 
 function updateView() {
-  countBadge.textContent = `${history.length} SPINS`;
-  if(history.length === 0) {
-    historyDisplay.innerHTML = "AWAITING DATA";
-    return;
-  }
+  const display = document.getElementById("history-display");
+  const list = document.getElementById("predictions");
+  const count = document.getElementById("count-badge");
+  
+  if (history.length === 0) { display.innerHTML = "..."; list.innerHTML = ""; return; }
+  
+  display.innerHTML = history.slice().reverse().map(n => 
+    `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`
+  ).join(" ");
 
-  historyDisplay.innerHTML = history.slice().reverse().slice(0,20)
-    .map(n => `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`)
-    .join(" ");
-
-  const data = analyze(history);
+  const data = analyze();
   if (!data) return;
 
-  const conf = data.confidence;
-  confidenceBar.style.width = `${conf}%`;
-  confidenceBar.style.backgroundColor = conf > 65 ? 'var(--green)' : (conf > 40 ? 'var(--gold)' : '#d32f2f');
-  confidenceText.textContent = `${Math.round(conf)}%`;
+  const bar = document.getElementById("confidence-bar");
+  const text = document.getElementById("confidence-text");
+  const status = document.getElementById("algo-status");
+
+  bar.style.width = data.confidence + "%";
+  text.textContent = Math.round(data.confidence) + "%";
   
-  algoStatus.className = `status-pill ${conf > 55 ? "status-bet" : "status-wait"}`;
-  algoStatus.textContent = conf > 55 ? "STRIKE ZONE" : "OBSERVING";
+  if (data.confidence > 55) {
+    status.className = "status-pill status-bet";
+    status.textContent = "STRIKE ZONE";
+    bar.style.background = "var(--green)";
+  } else {
+    status.className = "status-pill status-wait";
+    status.textContent = "OBSERVING";
+    bar.style.background = "var(--blue)";
+  }
 
-  statHot.textContent = data.ranked[0].n;
-  statCycle.textContent = (data.strength).toFixed(1) + "x";
+  document.getElementById("stat-sector").textContent = data.activeSector;
+  document.getElementById("stat-cycle").textContent = data.avgJump.toFixed(1);
+  document.getElementById("stat-backtest").textContent = Math.round(data.stability) + "%";
 
-  let sec = "-";
-  for (let k in SECTORS) { if (SECTORS[k].includes(data.ranked[0].n)) { sec = k; break; } }
-  statSector.textContent = sec;
-
-  predictionsList.innerHTML = "";
-  const balance = parseFloat(balanceInput.value) || 1000;
-
-  data.ranked.slice(0,5).forEach((item, i) => {
+  list.innerHTML = "";
+  const bankroll = parseFloat(document.getElementById("balance-input").value) || 1000;
+  
+  data.ranked.slice(0,7).forEach((item, i) => {
     const li = document.createElement("li");
-    if (i===0) li.className = "top-pick";
+    if (i === 0) li.className = "top-pick";
     
-    // Smart bet sizing based on confidence and rank
-    const betSize = Math.max(1, (balance * 0.01) * (conf / 50) * (1 - i * 0.15)).toFixed(1);
+    // Proportional betting: Only bet heavy when confidence is high
+    let unit = (bankroll * 0.005) * (data.confidence / 50);
+    let bet = Math.max(0, unit * (1 - i*0.15)).toFixed(1);
 
     li.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center">
-        <div class="pred-num ${item.n===0?'green-txt':REDS.includes(item.n)?'red-txt':'black-txt'}">${item.n}</div>
-        <div style="font-size:0.6rem;color:#555">WHEEL:${wheelIdx[item.n]}</div>
-      </div>
-      <div class="pred-stats">PROB: ${item.s.toFixed(1)}</div>
-      <div class="pred-bet">BET: $${betSize}</div>
+      <div class="pred-num ${item.n===0?'green-txt':REDS.includes(item.n)?'red-txt':'black-txt'}">${item.n}</div>
+      <div class="pred-stats">Sector: ${Object.keys(SECTORS).find(k=>SECTORS[k].includes(item.n)) || 'Misc'}<br>Weight: ${item.s.toFixed(1)}</div>
+      <div class="pred-bet">$${bet}</div>
     `;
-    predictionsList.appendChild(li);
+    list.appendChild(li);
   });
 }
 
-// --- INIT ---
 createButtons();
 loadFromLocal();
 updateView();
