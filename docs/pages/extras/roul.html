@@ -3,240 +3,327 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Precision Architect V5.0 – Fusion Engine</title>
+<title>ARCHITECT V17.0 – REALTIME BACKTEST</title>
 <style>
 :root {
-  --bg:#0a0a0c; --panel:#16161a; --border:#2d2d33; --text:#ececed;
-  --red:#ff4d4d; --green:#00e676; --gold:#ffc107; --blue:#2979ff;
+  --bg:#000; --pnl:#0a0b10; --brd:#222; --txt:#fff;
+  --rd:#ff3b30; --gr:#34c759; --gl:#ffcc00; --cy:#5ac8fa; --pr:#af52de;
 }
-body{font-family:'Inter',system-ui,sans-serif;margin:16px;background:var(--bg);color:var(--text);line-height:1.5}
-h1{font-size:1.2rem;margin:0 0 1rem;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px}
-.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-bottom:1rem}
-button.num{padding:12px 0;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:1rem;background:#1e1e24;color:#eee;transition:all 0.1s;font-weight:600}
-button.num:hover{background:#2d2d38}
-button.num:active{transform:scale(0.9)}
-button.zero{background:#004d40;border-color:var(--green)}
-button.red{color:var(--red)}
-.panel{margin-bottom:1rem;padding:16px;border-radius:12px;background:var(--panel);border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.5)}
-.label{font-weight:700;color:#71717a;margin-bottom:8px;display:block;text-transform:uppercase;font-size:0.7rem;letter-spacing:1.5px}
-.history{font-family:'JetBrains Mono',monospace;font-size:1.1rem;background:#000;padding:12px;border-radius:8px;border:1px solid #222;overflow-x:auto;white-space:nowrap}
-.predictions li{margin-bottom:8px;padding:12px;background:#212126;border-radius:8px;display:flex;justify-content:space-between;align-items:center;border-left:4px solid transparent;transition:0.3s}
-.predictions li.top-pick{border-left-color:var(--gold);background:linear-gradient(90deg, #2a240d, #212126)}
-.pred-num{font-size:1.5rem;font-weight:900;width:50px}
-.pred-stats{font-size:0.75rem;color:#a1a1aa;text-align:right;flex:1;margin-right:15px}
-.pred-bet{font-size:1.1rem;color:var(--green);font-weight:800;width:80px;text-align:right}
-.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem}
-.stat-box{background:#1e1e24;padding:12px;border-radius:8px;text-align:center;border:1px solid var(--border)}
-.stat-val{font-weight:800;color:#fff;font-size:1.1rem;margin-top:4px;display:block}
-.controls{display:flex;gap:8px;margin-top:10px}
-input[type=number]{width:80px;padding:8px;border:1px solid #333;border-radius:6px;background:#000;color:var(--gold);font-weight:bold}
-button.ctrl{padding:10px;background:#2d2d38;border:none;color:#fff;border-radius:6px;font-weight:600;cursor:pointer;flex:1}
-.confidence-meter{height:8px;background:#000;border-radius:4px;margin:12px 0;overflow:hidden;border:1px solid #222}
-.confidence-fill{height:100%;background:var(--blue);width:0;transition:width 1s ease-in-out}
-.status-pill{padding:6px 14px;border-radius:30px;font-size:0.7rem;font-weight:900;letter-spacing:1px}
-.status-wait{background:#271b1b;color:#ef4444;border:1px solid #451a1a}
-.status-bet{background:#142914;color:#22c55e;border:1px solid #166534}
-.red-txt{color:var(--red)}.black-txt{color:#fff}.green-txt{color:var(--green)}
+body{font-family:'Consolas', monospace; margin:8px; background:var(--bg); color:var(--txt); line-height:1.1; overflow-x:hidden}
+h1{font-size:0.85rem; margin:0 0 10px; display:flex; justify-content:space-between; color:var(--cy); border-bottom:1px solid #333; padding-bottom:5px}
+.grid{display:grid; grid-template-columns:repeat(10,1fr); gap:3px; margin-bottom:10px}
+button.num{padding:14px 0; border:1px solid #1a1a1a; border-radius:4px; cursor:pointer; font-size:1.1rem; background:#111; color:#eee; font-weight:900}
+button.num:active{background:var(--pr); color:#000; transform: scale(0.9)}
+button.zero{background:#003d33; border-color:var(--gr)}
+button.red{color:var(--rd)}
+.panel{margin-bottom:8px; padding:12px; border-radius:6px; background:var(--pnl); border:1px solid #1f1f2a; box-shadow: inset 0 0 20px #000}
+.label{font-weight:900; color:#444; margin-bottom:6px; display:block; font-size:0.6rem; text-transform:uppercase; letter-spacing:2px}
+.history{font-size:1.2rem; background:#000; padding:10px; border-radius:4px; overflow-x:auto; white-space:nowrap; color:var(--gl); border:1px solid #111; margin-bottom:10px}
+.method-matrix{display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-bottom:10px}
+.m-card{background:#0d0d15; padding:8px 2px; border-radius:4px; text-align:center; border:1px solid #1a1a25; border-top:3px solid #333}
+.m-name{font-size:0.4rem; color:#666; display:block; margin-bottom:4px}
+.m-val{font-size:1.4rem; font-weight:900; color:var(--txt)}
+.predictions li{margin-bottom:6px; padding:12px; background:#08080c; border-radius:4px; display:flex; justify-content:space-between; align-items:center; border-left:4px solid #1a1a1a}
+.pred-num{font-size:2rem; font-weight:900; width:50px; color:var(--cy)}
+.pred-data{font-size:0.65rem; color:#777; flex:1; text-align:right; margin-right:15px; line-height:1.4}
+.pred-bet{font-size:1.3rem; color:var(--gr); font-weight:900; width:65px; text-align:right}
+.controls{display:flex; gap:5px; margin-bottom:10px}
+button.ctrl{padding:10px; background:#111; border:1px solid #222; color:#555; border-radius:4px; font-weight:900; cursor:pointer; flex:1; font-size:0.6rem}
+.red-txt{color:var(--rd)}.black-txt{color:#fff}.green-txt{color:var(--gr)}
+#sim-progress{height:2px; background:var(--pr); width:0%; transition: width 0.3s}
+#debug-engines,#debug-drift{font-size:0.55rem; color:#888; margin-top:4px}
 </style>
 </head>
 <body>
 
 <h1>
-  <span>ARCHITECT V5.0 <small style="font-size:0.6rem;opacity:0.5">FUSION ENGINE</small></span>
-  <span id="algo-status" class="status-pill status-wait">ANALYZING</span>
+  <span>ARCHITECT V17.0 REALTIME BACKTEST</span>
+  <span id="load-status" style="font-size:0.6rem; color:var(--pr)">CPU STANDBY</span>
 </h1>
+<div id="sim-progress"></div>
 
 <div class="panel">
-  <div class="label">Wheel Input</div>
+  <div class="label">Field-Data Entry</div>
   <div id="buttons-container" class="grid"></div>
   <div class="controls">
-    <button id="undo-btn" class="ctrl">Undo</button>
-    <button id="clear-btn" class="ctrl">Reset Engine</button>
-    <input type="number" id="max-history" value="200" title="Deep Memory Size" />
+    <button id="undo-btn" class="ctrl">UNDO</button>
+    <button id="clear-btn" class="ctrl">CLEAR SIM</button>
+    <input type="number" id="balance-input" value="1000" style="width:75px; background:#000; color:var(--gl); border:1px solid #333; padding:8px; font-weight:bold" />
   </div>
-  <div class="history" id="history-display" style="margin-top:12px">...</div>
+  <div class="history" id="history-display">AWAITING SEQUENCE...</div>
 </div>
 
-<div class="stats-grid">
-  <div class="stat-box"><span class="label">Hot Sector</span><span id="stat-sector" class="stat-val">-</span></div>
-  <div class="stat-box"><span class="label">Rhythm</span><span id="stat-cycle" class="stat-val">-</span></div>
-  <div class="stat-box"><span class="label">Stability</span><span id="stat-backtest" class="stat-val">-</span></div>
+<div class="method-matrix">
+  <div class="m-card" style="border-top-color:var(--rd)"><span class="m-name">KDE</span><span id="m1" class="m-val">-</span></div>
+  <div class="m-card" style="border-top-color:var(--cy)"><span class="m-name">MARKOV</span><span id="m2" class="m-val">-</span></div>
+  <div class="m-card" style="border-top-color:var(--gr)"><span class="m-name">SECTOR</span><span id="m3" class="m-val">-</span></div>
+  <div class="m-card" style="border-top-color:var(--gl)"><span class="m-name">COLD</span><span id="m4" class="m-val">-</span></div>
+  <div class="m-card" style="border-top-color:var(--pr)"><span class="m-name">SHOCK</span><span id="m5" class="m-val">-</span></div>
 </div>
 
 <div class="panel">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <div style="flex:1">
-      <span class="label">Bankroll Management</span>
-      <input type="number" id="balance-input" value="1000" style="width:100%" />
-    </div>
-    <div style="flex:1;text-align:right">
-      <span class="label">Fusion Confidence</span>
-      <div id="confidence-text" style="font-size:1.4rem;font-weight:900;color:var(--blue)">0%</div>
-    </div>
-  </div>
-  <div class="confidence-meter"><div id="confidence-bar" class="confidence-fill"></div></div>
-  
-  <ul id="predictions" class="predictions" style="margin-top:15px;padding:0;list-style:none"></ul>
+  <span class="label">High-Density Convergence Zones (4)</span>
+  <ul id="predictions" class="predictions" style="margin:0; padding:0; list-style:none"></ul>
+  <div id="debug-engines"></div>
+  <div id="debug-drift"></div>
 </div>
 
 <script>
-const ALL = Array.from({length:37}, (_,i)=>i);
-const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 const wheelIdx = {}; WHEEL.forEach((n,i)=>wheelIdx[n]=i);
-
-const SECTORS = { 
-  "Voisins": [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21,2,25], 
-  "Tiers": [27,13,36,11,30,8,23,10,5,24,16,33], 
-  "Orphelins": [1,20,14,31,9,17,34,6] 
-};
-
 let history = [];
-let currentParams = { window: 35, recency: 4.2, momentum: 1.15, sectorWeight: 8 };
 
-function saveToLocal() {
-  localStorage.setItem('roulette_v5_history', JSON.stringify(history));
-  localStorage.setItem('roulette_v5_balance', document.getElementById("balance-input").value);
-}
+// === PARAMETER POPULATION ===
+let paramSets = [];
+const PARAM_COUNT = 14;
+let paramScores = new Array(PARAM_COUNT).fill(0);
 
-function loadFromLocal() {
-  const h = localStorage.getItem('roulette_v5_history');
-  const b = localStorage.getItem('roulette_v5_balance');
-  if (h) history = JSON.parse(h);
-  if (b) document.getElementById("balance-input").value = b;
+function randomParams() {
+  return {
+    kdeRadius: Math.floor(Math.random()*4)+4,
+    kdeDecay: 1.10 + Math.random()*0.12,
+    markovDepth: Math.floor(Math.random()*10)+10,
+    sectorDecay: 1.10 + Math.random()*0.10,
+    shockMult: 1.2 + Math.random()*0.6,
+    coldPenalty: 2.0 + Math.random()*2.0,
+    weights: [
+      1.5 + Math.random()*1.5,
+      1.5 + Math.random()*1.5,
+      1.5 + Math.random()*1.5,
+      1.0 + Math.random()*1.0,
+      1.5 + Math.random()*1.5
+    ],
+    temp: 0.35 + Math.random()*0.25
+  };
 }
+for (let i=0; i<PARAM_COUNT; i++) paramSets.push(randomParams());
+
+function save() { localStorage.setItem('v17_history', JSON.stringify(history)); }
+function load() { const h = localStorage.getItem('v17_history'); if (h) history = JSON.parse(h); }
 
 function createButtons() {
   const container = document.getElementById("buttons-container");
-  container.innerHTML = "";
   for (let n = 0; n <= 36; n++) {
     const btn = document.createElement("button");
     btn.textContent = n;
     btn.className = "num" + (n===0 ? " zero" : REDS.includes(n) ? " red" : "");
-    btn.onclick = () => { history.push(n); if(history.length > 250) history.shift(); saveToLocal(); updateView(); };
+    btn.onclick = () => { process(n); };
     container.appendChild(btn);
   }
 }
 
-document.getElementById("undo-btn").onclick = () => { history.pop(); saveToLocal(); updateView(); };
-document.getElementById("clear-btn").onclick = () => { if(confirm("Clear engine?")) { history = []; saveToLocal(); updateView(); } };
-
-// --- V5 CORE ENGINE ---
-function analyze() {
-  if (history.length < 5) return null;
-
-  const win = history.slice(-currentParams.window);
-  const scores = new Array(37).fill(0);
-  const lastNum = history[history.length-1];
-
-  // 1. Hot Frequency & Recency
-  win.forEach((n, i) => {
-    let weight = (i / win.length) * currentParams.recency;
-    scores[n] += (1 + weight);
-  });
-
-  // 2. Sector Stability (Which slice of the wheel is active?)
-  let sectorHits = { Voisins: 0, Tiers: 0, Orphelins: 0 };
-  win.slice(-15).forEach(n => {
-    for (let s in SECTORS) if (SECTORS[s].includes(n)) sectorHits[s]++;
-  });
-  let activeSector = Object.keys(sectorHits).reduce((a, b) => sectorHits[a] > sectorHits[b] ? a : b);
-
-  // 3. Dealer Rhythm (Jump Logic)
-  let jumps = [];
-  for(let i=1; i < win.length; i++) {
-    let d = wheelIdx[win[i]] - wheelIdx[win[i-1]];
-    jumps.push(d < 0 ? d + 37 : d);
-  }
-  let avgJump = jumps.slice(-10).reduce((a,b)=>a+b,0) / 10;
-  
-  // Calculate Dispersion (Stability)
-  let variance = jumps.slice(-10).reduce((a,b) => a + Math.pow(b - avgJump, 2), 0) / 10;
-  let stability = Math.max(0, 100 - (variance * 2.5));
-
-  // 4. Final Convergence Scoring
-  ALL.forEach(n => {
-    // Sector Bonus
-    if (SECTORS[activeSector].includes(n)) scores[n] += currentParams.sectorWeight;
-    
-    // Rhythm alignment
-    let expectedIdx = (wheelIdx[lastNum] + Math.round(avgJump)) % 37;
-    let distToJump = Math.min(Math.abs(wheelIdx[n] - expectedIdx), 37 - Math.abs(wheelIdx[n] - expectedIdx));
-    if (distToJump <= 1) scores[n] += (stability / 10);
-
-    // Physical Position Decay (From User Request)
-    if (wheelIdx[n] === wheelIdx[lastNum]) scores[n] *= 0.4;
-  });
-
-  const ranked = ALL.map(n => ({ n, s: scores[n] })).sort((a,b) => b.s - a.s);
-  
-  // Robust Confidence calculation
-  let topFiveAvg = ranked.slice(0,5).reduce((a,b)=>a+b.s, 0) / 5;
-  let totalAvg = ranked.reduce((a,b)=>a+b.s, 0) / 37;
-  let confidence = Math.min(99, ((topFiveAvg / totalAvg) - 1.2) * 45);
-  if (stability < 30) confidence *= 0.5; // Massive penalty for chaotic dealer
-
-  return { ranked, confidence, activeSector, stability, avgJump };
+async function process(n) {
+  document.getElementById("load-status").textContent = "SIMULATING...";
+  document.getElementById("sim-progress").style.width = "100%";
+  history.push(n);
+  if(history.length > 500) history.shift();
+  save();
+  await new Promise(r => setTimeout(r, 200));
+  update();
+  document.getElementById("sim-progress").style.width = "0%";
+  document.getElementById("load-status").textContent = "STABLE";
 }
 
-function updateView() {
-  const display = document.getElementById("history-display");
-  const list = document.getElementById("predictions");
-  const count = document.getElementById("count-badge");
-  
-  if (history.length === 0) { display.innerHTML = "..."; list.innerHTML = ""; return; }
-  
-  display.innerHTML = history.slice().reverse().map(n => 
-    `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`
-  ).join(" ");
+function runPredictionWithParams(hist, params) {
+  const {kdeRadius, kdeDecay, markovDepth, sectorDecay, shockMult, coldPenalty, weights, temp} = params;
+  const scoreA = new Array(37).fill(0);
+  const scoreB = new Array(37).fill(0);
+  const scoreC = new Array(37).fill(0);
+  const scoreD = new Array(37).fill(0);
+  const scoreE = new Array(37).fill(0);
+  const last = hist[hist.length-1];
 
-  const data = analyze();
-  if (!data) return;
-
-  const bar = document.getElementById("confidence-bar");
-  const text = document.getElementById("confidence-text");
-  const status = document.getElementById("algo-status");
-
-  bar.style.width = data.confidence + "%";
-  text.textContent = Math.round(data.confidence) + "%";
-  
-  if (data.confidence > 55) {
-    status.className = "status-pill status-bet";
-    status.textContent = "STRIKE ZONE";
-    bar.style.background = "var(--green)";
-  } else {
-    status.className = "status-pill status-wait";
-    status.textContent = "OBSERVING";
-    bar.style.background = "var(--blue)";
+  // KDE
+  for (let i=0; i<Math.min(30,hist.length); i++) {
+    const n = hist[hist.length-1-i];
+    const w = Math.pow(kdeDecay, i);
+    const c = wheelIdx[n];
+    for (let j=-kdeRadius; j<=kdeRadius; j++) {
+      const idx = (c + j + 37) % 37;
+      const p = WHEEL[idx];
+      const g = Math.exp(-(j*j)/4);
+      scoreA[p] += g * w;
+    }
   }
 
-  document.getElementById("stat-sector").textContent = data.activeSector;
-  document.getElementById("stat-cycle").textContent = data.avgJump.toFixed(1);
-  document.getElementById("stat-backtest").textContent = Math.round(data.stability) + "%";
+  // Markov
+  const T = Array.from({length:37},()=>new Array(37).fill(0));
+  const recent = hist.slice(-markovDepth);
+  for (let i=1; i<recent.length; i++) {
+    const a = wheelIdx[recent[i-1]];
+    const b = wheelIdx[recent[i]];
+    T[a][b] += Math.pow(1.2, i);
+  }
+  const row = T[wheelIdx[last]];
+  const sumRow = row.reduce((a,b)=>a+b,0) || 1;
+  for (let i=0; i<37; i++) scoreB[WHEEL[i]] += (row[i]/sumRow)*3;
 
+  // Sector momentum
+  const sectors = [0,0,0,0,0,0];
+  for (let i=0; i<recent.length; i++) {
+    const n = recent[recent.length-1-i];
+    const sec = Math.floor(wheelIdx[n]/6.2);
+    sectors[sec] += Math.pow(sectorDecay, i);
+  }
+  const bestSec = sectors.indexOf(Math.max(...sectors));
+  for (let i=0; i<37; i++) {
+    const sec = Math.floor(i/6.2);
+    scoreC[WHEEL[i]] += sec===bestSec ? 2 : 0.2;
+  }
+
+  // Anti-cold
+  const freq = new Array(37).fill(0);
+  hist.slice(-80).forEach(n=>freq[n]++);
+  const cold = WHEEL.slice().sort((a,b)=>freq[a]-freq[b]).slice(0,6);
+  const coldSet = new Set(cold);
+  for (let i=0; i<37; i++) {
+    const n = WHEEL[i];
+    if (coldSet.has(n)) scoreD[n] -= coldPenalty;
+  }
+
+  // Shock trend
+  const jumps = [];
+  for (let i=1; i<hist.length; i++){
+    let d = wheelIdx[hist[i]] - wheelIdx[hist[i-1]];
+    jumps.push(d<0?d+37:d);
+  }
+  const lastJ = jumps[jumps.length-1] || 0;
+  const prevJ = jumps[jumps.length-2] || lastJ;
+  const shock = Math.round((lastJ*shockMult + prevJ*0.5)/2);
+  const center = (wheelIdx[last] + shock) % 37;
+  for (let i=0; i<37; i++){
+    const dist = Math.min(Math.abs(i-center), 37-Math.abs(i-center));
+    scoreE[WHEEL[i]] += Math.exp(-(dist*dist)/6)*2;
+  }
+
+  // Fusion
+  const density = new Array(37).fill(0);
+  for (let i=0; i<37; i++){
+    const n = WHEEL[i];
+    const fused =
+      scoreA[n]*weights[0] +
+      scoreB[n]*weights[1] +
+      scoreC[n]*weights[2] +
+      scoreD[n]*weights[3] +
+      scoreE[n]*weights[4];
+    density[n] = Math.exp(fused/temp);
+  }
+  const sumD = density.reduce((a,b)=>a+b,0) || 1;
+  for (let i=0; i<37; i++) density[i] /= sumD;
+
+  return {
+    top4: WHEEL.map(n=>({n,s:density[n]}))
+               .sort((a,b)=>b.s-a.s)
+               .slice(0,4)
+               .map(x=>x.n),
+    density,
+    scoreA,scoreB,scoreC,scoreD,scoreE
+  };
+}
+
+function update() {
+  if (history.length < 3) return;
+  const last = history[history.length-1];
+  const histRev = [...history].reverse();
+
+  // REALTIME BACKTESTING
+  if (history.length > 25) {
+    for (let p = 0; p < paramSets.length; p++) {
+      let params = paramSets[p];
+      let score = 0;
+      for (let i = history.length - 22; i < history.length - 2; i++) {
+        const slice = history.slice(0, i);
+        const actualNext = history[i+1];
+        const res = runPredictionWithParams(slice, params);
+        if (res.top4.includes(actualNext)) score++;
+      }
+      paramScores[p] = score;
+    }
+    const rankedP = paramSets
+      .map((ps, idx) => ({ps, idx, score: paramScores[idx]}))
+      .sort((a,b)=>b.score - a.score);
+    const survivors = rankedP.slice(0, 4);
+    const newPop = survivors.map(s => s.ps);
+    while (newPop.length < PARAM_COUNT) {
+      const a = survivors[Math.floor(Math.random()*survivors.length)].ps;
+      const b = survivors[Math.floor(Math.random()*survivors.length)].ps;
+      const child = JSON.parse(JSON.stringify(a));
+      const keys = Object.keys(child);
+      const key = keys[Math.floor(Math.random()*keys.length)];
+      if (typeof child[key] === "number") {
+        child[key] = (child[key] + b[key]) / 2 + (Math.random()*0.2 - 0.1);
+      } else if (Array.isArray(child[key])) {
+        for (let i=0; i<child[key].length; i++) {
+          child[key][i] = (child[key][i] + b[key][i]) / 2 + (Math.random()*0.2 - 0.1);
+        }
+      }
+      newPop.push(child);
+    }
+    paramSets = newPop;
+  }
+
+  // pick best param set
+  let bestIdx = 0;
+  if (history.length > 25) {
+    bestIdx = paramScores.indexOf(Math.max(...paramScores));
+  }
+  const bestParams = paramSets[bestIdx];
+
+  const result = runPredictionWithParams(history, bestParams);
+  const ranked = result.top4.map(n => ({n, s: result.density[n]}));
+  window.lastTop4 = ranked.map(x=>x.n);
+
+  // HISTORY UI
+  document.getElementById("history-display").innerHTML =
+    histRev.slice(0,14).map(n =>
+      `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`
+    ).join(" ");
+
+  // PREDICTIONS UI
+  const list = document.getElementById("predictions");
   list.innerHTML = "";
-  const bankroll = parseFloat(document.getElementById("balance-input").value) || 1000;
-  
-  data.ranked.slice(0,7).forEach((item, i) => {
+  ranked.forEach((item, i) => {
     const li = document.createElement("li");
-    if (i === 0) li.className = "top-pick";
-    
-    // Proportional betting: Only bet heavy when confidence is high
-    let unit = (bankroll * 0.005) * (data.confidence / 50);
-    let bet = Math.max(0, unit * (1 - i*0.15)).toFixed(1);
-
+    li.style.borderLeftColor = i < 2 ? 'var(--pr)' : '#222';
     li.innerHTML = `
       <div class="pred-num ${item.n===0?'green-txt':REDS.includes(item.n)?'red-txt':'black-txt'}">${item.n}</div>
-      <div class="pred-stats">Sector: ${Object.keys(SECTORS).find(k=>SECTORS[k].includes(item.n)) || 'Misc'}<br>Weight: ${item.s.toFixed(1)}</div>
-      <div class="pred-bet">$${bet}</div>
+      <div class="pred-data">
+        Density: ${Math.floor(item.s*1000)} pts<br>
+        Sector: ${Math.floor(wheelIdx[item.n]/12)}
+      </div>
+      <div class="pred-bet">$${Math.max(1, (20 - i*4))}</div>
     `;
     list.appendChild(li);
   });
+
+  // DEBUG + METHOD CARDS
+  const dbg = document.getElementById("debug-engines");
+  if (dbg) {
+    dbg.innerHTML = `BEST PARAM IDX: ${bestIdx} | SCORE: ${paramScores[bestIdx] || 0}`;
+  }
+  const dbgDrift = document.getElementById("debug-drift");
+  if (dbgDrift) {
+    dbgDrift.innerHTML = `PARAMS: KDEr=${bestParams.kdeRadius}, KDd=${bestParams.kdeDecay.toFixed(2)}, MKd=${bestParams.markovDepth}, SD=${bestParams.sectorDecay.toFixed(2)}, SH=${bestParams.shockMult.toFixed(2)}, CP=${bestParams.coldPenalty.toFixed(2)}, T=${bestParams.temp.toFixed(2)}`;
+  }
+
+  const scoreA = result.scoreA, scoreB = result.scoreB, scoreC = result.scoreC, scoreD = result.scoreD, scoreE = result.scoreE;
+  const bestA = WHEEL.reduce((a,b)=>scoreA[a]>scoreA[b]?a:b);
+  const bestB = WHEEL.reduce((a,b)=>scoreB[a]>scoreB[b]?a:b);
+  const bestC = WHEEL.reduce((a,b)=>scoreC[a]>scoreC[b]?a:b);
+  const bestD = WHEEL.reduce((a,b)=>scoreD[a]>scoreD[b]?a:b);
+  const bestE = WHEEL.reduce((a,b)=>scoreE[a]>scoreE[b]?a:b);
+  document.getElementById("m1").textContent = bestA;
+  document.getElementById("m2").textContent = bestB;
+  document.getElementById("m3").textContent = bestC;
+  document.getElementById("m4").textContent = bestD;
+  document.getElementById("m5").textContent = bestE;
 }
 
-createButtons();
-loadFromLocal();
-updateView();
+document.getElementById("undo-btn").onclick = () => { history.pop(); save(); update(); };
+document.getElementById("clear-btn").onclick = () => { if(confirm("Purge Simulation Memory?")) { history = []; save(); update(); } };
+
+createButtons(); load(); update();
 </script>
 </body>
 </html>
