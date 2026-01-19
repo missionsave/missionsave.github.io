@@ -2,194 +2,64 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Roulette Pro v8 - Auto-Optimize + Monte Carlo Top 2</title>
-<style>
-    :root { --bg: #0f1012; --panel: #1a1b1e; --border: #2a2b2e; --accent: #00d2a0; --sleepy: #ff9f43; --red: #e74c3c; --text: #ecf0f1; }
-    body {
-        font-family: 'Segoe UI', sans-serif;
-        background: var(--bg);
-        color: var(--text);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 0;
-        margin: 0;
-        height: 100vh;
-        overflow: hidden;
-    }
-    .dashboard {
-        width: 100%;
-        background: var(--panel);
-        border-bottom: 1px solid var(--border);
-        padding: 8px 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-sizing: border-box;
-    }
-    .prediction-stack {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-    .pred-box {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .pred-label {
-        font-size: 9px;
-        text-transform: uppercase;
-        color: #888;
-        width: 55px;
-        font-weight: bold;
-        line-height: 1;
-    }
-    .pred-number {
-        background: var(--accent);
-        color: #000;
-        font-weight: 800;
-        font-size: 15px;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        border: 2px solid transparent;
-    }
-    .pred-number.sleepy { background: var(--sleepy); }
-    .pred-number.montecarlo { background: #3498db; }
-    .pred-number.red { color: white; border-color: var(--red); }
-    .pred-number.zero { background: #27ae60; color: white; border-color: #fff; }
-    .stat-group {
-        display: flex;
-        gap: 12px;
-        font-size: 11px;
-        color: #aaa;
-    }
-    .stat-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        border-right: 1px solid #333;
-        padding-right: 10px;
-    }
-    .stat-item:last-child { border: none; }
-    .stat-val {
-        color: white;
-        font-weight: bold;
-        font-family: monospace;
-        font-size: 12px;
-    }
-    .stat-lbl {
-        font-size: 8px;
-        color: #666;
-        text-transform: uppercase;
-    }
-    .settings-btn {
-        background: #333;
-        border: 1px solid #555;
-        color: #ccc;
-        padding: 4px 10px;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    .layout {
-        display: flex;
-        width: 100%;
-        height: calc(100vh - 40px); /* Adjusted for dashboard height */
-        overflow: hidden;
-    }
-    .input-panel {
-        flex: 0 0 220px;
-        padding: 10px;
-        border-right: 1px solid var(--border);
-        overflow-y: auto;
-        background: #141518;
-    }
-    .grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 5px;
-    }
-    button.num-btn {
-        padding: 12px 0;
-        font-size: 15px;
-        font-weight: bold;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        background: #2d3436;
-        color: #b2bec3;
-    }
-    button.num-btn[data-c="red"] { background: #c0392b; color: white; }
-    button.num-btn[data-c="green"] { background: #27ae60; color: white; grid-column: span 3; }
-    .data-panel {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        overflow: hidden; /* Prevent double scrollbars */
-    }
-    .table-container {
-        flex: 1;
-        overflow-y: auto; /* Enable scrolling for the table */
-    }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-        text-align: center;
-    }
-    th {
-        position: sticky;
-        top: 0;
-        background: #222;
-        color: #888;
-        padding: 10px;
-        font-size: 9px;
-        text-transform: uppercase;
-        border-bottom: 2px solid #333;
-    }
-    td {
-        padding: 8px;
-        border-bottom: 1px solid #1a1b1e;
-        color: #666;
-    }
-    .row-trend { background: rgba(0, 210, 160, 0.05); border-left: 4px solid var(--accent); }
-    .row-sleepy { background: rgba(255, 159, 67, 0.05); border-left: 4px solid var(--sleepy); }
-    .controls {
-        padding: 10px;
-        border-top: 1px solid var(--border);
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-        background: var(--panel);
-    }
-    .opt-status {
-        font-size: 10px;
-        color: #8e44ad;
-        margin-left: 10px;
-    }
-    .montecarlo-section {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-top: 4px;
-    }
-    .montecarlo-label {
-        font-size: 9px;
-        text-transform: uppercase;
-        color: #888;
-        width: 55px;
-        font-weight: bold;
-        line-height: 1;
-    }
-</style>
+    <title>Roulette Pro v8 - Top 2 in UI</title>
+    <style>
+        :root { --bg: #0f1012; --panel: #1a1b1e; --border: #2a2b2e; --accent: #00d2a0; --sleepy: #ff9f43; --red: #e74c3c; --text: #ecf0f1; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; padding: 0; margin: 0; height: 100vh; overflow: hidden; }
+        
+        .dashboard { width: 100%; background: var(--panel); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; }
+        .prediction-stack { display: flex; flex-direction: column; gap: 6px; }
+        .pred-box { display: flex; align-items: center; gap: 10px; }
+        .pred-label { font-size: 9px; text-transform: uppercase; color: #888; width: 55px; font-weight: bold; line-height: 1; }
+        
+        .pred-number { background: var(--accent); color: #000; font-weight: 800; font-size: 15px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid transparent; }
+        .pred-number.sleepy { background: var(--sleepy); }
+        .pred-number.red { color: white; border-color: var(--red); }
+        .pred-number.zero { background: #27ae60; color: white; border-color: #fff; }
+        
+        .stat-group { display: flex; gap: 12px; font-size: 11px; color: #aaa; align-items: flex-start; }
+        .stat-item { display: flex; flex-direction: column; align-items: center; border-right: 1px solid #333; padding-right: 10px; }
+        .stat-item:last-child { border: none; }
+        .stat-val { color: white; font-weight: bold; font-family: monospace; font-size: 12px; }
+        .stat-lbl { font-size: 8px; color: #666; text-transform: uppercase; }
+        .settings-btn { background: #333; border: 1px solid #555; color: #ccc; padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-top: 2px; }
+        
+        #mcResults {
+            font-size: 10px;
+            font-family: monospace;
+            color: #0f0;
+            max-width: 220px;
+            line-height: 1.3;
+            margin-left: 8px;
+        }
+        #mcResults .best { color: #ffeb3b; font-weight: bold; }
+        #mcResults .second { color: #81c784; }
 
+        .settings-overlay { display: none; position: absolute; top: 75px; right: 20px; width: 280px; background: #222; border: 1px solid #444; border-radius: 8px; padding: 15px; z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .opt-btn { width: 100%; padding: 9px; background: #2c3e50; border: none; color: white; font-weight: bold; cursor: pointer; margin-top: 8px; border-radius: 4px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+        input { background: #111; border: 1px solid #444; color: white; width: 50px; padding: 4px; text-align: center; }
+
+        .layout { display: flex; width: 100%; height: calc(100vh - 95px); }
+        .input-panel { flex: 0 0 220px; padding: 10px; border-right: 1px solid var(--border); overflow-y: auto; background: #141518; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+        button.num-btn { padding: 12px 0; font-size: 15px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: #2d3436; color: #b2bec3; }
+        button.num-btn[data-c="red"] { background: #c0392b; color: white; }
+        button.num-btn[data-c="green"] { background: #27ae60; color: white; grid-column: span 3; }
+        
+        .data-panel { flex: 1; display: flex; flex-direction: column; }
+        .table-container { flex: 1; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+        th { position: sticky; top: 0; background: #222; color: #888; padding: 10px; font-size: 9px; text-transform: uppercase; border-bottom: 2px solid #333; }
+        td { padding: 8px; border-bottom: 1px solid #1a1b1e; color: #666; }
+        
+        .row-trend { background: rgba(0, 210, 160, 0.05); border-left: 4px solid var(--accent); }
+        .row-sleepy { background: rgba(255, 159, 67, 0.05); border-left: 4px solid var(--sleepy); }
+        .controls { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: center; background: var(--panel); }
+    </style>
 </head>
 <body>
+
     <div class="dashboard">
         <div class="prediction-stack">
             <div class="pred-box">
@@ -200,201 +70,232 @@
                 <span class="pred-label">Trend<br>Leader</span>
                 <div id="trendDisplay" style="display:flex; gap:8px;"></div>
             </div>
-            <div class="montecarlo-section">
-                <span class="montecarlo-label">Monte<br>Carlo</span>
-                <div id="monteCarloDisplay" style="display:flex; gap:8px;"></div>
-            </div>
         </div>
+
         <div class="stat-group">
             <div class="stat-item"><span id="tWinCount" class="stat-val">0</span><span class="stat-lbl">T-Wins</span></div>
             <div class="stat-item"><span id="sWinCount" class="stat-val">0</span><span class="stat-lbl">S-Wins</span></div>
             <div class="stat-item"><span id="tSizeVal" class="stat-val">0</span><span class="stat-lbl">T-Size</span></div>
             <div class="stat-item"><span id="sSizeVal" class="stat-val">0</span><span class="stat-lbl">S-Size</span></div>
-            <span id="optStatus" class="opt-status">Optimizing...</span>
+            
+            <div id="mcResults"></div>
+            
+            <button class="settings-btn" onclick="toggleSettings()">⚙</button>
         </div>
     </div>
+
+    <div id="settingsPanel" class="settings-overlay">
+        <h4 style="margin:0 0 10px 0;">Parameters</h4>
+        <div class="row"><label>Trend Range</label><input type="number" id="trRange" value="12"></div>
+        <div class="row"><label>Trend Hits</label><input type="number" id="trHits" value="2"></div>
+        <div class="row"><label>Sleepy Range</label><input type="number" id="slRange" value="14"></div>
+        <button class="opt-btn" onclick="applySettings()">Apply</button>
+        <button class="opt-btn" style="background:#8e44ad;" onclick="runOptimizer()">Optimize</button>
+    </div>
+
     <div class="layout">
         <div class="input-panel"><div class="grid" id="inputGrid"></div></div>
         <div class="data-panel">
             <div class="table-container">
                 <table>
-                    <thead><tr><th>Pos</th><th>Num</th><th>Hits</th><th>Last Gap</th></tr></thead>
+                    <thead><tr><th>Pos</th><th>Num</th><th>Hits</th><th>Gap</th></tr></thead>
                     <tbody id="mainTableBody"></tbody>
                 </table>
             </div>
             <div class="controls">
-                <button onclick="undo()" style="background:#333; color:#ccc; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; font-size:11px;">Undo</button>
-                <button onclick="clearData()" style="background:#333; color:#e74c3c; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; font-size:11px;">Reset</button>
+                <button onclick="undo()" style="background:#333;color:#ccc;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;font-size:11px;">Undo</button>
+                <button onclick="clearData()" style="background:#333;color:#e74c3c;border:none;padding:8px 15px;border-radius:4px;cursor:pointer;font-size:11px;">Reset</button>
             </div>
         </div>
     </div>
+
 <script>
     const STORAGE_KEY = 'missionsave_roulette';
     const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+
+    const SETTINGS = { trendRange:12, trendHits:2, sleepyRange:14, leaders:4 };
     let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-    let SETTINGS = { trendRange: 12, trendHits: 2, sleepyRange: 14, leaders: 4 };
-    let monteCarloTop = [0, 0];
-    let isOptimizing = false;
+    let runtime = { ...SETTINGS };
+    let lastMCTop = null; // will hold {best, second, sleepy, lookback, nSim}
 
     function init() {
-        const grid = document.getElementById('inputGrid');
-        addBtn(grid, 0);
-        for(let i=1; i<=36; i++) addBtn(grid, i);
+        const g = document.getElementById('inputGrid');
+        addBtn(g,0);
+        for(let i=1;i<=36;i++) addBtn(g,i);
         render();
-        if (history.length > 20) autoOptimize();
     }
 
-    function addBtn(container, num) {
-        let color = num === 0 ? 'green' : (REDS.includes(num) ? 'red' : 'black');
-        let btn = document.createElement('button');
-        btn.className = 'num-btn';
-        btn.textContent = num;
-        btn.dataset.c = color;
-        btn.onclick = () => { history.unshift(num); save(); render(); if (!isOptimizing) autoOptimize(); };
-        container.appendChild(btn);
+    function addBtn(c,n){
+        let col = n===0?'green':REDS.includes(n)?'red':'black';
+        let b = document.createElement('button');
+        b.className='num-btn'; b.textContent=n; b.dataset.c=col;
+        b.onclick=()=>{history.unshift(n);save();render();};
+        c.appendChild(b);
     }
 
-    function analyzeTrend(data, pRange, pHits) {
-        if(data.length < 5) return { window: 0, scores: {} };
-        for (let w = 5; w <= data.length; w++) {
-            let tempScores = {};
-            const sub = data.slice(0, w);
-            sub.forEach((n, i) => {
-                const interval = data.slice(i + 1).indexOf(n) + 1;
-                if (interval > 0) tempScores[interval] = (tempScores[interval] || 0) + 1;
-            });
-            let sum = 0;
-            for(let p=1; p<=pRange; p++) sum += (tempScores[p] || 0);
-            if (sum >= pHits || w === data.length) return { window: w, scores: tempScores };
+    function analyzeTrend(data, rg, ht) {
+        if(data.length<5) return {w:0,sc:{}};
+        for(let w=5;w<=data.length;w++){
+            let sc={}, sub=data.slice(0,w);
+            sub.forEach((n,i)=>{let iv=data.slice(i+1).indexOf(n)+1; if(iv>0) sc[iv]=(sc[iv]||0)+1;});
+            let s=0; for(let p=1;p<=rg;p++) s+=(sc[p]||0);
+            if(s>=ht || w===data.length) return {w,sc};
         }
-        return { window: data.length, scores: {} };
+        return {w:data.length,sc:{}};
     }
 
-    function analyzeSleepy(data, pRange) {
-        if(data.length < 3) return { window: 0, zeros: [] };
-        for (let w = 3; w <= data.length; w++) {
-            let tempScores = {};
-            const sub = data.slice(0, w);
-            sub.forEach((n, i) => {
-                const interval = data.slice(i + 1).indexOf(n) + 1;
-                if (interval > 0) tempScores[interval] = (tempScores[interval] || 0) + 1;
-            });
-            let zeros = [];
-            for (let p = 1; p <= pRange; p++) if (!tempScores[p]) zeros.push(p);
-            if (zeros.length === 3 || w === data.length) return { window: w, zeros: zeros.slice(0, 3) };
+    function analyzeSleepy(data, rg) {
+        if(data.length<3) return {w:0,z:[]};
+        for(let w=3;w<=data.length;w++){
+            let sc={}, sub=data.slice(0,w);
+            sub.forEach((n,i)=>{let iv=data.slice(i+1).indexOf(n)+1; if(iv>0) sc[iv]=(sc[iv]||0)+1;});
+            let z=[]; for(let p=1;p<=rg;p++) if(!sc[p]) z.push(p);
+            if(z.length===3 || w===data.length) return {w,z:z.slice(0,3)};
         }
-        return { window: data.length, zeros: [] };
+        return {w:data.length,z:[]};
     }
 
-    function monteCarloOptimize() {
-        isOptimizing = true;
-        document.getElementById('optStatus').textContent = 'Optimizing...';
-        setTimeout(() => {
-            const dataSource = history.length > 20 ? history : generateGhost();
-            let trBest = { range: 0, hits: 0, score: 0 };
-            let slBest = { range: 0, score: 0 };
-            let mcCounts = {};
+    function runOptimizer() {
+        const nSim = history.length > 40 ? 6 : (history.length > 15 ? 10 : 14);
+        const lookback = 60;
 
-            // Trend optimization
-            for(let r=10; r<=24; r+=2) {
-                for(let h=2; h<=4; h++) {
-                    let wins = 0;
-                    for(let i=1; i<Math.min(100, dataSource.length-1); i++) {
-                        const ana = analyzeTrend(dataSource.slice(i+1), r, h);
-                        const top = Object.keys(ana.scores).sort((a,b)=>ana.scores[b]-ana.scores[a]).slice(0,4).map(p=>dataSource.slice(i+1)[p-1]);
-                        if(top.includes(dataSource[i])) wins++;
+        const trScores = new Map();
+        const slScores = new Map();
+
+        for(let sim=0; sim<nSim; sim++){
+            const data = history.length>20 ? history : generateGhost(400);
+            for(let r=10;r<=24;r+=2){
+                for(let h=2;h<=4;h++){
+                    let wins=0;
+                    for(let i=1;i<Math.min(lookback,data.length-1);i++){
+                        const ana=analyzeTrend(data.slice(i+1),r,h);
+                        const top=Object.keys(ana.sc).sort((a,b)=>ana.sc[b]-ana.sc[a]).slice(0,4).map(p=>data.slice(i+1)[+p-1]);
+                        if(top.includes(data[i])) wins++;
                     }
-                    if(wins > trBest.score) trBest = { range: r, hits: h, score: wins };
+                    const key=`${r},${h}`;
+                    trScores.set(key, (trScores.get(key)||0) + wins);
                 }
             }
-
-            // Sleepy optimization
-            for(let r=10; r<=26; r+=2) {
-                let wins = 0;
-                for(let i=1; i<Math.min(100, dataSource.length-1); i++) {
-                    const ana = analyzeSleepy(dataSource.slice(i+1), r);
-                    if(ana.zeros.map(p=>dataSource.slice(i+1)[p-1]).includes(dataSource[i])) wins++;
+            for(let r=10;r<=26;r+=2){
+                let wins=0;
+                for(let i=1;i<Math.min(lookback,data.length-1);i++){
+                    const ana=analyzeSleepy(data.slice(i+1),r);
+                    const top=ana.z.map(p=>data.slice(i+1)[p-1]);
+                    if(top.includes(data[i])) wins++;
                 }
-                if(wins > slBest.score) slBest = { range: r, score: wins };
+                slScores.set(r, (slScores.get(r)||0) + wins);
             }
-
-            // Monte Carlo Top 2
-            for(let i=0; i<dataSource.length; i++) {
-                const num = dataSource[i];
-                mcCounts[num] = (mcCounts[num] || 0) + 1;
-            }
-            monteCarloTop = Object.keys(mcCounts).sort((a,b) => mcCounts[b] - mcCounts[a]).slice(0, 2).map(Number);
-
-            SETTINGS = { trendRange: trBest.range, trendHits: trBest.hits, sleepyRange: slBest.range, leaders: 4 };
-            document.getElementById('optStatus').textContent = `Optimized: T${trBest.range}H${trBest.hits} S${slBest.range}`;
-            render();
-            isOptimizing = false;
-        }, 100);
-    }
-
-    function autoOptimize() {
-        monteCarloOptimize();
-    }
-
-    function generateGhost() {
-        let g = []; for(let i=0; i<500; i++) g.push(Math.floor(Math.random() * 37)); return g;
-    }
-
-    function render() {
-        const tbody = document.getElementById('mainTableBody');
-        const trendDisplay = document.getElementById('trendDisplay');
-        const sleepyDisplay = document.getElementById('sleepyDisplay');
-        const monteCarloDisplay = document.getElementById('monteCarloDisplay');
-        tbody.innerHTML = ''; trendDisplay.innerHTML = ''; sleepyDisplay.innerHTML = ''; monteCarloDisplay.innerHTML = '';
-
-        const trData = analyzeTrend(history, SETTINGS.trendRange, SETTINGS.trendHits);
-        const slData = analyzeSleepy(history, SETTINGS.sleepyRange);
-
-        document.getElementById('tSizeVal').textContent = trData.window;
-        document.getElementById('sSizeVal').textContent = slData.window;
-
-        let tWins = 0, sWins = 0;
-        const checkLimit = Math.min(history.length - 1, 20);
-        for(let i=0; i<checkLimit; i++) {
-            const h_i = history.slice(i+1);
-            const t_ana = analyzeTrend(h_i, SETTINGS.trendRange, SETTINGS.trendHits);
-            const s_ana = analyzeSleepy(h_i, SETTINGS.sleepyRange);
-            const t_top = Object.keys(t_ana.scores).sort((a,b)=>t_ana.scores[b]-t_ana.scores[a]).slice(0,4).map(p=>h_i[p-1]);
-            const s_top = s_ana.zeros.map(p=>h_i[p-1]);
-            if(t_top.includes(history[i])) tWins++;
-            if(s_top.includes(history[i])) sWins++;
         }
-        document.getElementById('tWinCount').textContent = tWins;
-        document.getElementById('sWinCount').textContent = sWins;
 
-        const trendPos = Object.keys(trData.scores).map(p => ({p: parseInt(p), h: trData.scores[p]}))
-            .filter(x => x.p <= SETTINGS.trendRange && x.h > 0)
-            .sort((a,b) => b.h - a.h).slice(0, SETTINGS.leaders).map(x => x.p);
+        // Sort trend results
+        const trSorted = [...trScores.entries()]
+            .sort((a,b)=>b[1]-a[1])
+            .slice(0,2);
 
-        const badge = (num, type) => {
-            const cClass = num === 0 ? 'zero' : (REDS.includes(num) ? 'red' : '');
-            return `<div class="pred-number ${type} ${cClass}">${num}</div>`;
+        const bestTrendKey = trSorted[0][0];
+        const [bestR, bestH] = bestTrendKey.split(',').map(Number);
+        const secondTrendKey = trSorted[1] ? trSorted[1][0] : null;
+        const [secR, secH] = secondTrendKey ? secondTrendKey.split(',').map(Number) : [0,0];
+
+        const bestSl = [...slScores.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+
+        // Store for UI
+        lastMCTop = {
+            best:  {range:bestR, hits:bestH,  score: (trScores.get(bestTrendKey)/nSim).toFixed(1) },
+            second:{range:secR, hits:secH,  score: secondTrendKey ? (trScores.get(secondTrendKey)/nSim).toFixed(1) : '—' },
+            sleepy: (slScores.get(bestSl)/nSim).toFixed(1),
+            lookback,
+            nSim
         };
 
-        slData.zeros.forEach(p => sleepyDisplay.innerHTML += badge(history[p-1], 'sleepy'));
-        trendPos.forEach(p => trendDisplay.innerHTML += badge(history[p-1], 'trend'));
-        monteCarloTop.forEach(num => monteCarloDisplay.innerHTML += badge(num, 'montecarlo'));
+        // Apply best
+        runtime.trendRange = bestR;
+        runtime.trendHits  = bestH;
+        runtime.sleepyRange = bestSl;
 
-        history.forEach((num, i) => {
-            const pos = i + 1;
-            const rowClass = trendPos.includes(pos) ? 'row-trend' : (slData.zeros.includes(pos) ? 'row-sleepy' : '');
-            tbody.insertAdjacentHTML('beforeend', `<tr class="${rowClass}">
+        document.getElementById('trRange').value = bestR;
+        document.getElementById('trHits').value  = bestH;
+        document.getElementById('slRange').value = bestSl;
+
+        render();
+    }
+
+    function generateGhost(n=400){ let a=[]; for(let i=0;i<n;i++) a.push(Math.floor(Math.random()*37)); return a; }
+
+    function render(){
+        const tb=document.getElementById('mainTableBody');
+        const td=document.getElementById('trendDisplay');
+        const sd=document.getElementById('sleepyDisplay');
+        tb.innerHTML=td.innerHTML=sd.innerHTML='';
+
+        const tr=analyzeTrend(history,runtime.trendRange,runtime.trendHits);
+        const sl=analyzeSleepy(history,runtime.sleepyRange);
+
+        document.getElementById('tSizeVal').textContent=tr.w;
+        document.getElementById('sSizeVal').textContent=sl.w;
+
+        let tw=0,sw=0; const lim=Math.min(history.length-1,20);
+        for(let i=0;i<lim;i++){
+            const hi=history.slice(i+1);
+            const ta=analyzeTrend(hi,runtime.trendRange,runtime.trendHits);
+            const sa=analyzeSleepy(hi,runtime.sleepyRange);
+            const tt=Object.keys(ta.sc).sort((a,b)=>ta.sc[b]-ta.sc[a]).slice(0,4).map(p=>hi[+p-1]);
+            const st=sa.z.map(p=>hi[p-1]);
+            if(tt.includes(history[i])) tw++;
+            if(st.includes(history[i])) sw++;
+        }
+        document.getElementById('tWinCount').textContent=tw;
+        document.getElementById('sWinCount').textContent=sw;
+
+        // Monte Carlo top-2 display
+        const mcEl = document.getElementById('mcResults');
+        if(lastMCTop){
+            mcEl.innerHTML = `
+                <div class="best">Best: ${lastMCTop.best.range}/${lastMCTop.best.hits} → ${lastMCTop.best.score}/${lastMCTop.lookback}</div>
+                <div class="second">2nd:  ${lastMCTop.second.range}/${lastMCTop.second.hits} → ${lastMCTop.second.score}/${lastMCTop.lookback}</div>
+                <div>Sleepy: ${lastMCTop.sleepy}/${lastMCTop.lookback} (${lastMCTop.nSim} sims)</div>
+            `;
+        } else {
+            mcEl.innerHTML = '';
+        }
+
+        const tpos=Object.keys(tr.sc).map(p=>({p:+p,h:tr.sc[p]}))
+            .filter(x=>x.p<=runtime.trendRange&&x.h>0)
+            .sort((a,b)=>b.h-a.h).slice(0,runtime.leaders).map(x=>x.p);
+
+        const badge=(pos,type)=>{
+            const num=history[pos-1];
+            if(num===undefined) return '';
+            const cls=num===0?'zero':REDS.includes(num)?'red':'';
+            return `<div class="pred-number ${type} ${cls}">${num}</div>`;
+        };
+
+        sl.z.forEach(p=>sd.innerHTML+=badge(p,'sleepy'));
+        tpos.forEach(p=>td.innerHTML+=badge(p,'trend'));
+
+        history.forEach((num,i)=>{
+            const pos=i+1;
+            const cls=tpos.includes(pos)?'row-trend':(sl.z.includes(pos)?'row-sleepy':'');
+            tb.insertAdjacentHTML('beforeend',`<tr class="${cls}">
                 <td>${pos}</td>
-                <td style="color:${num === 0 ? '#27ae60' : (REDS.includes(num) ? '#e74c3c' : '#bdc3c7')}; font-weight:bold;">${num}</td>
-                <td>${trData.scores[pos] || 0}</td>
-                <td>${history.slice(i+1).indexOf(num) + 1 || '-'}</td>
+                <td style="color:${num===0?'#27ae60':REDS.includes(num)?'#e74c3c':'#bdc3c7'};font-weight:bold;">${num}</td>
+                <td>${tr.sc[pos]||0}</td>
+                <td>${history.slice(i+1).indexOf(num)+1||'-'}</td>
             </tr>`);
         });
     }
 
-    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); }
-    function undo() { history.shift(); save(); render(); }
-    function clearData() { if(confirm("Clear history?")) { history = []; save(); render(); } }
+    function toggleSettings(){const e=document.getElementById('settingsPanel');e.style.display=e.style.display==='block'?'none':'block';}
+    function applySettings(){
+        runtime.trendRange=parseInt(document.getElementById('trRange').value);
+        runtime.trendHits=parseInt(document.getElementById('trHits').value);
+        runtime.sleepyRange=parseInt(document.getElementById('slRange').value);
+        lastMCTop = null; // reset top-2 display
+        render(); toggleSettings();
+    }
+    function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(history));}
+    function undo(){history.shift();save();render();}
+    function clearData(){if(confirm("Clear?")){history=[];save();render();}}
 
     init();
 </script>
