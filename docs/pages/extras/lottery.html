@@ -3,84 +3,128 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lottery Matrix AI Optimizer</title>
+<title>Lottery Matrix AI Optimizer - Worker Edition</title>
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-family: 'Segoe UI', system-ui, sans-serif;
     background: #0f0f0f; color: #e0e0e0;
-    margin: 0; padding: 15px;
-    display: flex; flex-direction: column; height: 100vh;
+    margin: 0; padding: 10px;
+    height: 100vh; display: flex; flex-direction: column;
   }
-  .panel { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 15px; margin-bottom: 10px; }
-  .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .panel { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+  .controls { display: flex; gap: 8px; align-items: center; }
   
   select, button {
-    padding: 10px; border-radius: 4px; border: 1px solid #444;
+    padding: 8px 12px; border-radius: 4px; border: 1px solid #444;
     background: #252525; color: white; cursor: pointer;
   }
-  button:hover { background: #333; border-color: #007bff; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button:hover:not(:disabled) { background: #333; border-color: #007bff; }
+  button:disabled { opacity: 0.4; cursor: wait; }
 
-  .prediction-box {
-    background: #051b11; border: 2px solid #198754;
-    padding: 15px; border-radius: 8px; margin: 10px 0;
-    text-align: center;
+  .prediction-display {
+    display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px; margin: 10px 0;
+  }
+  .card {
+    background: #111; border: 1px solid #444; border-radius: 8px; padding: 15px; flex: 1; min-width: 280px; text-align: center;
   }
   .num-circle {
-    display: inline-block; width: 40px; height: 40px; line-height: 40px;
-    border-radius: 50%; background: #198754; color: white;
-    font-weight: bold; margin: 5px; font-size: 1.1rem;
+    display: inline-block; width: 35px; height: 35px; line-height: 35px;
+    border-radius: 50%; background: #007bff; color: white;
+    font-weight: bold; margin: 4px; font-size: 0.9rem;
   }
-  .extra-circle { background: #b02a37; }
+  .extra-circle { background: #e67e22; }
 
-  .matrix-wrapper { flex-grow: 1; overflow: auto; border: 1px solid #333; background: #141414; margin-top: 10px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { border: 1px solid #222; padding: 8px; text-align: center; }
+  .matrix-wrapper { flex-grow: 1; overflow: auto; border: 1px solid #333; background: #141414; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+  th, td { border: 1px solid #222; padding: 6px; text-align: center; }
   th { background: #222; color: #888; position: sticky; top: 0; }
   
-  .hot-cell { background: rgba(25, 135, 84, 0.3); color: #fff; }
-  .cold-cell { color: #555; }
-  .status-log { font-family: monospace; font-size: 0.75rem; color: #00ff00; margin-top: 5px; }
-  .destaque { color: #ffeb3b; font-weight: bold; }
+  .hot-pick { background: #1b4d1b; color: #fff !important; font-weight: bold; }
+  .status-bar { font-family: monospace; font-size: 0.7rem; color: #ffeb3b; margin-top: 5px; }
 </style>
 </head>
 <body>
 
 <div class="panel">
   <div class="controls">
-    <label>Jogo:</label>
     <select id="jogo">
       <option value="eurodreams">EuroDreams</option>
       <option value="euromilhoes">Euromilhões</option>
       <option value="totoloto">Totoloto</option>
     </select>
-    <button id="calc-btn" onclick="startAnalysis()">Gerar Previsão Matrix</button>
+    <button id="calc-btn" onclick="startMatrixProcess()">Iniciar Processamento Matrix</button>
   </div>
-  <div id="status" class="status-log">Pronto para analisar...</div>
+  <div id="status" class="status-bar">Aguardando comando...</div>
 </div>
 
-<div id="prediction-output"></div>
+<div class="prediction-display" id="predictions">
+  </div>
 
 <div class="matrix-wrapper">
   <table>
     <thead>
-      <tr>
+      <tr id="header-row">
         <th>Nº</th>
-        <th>Frequência</th>
-        <th>Recência (Peso)</th>
-        <th>Atraso</th>
-        <th>Score Matrix</th>
+        <th>Score Histórico</th>
+        <th>Σ Matrix (Sorteios Virtuais)</th>
       </tr>
     </thead>
-    <tbody id="matrix-body">
-      <tr><td colspan="5">Inicie a análise para ver os dados</td></tr>
-    </tbody>
+    <tbody id="table-body"></tbody>
   </table>
 </div>
 
 <script>
-/* ===== CONFIGURATIONS ===== */
+/* ===== WORKER SCRIPT (Monte Carlo Simulation) ===== */
+const workerCode = `
+onmessage = function(e) {
+  const { type, history, maxNum, rndCount, nNeeded } = e.data;
+  
+  if (type === 'process') {
+    // 1. Calculate historical "Hotness" weights
+    const weights = Array(maxNum + 1).fill(0);
+    history.forEach((draw, idx) => {
+      draw.forEach(n => {
+        if (weights[n] !== undefined) {
+          weights[n] += (150 / (idx + 10));
+        }
+      });
+    });
+
+    // Get Top Hot Numbers as reference
+    const hotRef = weights.map((w, i) => ({i, w}))
+                    .sort((a,b) => b.w - a.w)
+                    .slice(0, Math.ceil(maxNum/2))
+                    .map(x => x.i);
+
+    // 2. Shuffle Matrix Simulation (Just like Roulette)
+    const sums = Array(maxNum + 1).fill(0);
+    const baseArr = Array.from({length: maxNum}, (_, i) => i + 1);
+
+    for (let r = 0; r < rndCount; r++) {
+      // Fast Shuffle
+      for (let i = baseArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [baseArr[i], baseArr[j]] = [baseArr[j], baseArr[i]];
+      }
+      
+      // Check first N positions in this "shuffled reality"
+      for (let i = 0; i < nNeeded; i++) {
+        const val = baseArr[i];
+        if (hotRef.includes(val)) {
+          sums[val]++;
+        }
+      }
+    }
+
+    postMessage({ weights, sums });
+  }
+};
+`;
+
+const worker = new Worker(URL.createObjectURL(new Blob([workerCode], {type: 'text/javascript'})));
+
+/* ===== APP LOGIC ===== */
 const PROXY = url => "https://corsproxy.io/?" + encodeURIComponent(url);
 const JOGOS = {
   eurodreams: { nome: "EuroDreams", url: "https://www.jogossantacasa.pt/web/ResultsBoard/EuroDreams", maxNum: 40, maxExtra: 6, nMain: 6, nExtra: 1, select: "selectContest", selector: ".betMiddle.twocol.regPad .colums li" },
@@ -88,7 +132,6 @@ const JOGOS = {
   totoloto: { nome: "Totoloto", url: "https://www.jogossantacasa.pt/web/SCCartazResult/totolotoNew", maxNum: 49, maxExtra: 13, nMain: 5, nExtra: 1, select: "selectContest", selector: ".betMiddle .colums li" }
 };
 
-/* ===== HELPER FUNCTIONS ===== */
 async function fetchHTML(url) {
   try {
     const resp = await fetch(PROXY(url));
@@ -97,110 +140,106 @@ async function fetchHTML(url) {
   } catch (e) { return null; }
 }
 
-function parseDraw(texto) {
-  if (!texto || !texto.includes("+")) return null;
-  const [n, e] = texto.split("+");
-  return {
-    nums: n.trim().split(/\s+/).map(Number),
-    extras: e.trim().split(/\s+/).map(Number)
-  };
-}
-
-/* ===== CORE AI LOGIC ===== */
-function calculateMatrix(history, cfg) {
-  const stats = Array.from({ length: cfg.maxNum + 1 }, (_, i) => ({ n: i, freq: 0, weight: 0, last: -1 }));
-  
-  // 1. Recency & Frequency Analysis
-  history.forEach((draw, idx) => {
-    draw.nums.forEach(n => {
-      if (stats[n]) {
-        stats[n].freq++;
-        // Decay Weight: numbers appearing recently get higher score
-        stats[n].weight += 150 / (idx + 10); 
-        if (stats[n].last === -1) stats[n].last = idx;
-      }
-    });
-  });
-
-  // 2. Matrix Simulation (The "Optimizer" Part)
-  // We simulate 10,000 random draws to find statistical anomalies
-  const scores = stats.map(s => {
-    const delayFactor = s.last === -1 ? 0 : s.last * 0.5;
-    const finalScore = (s.weight * 0.7) + (s.freq * 0.2) + (delayFactor * 0.1);
-    return { ...s, finalScore };
-  });
-
-  const sorted = [...scores].filter(x => x.n > 0).sort((a, b) => b.finalScore - a.finalScore);
-  
-  // Selection Logic: Parity Balance
-  const selected = [];
-  let evens = 0;
-  for (let s of sorted) {
-    if (selected.length >= cfg.nMain) break;
-    const isEven = s.n % 2 === 0;
-    if (isEven && evens > cfg.nMain / 2) continue; // Keep balance
-    selected.push(s.n);
-    if (isEven) evens++;
-  }
-
-  return { selected: selected.sort((a,b)=>a-b), allStats: scores.filter(x => x.n > 0) };
-}
-
-/* ===== UI UI RENDER ===== */
-async function startAnalysis() {
+async function startMatrixProcess() {
   const btn = document.getElementById('calc-btn');
   const log = document.getElementById('status');
   const gameKey = document.getElementById('jogo').value;
   const cfg = JOGOS[gameKey];
   
   btn.disabled = true;
-  log.textContent = "Lendo histórico dos Jogos Santa Casa...";
+  log.textContent = "Baixando histórico real...";
 
   const html = await fetchHTML(cfg.url);
-  if (!html) { log.textContent = "Erro de conexão."; btn.disabled = false; return; }
-  
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const options = [...doc.querySelectorAll(`select[name="${cfg.select}"] option`)].slice(0, 40); // Last 40 draws
+  const options = [...doc.querySelectorAll(`select[name="${cfg.select}"] option`)].slice(0, 50);
   
-  const history = [];
+  const histMain = [];
+  const histExtra = [];
+
   for (let opt of options) {
-    log.textContent = `Processando concurso ${opt.textContent}...`;
-    const hConcurso = await fetchHTML(`${cfg.url}?${cfg.select}=${encodeURIComponent(opt.value)}`);
-    const dConcurso = new DOMParser().parseFromString(hConcurso, "text/html");
-    const raw = dConcurso.querySelector(cfg.selector)?.textContent.trim();
-    const parsed = parseDraw(raw);
-    if (parsed) history.push(parsed);
+    const h = await fetchHTML(`${cfg.url}?${cfg.select}=${encodeURIComponent(opt.value)}`);
+    const d = new DOMParser().parseFromString(h, "text/html");
+    const raw = d.querySelector(cfg.selector)?.textContent.trim() || "";
+    if (raw.includes("+")) {
+      const [n, e] = raw.split("+");
+      histMain.push(n.trim().split(/\s+/).map(Number));
+      histExtra.push(e.trim().split(/\s+/).map(Number));
+    }
   }
 
-  const results = calculateMatrix(history, cfg);
-  renderResults(results, cfg);
-  
-  log.textContent = "Análise Matrix concluída com sucesso.";
-  btn.disabled = false;
+  log.textContent = "Calculando Matrix de Probabilidade (100.000 shuffles)...";
+
+  // Process Main Numbers
+  worker.postMessage({
+    type: 'process',
+    history: histMain,
+    maxNum: cfg.maxNum,
+    rndCount: 100000000,
+    nNeeded: cfg.nMain
+  });
+
+  worker.onmessage = (e) => {
+    const mainResults = e.data;
+    
+    // Now process Extras (secondary worker run)
+    const extraWorker = new Worker(URL.createObjectURL(new Blob([workerCode], {type: 'text/javascript'})));
+    extraWorker.postMessage({
+      type: 'process',
+      history: histExtra,
+      maxNum: cfg.maxExtra,
+      rndCount: 5000000,
+      nNeeded: cfg.nExtra
+    });
+
+    extraWorker.onmessage = (e2) => {
+      const extraResults = e2.data;
+      renderAll(mainResults, extraResults, cfg);
+      btn.disabled = false;
+      log.textContent = "Análise concluída.";
+    };
+  };
 }
 
-function renderResults(res, cfg) {
-  const out = document.getElementById('prediction-output');
-  out.innerHTML = `
-    <div class="prediction-box">
-      <h3 style="margin-top:0">🎯 Sugestão IA Matrix</h3>
-      <div>${res.selected.map(n => `<span class="num-circle">${n}</span>`).join('')}</div>
-      <p style="font-size:0.8rem; color:#888;">Baseado em ${cfg.nome} (Tendência de Recência + Balanço de Pares)</p>
+function renderAll(main, extra, cfg) {
+  // Sort by Matrix Sum (Σ) to pick the best
+  const bestMain = main.weights.map((w, i) => ({i, w, sum: main.sums[i]}))
+                    .filter(x => x.i > 0)
+                    .sort((a,b) => b.sum - a.sum)
+                    .slice(0, cfg.nMain)
+                    .map(x => x.i).sort((a,b)=>a-b);
+
+  const bestExtra = extra.weights.map((w, i) => ({i, w, sum: extra.sums[i]}))
+                    .filter(x => x.i > 0)
+                    .sort((a,b) => b.sum - a.sum)
+                    .slice(0, cfg.nExtra)
+                    .map(x => x.i).sort((a,b)=>a-b);
+
+  // Update Prediction Cards
+  const predDiv = document.getElementById('predictions');
+  predDiv.innerHTML = `
+    <div class="card">
+      <h3>Números Principais</h3>
+      <div>${bestMain.map(n => `<span class="num-circle">${n}</span>`).join('')}</div>
+    </div>
+    <div class="card">
+      <h3>Extras / Sorte</h3>
+      <div>${bestExtra.map(n => `<span class="num-circle extra-circle">${n}</span>`).join('')}</div>
     </div>
   `;
 
-  const tbody = document.getElementById('matrix-body');
-  tbody.innerHTML = res.allStats
-    .sort((a,b) => b.finalScore - a.finalScore)
-    .map(s => `
-      <tr class="${s.freq > 5 ? 'hot-cell' : s.freq === 0 ? 'cold-cell' : ''}">
-        <td><b style="color:#007bff">${s.n}</b></td>
-        <td>${s.freq}</td>
-        <td>${s.weight.toFixed(2)}</td>
-        <td>${s.last === -1 ? 'N/A' : s.last}</td>
-        <td class="destaque">${s.finalScore.toFixed(2)}</td>
+  // Update Matrix Table
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = main.weights.map((w, i) => {
+    if (i === 0) return '';
+    const isHot = bestMain.includes(i);
+    return `
+      <tr class="${isHot ? 'hot-pick' : ''}">
+        <td>${i}</td>
+        <td>${w.toFixed(2)}</td>
+        <td>${main.sums[i]}</td>
       </tr>
-    `).join('');
+    `;
+  }).join('');
 }
 </script>
 </body>
