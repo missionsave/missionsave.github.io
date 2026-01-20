@@ -5,35 +5,52 @@
 <title>Roulette Matrix Optimizer</title>
 <style>
   * { box-sizing: border-box; }
-  body {
-    font-family: system-ui, sans-serif;
-    background:#0f0f0f; color:#e0e0e0;
-    margin:0; padding:10px;
-    height:100vh; display:flex; flex-direction:column;
+  body { 
+    font-family: system-ui, -apple-system, sans-serif; 
+    margin: 0; padding: 10px; background: #0f0f0f; color: #e0e0e0; 
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
   }
-  .panel { background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:8px; }
-  .grid { display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-bottom:10px; }
-  button.num { padding:10px;background:#252525;color:#eee;border:1px solid #333;border-radius:4px;font-weight:bold; }
-  button.zero { background:#0a5c0a; }
-  button.red { color:#ff5252; }
-  .controls { display:flex;gap:8px;margin-bottom:8px; }
-  button.ctrl { flex:1;padding:8px;background:#333;color:#bbb;border:none;border-radius:4px; }
-  .history-box { background:#000;border:1px solid #222;padding:8px;font-family:monospace;white-space:nowrap;overflow-x:auto; }
-  .trend-bar { background:#222;border:1px solid #444;border-radius:4px;padding:8px;margin-bottom:5px;display:flex;gap:10px; }
-  .trend-label { font-size:.65rem;color:#888;font-weight:bold; }
-  #trend-data { color:#ffeb3b;font-weight:bold; }
-  .matrix-wrapper { flex-grow:1;overflow:auto;border:1px solid #333;background:#141414; }
-  table { width:100%;border-collapse:collapse;font-size:.75rem; }
-  th,td { border:1px solid #222;padding:4px;text-align:center; }
-  th { background:#222;color:#888;position:sticky;top:0; }
-  .idx-col { width:30px;background:#000;color:#444; }
-  .sum-col { width:35px;background:#1a1a1a;color:#fff;font-weight:bold; }
-  .hot-pick { background:#1b4d1b;color:#fff !important;font-weight:bold; }
-  .red-txt { color:#ff5252; }
-  .green-txt { color:#4caf50; }
-  .black-txt { color:#aaa; }
-  .sum-high { background:#5c0a0a; }
-  .sum-mid { background:#3d3400;color:#ffeb3b; }
+
+  .panel { 
+    background: #1a1a1a; border: 1px solid #333; border-radius: 8px; 
+    padding: 12px; margin-bottom: 8px; flex-shrink: 0; 
+  }
+  .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; margin-bottom: 10px; }
+  button.num { 
+    padding: 10px 0; border: 1px solid #333; border-radius: 4px; cursor: pointer; 
+    background: #252525; color: #eee; font-weight: bold; font-size: 0.9rem;
+  }
+  button.zero { background: #0a5c0a; border-color: #1b8a1b; }
+  button.red { color: #ff5252; border-color: #442222; }
+  .controls { display: flex; gap: 8px; margin-bottom: 8px; }
+  button.ctrl { flex: 1; padding: 8px; background: #333; border: none; color: #bbb; border-radius: 4px; cursor: pointer; font-size: 0.75rem; text-transform: uppercase; }
+  .history-box { 
+    font-family: monospace; font-size: 0.9rem; background: #000; padding: 8px; 
+    border: 1px solid #222; min-height: 34px; overflow-x: auto; white-space: nowrap; border-radius: 4px; 
+  }
+
+  .trend-bar {
+    background: #222; border: 1px solid #444; border-radius: 4px;
+    padding: 8px; margin-bottom: 5px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .trend-label { font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; min-width: 80px; }
+  #trend-data { color: #ffeb3b; font-weight: bold; font-size: 0.9rem; letter-spacing: 1px; }
+
+  .matrix-wrapper { flex-grow: 1; overflow-y: auto; border: 1px solid #333; background: #141414; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: center; table-layout: fixed; }
+  th, td { padding: 6px 2px; border: 1px solid #222; }
+  th { background: #222; color: #888; font-size: 0.65rem; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 #333; }
+
+  .idx-col { width: 30px; background: #000; color: #444; }
+  .sum-col { width: 35px; background: #1a1a1a; color: #fff; font-weight: bold; border-right: 2px solid #333; }
+
+  .hot-pick { background-color: #1b4d1b; color: #fff !important; font-weight: bold; }
+  .red-txt { color: #ff5252; }
+  .green-txt { color: #4caf50; }
+  .black-txt { color: #aaa; }
+  .sum-high { background: #5c0a0a; color: #fff; } 
+  .sum-mid { background: #3d3400; color: #ffeb3b; }
 </style>
 </head>
 <body>
@@ -42,206 +59,196 @@
   <div class="grid" id="buttons-grid"></div>
   <div class="controls">
     <button class="ctrl" id="undo-btn">Undo</button>
-    <button class="ctrl" id="reset-btn">Full Reset</button>
+    <button class="ctrl" id="reset-btn">Full Reset / Reshuffle</button>
   </div>
   <div class="history-box" id="history-display"></div>
 </div>
 
 <div class="trend-bar">
   <span class="trend-label">Top 10 Index:</span>
-  <span id="trend-data">Waiting…</span>
+  <span id="trend-data">Waiting for spins...</span>
 </div>
 
 <div class="matrix-wrapper">
   <table>
     <thead>
-      <tr id="header-row"></tr>
+      <tr id="header-row">
+        <th class="idx-col">#</th>
+        <th class="sum-col">Σ</th>
+        <th>STD</th>
+      </tr>
     </thead>
     <tbody id="table-body"></tbody>
   </table>
 </div>
 
 <script>
-/* ===== CONSTANTS ===== */
-const REDS=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
-const STD_WHEEL=[0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
-const BASE_NUMS=[...Array(37).keys()];
-const RND_COUNT=800000;
-const DISPLAY_LIMIT=50;
-const STORAGE_KEY='roulette_optimizer_data';
+const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+const STD_WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const BASE_NUMS = Array.from({length: 37}, (_, i) => i);
+const RND_COUNT = 40000;
+const STORAGE_KEY = 'roulette_optimizer_data1';
 
-/* ===== STATE ===== */
-let state={history:[],rndSets:[]};
+let state = { history: [], rndSets: [] };
 
-/* ===== SHUFFLE ===== */
-function shuffle(a){
-  a=[...a];
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.random()*(i+1)|0;
-    [a[i],a[j]]=[a[j],a[i]];
+function shuffle(arr) {
+  let a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
 
-/* ===== WORKER ===== */
-const worker=new Worker(URL.createObjectURL(new Blob([`
-let wheels=[];
-onmessage=e=>{
-  if(e.data.type==='init'){ wheels=e.data.wheels; return; }
-  const history=e.data.history;
-  const BASE=[...Array(37).keys()];
+function getTop4(history, wheel) {
+  if (history.length < 2) return [];
+  const map = {}; wheel.forEach((n, i) => map[n] = i);
+  const scores = new Array(37).fill(0);
 
-  function getTop4(h,w){
-    if(h.length<2)return[];
-    const m={};w.forEach((n,i)=>m[n]=i);
-    const s=Array(37).fill(0);
-    h.forEach((n,ix)=>{
-      const wt=Math.pow(.96,h.length-1-ix);
-      const c=m[n];
-      for(let o=-2;o<=2;o++){
-        const i=(c+o+37)%37;
-        s[w[i]]+=wt*(1-Math.abs(o)*.2);
-      }
-    });
-    return BASE.map(n=>({n,s:s[n]})).sort((a,b)=>b.s-a.s).slice(0,2).map(x=>x.n);
-  }
-
-  const allHots=wheels.map(w=>getTop4(history,w));
-  const sums=[];
-  for(let i=0;i<37;i++){
-    let sum=0;
-    wheels.forEach((w,c)=>{ if(allHots[c].includes(w[i])) sum++; });
-    sums.push(sum);
-  }
-  const trend=sums.map((s,i)=>({i,s}))
-    .filter(x=>x.s>0).sort((a,b)=>b.s-a.s)
-    .slice(0,10).map(x=>x.i);
-
-  postMessage({allHots,sums,trend});
-};
-`],{type:'application/javascript'})));
-
-/* ===== UI RENDER ===== */
-function render(historyOnly=false){
-  const h=document.getElementById('history-display');
-  h.innerHTML=state.history.map(n=>`<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`).join(' ');
-  h.scrollLeft=h.scrollWidth;
-  if(!historyOnly){
-    document.getElementById('trend-data').textContent='Calculating…';
-    worker.postMessage({type:'update',history:state.history});
-  }
-}
-
-worker.onmessage=e=>{
-  document.getElementById('trend-data').textContent=e.data.trend.join(' — ');
-  renderTable(e.data.allHots,e.data.sums);
-};
-
-function renderTable(allHots,sums){
-  const header=document.getElementById('header-row');
-  header.innerHTML='<th class="idx-col">#</th><th class="sum-col">Σ</th><th>STD</th>'+
-    state.rndSets.slice(0,DISPLAY_LIMIT).map((_,i)=>`<th>R${i+1}</th>`).join('');
-  const tbody=document.getElementById('table-body');
-  tbody.innerHTML='';
-  const wheels=[STD_WHEEL,...state.rndSets.slice(0,DISPLAY_LIMIT)];
-  for(let i=0;i<37;i++){
-    let row=`<td class="idx-col">${i}</td><td class="sum-col ${sums[i]>=4?'sum-high':sums[i]>=2?'sum-mid':''}">${sums[i]}</td>`;
-    wheels.forEach((w,c)=>{
-      const n=w[i];
-      const hot=allHots[c].includes(n);
-      const col=n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt';
-      row+=`<td class="${hot?'hot-pick':col}">${n}</td>`;
-    });
-    tbody.insertAdjacentHTML('beforeend','<tr>'+row+'</tr>');
-  }
-}
-
-/* ===== INIT ===== */
-function save() {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({ history: state.history })
-  );
-}
-
-
-(function init(){
-  const saved = localStorage.getItem(STORAGE_KEY);
-
-  // ALWAYS start from a clean state
-  state = {
-    history: [],
-    rndSets: []
-  };
-
-  // Restore history only
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed.history)) {
-        state.history = parsed.history;
-      }
-    } catch(e) {
-      console.warn('Invalid saved data, ignoring');
+  history.forEach((num, idx) => {
+    const weight = Math.pow(0.96, history.length - 1 - idx);
+    const center = map[num];
+    for (let o = -2; o <= 2; o++) {
+      let i = (center + o + 37) % 37;
+      scores[wheel[i]] += weight * (1 - Math.abs(o) * 0.2);
     }
-  }
-
-  // Always rebuild rndSets (never load from storage)
-  state.rndSets = Array.from(
-    { length: RND_COUNT },
-    () => shuffle(BASE_NUMS)
-  );
-
-  // Init worker ONCE with wheels
-  worker.postMessage({
-    type: 'init',
-    wheels: [STD_WHEEL, ...state.rndSets]
   });
 
-  // Build number grid
+  return BASE_NUMS
+    .map(n => ({ n, s: scores[n] }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 10) ////
+    .map(x => x.n);
+}
+
+/* ===== ROBUST TREND SCORE ===== */
+function calcTrendScore(index, allWheels, allHots) {
+  let score = 0;
+
+  allWheels.forEach((wheel, wIdx) => {
+    const num = wheel[index];
+    if (!allHots[wIdx].includes(num)) return;
+
+    const wheelWeight = wIdx === 0 ? 1.4 : 1;
+
+    let recencyBoost = 1;
+    if (state.history.length) {
+      const lastIdx = state.history.lastIndexOf(num);
+      if (lastIdx !== -1) {
+        const age = state.history.length - 1 - lastIdx;
+        recencyBoost = Math.pow(0.9, age);
+      }
+    }
+
+    score += wheelWeight * recencyBoost;
+  });
+
+  return Math.sqrt(score);
+}
+
+function render() {
+  const hDiv = document.getElementById('history-display');
+  hDiv.innerHTML = state.history
+    .map(n => `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`)
+    .join(" ");
+  hDiv.scrollLeft = hDiv.scrollWidth;
+
+  const header = document.getElementById('header-row');
+  header.innerHTML =
+    '<th class="idx-col">#</th><th class="sum-col">Σ</th><th>STD</th>' +
+    state.rndSets.map((_, i) => `<th>R${i+1}</th>`).join("");
+
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+
+  const allWheels = [STD_WHEEL, ...state.rndSets];
+  const allHots = allWheels.map(w => getTop4(state.history, w));
+
+  let indexSums = [];
+
+  for (let i = 0; i < 37; i++) {
+    const tr = document.createElement('tr');
+    let rowSum = 0;
+
+    allWheels.forEach((w, c) => {
+      if (allHots[c].includes(w[i])) rowSum++;
+    });
+
+    indexSums.push({ index: i, sum: rowSum });
+
+    let sumClass = rowSum >= 4 ? 'sum-high' : rowSum >= 2 ? 'sum-mid' : '';
+    let html = `<td class="idx-col">${i}</td><td class="sum-col ${sumClass}">${rowSum}</td>`;
+
+	if(0){ //keep this as an option
+    allWheels.forEach((w, c) => {
+      const num = w[i];
+      const isHot = allHots[c].includes(num);
+      const color = num === 0 ? 'green-txt' : REDS.includes(num) ? 'red-txt' : 'black-txt';
+      html += `<td class="${isHot ? 'hot-pick' : color}">${num}</td>`;
+    });
+
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+  }
+}
+
+  const trendData = document.getElementById('trend-data');
+  const sorted = indexSums
+    .filter(i => i.sum > 0)
+    .map(i => ({
+      ...i,
+      score: calcTrendScore(i.index, allWheels, allHots)
+    }))
+    .sort((a, b) => b.sum !== a.sum ? b.sum - a.sum : b.score - a.score)
+    .slice(0, 10)
+    .map(i => i.index);
+
+  trendData.innerHTML = sorted.length ? sorted.join(" — ") : "Add more spins...";
+  console.log(trendData.innerHTML);
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+async function init() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    state = JSON.parse(saved);
+    if (state.rndSets.length !== RND_COUNT) {
+      state.rndSets = Array.from({ length: RND_COUNT }, () => shuffle(BASE_NUMS));
+    }
+  } else {
+    state.rndSets = Array.from({ length: RND_COUNT }, () => shuffle(BASE_NUMS));
+  }
+
   const grid = document.getElementById('buttons-grid');
-  grid.innerHTML = '';
   BASE_NUMS.forEach(n => {
     const b = document.createElement('button');
     b.textContent = n;
     b.className = `num ${n===0?'zero':REDS.includes(n)?'red':''}`;
-    b.onclick = () => {
-      state.history.push(n);
-      save();
-      render();
-    };
+    b.onclick = () => { state.history.push(n); save(); render(); };
     grid.appendChild(b);
   });
 
-  // Controls
   document.getElementById('undo-btn').onclick = () => {
-    if (state.history.length) {
-      state.history.pop();
-      save();
-      render();
-    }
+    state.history.pop(); save(); render();
   };
 
   document.getElementById('reset-btn').onclick = () => {
-    if (confirm('Full Reset?')) {
+    if (confirm("Full Reset?")) {
       state.history = [];
-      state.rndSets = Array.from(
-        { length: RND_COUNT },
-        () => shuffle(BASE_NUMS)
-      );
-      save();
-      worker.postMessage({
-        type: 'init',
-        wheels: [STD_WHEEL, ...state.rndSets]
-      });
-      render();
+      state.rndSets = Array.from({ length: RND_COUNT }, () => shuffle(BASE_NUMS));
+      save(); render();
     }
   };
-
-  // Full calculation on load (same as before)
+ 
   render();
-})();
+  
+  		await new Promise(r => setTimeout(r, 0));
+}
 
+init();
 </script>
 </body>
 </html>
