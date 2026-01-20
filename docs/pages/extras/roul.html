@@ -120,16 +120,6 @@
     .black-txt { color: #aaa; }
     .sum-high { background: #5c0a0a; }
     .sum-mid { background: #3d3400; color: #ffeb3b; }
-    .trend-strength {
-      width: 100%;
-      height: 12px;
-      background: linear-gradient(to right, #1b4d1b, #4caf50);
-      border-radius: 4px;
-      margin-top: 2px;
-    }
-    .trend-weak .trend-strength { opacity: 0.3; }
-    .trend-medium .trend-strength { opacity: 0.6; }
-    .trend-strong .trend-strength { opacity: 1.0; }
   </style>
 </head>
 <body>
@@ -139,7 +129,6 @@
   <div class="controls">
     <button class="ctrl" id="undo-btn">Undo</button>
     <button class="ctrl" id="reset-btn">Full Reset</button>
-    <button class="ctrl" id="reshuffle-btn">Reshuffle</button>
   </div>
   <div class="history-box" id="history-display"></div>
 </div>
@@ -147,7 +136,6 @@
 <div class="trend-bar">
   <span class="trend-label">Top 10 Index:</span>
   <span id="trend-data">Waiting…</span>
-  <span class="trend-label" id="trend-stats"></span>
 </div>
 
 <div class="matrix-wrapper">
@@ -164,21 +152,32 @@
 const REDS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 const STD_WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 const BASE_NUMS = [...Array(37).keys()];
-const RND_COUNT = 1000;
+const RND_COUNT = 99999;
 const DISPLAY_LIMIT = 50;
 const STORAGE_KEY = 'roulette_optimizer_data';
-const WINDOW_SIZE = 7; // Config: Window size for trend calculation
-const MIN_HISTORY = 8; // Config: Minimum history length before calculation
+const WINDOW_SIZE = 33;
+const MIN_HISTORY = 10;
+const SEED = 99999; // Config: Seed for randomness
 
 /* ===== STATE ===== */
 let state = { history: [], rndSets: [] };
-let debounceTimer = null;
+
+/* ===== SEEDED PRNG ===== */
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
 
 /* ===== SHUFFLE ===== */
-function shuffle(a) {
+function shuffle(a, seed) {
+  const random = mulberry32(seed);
   a = [...a];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.random() * (i + 1) | 0;
+    const j = Math.floor(random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
@@ -202,15 +201,12 @@ const worker = new Worker(URL.createObjectURL(new Blob([`
       const m = {};
       w.forEach((n, i) => m[n] = i);
       const s = Array(37).fill(0);
-      const windowSize = Math.min(WINDOW_SIZE, h.length);
-      const totalWeight = windowSize * (windowSize + 1) / 2;
-
-      h.slice(-windowSize).forEach((n, ix) => {
-        const wt = (windowSize - ix) / totalWeight;
+      const window = h.slice(-WINDOW_SIZE);
+      window.forEach(n => {
         const c = m[n];
         for (let o = -2; o <= 2; o++) {
           const i = (c + o + 37) % 37;
-          s[w[i]] += wt * (1 - Math.abs(o) * 0.2);
+          s[w[i]] += 1;
         }
       });
       return BASE.map(n => ({ n, s: s[n] }))
@@ -233,37 +229,32 @@ const worker = new Worker(URL.createObjectURL(new Blob([`
         .slice(0, 10)
         .map(x => x.i);
 
-      const stdDev = Math.sqrt(sums.reduce((sq, n) => sq + Math.pow(n - (sums.reduce((a, b) => a + b, 0) / sums.length), 2), 0) / sums.length);
-
-      postMessage({ allHots, sums, trend, stdDev });
+      postMessage({ allHots, sums, trend });
     } else {
-      postMessage({ allHots: [], sums: [], trend: [], stdDev: 0 });
+      postMessage({ allHots: [], sums: [], trend: [] });
     }
   };
 `], { type: 'application/javascript' })));
 
 /* ===== UI RENDER ===== */
-function render(historyOnly = false) {
+function render() {
   const h = document.getElementById('history-display');
   h.innerHTML = state.history.map(n => `<span class="${n === 0 ? 'green-txt' : REDS.includes(n) ? 'red-txt' : 'black-txt'}">${n}</span>`).join(' ');
   h.scrollLeft = h.scrollWidth;
-  if (!historyOnly) {
-    document.getElementById('trend-data').textContent = state.history.length >= MIN_HISTORY ? 'Calculating…' : 'Waiting for more history…';
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      worker.postMessage({ type: 'update', history: state.history });
-    }, 300);
+  if (state.history.length >= MIN_HISTORY) {
+    document.getElementById('trend-data').textContent = 'Calculating…';
+    worker.postMessage({ type: 'update', history: state.history });
+  } else {
+    document.getElementById('trend-data').textContent = 'Waiting for more history…';
   }
 }
 
 worker.onmessage = e => {
   if (e.data.trend.length > 0) {
     document.getElementById('trend-data').textContent = e.data.trend.join(' — ');
-    document.getElementById('trend-stats').textContent = `Confidence: ${e.data.stdDev.toFixed(2)}`;
     renderTable(e.data.allHots, e.data.sums);
   } else {
     document.getElementById('trend-data').textContent = 'Waiting for more history…';
-    document.getElementById('trend-stats').textContent = '';
   }
 };
 
@@ -280,8 +271,7 @@ function renderTable(allHots, sums) {
       const n = w[i];
       const hot = allHots[c].includes(n);
       const col = n === 0 ? 'green-txt' : REDS.includes(n) ? 'red-txt' : 'black-txt';
-      const trendClass = sums[i] >= 4 ? 'trend-strong' : sums[i] >= 2 ? 'trend-medium' : 'trend-weak';
-      row += `<td class="${hot ? 'hot-pick' : col} ${trendClass}"><div>${n}</div><div class="trend-strength" style="width: ${Math.min(100, sums[i] * 10)}%"></div></td>`;
+      row += `<td class="${hot ? 'hot-pick' : col}">${n}</td>`;
     });
     tbody.insertAdjacentHTML('beforeend', '<tr>' + row + '</tr>');
   }
@@ -305,7 +295,10 @@ function init() {
       console.warn('Invalid saved data, ignoring');
     }
   }
-  state.rndSets = Array.from({ length: RND_COUNT }, () => shuffle(BASE_NUMS));
+
+  // Reset and regenerate shuffles before render
+  state.rndSets = Array.from({ length: RND_COUNT }, (_, i) => shuffle(BASE_NUMS, SEED + i));
+
   worker.postMessage({ type: 'init', wheels: [STD_WHEEL, ...state.rndSets] });
 
   const grid = document.getElementById('buttons-grid');
@@ -333,17 +326,11 @@ function init() {
   document.getElementById('reset-btn').onclick = () => {
     if (confirm('Full Reset?')) {
       state.history = [];
-      state.rndSets = Array.from({ length: RND_COUNT }, () => shuffle(BASE_NUMS));
+      state.rndSets = Array.from({ length: RND_COUNT }, (_, i) => shuffle(BASE_NUMS, SEED + i));
       save();
       worker.postMessage({ type: 'init', wheels: [STD_WHEEL, ...state.rndSets] });
       render();
     }
-  };
-
-  document.getElementById('reshuffle-btn').onclick = () => {
-    state.rndSets = Array.from({ length: RND_COUNT }, () => shuffle(BASE_NUMS));
-    worker.postMessage({ type: 'init', wheels: [STD_WHEEL, ...state.rndSets] });
-    render();
   };
 
   render();
