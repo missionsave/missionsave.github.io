@@ -265,162 +265,138 @@ button:active { transform: translateY(1px); }
 </div>
 
 <script>
-/**
- * ADVANCED ROULETTE LOGIC ENGINE (TUNED)
- * Adds:
- * - Win-position bias
- * - Cold-number penalty
- * - Adaptive window weighting
- * - Prediction stability
- */
-
+/* =========================================================
+   CONFIG
+========================================================= */
 const CONFIG = {
     WHEEL_ORDER: [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26],
     REDS: [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36],
-    PREDICTION_SIZE: 4,
-    WINDOW_SIZE: 6,
-
-    NEIGHBOR_WEIGHT: 0.45,
-    RECENCY_DECAY: 0.88,
-
-    WIN_POSITION_BOOST: 1.6,
-    COLD_PENALTY: 0.6,
-    STABILITY_BONUS: 0.4
+    PREDICTION_SIZE: 5,
+    WINDOW_SIZE: 80,
+    NEIGHBOR_WEIGHT: 0.5
 };
 
-let history = [];
+/* =========================================================
+   STATE (ONLY HISTORY IS STORED)
+========================================================= */
+let history = JSON.parse(localStorage.getItem("roulette_pro_hist") || "[]");
 let wins = 0;
 let lastPrediction = [];
-let winPositions = [];
-let winnerScorePositions = [];
-function getSortedScores() {
-    return [...calculateScores().entries()]
-        .sort((a, b) => b[1] - a[1]);
+let roulette_win_pos = [];
+
+/* =========================================================
+   STORAGE
+========================================================= */
+function saveData() {
+    localStorage.setItem("roulette_pro_hist", JSON.stringify(history));
 }
 
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadData();
-    buildGrid();
-    updateUI();
-});
-
-// --- Wheel helpers ---
-function getWheelNeighbors(num, dist = 1) {
-    const i = CONFIG.WHEEL_ORDER.indexOf(num);
-    if (i < 0) return [];
+/* =========================================================
+   WHEEL HELPERS
+========================================================= */
+function getWheelNeighbors(num, dist = 2) {
+    const idx = CONFIG.WHEEL_ORDER.indexOf(num);
+    if (idx === -1) return [];
+    const res = [];
     const len = CONFIG.WHEEL_ORDER.length;
-    let out = [];
-    for (let d = 1; d <= dist; d++) {
-        out.push(CONFIG.WHEEL_ORDER[(i + d) % len]);
-        out.push(CONFIG.WHEEL_ORDER[(i - d + len) % len]);
+    for (let i = 1; i <= dist; i++) {
+        res.push(CONFIG.WHEEL_ORDER[(idx + i) % len]);
+        res.push(CONFIG.WHEEL_ORDER[(idx - i + len) % len]);
     }
-    return out;
+    return res;
 }
 
-// --- CORE TUNED LOGIC ---
-function calculateScores() {
-    let heat = new Map();
-    for (let i = 0; i <= 36; i++) heat.set(i, 0);
+/* =========================================================
+   SCORE CALCULATION (GENERIC)
+========================================================= */
+function calculateScoresFromHistory(hist) {
+    const map = new Map();
+    for (let i = 0; i <= 36; i++) map.set(i, 0);
 
-    if (history.length < 3) return heat;
+    if (!hist.length) return map;
 
-    const window = history.slice(-CONFIG.WINDOW_SIZE);
-    const recentWinsBias = winPositions.slice(-10);
-
+    const window = hist.slice(-CONFIG.WINDOW_SIZE);
     window.forEach((num, idx) => {
-        let recencyWeight = Math.pow(1.15, idx + 1);
-
-        // Base score
-        heat.set(num, heat.get(num) + recencyWeight);
-
-        // Neighbor diffusion
-        getWheelNeighbors(num, 2).forEach(n => {
-            heat.set(n, heat.get(n) + recencyWeight * CONFIG.NEIGHBOR_WEIGHT);
+        const w = Math.pow(1.1, idx + 1);
+        map.set(num, map.get(num) + w);
+        getWheelNeighbors(num).forEach(n => {
+            map.set(n, map.get(n) + w * CONFIG.NEIGHBOR_WEIGHT);
         });
+    });
 
-        // Win-position bias
-        if (recentWinsBias.includes(idx)) {
-            heat.set(num, heat.get(num) * CONFIG.WIN_POSITION_BOOST);
+    return map;
+}
+
+function sortScores(map) {
+    return [...map.entries()]
+        .map(([num, score]) => ({ num, score }))
+        .sort((a, b) => b.score - a.score);
+}
+
+/* =========================================================
+   LEARN WINNER SCORE POSITIONS (PAST SNAPSHOTS)
+========================================================= */
+function calculateWinnerScorePositions(count = 4) {
+    roulette_win_pos = [];
+
+    if (history.length === 0) return;
+
+    // Take last N winners to track
+    const winnersToTrack = history.slice(-count);
+
+    winnersToTrack.forEach((winner, idx) => {
+        // Scores **before** this winner occurred
+        const pastHist = history.slice(0, history.length - winnersToTrack.length + idx);
+        const scores = sortScores(calculateScoresFromHistory(pastHist));
+
+        const rank = scores.findIndex(o => o.num === winner) + 1;
+        if (rank > 0) {
+            roulette_win_pos.push(rank);
         }
     });
 
-    // Cold number penalty (very recent)
-    history.slice(-3).forEach(n => {
-        heat.set(n, heat.get(n) * CONFIG.COLD_PENALTY);
-    });
-
-    // Stability bonus
-    lastPrediction.forEach(n => {
-        heat.set(n, heat.get(n) + CONFIG.STABILITY_BONUS);
-    });
-
-    return heat;
-}
-function logPredictions(scoresMap) {
-    const sorted = [...scoresMap.entries()]
-        .sort((a, b) => b[1] - a[1]);
-
-    console.groupCollapsed("%c[Prediction Scores]", "color:#3b82f6;font-weight:bold");
-
-    sorted.forEach((entry, index) => {
-        const num = entry[0];
-        const score = entry[1].toFixed(3);
-        const isWinner = index < CONFIG.PREDICTION_SIZE;
-
-        console.log(
-            `#${index + 1}`.padEnd(4),
-            String(num).padEnd(3),
-            "→",
-            score.padStart(8),
-            isWinner ? "⭐ WINNER" : ""
-        );
-    });
-
-    console.groupEnd();
+    console.log(
+        'Tracking score positions:', roulette_win_pos
+    );
 }
 
+
+/* =========================================================
+   PREDICTION (APPLY POSITIONS TO CURRENT SCORES)
+========================================================= */
 function getPrediction() {
-    if (history.length < 3) return [];
+    if (history.length < 2) return [];
 
-    const sorted = getSortedScores();
+    calculateWinnerScorePositions(4);
 
-    // 1️⃣ Collect UNIQUE recent winner positions ≤ 18
-    let positions = [];
-    for (let i = winnerScorePositions.length - 1; i >= 0; i--) {
-        const p = winnerScorePositions[i];
-        if (p <= 18 && !positions.includes(p)) {
-            positions.push(p);
-        }
-    }
+    const currentSorted = sortScores(
+        calculateScoresFromHistory(history)
+    );
 
-    // Keep ONLY what exists (no padding)
-    positions = positions.slice(0, CONFIG.PREDICTION_SIZE);
-
-    // 2️⃣ Log exactly what is being used
-    console.groupCollapsed("[Score Positions Used]");
-    positions.forEach(p => {
-        const entry = sorted[p - 1];
-        console.log(`#${p} →`, entry ? entry[0] : "N/A");
-    });
+    /* -------- DEBUG LOG -------- */
+    console.clear();
+    console.group("ALL NUMBERS SORTED BY CURRENT SCORE");
+    currentSorted.forEach((o, i) =>
+        console.log(`#${i + 1}`, o.num, "score:", o.score)
+    );
     console.groupEnd();
 
-    // 3️⃣ Map positions → numbers (1-to-1)
-    return positions
-        .map(p => sorted[p - 1])
+    console.log(
+        "Learned score positions:",
+        roulette_win_pos.map(p => `#${p}`).join(", ")
+    );
+    /* --------------------------- */
+
+    return roulette_win_pos
+        .map(p => currentSorted[p - 1])
         .filter(Boolean)
-        .map(e => e[0]);
+        .map(o => o.num);
 }
 
-
+/* =========================================================
+   WIN CHECK
+========================================================= */
 function checkWin(num) {
-    const sorted = getSortedScores();
-    const rankIndex = sorted.findIndex(e => e[0] === num);
-
-    if (rankIndex !== -1) {
-        winnerScorePositions.push(rankIndex + 1); // 1-based rank
-    }
-
     if (lastPrediction.includes(num)) {
         wins++;
         return true;
@@ -428,8 +404,9 @@ function checkWin(num) {
     return false;
 }
 
-
-// --- INTERACTION ---
+/* =========================================================
+   INTERACTION (NAMES UNCHANGED)
+========================================================= */
 function addSpin(num) {
     const won = checkWin(num);
     history.push(num);
@@ -441,8 +418,7 @@ function addSpin(num) {
 function undo() {
     if (!history.length) return;
     history.pop();
-    winPositions.pop();
-    wins = Math.max(0, wins - 1);
+    wins = 0;
     lastPrediction = getPrediction();
     saveData();
     updateUI();
@@ -452,8 +428,8 @@ function resetData() {
     if (!confirm("Reset all data?")) return;
     history = [];
     wins = 0;
-    winPositions = [];
     lastPrediction = [];
+    roulette_win_pos = [];
     saveData();
     updateUI();
 }
@@ -466,108 +442,95 @@ function sim10() {
     for (let i = 0; i < 10; i++) addRandom();
 }
 
-// --- UI ---
+/* =========================================================
+   UI UPDATE (UNCHANGED)
+========================================================= */
 function updateUI(justWon = false) {
-    const strip = document.getElementById('history-strip');
-    strip.innerHTML = '';
+    const strip = document.getElementById("history-strip");
+    strip.innerHTML = "";
     [...history].reverse().slice(0, 20).forEach(n =>
-        strip.appendChild(createBall(n, 'mini-ball'))
+        strip.appendChild(createBall(n, "mini-ball"))
     );
 
-    const pred = document.getElementById('prediction-set');
-    pred.innerHTML = '';
-
+    const pred = document.getElementById("prediction-set");
+    pred.innerHTML = "";
     if (!lastPrediction.length) {
-        pred.innerHTML = '<div style="opacity:.5">Spin 3 times…</div>';
+        pred.innerHTML = "<div style='opacity:.5'>Spin to calibrate…</div>";
     } else {
         lastPrediction.forEach(n => {
             const b = createBall(n);
             if (justWon && history.at(-1) === n) {
-                b.style.boxShadow = "0 0 18px var(--green)";
+                b.style.boxShadow = "0 0 14px var(--green)";
                 b.style.transform = "scale(1.2)";
             }
             pred.appendChild(b);
         });
     }
 
-    document.getElementById('total-wins').innerText = wins;
-    const rate = history.length > 3 ? ((wins / (history.length - 3)) * 100).toFixed(1) : 0;
-    document.getElementById('win-rate').innerText = rate + "%";
+    document.getElementById("total-wins").innerText = wins;
+    const rate =
+        history.length > 3
+            ? ((wins / (history.length - 3)) * 100).toFixed(1)
+            : 0;
+    document.getElementById("win-rate").innerText = rate + "%";
 
     updateAnalysisText(justWon);
 }
 
 function updateAnalysisText(justWon) {
-    const s = document.getElementById('algorithm-status');
-    const c = document.getElementById('confidence-val');
+    const status = document.getElementById("algorithm-status");
+    const conf = document.getElementById("confidence-val");
 
     if (history.length < 4) {
-        s.innerText = "Calibrating win-position memory…";
-        c.innerText = "12%";
+        status.innerText = "Calibrating Sector Physics…";
+        conf.innerText = "10%";
         return;
     }
 
-    const vals = [...calculateScores().values()];
-    const max = Math.max(...vals);
-    const avg = vals.reduce((a,b)=>a+b)/vals.length;
-    const conf = Math.min(99, Math.round((max/avg)*28));
+    status.innerText =
+        "Tracking score positions: " +
+        roulette_win_pos.map(p => `#${p}`).join(", ");
 
-    c.innerText = conf + "%";
-    c.style.color = conf > 65 ? "var(--green)" : conf > 45 ? "var(--hot)" : "var(--muted)";
-
-    s.innerText = justWon
-        ? "Win cluster detected — reinforcing positions"
-        : "Tracking repeating win positions & sectors";
-	
-const posEl = document.getElementById('score-positions');
-
-if (winnerScorePositions.length) {
-    const unique = [...new Set(
-        winnerScorePositions.filter(p => p <= 18)
-    )].slice(-CONFIG.PREDICTION_SIZE);
-
-    posEl.innerText = unique.map(p => `#${p}`).join(", ");
-} else {
-    posEl.innerText = "–";
+    conf.innerText = Math.min(99, 25 * roulette_win_pos.length) + "%";
 }
 
-
-}
-
-// --- GRID ---
+/* =========================================================
+   GRID (UNCHANGED)
+========================================================= */
 function buildGrid() {
-    const g = document.getElementById('number-grid');
+    const g = document.getElementById("number-grid");
+    g.innerHTML = "";
     for (let i = 1; i <= 36; i++) {
-        const b = document.createElement('button');
+        const b = document.createElement("button");
         b.innerText = i;
-        b.className = 'grid-btn';
-        b.style.background = CONFIG.REDS.includes(i) ? 'var(--red)' : '#334155';
+        b.className = "grid-btn";
+        b.style.background = CONFIG.REDS.includes(i)
+            ? "var(--red)"
+            : "#334155";
         b.onclick = () => addSpin(i);
         g.appendChild(b);
     }
 }
 
-function createBall(n, cls='ball') {
-    const d = document.createElement('div');
-    d.className = `${cls} ${n===0?'zero':CONFIG.REDS.includes(n)?'red':'black'}`;
+function createBall(n, cls = "ball") {
+    const d = document.createElement("div");
+    d.className = `${cls} ${
+        n === 0 ? "zero" : CONFIG.REDS.includes(n) ? "red" : "black"
+    }`;
     d.innerText = n;
     return d;
 }
 
-// --- STORAGE ---
-function saveData() {
-    localStorage.setItem('roulette_pro_hist', JSON.stringify(history));
-    localStorage.setItem('roulette_pro_wins', wins);
-    localStorage.setItem('roulette_win_pos', JSON.stringify(winPositions));
-}
-
-function loadData() {
-    history = JSON.parse(localStorage.getItem('roulette_pro_hist') || "[]");
-    wins = parseInt(localStorage.getItem('roulette_pro_wins') || "0");
-    winPositions = JSON.parse(localStorage.getItem('roulette_win_pos') || "[]");
+/* =========================================================
+   INIT
+========================================================= */
+document.addEventListener("DOMContentLoaded", () => {
+    buildGrid();
     lastPrediction = getPrediction();
-}
+    updateUI();
+});
 </script>
+
 
 </body>
 </html>
