@@ -196,15 +196,9 @@ button:active { transform: translateY(1px); }
     font-weight: bold;
 }
 
-/* --- Prediction Panel Highlight --- */
 #prediction-set .ball {
     box-shadow: 0 0 8px var(--glow);
     border: 2px solid var(--accent);
-}
-
-#prediction-set .ball:hover {
-    transform: scale(1.2);
-    box-shadow: 0 0 12px var(--glow);
 }
 
 @media (max-width: 600px) {
@@ -217,7 +211,6 @@ button:active { transform: translateY(1px); }
 <body>
 
 <div class="container">
-
     <div class="hud">
         <div class="prediction-box">
             <div class="hud-label">Optimized Sector Prediction</div>
@@ -243,11 +236,9 @@ button:active { transform: translateY(1px); }
         <span id="algorithm-status">Waiting for data...</span> <br>
         Algorithm: Wheel Neighbor Diffusion + Recency Decay. <br>
         <span style="font-size: 11px; opacity: 0.7">This logic analyzes physical wheel sectors. If 0 hits, it boosts 26 and 32 (neighbors).</span>
-		<div style="margin-top:6px;font-size:12px">
-    Score positions used:
-    <strong id="score-positions">–</strong>
-</div>
-
+        <div style="margin-top:6px;font-size:12px">
+            Score positions used: <strong id="score-positions">–</strong>
+        </div>
     </div>
 
     <div class="history-strip" id="history-strip"></div>
@@ -261,177 +252,166 @@ button:active { transform: translateY(1px); }
 
     <button class="grid-btn zero-btn" onclick="addSpin(0)">0</button>
     <div class="input-grid" id="number-grid"></div>
-
 </div>
 
 <script>
-/* =========================================================
-   CONFIG
-========================================================= */
 const CONFIG = {
     WHEEL_ORDER: [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26],
     REDS: [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36],
-    PREDICTION_SIZE: 5,
-    WINDOW_SIZE: 80,
-    NEIGHBOR_WEIGHT: 0.5
+    PREDICTION_SIZE: 4,
+    WINDOW_SIZE: 10,
+    NEIGHBOR_WEIGHT: 0.45,
+    RECENCY_DECAY: 0.88,
+    WIN_POSITION_BOOST: 1.6,
+    COLD_PENALTY: 0.6,
+    STABILITY_BONUS: 0.4
 };
 
-/* =========================================================
-   STATE (ONLY HISTORY IS STORED)
-========================================================= */
-let history = JSON.parse(localStorage.getItem("roulette_pro_hist") || "[]");
+// State Variables
+let history = [];
 let wins = 0;
 let lastPrediction = [];
-let roulette_win_pos = [];
+let winnerScorePositions = [];
 
-/* =========================================================
-   STORAGE
-========================================================= */
-function saveData() {
-    localStorage.setItem("roulette_pro_hist", JSON.stringify(history));
-}
+document.addEventListener('DOMContentLoaded', () => {
+    buildGrid();
+    loadData();
+});
 
-/* =========================================================
-   WHEEL HELPERS
-========================================================= */
-function getWheelNeighbors(num, dist = 2) {
-    const idx = CONFIG.WHEEL_ORDER.indexOf(num);
-    if (idx === -1) return [];
-    const res = [];
+// --- Wheel helpers ---
+function getWheelNeighbors(num, dist = 1) {
+    const i = CONFIG.WHEEL_ORDER.indexOf(num);
+    if (i < 0) return [];
     const len = CONFIG.WHEEL_ORDER.length;
-    for (let i = 1; i <= dist; i++) {
-        res.push(CONFIG.WHEEL_ORDER[(idx + i) % len]);
-        res.push(CONFIG.WHEEL_ORDER[(idx - i + len) % len]);
+    let out = [];
+    for (let d = 1; d <= dist; d++) {
+        out.push(CONFIG.WHEEL_ORDER[(i + d) % len]);
+        out.push(CONFIG.WHEEL_ORDER[(i - d + len) % len]);
     }
-    return res;
+    return out;
 }
 
-/* =========================================================
-   SCORE CALCULATION (GENERIC)
-========================================================= */
-function calculateScoresFromHistory(hist) {
-    const map = new Map();
-    for (let i = 0; i <= 36; i++) map.set(i, 0);
+// --- CORE LOGIC (Decoupled for Reprocessing) ---
+function calculateScores(currentHistory, prevPrediction = []) {
+    let heat = new Map();
+    for (let i = 0; i <= 36; i++) heat.set(i, 0);
 
-    if (!hist.length) return map;
+    if (currentHistory.length < 3) return heat;
 
-    const window = hist.slice(-CONFIG.WINDOW_SIZE);
+    const window = currentHistory.slice(-CONFIG.WINDOW_SIZE);
+    
     window.forEach((num, idx) => {
-        const w = Math.pow(1.1, idx + 1);
-        map.set(num, map.get(num) + w);
-        getWheelNeighbors(num).forEach(n => {
-            map.set(n, map.get(n) + w * CONFIG.NEIGHBOR_WEIGHT);
+        let recencyWeight = Math.pow(1.15, idx + 1);
+        heat.set(num, heat.get(num) + recencyWeight);
+
+        getWheelNeighbors(num, 2).forEach(n => {
+            heat.set(n, heat.get(n) + recencyWeight * CONFIG.NEIGHBOR_WEIGHT);
         });
     });
 
-    return map;
-}
-
-function sortScores(map) {
-    return [...map.entries()]
-        .map(([num, score]) => ({ num, score }))
-        .sort((a, b) => b.score - a.score);
-}
-
-/* =========================================================
-   LEARN WINNER SCORE POSITIONS (PAST SNAPSHOTS)
-========================================================= */
-function calculateWinnerScorePositions(count = 4) {
-    roulette_win_pos = [];
-
-    if (history.length === 0) return;
-
-    // Take last N winners to track
-    const winnersToTrack = history.slice(-count);
-
-    winnersToTrack.forEach((winner, idx) => {
-        // Scores **before** this winner occurred
-        const pastHist = history.slice(0, history.length - winnersToTrack.length + idx);
-        const scores = sortScores(calculateScoresFromHistory(pastHist));
-
-        const rank = scores.findIndex(o => o.num === winner) + 1;
-        if (rank > 0) {
-            roulette_win_pos.push(rank);
-        }
+    // Cold number penalty
+    currentHistory.slice(-3).forEach(n => {
+        heat.set(n, heat.get(n) * CONFIG.COLD_PENALTY);
     });
 
-    console.log(
-        'Tracking score positions:', roulette_win_pos
-    );
+    // Stability bonus (using the prediction that was active during the spin)
+    prevPrediction.forEach(n => {
+        heat.set(n, heat.get(n) + CONFIG.STABILITY_BONUS);
+    });
+
+    return heat;
 }
 
-
-/* =========================================================
-   PREDICTION (APPLY POSITIONS TO CURRENT SCORES)
-========================================================= */
-function getPrediction() {
-    if (history.length < 2) return [];
-
-    calculateWinnerScorePositions(4);
-
-    const currentSorted = sortScores(
-        calculateScoresFromHistory(history)
-    );
-
-    /* -------- DEBUG LOG -------- */
-    console.clear();
-    console.group("ALL NUMBERS SORTED BY CURRENT SCORE");
-    currentSorted.forEach((o, i) =>
-        console.log(`#${i + 1}`, o.num, "score:", o.score)
-    );
-    console.groupEnd();
-
-    console.log(
-        "Learned score positions:",
-        roulette_win_pos.map(p => `#${p}`).join(", ")
-    );
-    /* --------------------------- */
-
-    return roulette_win_pos
-        .map(p => currentSorted[p - 1])
-        .filter(Boolean)
-        .map(o => o.num);
+function getSortedScores(scoresMap) {
+    return [...scoresMap.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-/* =========================================================
-   WIN CHECK
-========================================================= */
-function checkWin(num) {
-    if (lastPrediction.includes(num)) {
-        wins++;
-        return true;
+function getPrediction(currentHistory, currentScorePositions, currentScoresMap) {
+    if (currentHistory.length < 3) return [];
+
+    const sorted = getSortedScores(currentScoresMap);
+    let positions = [];
+    
+    // Collect UNIQUE recent winner positions ≤ 18
+    for (let i = currentScorePositions.length - 1; i >= 0; i--) {
+        const p = currentScorePositions[i];
+        if (p <= 18 && !positions.includes(p)) {
+            positions.push(p);
+        }
     }
-    return false;
+
+    // Fallback if no win positions yet
+    if (positions.length === 0) positions = [1, 2, 3, 4];
+
+    positions = positions.slice(0, CONFIG.PREDICTION_SIZE);
+
+    return positions
+        .map(p => sorted[p - 1])
+        .filter(Boolean)
+        .map(e => e[0]);
 }
 
-/* =========================================================
-   INTERACTION (NAMES UNCHANGED)
-========================================================= */
+/**
+ * REPROCESS HISTORY
+ * Reconstructs wins and winnerScorePositions by simulating the history
+ */
+function reprocessHistory() {
+    wins = 0;
+    winnerScorePositions = [];
+    let tempHistory = [];
+    let activePrediction = [];
+
+    for (let i = 0; i < history.length; i++) {
+        const actualNum = history[i];
+
+        if (tempHistory.length >= 3) {
+            // 1. Scores were calculated BEFORE this number hit
+            const scoresBeforeSpin = calculateScores(tempHistory, activePrediction);
+            const sorted = getSortedScores(scoresBeforeSpin);
+            
+            // 2. Was it a win?
+            if (activePrediction.includes(actualNum)) {
+                wins++;
+            }
+
+            // 3. What was its rank position?
+            const rankIndex = sorted.findIndex(e => e[0] === actualNum);
+            if (rankIndex !== -1) {
+                winnerScorePositions.push(rankIndex + 1);
+            }
+        }
+
+        // Add to the growing history chain
+        tempHistory.push(actualNum);
+        
+        // 4. Update the prediction for the NEXT spin
+        const currentScores = calculateScores(tempHistory, activePrediction);
+        activePrediction = getPrediction(tempHistory, winnerScorePositions, currentScores);
+    }
+
+    lastPrediction = activePrediction;
+    updateUI();
+}
+
+// --- INTERACTION ---
 function addSpin(num) {
-    const won = checkWin(num);
     history.push(num);
     saveData();
-    lastPrediction = getPrediction();
-    updateUI(won);
+    reprocessHistory(); // Recalculate everything based on new history
 }
 
 function undo() {
     if (!history.length) return;
     history.pop();
-    wins = 0;
-    lastPrediction = getPrediction();
     saveData();
-    updateUI();
+    reprocessHistory();
 }
 
 function resetData() {
     if (!confirm("Reset all data?")) return;
     history = [];
-    wins = 0;
-    lastPrediction = [];
-    roulette_win_pos = [];
     saveData();
-    updateUI();
+    reprocessHistory();
 }
 
 function addRandom() {
@@ -442,95 +422,100 @@ function sim10() {
     for (let i = 0; i < 10; i++) addRandom();
 }
 
-/* =========================================================
-   UI UPDATE (UNCHANGED)
-========================================================= */
-function updateUI(justWon = false) {
-    const strip = document.getElementById("history-strip");
-    strip.innerHTML = "";
+// --- UI ---
+function updateUI() {
+    const strip = document.getElementById('history-strip');
+    strip.innerHTML = '';
     [...history].reverse().slice(0, 20).forEach(n =>
-        strip.appendChild(createBall(n, "mini-ball"))
+        strip.appendChild(createBall(n, 'mini-ball'))
     );
 
-    const pred = document.getElementById("prediction-set");
-    pred.innerHTML = "";
-    if (!lastPrediction.length) {
-        pred.innerHTML = "<div style='opacity:.5'>Spin to calibrate…</div>";
+    const pred = document.getElementById('prediction-set');
+    pred.innerHTML = '';
+
+    if (history.length < 3) {
+        pred.innerHTML = '<div style="opacity:.5">Spin 3 times…</div>';
     } else {
         lastPrediction.forEach(n => {
             const b = createBall(n);
-            if (justWon && history.at(-1) === n) {
-                b.style.boxShadow = "0 0 14px var(--green)";
-                b.style.transform = "scale(1.2)";
+            // Highlight if the last hit was in this prediction
+            if (history.length > 0 && history.at(-1) === n && winnerScorePositions.length > 0) {
+                 b.style.boxShadow = "0 0 18px var(--green)";
+                 b.style.transform = "scale(1.1)";
             }
             pred.appendChild(b);
         });
     }
 
-    document.getElementById("total-wins").innerText = wins;
-    const rate =
-        history.length > 3
-            ? ((wins / (history.length - 3)) * 100).toFixed(1)
-            : 0;
-    document.getElementById("win-rate").innerText = rate + "%";
+    document.getElementById('total-wins').innerText = wins;
+    const rate = history.length > 3 ? ((wins / (history.length - 3)) * 100).toFixed(1) : 0;
+    document.getElementById('win-rate').innerText = rate + "%";
 
-    updateAnalysisText(justWon);
+    updateAnalysisText();
 }
 
-function updateAnalysisText(justWon) {
-    const status = document.getElementById("algorithm-status");
-    const conf = document.getElementById("confidence-val");
+function updateAnalysisText() {
+    const s = document.getElementById('algorithm-status');
+    const c = document.getElementById('confidence-val');
 
     if (history.length < 4) {
-        status.innerText = "Calibrating Sector Physics…";
-        conf.innerText = "10%";
+        s.innerText = "Calibrating win-position memory…";
+        c.innerText = "12%";
         return;
     }
 
-    status.innerText =
-        "Tracking score positions: " +
-        roulette_win_pos.map(p => `#${p}`).join(", ");
+    const currentScores = calculateScores(history, lastPrediction);
+    const vals = [...currentScores.values()];
+    const max = Math.max(...vals);
+    const avg = vals.reduce((a,b)=>a+b)/vals.length;
+    const conf = Math.min(99, Math.round((max/avg)*28));
 
-    conf.innerText = Math.min(99, 25 * roulette_win_pos.length) + "%";
+    c.innerText = conf + "%";
+    c.style.color = conf > 65 ? "var(--green)" : conf > 45 ? "var(--hot)" : "var(--muted)";
+
+    s.innerText = "Tracking repeating win positions & sectors";
+	
+    const posEl = document.getElementById('score-positions');
+    if (winnerScorePositions.length) {
+        const unique = [...new Set(
+            winnerScorePositions.filter(p => p <= 18)
+        )].slice(-CONFIG.PREDICTION_SIZE);
+        posEl.innerText = unique.map(p => `#${p}`).join(", ");
+    } else {
+        posEl.innerText = "–";
+    }
 }
 
-/* =========================================================
-   GRID (UNCHANGED)
-========================================================= */
+// --- GRID ---
 function buildGrid() {
-    const g = document.getElementById("number-grid");
-    g.innerHTML = "";
+    const g = document.getElementById('number-grid');
     for (let i = 1; i <= 36; i++) {
-        const b = document.createElement("button");
+        const b = document.createElement('button');
         b.innerText = i;
-        b.className = "grid-btn";
-        b.style.background = CONFIG.REDS.includes(i)
-            ? "var(--red)"
-            : "#334155";
+        b.className = 'grid-btn';
+        b.style.background = CONFIG.REDS.includes(i) ? 'var(--red)' : '#334155';
         b.onclick = () => addSpin(i);
         g.appendChild(b);
     }
 }
 
-function createBall(n, cls = "ball") {
-    const d = document.createElement("div");
-    d.className = `${cls} ${
-        n === 0 ? "zero" : CONFIG.REDS.includes(n) ? "red" : "black"
-    }`;
+function createBall(n, cls='ball') {
+    const d = document.createElement('div');
+    d.className = `${cls} ${n===0?'zero':CONFIG.REDS.includes(n)?'red':'black'}`;
     d.innerText = n;
     return d;
 }
 
-/* =========================================================
-   INIT
-========================================================= */
-document.addEventListener("DOMContentLoaded", () => {
-    buildGrid();
-    lastPrediction = getPrediction();
-    updateUI();
-});
-</script>
+// --- STORAGE ---
+function saveData() {
+    localStorage.setItem('roulette_pro_hist', JSON.stringify(history));
+}
 
+function loadData() {
+    history = JSON.parse(localStorage.getItem('roulette_pro_hist') || "[]");
+    reprocessHistory(); 
+}
+</script>
 
 </body>
 </html>
