@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Roulette Matrix Optimizer</title>
+  <title>Windowed Roulette Optimizer</title>
   <style>
     * { box-sizing: border-box; }
     body {
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
       background: #0f0f0f;
       color: #e0e0e0;
       margin: 0;
@@ -35,22 +35,52 @@
       border: 1px solid #333;
       border-radius: 4px;
       font-weight: bold;
+      cursor: pointer;
     }
+    button.num:hover { background: #333; }
     button.zero { background: #0a5c0a; }
     button.red { color: #ff5252; }
+    
     .controls {
       display: flex;
       gap: 8px;
       margin-bottom: 8px;
+      flex-wrap: wrap;
     }
     button.ctrl {
       flex: 1;
       padding: 8px;
       background: #333;
       color: #bbb;
-      border: none;
+      border: 1px solid #444;
       border-radius: 4px;
+      cursor: pointer;
+      min-width: 80px;
     }
+    button.ctrl:hover { background: #444; color: #fff; }
+    button.action { background: #1b4d1b; color: white; border-color: #2e7d32; }
+    button.action:hover { background: #2e7d32; }
+
+    .inputs-row {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      margin-bottom: 10px;
+      background: #111;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #222;
+    }
+    .inputs-row label { color: #888; font-size: 0.85rem; margin-right: 5px; }
+    input[type="number"] {
+      background: #222;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 4px;
+      width: 70px;
+      border-radius: 3px;
+    }
+
     .history-box {
       background: #000;
       border: 1px solid #222;
@@ -58,111 +88,159 @@
       font-family: monospace;
       white-space: nowrap;
       overflow-x: auto;
-    }
-    .trend-bar {
-      background: #222;
-      border: 1px solid #444;
-      border-radius: 4px;
-      padding: 8px;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
+      height: 40px;
       display: flex;
-      gap: 10px;
+      align-items: center;
     }
-    .trend-label {
-      font-size: 0.65rem;
-      color: #888;
-      font-weight: bold;
-    }
-    #trend-data {
-      color: #ffeb3b;
-      font-weight: bold;
-    }
+    
     .matrix-wrapper {
       flex-grow: 1;
       overflow: auto;
       border: 1px solid #333;
       background: #141414;
+      position: relative;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
     }
     th, td {
       border: 1px solid #222;
-      padding: 4px;
+      padding: 6px;
       text-align: center;
     }
     th {
       background: #222;
-      color: #888;
+      color: #aaa;
       position: sticky;
       top: 0;
+      z-index: 2;
     }
-    .idx-col {
-      width: 30px;
-      background: #000;
-      color: #444;
-    }
-    .sum-col {
-      width: 35px;
-      background: #1a1a1a;
-      color: #fff;
-      font-weight: bold;
-    }
+    
     .hot-pick {
       background: #1b4d1b;
       color: #fff !important;
       font-weight: bold;
+      border: 1px solid #2e7d32;
     }
     .red-txt { color: #ff5252; }
     .green-txt { color: #4caf50; }
     .black-txt { color: #aaa; }
-    .sum-high { background: #5c0a0a; }
-    .sum-mid { background: #3d3400; color: #ffeb3b; }
+    
+    #optimizer-status {
+      margin-top: 5px;
+      color: #ffeb3b;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+    .stat-val { color: #4fc3f7; font-weight: bold; }
   </style>
 </head>
+
 <body>
 
 <div class="panel">
   <div class="grid" id="buttons-grid"></div>
+
   <div class="controls">
     <button class="ctrl" id="undo-btn">Undo</button>
-    <button class="ctrl" id="reset-btn">Full Reset</button>
+    <button class="ctrl" id="reset-btn">Reset</button>
+    <button class="ctrl" id="save-btn">Save</button>
+    <button class="ctrl" id="load-btn">Load</button>
   </div>
-  <div class="history-box" id="history-display"></div>
-</div>
 
-<div class="trend-bar">
-  <span class="trend-label">Top 10 Index:</span>
-  <span id="trend-data">Waiting…</span>
+  <div class="history-box" id="history-display"></div>
+
+  <div class="inputs-row">
+    <div>
+      <label>Top N:</label>
+      <input id="topqt-input" type="number" value="6" min="1" max="36" />
+    </div>
+    <div>
+      <label>Window:</label>
+      <input id="window-input" type="number" value="50" min="1" />
+    </div>
+    <div>
+      <label>Current Seed:</label>
+      <input id="seed-input" type="number" value="99999" />
+      <button class="ctrl" style="padding:4px 8px;" id="apply-seed-btn">Set</button>
+    </div>
+  </div>
+  
+  <div id="stats-display" style="font-size: 0.8rem; color:#888;">
+    Current Prediction: <span id="trend-data" class="stat-val">...</span>
+  </div>
 </div>
 
 <div class="matrix-wrapper">
   <table>
     <thead>
-      <tr id="header-row"></tr>
+      <tr>
+        <th>Position</th>
+        <th>Number</th>
+        <th>Status</th>
+        <th>Window Hits</th>
+      </tr>
     </thead>
     <tbody id="table-body"></tbody>
   </table>
 </div>
 
+<div class="panel" style="margin-top: 8px;">
+  <div class="inputs-row" style="margin:0; background:transparent; border:none; padding:0;">
+    <label>Start Seed:</label>
+    <input id="seed-start" type="number" value="1" />
+    <label>End Seed:</label>
+    <input id="seed-end" type="number" value="1000" />
+    <button class="ctrl action" id="optimize-btn">Find Max Wins</button>
+  </div>
+  <div id="optimizer-status">Ready to optimize.</div>
+</div>
+
 <script>
-/* ===== CONFIG ===== */
-const REDS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-const STD_WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
-const BASE_NUMS = [...Array(37).keys()];
-const RND_COUNT = 99999;
-const DISPLAY_LIMIT = 50;
-const STORAGE_KEY = 'roulette_optimizer_data';
-const WINDOW_SIZE = 33;
-const MIN_HISTORY = 10;
-const SEED = 99999; // Config: Seed for randomness
+/* ============================
+   STATE
+============================ */
 
-/* ===== STATE ===== */
-let state = { history: [], rndSets: [] };
+let TOPQT = 6;
+let SEED = 99999;
+let WINDOW_SIZE = 50;
+let history = [];
 
-/* ===== SEEDED PRNG ===== */
+const LS_KEY = "roulette_window_v2";
+const REDS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+
+/* ============================
+   LOCAL STORAGE
+============================ */
+
+function saveState() {
+  localStorage.setItem(LS_KEY, JSON.stringify({ history, SEED, TOPQT, WINDOW_SIZE }));
+}
+
+function loadState() {
+  const raw = localStorage.getItem(LS_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.history)) history = data.history;
+    if (typeof data.SEED === "number") SEED = data.SEED;
+    if (typeof data.TOPQT === "number") TOPQT = data.TOPQT;
+    if (typeof data.WINDOW_SIZE === "number") WINDOW_SIZE = data.WINDOW_SIZE;
+
+    document.getElementById("seed-input").value = SEED;
+    document.getElementById("topqt-input").value = TOPQT;
+    document.getElementById("window-input").value = WINDOW_SIZE;
+  } catch {}
+}
+
+/* ============================
+   PURE RANDOM (Mulberry32)
+   Consistent & Simplified
+============================ */
+
 function mulberry32(seed) {
   return function() {
     let t = seed += 0x6D2B79F5;
@@ -172,171 +250,211 @@ function mulberry32(seed) {
   };
 }
 
-/* ===== SHUFFLE ===== */
-function shuffle(a, seed) {
-  const random = mulberry32(seed);
-  a = [...a];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+// Fisher-Yates shuffle using the seeded generator
+function shuffleWithSeed(seed) {
+  const arr = [...Array(37).keys()]; // 0 to 36
+  const rng = mulberry32(seed);
+  
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return a;
+  return arr;
 }
 
-/* ===== WORKER ===== */
-const worker = new Worker(URL.createObjectURL(new Blob([`
-  let wheels = [];
-  onmessage = e => {
-    if (e.data.type === 'init') {
-      wheels = e.data.wheels;
-      return;
-    }
-    const history = e.data.history;
-    const BASE = [...Array(37).keys()];
-    const WINDOW_SIZE = ${WINDOW_SIZE};
-    const MIN_HISTORY = ${MIN_HISTORY};
+// Get the Top N numbers purely from the seed shuffle
+// No complex scoring or trend analysis (simplified)
+function getTopN(seed, topqt) {
+  const wheel = shuffleWithSeed(seed); 
+  return wheel.slice(0, topqt);
+}
 
-    function getTop4(h, w) {
-      if (h.length < MIN_HISTORY) return [];
-      const m = {};
-      w.forEach((n, i) => m[n] = i);
-      const s = Array(37).fill(0);
-      const window = h.slice(-WINDOW_SIZE);
-      window.forEach(n => {
-        const c = m[n];
-        for (let o = -2; o <= 2; o++) {
-          const i = (c + o + 37) % 37;
-          s[w[i]] += 1;
-        }
-      });
-      return BASE.map(n => ({ n, s: s[n] }))
-        .sort((a, b) => b.s - a.s)
-        .slice(0, 2)
-        .map(x => x.n);
-    }
+/* ============================
+   OPTIMIZER (Windowed Max Wins)
+============================ */
 
-    if (history.length >= MIN_HISTORY) {
-      const allHots = wheels.map(w => getTop4(history, w));
-      const sums = [];
-      for (let i = 0; i < 37; i++) {
-        let sum = 0;
-        wheels.forEach((w, c) => { if (allHots[c].includes(w[i])) sum++; });
-        sums.push(sum);
+function optimizeSeed() {
+  const start = parseInt(document.getElementById("seed-start").value, 10);
+  const end = parseInt(document.getElementById("seed-end").value, 10);
+  const status = document.getElementById("optimizer-status");
+  
+  // Refresh standard inputs
+  applyInputs();
+
+  if (history.length === 0) {
+    status.textContent = "No history available to check wins.";
+    return;
+  }
+
+  // Get the relevant slice of history (The Window)
+  const startIndex = Math.max(0, history.length - WINDOW_SIZE);
+  const relevantHistory = history.slice(startIndex);
+
+  let bestSeed = null;
+  let maxWins = -1;
+  let bestPicks = [];
+
+  // Iterate through seeds
+  for (let s = start; s <= end; s++) {
+    const picks = getTopN(s, TOPQT);
+    let wins = 0;
+
+    // Count wins in the window
+    for (const spin of relevantHistory) {
+      if (picks.includes(spin)) {
+        wins++;
       }
-      const trend = sums.map((s, i) => ({ i, s }))
-        .filter(x => x.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .slice(0, 10)
-        .map(x => x.i);
-
-      postMessage({ allHots, sums, trend });
-    } else {
-      postMessage({ allHots: [], sums: [], trend: [] });
     }
-  };
-`], { type: 'application/javascript' })));
 
-/* ===== UI RENDER ===== */
-function render() {
-  const h = document.getElementById('history-display');
-  h.innerHTML = state.history.map(n => `<span class="${n === 0 ? 'green-txt' : REDS.includes(n) ? 'red-txt' : 'black-txt'}">${n}</span>`).join(' ');
-  h.scrollLeft = h.scrollWidth;
-  if (state.history.length >= MIN_HISTORY) {
-    document.getElementById('trend-data').textContent = 'Calculating…';
-    worker.postMessage({ type: 'update', history: state.history });
+    if (wins > maxWins) {
+      maxWins = wins;
+      bestSeed = s;
+      bestPicks = picks;
+    }
+  }
+
+  // Update State
+  if (bestSeed !== null) {
+    SEED = bestSeed;
+    document.getElementById("seed-input").value = SEED;
+    status.innerHTML = `Found Seed <span class="stat-val">${bestSeed}</span> with <span class="stat-val">${maxWins}</span> wins in last ${relevantHistory.length} spins.`;
+    saveState();
+    renderAll();
   } else {
-    document.getElementById('trend-data').textContent = 'Waiting for more history…';
+    status.textContent = "Optimization failed.";
   }
 }
 
-worker.onmessage = e => {
-  if (e.data.trend.length > 0) {
-    document.getElementById('trend-data').textContent = e.data.trend.join(' — ');
-    renderTable(e.data.allHots, e.data.sums);
-  } else {
-    document.getElementById('trend-data').textContent = 'Waiting for more history…';
-  }
-};
+/* ============================
+   UI RENDERING
+============================ */
 
-function renderTable(allHots, sums) {
-  const header = document.getElementById('header-row');
-  header.innerHTML = '<th class="idx-col">#</th><th class="sum-col">Σ</th><th>STD</th>' +
-    state.rndSets.slice(0, DISPLAY_LIMIT).map((_, i) => `<th>R${i + 1}</th>`).join('');
-  const tbody = document.getElementById('table-body');
-  tbody.innerHTML = '';
-  const wheels = [STD_WHEEL, ...state.rndSets.slice(0, DISPLAY_LIMIT)];
+function renderHistory() {
+  const el = document.getElementById("history-display");
+  el.innerHTML = history
+    .map(n => `<span class="${n===0?'green-txt':REDS.includes(n)?'red-txt':'black-txt'}">${n}</span>`)
+    .join(" ");
+  el.scrollLeft = el.scrollWidth;
+}
+
+function renderTrend() {
+  const picks = getTopN(SEED, TOPQT);
+  document.getElementById("trend-data").textContent = `[ ${picks.join(", ")} ]`;
+}
+
+function renderTable() {
+  const wheel = shuffleWithSeed(SEED); // Get full order for this seed
+  const picks = wheel.slice(0, TOPQT); // The top predictions
+  
+  // Prepare Window Data for Hit Count Column
+  const startIndex = Math.max(0, history.length - WINDOW_SIZE);
+  const relevantHistory = history.slice(startIndex);
+
+  const tbody = document.getElementById("table-body");
+  tbody.innerHTML = "";
+
+  // We display the seed's generated order
   for (let i = 0; i < 37; i++) {
-    let row = `<td class="idx-col">${i}</td><td class="sum-col ${sums[i] >= 4 ? 'sum-high' : sums[i] >= 2 ? 'sum-mid' : ''}">${sums[i]}</td>`;
-    wheels.forEach((w, c) => {
-      const n = w[i];
-      const hot = allHots[c].includes(n);
-      const col = n === 0 ? 'green-txt' : REDS.includes(n) ? 'red-txt' : 'black-txt';
-      row += `<td class="${hot ? 'hot-pick' : col}">${n}</td>`;
-    });
-    tbody.insertAdjacentHTML('beforeend', '<tr>' + row + '</tr>');
+    const num = wheel[i];
+    const isHot = i < TOPQT; // It's hot if it's in the top N of the shuffle
+    
+    // Calculate hits in window for this specific number
+    const hitsInWindow = relevantHistory.filter(h => h === num).length;
+
+    const colorClass = num===0 ? "green-txt" : REDS.includes(num) ? "red-txt" : "black-txt";
+    const bgClass = isHot ? "hot-pick" : "";
+    const fire = isHot ? "🔥" : "";
+
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${i+1}</td>
+        <td class="${colorClass} ${bgClass}" style="font-size:1.1em;">${num} ${fire}</td>
+        <td>${isHot ? "PREDICTED" : "-"}</td>
+        <td>${hitsInWindow}</td>
+      </tr>
+    `);
   }
 }
 
-/* ===== INIT ===== */
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ history: state.history }));
+function renderAll() {
+  renderHistory();
+  renderTrend();
+  renderTable();
+}
+
+/* ============================
+   HANDLERS
+============================ */
+
+function addNumber(n) {
+  history.push(n);
+  saveState();
+  renderAll();
+}
+
+function undoHistory() {
+  history.pop();
+  saveState();
+  renderAll();
+}
+
+function resetHistory() {
+  if (confirm("Reset all history?")) {
+    history = [];
+    saveState();
+    renderAll();
+    document.getElementById("optimizer-status").textContent = "History reset.";
+  }
+}
+
+function applyInputs() {
+  const s = parseInt(document.getElementById("seed-input").value);
+  const t = parseInt(document.getElementById("topqt-input").value);
+  const w = parseInt(document.getElementById("window-input").value);
+
+  if (!isNaN(s)) SEED = s;
+  if (!isNaN(t) && t > 0 && t <= 37) TOPQT = t;
+  if (!isNaN(w) && w > 0) WINDOW_SIZE = w;
+  
+  saveState();
+  renderAll();
+}
+
+/* ============================
+   INIT
+============================ */
+
+function setupButtons() {
+  const grid = document.getElementById("buttons-grid");
+  grid.innerHTML = "";
+  for (let n = 0; n < 37; n++) {
+    const btn = document.createElement("button");
+    btn.textContent = n;
+    btn.className = `num ${n===0?'zero':REDS.includes(n)?'red':''}`;
+    btn.onclick = () => addNumber(n);
+    grid.appendChild(btn);
+  }
 }
 
 function init() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  state = { history: [], rndSets: [] };
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed.history)) {
-        state.history = parsed.history;
-      }
-    } catch (e) {
-      console.warn('Invalid saved data, ignoring');
-    }
-  }
+  loadState();
+  setupButtons();
+  renderAll();
 
-  // Reset and regenerate shuffles before render
-  state.rndSets = Array.from({ length: RND_COUNT }, (_, i) => shuffle(BASE_NUMS, SEED + i));
-
-  worker.postMessage({ type: 'init', wheels: [STD_WHEEL, ...state.rndSets] });
-
-  const grid = document.getElementById('buttons-grid');
-  grid.innerHTML = '';
-  BASE_NUMS.forEach(n => {
-    const b = document.createElement('button');
-    b.textContent = n;
-    b.className = `num ${n === 0 ? 'zero' : REDS.includes(n) ? 'red' : ''}`;
-    b.onclick = () => {
-      state.history.push(n);
-      save();
-      render();
-    };
-    grid.appendChild(b);
-  });
-
-  document.getElementById('undo-btn').onclick = () => {
-    if (state.history.length) {
-      state.history.pop();
-      save();
-      render();
-    }
-  };
-
-  document.getElementById('reset-btn').onclick = () => {
-    if (confirm('Full Reset?')) {
-      state.history = [];
-      state.rndSets = Array.from({ length: RND_COUNT }, (_, i) => shuffle(BASE_NUMS, SEED + i));
-      save();
-      worker.postMessage({ type: 'init', wheels: [STD_WHEEL, ...state.rndSets] });
-      render();
-    }
-  };
-
-  render();
+  document.getElementById("undo-btn").onclick = undoHistory;
+  document.getElementById("reset-btn").onclick = resetHistory;
+  document.getElementById("save-btn").onclick = () => { saveState(); alert("Saved"); };
+  document.getElementById("load-btn").onclick = () => { loadState(); renderAll(); };
+  
+  document.getElementById("apply-seed-btn").onclick = applyInputs;
+  document.getElementById("topqt-input").onchange = applyInputs;
+  document.getElementById("window-input").onchange = applyInputs;
+  
+  document.getElementById("optimize-btn").onclick = optimizeSeed;
 }
 
 init();
 </script>
+
 </body>
 </html>
