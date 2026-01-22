@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+  <title>Histórico & Previsão IA – EuroDreams / Euromilhões / Totoloto</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f9; color: #333; padding: 20px; }
+    h2 { color: #2c3e50; }
+    pre { background: #1e1e1e; color: #00ff00; padding: 16px; border-radius: 6px; max-height: 70vh; overflow: auto; font-family: 'Consolas', monospace; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    button { background-color: #007bff; color: white; border: none; padding: 10px 20px; font-size: 1rem; cursor: pointer; border-radius: 4px; transition: background 0.3s; margin-top: 10px; }
+    button:hover { background-color: #0056b3; }
+    select { padding: 8px 12px; font-size: 1rem; border-radius: 4px; border: 1px solid #ccc; }
+    label { font-weight: bold; margin-right: 10px; }
+    .destaque { color: #ffeb3b; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<h2>🔮 Previsão Avançada – Jogos Santa Casa</h2>
+
+<label>
+  Jogo:
+  <select id="jogo">
+    <option value="eurodreams">EuroDreams</option>
+    <option value="euromilhoes">Euromilhões</option>
+    <option value="totoloto">Totoloto</option>
+  </select>
+</label>
+
+<button onclick="carregarHistorico()">Calcular Previsão Avançada</button>
+
+<pre id="resultado">Escolhe o jogo e clica no botão para iniciar a IA...</pre>
+
+<script>
+// -------------------------------------------------------
+// CONFIGURAÇÃO POR JOGO
+// ------------------------------------------------------- 
+const PROXY = url => "https://corsproxy.io/?" + encodeURIComponent(url);
+
+const JOGOS = {
+  eurodreams: {
+    nome: "EuroDreams",
+    url: "https://www.jogossantacasa.pt/web/ResultsBoard/EuroDreams",
+    selectName: "selectContest",
+    seletorChave: ".betMiddle.twocol.regPad .colums li",
+    seletorData: ".dataInfo",
+    parseChave: texto => {
+      if (!texto.includes("+")) return null;
+      const [nums, sorte] = texto.split("+");
+      return {
+        combinacao: nums.trim().split(/\s+/).map(Number),
+        extras: [parseInt(sorte.trim())]
+      };
+    },
+    numerosPrincipais: 6,
+    extrasLabel: "Número da Sorte"
+  },
+
+  euromilhoes: {
+    nome: "Euromilhões",
+    url: "https://www.jogossantacasa.pt/web/SCCartazResult",
+    selectName: "selectContest",
+    seletorChave: ".betMiddle .colums li",
+    seletorData: ".dataInfo",
+    parseChave: texto => {
+      if (!texto.includes("+")) return null;
+      const [nums, estrelas] = texto.split("+");
+      return {
+        combinacao: nums.trim().split(/\s+/).map(Number),
+        extras: estrelas.trim().split(/\s+/).map(Number)
+      };
+    },
+    numerosPrincipais: 5,
+    extrasLabel: "Estrelas"
+  },
+
+  totoloto: {
+    nome: "Totoloto",
+    url: "https://www.jogossantacasa.pt/web/SCCartazResult/totolotoNew",
+    selectName: "selectContest",
+    seletorChave: ".betMiddle .colums li",
+    seletorData: ".dataInfo",
+    parseChave: texto => {
+      if (!texto.includes("+")) return null;
+      const [nums, suplente] = texto.split("+");
+      return {
+        combinacao: nums.trim().split(/\s+/).map(Number),
+        extras: [parseInt(suplente.trim())]
+      };
+    },
+    numerosPrincipais: 5,
+    extrasLabel: "Número Extra"
+  }
+};
+
+// -------------------------------------------------------
+// UTILITÁRIOS
+// -------------------------------------------------------
+function limparData(texto) {
+  return texto.replace(/(segunda|terça|terca|quarta|quinta|sexta|sábado|sabado)(?=Data)/i, "$1 ").trim();
+}
+
+async function fetchHTML(url) {
+  try {
+    const target = PROXY(url);
+    const resp = await fetch(target);
+    const buffer = await resp.arrayBuffer();
+    const decoder = new TextDecoder("iso-8859-1");
+    return decoder.decode(buffer);
+  } catch (e) {
+    return null;
+  }
+}
+
+function parseHTML(html) {
+  return new DOMParser().parseFromString(html, "text/html");
+}
+
+// -------------------------------------------------------
+// LÓGICA AVANÇADA DE PREDIÇÃO
+// -------------------------------------------------------
+function calcularPrevisaoAvancada(historico, cfg) {
+  if (historico.length < 10) return { numeros: [], extras: [], analise: {} };
+
+  const statsNums   = new Map();
+  const statsExtras = new Map();
+  const total       = historico.length;
+
+  // ------------------------------------------------
+  // Parâmetros afináveis por jogo (muito importante!)
+  // ------------------------------------------------
+  const configs = {
+    eurodreams:   { recencyDecay: 1.6,  coldBoost: 0.20, hotWeight: 1.00, window: total },
+    euromilhoes:  { recencyDecay: 1.9,  coldBoost: 0.22, hotWeight: 1.00, window: 120 },
+    totoloto:     { recencyDecay: 2.1,  coldBoost: 0.25, hotWeight: 0.95, window: 80  }
+  };
+
+  const p = configs[cfg.nome.toLowerCase().replace(/[^a-z]/g,'')] || configs.euromilhoes;
+
+  // Apenas considerar os últimos N sorteios para tendência (mas todos contam um pouco)
+  const historicoRecente = historico.slice(0, p.window);
+
+  const updateStat = (map, num, idx) => {   // idx = 0 → mais recente
+    if (!map.has(num)) {
+      map.set(num, { freq: 0, weighted: 0, lastSeen: total + 10, atraso: 0 });
+    }
+    const s = map.get(num);
+    s.freq++;
+    s.lastSeen = Math.min(s.lastSeen, idx);
+
+    // Decaimento exponencial agressivo na recência
+    const recencyScore = Math.pow(1 / (idx + 1), p.recencyDecay) * 30;
+
+    // Boost moderado para atrasados (mas não extremos)
+    let coldScore = 0;
+    const atraso = idx; // quanto maior → mais atrasado
+    if (atraso >= 8 && atraso <= 25) {
+      coldScore = p.coldBoost * (atraso - 4); // pico ~18-22 sorteios
+    }
+
+    s.weighted += 1 + recencyScore + coldScore;
+  };
+
+  // Processar
+  historico.forEach((h, idx) => {
+    h.combinacao.forEach(n => updateStat(statsNums, n, idx));
+    h.extras.forEach(e => { if (!isNaN(e)) updateStat(statsExtras, e, idx); });
+  });
+
+  // Finalizar ranking
+  const rank = map => [...map.entries()]
+    .map(([num, s]) => {
+      s.atraso = s.lastSeen;
+      // Ajuste final: números muito quentes têm ligeiro desconto se apareceram nos últimos 2
+      let finalScore = s.weighted;
+      if (s.lastSeen <= 2) finalScore *= 0.88;
+      return { num, ...s, score: finalScore };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const rankingNums   = rank(statsNums);
+  const rankingExtras = rank(statsExtras);
+
+  // ───────────────────────────────────────────────
+  // SELEÇÃO MAIS INTELIGENTE
+  // ───────────────────────────────────────────────
+  let selecionados = [];
+  let tentativas = 0;
+  const maxTentativas = 80;
+
+  while (selecionados.length < cfg.numerosPrincipais && tentativas++ < maxTentativas) {
+    // Pegar top 12–15 candidatos + alguns médios/atrasados
+    let pool = [
+      ...rankingNums.slice(0,  cfg.numerosPrincipais + 7),           // muito quentes
+      ...rankingNums.slice(12, 12 + cfg.numerosPrincipais + 4),     // intermédios quentes
+      ...rankingNums.filter(x => x.atraso >= 9 && x.atraso <= 24)   // atrasados moderados
+        .sort((a,b) => b.score - a.score).slice(0, 5)
+    ];
+
+    // Remover duplicados e baralhar um pouco
+    pool = [...new Set(pool.map(x => x.num))];
+    shuffleArray(pool); // função auxiliar abaixo
+
+    // Tentar construir combinação
+    const candidato = [];
+    let pares = 0, impares = 0;
+
+    for (let n of pool) {
+      if (candidato.length >= cfg.numerosPrincipais) break;
+
+      const isPar = n % 2 === 0;
+      const maxPar   = Math.ceil(cfg.numerosPrincipais * 0.7);
+      const maxImpar = Math.ceil(cfg.numerosPrincipais * 0.7);
+
+      if (isPar   && pares   >= maxPar)   continue;
+      if (!isPar  && impares >= maxImpar) continue;
+
+      // Evitar muitos consecutivos
+      if (candidato.length >= 2) {
+        const ult2 = candidato.slice(-2);
+        if (Math.abs(n - ult2[ult2.length-1]) === 1 && Math.abs(n - ult2[ult2.length-2]) <= 3) continue;
+      }
+
+      candidato.push(n);
+      if (isPar) pares++; else impares++;
+    }
+
+    // Critério de soma (muito forte em Euromilhões e Totoloto)
+    const soma = candidato.reduce((a,b)=>a+b, 0);
+    const somaMin = cfg.numerosPrincipais * 9;
+    const somaMax = cfg.numerosPrincipais * 42;
+    if (soma < somaMin || soma > somaMax) continue;
+
+    // Aceitar se passou nos filtros
+    if (candidato.length === cfg.numerosPrincipais) {
+      selecionados = candidato;
+      break;
+    }
+  }
+
+  // Fallback rápido se não conseguiu
+  if (selecionados.length < cfg.numerosPrincipais) {
+    selecionados = rankingNums.slice(0, cfg.numerosPrincipais).map(x => x.num);
+  }
+
+  selecionados.sort((a,b)=>a-b);
+
+  const qtdExtras = historico[0]?.extras?.length || 1;
+  const extras = rankingExtras.slice(0, qtdExtras).map(e => e.num).sort((a,b)=>a-b);
+
+  // ───────────────────────────────────────────────
+  // Análise extra para o utilizador
+  // ───────────────────────────────────────────────
+  const analise = {
+    pares: selecionados.filter(n => n%2===0).length,
+    impares: selecionados.filter(n => n%2===1).length,
+    soma: selecionados.reduce((a,b)=>a+b,0),
+    topHot: rankingNums[0]?.num,
+    topCold: rankingNums[rankingNums.length-1]?.num,
+    atrasoMaisQuente: rankingNums[0]?.atraso || 0
+  };
+
+  return { numeros: selecionados, extras, analise };
+}
+
+// Auxiliar: baralhar array (Fisher-Yates)
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+// -------------------------------------------------------
+// FLUXO PRINCIPAL
+// -------------------------------------------------------
+async function carregarHistorico() {
+  const saida = document.getElementById("resultado");
+  const jogoKey = document.getElementById("jogo").value;
+  const cfg = JOGOS[jogoKey];
+
+  saida.innerHTML = `Jogo: <b>${cfg.nome}</b>\nA analisar padrões matemáticos...\n`;
+
+  // 1. Obter página
+  const htmlPrincipal = await fetchHTML(cfg.url);
+  if (!htmlPrincipal) {
+    saida.textContent += "Erro ao acessar servidor. Tente novamente.";
+    return;
+  }
+  const doc = parseHTML(htmlPrincipal);
+
+  // 2. Identificar concursos
+  const options = [...doc.querySelectorAll(`select[name="${cfg.selectName}"] option`)];
+  // Pegamos apenas os 50 últimos para a previsão ser baseada em tendências recentes,
+  // ou todos se preferir. Para "Tendência", 50-100 é ideal. Vamos pegar todos mas o calculo pondera.
+  const concursos = options
+    .map(o => ({ id: o.value, texto: o.textContent.trim() }))
+    .filter(c => c.id);
+
+  saida.textContent += `Analisando base de dados de ${concursos.length} concursos...\nWait...\n`;
+
+  const historico = [];
+
+  // 3. Extrair dados (Limitado aos últimos 100 para ser rápido e pegar tendência atual)
+  // Se quiser ler TUDO, remova o .slice(0, 100).
+  const concursosParaLer = concursos; 
+
+  for (const c of concursosParaLer) {
+    const htmlConcurso = await fetchHTML(`${cfg.url}?${cfg.selectName}=${encodeURIComponent(c.id)}`);
+    const docC = parseHTML(htmlConcurso);
+
+    const chaveBruta = docC.querySelector(cfg.seletorChave)?.textContent.trim() || "";
+    let dataSorteio = (docC.querySelector(cfg.seletorData)?.textContent || "").trim().split("\n").pop().trim();
+    dataSorteio = limparData(dataSorteio);
+
+    const parsed = cfg.parseChave(chaveBruta);
+    if (parsed && parsed.combinacao.length) {
+      historico.push({
+        concurso: c.texto,
+        data: dataSorteio,
+        combinacao: parsed.combinacao,
+        extras: parsed.extras || []
+      });
+    }
+  }
+
+  // Ordenar histórico por Data (Mais recente no índice 0)
+  // O site às vezes traz misturado dependendo do select, vamos garantir.
+  // Como a data é string complexa, vamos confiar que o select vem ordenado (Newest First é padrão).
+  
+  // Imprimir lista simples (últimos 5 apenas para não poluir)
+  let textoHistorico = historico.slice(0, 5).map(h => {
+     return `${h.data} | ${h.combinacao.join("-")} + ${h.extras.join("-")}`;
+  }).join("\n");
+  
+  saida.innerHTML = `Base carregada: ${historico.length} sorteios.\n\nÚltimos 5 resultados:\n${textoHistorico}\n... (histórico completo analisado internamente)\n`;
+
+  // 4. Executar Algoritmo
+  const prev = calcularPrevisaoAvancada(historico, cfg);
+
+  const htmlPrevisao = `
+--------------------------------------------------
+🎯 PREVISÃO ESTATÍSTICA (${cfg.nome.toUpperCase()})
+--------------------------------------------------
+Números:  <span class="destaque">${prev.numeros.join("  ")}</span>
+${cfg.extrasLabel}: <span class="destaque">${prev.extras.join("  ")}</span>
+
+📊 Detalhes da Análise:
+> Balanceamento: ${prev.analise.pares} Pares / ${prev.analise.impares} Ímpares
+> Critério: Peso Ponderado (Frequência Recente + Atraso)
+> Número mais "quente" do momento: ${prev.analise.topHot}
+--------------------------------------------------
+`;
+
+  saida.innerHTML += htmlPrevisao;
+}
+</script>
+
+</body>
+</html>

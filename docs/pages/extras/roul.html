@@ -132,22 +132,22 @@ const REDS  = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
 // The 4 Core Strategies to Race
 const STRATEGIES = [
-    { id: 'hot',     name: 'HOT FLOW',    window: 12, neighbors: 0, decay: 1.1 }, // Standard Hot numbers
-    { id: 'sector',  name: 'SECTOR BIAS', window: 18, neighbors: 2, decay: 1.05}, // Physical Dealer Signature
-    { id: 'repeat',  name: 'REPEATERS',   window: 6,  neighbors: 0, decay: 1.5 }, // Immediate Repeats (High decay)
-    { id: 'balance', name: 'EQUILIBRIUM', window: 36, neighbors: 1, decay: 1.0 }  // Long term smoothing
+    { id: 'hot',     name: 'HOT FLOW',    window: 12, neighbors: 0, decay: 1.1 }, 
+    { id: 'sector',  name: 'SECTOR BIAS', window: 18, neighbors: 2, decay: 1.05}, 
+    { id: 'repeat',  name: 'REPEATERS',   window: 6,  neighbors: 0, decay: 1.5 }, 
+    { id: 'balance', name: 'EQUILIBRIUM', window: 36, neighbors: 1, decay: 1.0 }  
 ];
 
 let history = [];
-let activeStrategyId = 'sector'; // Default
 let stats = { total: 0, hits: 0 };
 let currentPredictions = [];
+let activeStrategyId = 'sector';
 
 /* ===========================
    LOGIC ENGINE
 =========================== */
 
-// 1. Core Scoring Function (The "Brain")
+// 1. Core Scoring Function
 function calculateScores(data, cfg) {
     let scores = new Map();
     WHEEL.forEach(n => scores.set(n, 0));
@@ -156,19 +156,14 @@ function calculateScores(data, cfg) {
     const chunk = data.slice(-cfg.window);
 
     chunk.forEach((val, idx) => {
-        // Recency weight
         let weight = Math.pow(cfg.decay, idx + 1);
-        
-        // Add to main number
         scores.set(val, scores.get(val) + weight);
 
-        // Add to neighbors (Sector Logic)
         if (cfg.neighbors > 0) {
             const centerIdx = WHEEL.indexOf(val);
             for (let r = 1; r <= cfg.neighbors; r++) {
                 const right = WHEEL[(centerIdx + r) % 37];
                 const left  = WHEEL[(centerIdx - r + 37) % 37];
-                // Neighbors get 50% of the weight
                 scores.set(right, scores.get(right) + (weight * 0.5));
                 scores.set(left,  scores.get(left)  + (weight * 0.5));
             }
@@ -178,28 +173,24 @@ function calculateScores(data, cfg) {
     return [...scores.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-// 2. The "Backtest Breakout" Selector
-function selectBestStrategy() {
-    if (history.length < 10) {
-        // Not enough data, stick to Sector
+// 2. The "Backtest Breakout" Selector (Refactored to accept data source)
+function selectBestStrategy(dataSrc) {
+    if (dataSrc.length < 10) {
         return STRATEGIES.find(s => s.id === 'sector');
     }
 
-    // We simulate the last 15 spins for each strategy
+    // We simulate the last 15 spins relative to the provided dataSrc
     let scores = STRATEGIES.map(strat => {
         let hits = 0;
-        // Test previous spins (up to 15 back)
-        const testCount = Math.min(15, history.length - 5);
+        const testCount = Math.min(15, dataSrc.length - 5);
         
         for (let i = 0; i < testCount; i++) {
-            // Target index to predict
-            const targetIdx = history.length - 1 - i;
-            const target = history[targetIdx];
+            // We look back from the end of dataSrc
+            const targetIdx = dataSrc.length - 1 - i;
+            const target = dataSrc[targetIdx];
             
-            // Historical data available at that moment
-            const pastData = history.slice(0, targetIdx);
+            const pastData = dataSrc.slice(0, targetIdx);
             
-            // Get prediction from strategy
             const ranked = calculateScores(pastData, strat);
             const top5 = ranked.slice(0, 5).map(e => e[0]);
             
@@ -208,29 +199,48 @@ function selectBestStrategy() {
         return { strat, hits };
     });
 
-    // Sort by most hits recently
     scores.sort((a, b) => b.hits - a.hits);
-    
-    // Return the winner
     return scores[0].strat;
 }
 
-// 3. Main Update Loop
+// 3. Dynamic Stats Calculator
+// This replays the entire history to calculate exact hits/total
+function recalculateStats() {
+    stats = { total: 0, hits: 0 };
+    
+    // We need at least ~10 spins to start having a valid prediction model
+    // We start checking from index 10 onwards
+    if (history.length < 6) return; ////
+
+    for(let i = 6; i < history.length; i++) {////
+        const pastData = history.slice(0, i); // Data available before spin i
+        const actualResult = history[i];      // The actual result at spin i
+
+        // 1. Determine which strategy would have been selected at that moment
+        const bestStrat = selectBestStrategy(pastData);
+
+        // 2. Generate the prediction that would have been made
+        const ranked = calculateScores(pastData, bestStrat);
+        const top5 = ranked.slice(0, 5).map(e => e[0]);
+
+        // 3. Verify hit
+        if (top5.includes(actualResult)) {
+            stats.hits++;
+        }
+        stats.total++;
+    }
+}
+
+// 4. Main Update Loop (Current Spin)
 function updatePrediction() {
-    // A. Find which strategy is currently "Breaking Out" (Winning)
-    const bestStrat = selectBestStrategy();
+    // A. Determine current best strategy
+    const bestStrat = selectBestStrategy(history);
     activeStrategyId = bestStrat.id;
 
-    // B. Generate Prediction using that strategy
+    // B. Generate Future Prediction
     const ranked = calculateScores(history, bestStrat);
     currentPredictions = ranked.slice(0, 5).map(e => e[0]);
 
-    // C. Update Stats (Did we win last spin?)
-    if (history.length > 0) {
-        // Note: Real stats tracking requires storing previous predictions.
-        // For this simplified version, we calculate "paper wins" on the active strategy
-    }
-    
     updateUI(bestStrat);
 }
 
@@ -262,11 +272,20 @@ function updateUI(activeStrat) {
     document.getElementById('logic-desc').innerHTML = 
         `Detected Trend: <b>${activeStrat.name}</b> (Window: ${activeStrat.window}, Neighbors: ${activeStrat.neighbors})`;
 
-    // 5. Update Stats (Simple mock calculation for display)
+    // 5. Update Stats (Using dynamically calculated values)
     if (stats.total > 0) {
         let pct = Math.round((stats.hits / stats.total) * 100);
         document.getElementById('accuracy-disp').innerText = `${pct}%`;
         document.getElementById('hits-disp').innerText = `${stats.hits} Hits / ${stats.total} Spins`;
+        
+        // Color code accuracy
+        const accEl = document.getElementById('accuracy-disp');
+        if(pct > 30) accEl.style.color = 'var(--green)';
+        else if (pct < 15) accEl.style.color = 'var(--red)';
+        else accEl.style.color = 'var(--accent)';
+    } else {
+        document.getElementById('accuracy-disp').innerText = "--%";
+        document.getElementById('hits-disp').innerText = "0 Hits / 0 Spins";
     }
 }
 
@@ -279,23 +298,19 @@ function createBall(n, type='ball') {
 }
 
 function addSpin(n) {
-    // Check if previous prediction hit (before adding new number)
-    if (history.length > 5 && currentPredictions.length > 0) {
-        stats.total++;
-        if (currentPredictions.includes(n)) stats.hits++;
-    }
-
     history.push(n);
     save();
+    recalculateStats(); // Dynamic recalculation
     updatePrediction();
 }
 
 function undo() {
-    history.pop();
-    // Reduce stats roughly (not perfect undo but functional)
-    if (stats.total > 0) stats.total--;
-    save();
-    updatePrediction();
+    if (history.length > 0) {
+        history.pop();
+        save();
+        recalculateStats(); // Dynamic recalculation ensures stats are perfect
+        updatePrediction();
+    }
 }
 
 function resetData() {
@@ -311,13 +326,17 @@ function resetData() {
 
 function sim10() {
     for(let i=0; i<10; i++) {
-        addSpin(Math.floor(Math.random()*37));
+        // Just push to history directly for speed, then recalc once
+        history.push(Math.floor(Math.random()*37));
     }
+    save();
+    recalculateStats();
+    updatePrediction();
 }
 
 function save() {
+    // ONLY saving the history array as requested
     localStorage.setItem('roulette_v3_hist', JSON.stringify(history));
-    localStorage.setItem('roulette_v3_stats', JSON.stringify(stats));
 }
 
 // Init
@@ -335,10 +354,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load Data
     const savedHist = localStorage.getItem('roulette_v3_hist');
-    const savedStats = localStorage.getItem('roulette_v3_stats');
     
-    if (savedHist) history = JSON.parse(savedHist);
-    if (savedStats) stats = JSON.parse(savedStats);
+    if (savedHist) {
+        history = JSON.parse(savedHist);
+        // Calculate stats from scratch based on loaded history
+        recalculateStats();
+    }
 
     updatePrediction();
 });
