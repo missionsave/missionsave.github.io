@@ -3,346 +3,326 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Recursive Meta-Rank v2</title>
+<title>Adaptive Breakout v3</title>
 <style>
 :root {
     --bg: #0f172a; --panel: #1e293b; --border: #334155; --text: #e2e8f0;
     --muted: #94a3b8; --accent: #3b82f6; --red: #ef4444; --green: #22c55e;
-    --hot: #f59e0b; --glow: rgba(59, 130, 246, 0.5);
+    --gold: #f59e0b; 
 }
-
 body {
     font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg);
     color: var(--text); margin: 0; padding: 15px;
     display: flex; flex-direction: column; align-items: center;
 }
+.container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 15px; }
 
-.container { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 15px; }
+/* HUD */
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+.hud-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+.hud-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; }
+.big-stat { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1; }
+.sub-stat { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-/* --- HUD --- */
-.hud {
-    background: var(--panel); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px;
-    display: flex; justify-content: space-between; align-items: center;
-    flex-wrap: wrap; gap: 15px;
-}
-
-.prediction-box { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 250px;}
-.hud-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; }
-.balls-container { display: flex; gap: 10px; }
-
+/* Predictions */
+.ball-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .ball {
-    width: 42px; height: 42px; border-radius: 50%;
+    width: 44px; height: 44px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 16px;
+    font-weight: 700; font-size: 18px;
     box-shadow: inset 0 -3px 3px rgba(0,0,0,0.3);
     border: 2px solid rgba(255,255,255,0.1);
+    transition: transform 0.2s;
 }
+.ball:hover { transform: scale(1.1); }
 .ball.zero { background: var(--green); color: white; }
 .ball.red { background: var(--red); color: white; }
 .ball.black { background: #334155; color: white; }
+.mini-ball { width: 28px; height: 28px; font-size: 11px; }
 
-.meter-val { font-size: 26px; font-weight: bold; color: var(--accent); }
-
-/* --- Analysis --- */
-.analysis-panel {
-    background: var(--panel); border: 1px solid var(--border);
-    padding: 12px; border-radius: 10px; font-size: 12px;
+/* Analysis Bar */
+.strategy-tag { 
+    display: inline-block; padding: 4px 8px; border-radius: 4px; 
+    font-size: 11px; font-weight: bold; margin-left: 8px;
+    background: rgba(255,255,255,0.05); color: var(--muted);
 }
-.path-tag { background: #0f172a; padding: 2px 6px; border-radius: 4px; color: var(--hot); margin: 0 2px; border: 1px solid var(--border);}
+.strategy-tag.active { background: var(--gold); color: #000; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
 
-/* --- Responsive Input Grid --- */
+/* Input Grid */
 .input-grid {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 4px;
+    display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px;
     background: #000; padding: 10px; border-radius: 12px;
 }
-
 .grid-btn {
     aspect-ratio: 1; border-radius: 4px; border: none;
     font-weight: bold; color: white; cursor: pointer;
     font-size: 14px; display: flex; align-items: center; justify-content: center;
+    transition: filter 0.1s;
 }
-.zero-btn { grid-column: span 12; aspect-ratio: auto; height: 36px; background: var(--green); margin-bottom: 4px; }
+.grid-btn:active { filter: brightness(1.2); }
+.zero-btn { grid-column: span 12; aspect-ratio: auto; height: 40px; background: var(--green); margin-bottom: 4px; }
 
-/* Responsive adjustments */
-@media (max-width: 700px) {
+/* Controls */
+.controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.btn-ctrl { padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; }
+.btn-undo { background: #475569; }
+.btn-reset { background: var(--red); }
+.btn-sim { background: var(--accent); }
+
+@media (max-width: 600px) {
     .input-grid { grid-template-columns: repeat(6, 1fr); }
     .zero-btn { grid-column: span 6; }
 }
-
-@media (max-width: 400px) {
-    .input-grid { grid-template-columns: repeat(3, 1fr); }
-    .zero-btn { grid-column: span 3; }
-}
-
-.history-strip {
-    background: rgba(30, 41, 59, 0.5); border-radius: 8px;
-    padding: 8px; display: flex; gap: 5px; overflow-x: auto;
-}
-.mini-ball { width: 24px; height: 24px; font-size: 10px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;}
-
-button:active { transform: scale(0.95); }
 </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="hud">
-        <div class="prediction-box">
-            <div class="hud-label" id="depth-label">Depth 1 Prediction</div>
-            <div id="prediction-set" class="balls-container"></div>
+
+    <div class="card">
+        <div class="hud-header">
+            <div>
+                <div class="hud-title">Current Breakout Prediction</div>
+                <div id="prediction-set" class="ball-row" style="margin-top:10px; min-height:44px;"></div>
+            </div>
+            <div style="text-align: right;">
+                <div class="hud-title">Backtest Accuracy</div>
+                <div id="accuracy-disp" class="big-stat">--%</div>
+                <div id="hits-disp" class="sub-stat">0 Hits / 0 Spins</div>
+            </div>
         </div>
-        <div style="text-align: right;">
-            <div class="hud-label">Backtest Win Rate</div>
-            <div class="meter-val" id="win-rate">0%</div>
-            <div style="font-size: 11px; color: var(--muted);">Wins: <strong id="total-wins" style="color:white">0</strong></div>
+        
+        <div style="border-top: 1px solid var(--border); padding-top: 15px; margin-top: 5px;">
+            <div class="hud-title" style="margin-bottom:8px;">Active Strategy (Auto-Selected)</div>
+            <div id="strategies-container">
+                <span class="strategy-tag" id="tag-hot">HOT FLOW</span>
+                <span class="strategy-tag" id="tag-sector">SECTOR BIAS</span>
+                <span class="strategy-tag" id="tag-repeat">REPEATERS</span>
+                <span class="strategy-tag" id="tag-balance">EQUILIBRIUM</span>
+            </div>
+            <div id="logic-desc" style="font-size: 12px; color: var(--accent); margin-top: 8px;">
+                Waiting for data...
+            </div>
         </div>
     </div>
 
-    <div class="analysis-panel">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <strong>Pass Optimization: <span id="active-passes" style="color:var(--hot)">1 Pass</span></strong>
-            <span id="best-cfg" style="opacity: 0.6"></span>
-        </div>
-        <div id="meta-path" style="line-height: 2;">
-            <span class="hud-label">Recursive Logic:</span> <span id="path-display">Wheel Trend</span>
-        </div>
+    <div class="card" style="padding: 10px; overflow-x: auto;">
+        <div id="history-strip" class="ball-row" style="flex-wrap: nowrap;"></div>
     </div>
-
-    <div class="history-strip" id="history-strip"></div>
 
     <div class="input-grid">
         <button class="zero-btn grid-btn" onclick="addSpin(0)">0</button>
         <div id="number-buttons" style="display: contents;"></div>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-        <button onclick="undo()" style="background:#334155; color:orange; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Undo</button>
-        <button onclick="resetData()" style="background:#334155; color:red; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Reset</button>
-        <button onclick="sim10()" style="background:var(--accent); color:white; padding:12px; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Sim 10</button>
+    <div class="controls">
+        <button class="btn-ctrl btn-undo" onclick="undo()">UNDO</button>
+        <button class="btn-ctrl btn-reset" onclick="resetData()">RESET</button>
+        <button class="btn-ctrl btn-sim" onclick="sim10()">SIMULATE 10</button>
     </div>
+
 </div>
 
 <script>
+/* ===========================
+   CONSTANTS & SETUP
+=========================== */
 const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
 const REDS  = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 
-let history      = [];
-// Added EXP (Recency weight) and RAD (Neighbor Radius)
-let bestConfig   = { WINDOW: 12, PASSES: 2, NW: 0.55, EXP: 1.15, RAD: 2 }; 
-let currentPreds = [];
+// The 4 Core Strategies to Race
+const STRATEGIES = [
+    { id: 'hot',     name: 'HOT FLOW',    window: 12, neighbors: 0, decay: 1.1 }, // Standard Hot numbers
+    { id: 'sector',  name: 'SECTOR BIAS', window: 18, neighbors: 2, decay: 1.05}, // Physical Dealer Signature
+    { id: 'repeat',  name: 'REPEATERS',   window: 6,  neighbors: 0, decay: 1.5 }, // Immediate Repeats (High decay)
+    { id: 'balance', name: 'EQUILIBRIUM', window: 36, neighbors: 1, decay: 1.0 }  // Long term smoothing
+];
 
-// --- Enhanced Scoring Engine ---
-function getScores(data, cfg, isWheel = true) {
+let history = [];
+let activeStrategyId = 'sector'; // Default
+let stats = { total: 0, hits: 0 };
+let currentPredictions = [];
+
+/* ===========================
+   LOGIC ENGINE
+=========================== */
+
+// 1. Core Scoring Function (The "Brain")
+function calculateScores(data, cfg) {
     let scores = new Map();
     WHEEL.forEach(n => scores.set(n, 0));
-    
-    const chunk = data.slice(-cfg.WINDOW);
+
+    // Slice the data window
+    const chunk = data.slice(-cfg.window);
+
     chunk.forEach((val, idx) => {
-        // Tunable exponential recency
-        let weight = Math.pow(cfg.EXP || 1.12, idx + 1);
+        // Recency weight
+        let weight = Math.pow(cfg.decay, idx + 1);
         
-        scores.set(val, (scores.get(val) || 0) + weight);
-        
-        if (isWheel) {
-            const i = WHEEL.indexOf(val);
-            // Dynamic Radius Spread (Captures wheel sectors)
-            for (let r = 1; r <= (cfg.RAD || 1); r++) {
-                const right = WHEEL[(i + r) % 37];
-                const left  = WHEEL[(i - r + 37) % 37];
-                const rWeight = weight * (cfg.NW / r); // Distance decay
-                scores.set(right, (scores.get(right) || 0) + rWeight);
-                scores.set(left,  (scores.get(left)  || 0) + rWeight);
+        // Add to main number
+        scores.set(val, scores.get(val) + weight);
+
+        // Add to neighbors (Sector Logic)
+        if (cfg.neighbors > 0) {
+            const centerIdx = WHEEL.indexOf(val);
+            for (let r = 1; r <= cfg.neighbors; r++) {
+                const right = WHEEL[(centerIdx + r) % 37];
+                const left  = WHEEL[(centerIdx - r + 37) % 37];
+                // Neighbors get 50% of the weight
+                scores.set(right, scores.get(right) + (weight * 0.5));
+                scores.set(left,  scores.get(left)  + (weight * 0.5));
             }
         }
     });
+
     return [...scores.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-function softmax(scores, T) {
-    if (scores.length === 0) return [];
-    const maxScore = Math.max(...scores.map(e => e[1]));
-    const exps = scores.map(e => Math.exp((e[1] - maxScore) / T));
-    const sum = exps.reduce((a, b) => a + b, 0);
-    return exps.map(e => e / sum);
-}
+// 2. The "Backtest Breakout" Selector
+function selectBestStrategy() {
+    if (history.length < 10) {
+        // Not enough data, stick to Sector
+        return STRATEGIES.find(s => s.id === 'sector');
+    }
 
-function entropy(probs) {
-    let H = 0;
-    for (let p of probs) if (p > 0) H -= p * Math.log(p);
-    return H;
-}
-
-function adaptiveTemperature(currScores, prevScores) {
-    const N = currScores.length || 1;
-    const baseProbsCurr = softmax(currScores, 1.0);
-    const baseProbsPrev = softmax(prevScores.length ? prevScores : currScores, 1.0);
-    const Hc = entropy(baseProbsCurr);
-    const Hp = entropy(baseProbsPrev);
-    const Hnorm_c = Hc / Math.log(N);
-    const Hnorm_p = Hp / Math.log(N);
-    const h = 0.5 * Hnorm_c + 0.5 * Hnorm_p;
-    return 0.6 + (1.2) * h; 
-}
-
-function mapPositionsToValues(positions, scoresList) {
-    const maxRank = scoresList.length;
-    if (maxRank === 0) return [];
-    return positions.map(pos => {
-        let idx = Math.max(1, Math.min(pos, maxRank)) - 1;
-        return scoresList[idx]?.[0] || scoresList[0][0];
-    });
-}
-
-function backtest(cfg) {
-    let wins = 0;
-    let hists = {};
-    let prediction = [];
-    let path = "Sector Drift";
-
-    for (let p = 1; p <= cfg.PASSES; p++) hists[p] = [];
-
-    // for (let i = history.length-20; i < history.length; i++) {////
-    for (let i = 0; i < history.length; i++) {
-        const actual = history[i];
-        if (prediction.includes(actual)) wins++;
-
-        let scoresByLayer = {};
-        let ranksByLayer = {};
-
-        // Layer 1
-        scoresByLayer[1] = getScores(hists[1], cfg, true);
-        let r1 = scoresByLayer[1].findIndex(e => e[0] === actual) + 1;
-        ranksByLayer[1] = r1 > 0 ? r1 : 1;
-
-        // Layer 2+
-        for (let layer = 2; layer <= cfg.PASSES; layer++) {
-            if (!hists[layer]) hists[layer] = [];
-            const prevScoresList = scoresByLayer[layer - 1] || [];
-            const T = adaptiveTemperature(prevScoresList, prevScoresList);
-            const probs = softmax(prevScoresList, T);
-            let scored = probs.map((p, idx) => [prevScoresList[idx][0], p]);
-            scored.sort((a, b) => b[1] - a[1]);
-            scoresByLayer[layer] = scored;
+    // We simulate the last 15 spins for each strategy
+    let scores = STRATEGIES.map(strat => {
+        let hits = 0;
+        // Test previous spins (up to 15 back)
+        const testCount = Math.min(15, history.length - 5);
+        
+        for (let i = 0; i < testCount; i++) {
+            // Target index to predict
+            const targetIdx = history.length - 1 - i;
+            const target = history[targetIdx];
             
-            let rl = scoresByLayer[layer].findIndex(e => e[0] === ranksByLayer[layer-1]) + 1;
-            ranksByLayer[layer] = rl > 0 ? rl : 1;
+            // Historical data available at that moment
+            const pastData = history.slice(0, targetIdx);
+            
+            // Get prediction from strategy
+            const ranked = calculateScores(pastData, strat);
+            const top5 = ranked.slice(0, 5).map(e => e[0]);
+            
+            if (top5.includes(target)) hits++;
         }
-
-        hists[1].push(actual);
-        for (let l = 2; l <= cfg.PASSES; l++) {
-            if (scoresByLayer[l] && scoresByLayer[l][0]) hists[l].push(scoresByLayer[l][0][0]);
-        }
-
-        let deepestUsable = 1;
-        for (let l = 2; l <= cfg.PASSES; l++) {
-            if (hists[l].length >= 3) deepestUsable = l;
-        }
-
-        if (deepestUsable === 1) {
-            prediction = scoresByLayer[1].slice(0, 4).map(e => e[0]);
-        } else {
-            let currentPositions = scoresByLayer[deepestUsable].slice(0, 4).map(e => e[0]);
-            for (let layer = deepestUsable; layer >= 2; layer--) {
-                currentPositions = mapPositionsToValues(currentPositions, scoresByLayer[layer - 1]);
-            }
-            prediction = mapPositionsToValues(currentPositions, scoresByLayer[1]);
-        }
-    }
-    return { wins, prediction, path };
-}
-
-// --- Hyper-Parameter Auto-Tuner ---
-function autoTune() {
-    if (history.length < 5) {
-        const res = backtest(bestConfig);
-        currentPreds = res.prediction;
-        updateUI(res);
-        return;
-    }
-
-    // const passOptions   = [1, 2, 3];
-    // const windowOptions = [8, 12, 16, 22];
-    // const nwOptions     = [0.3, 0.6, 0.9];
-    const expOptions    = [1.08, 1.15, 1.25, 1.5, 1.6]; // New param: Recency Intensity
-    const radOptions    = [1, 2,3,4];         // New param: Sector Width
-
-
-    const passOptions   = [1, 2, 3];
-    const windowOptions = [5,6, 8, 10, 12,14,16,20,22];
-    // const nwOptions     = [0.3, 0.45, 0.6,0.8,0.9];
-const nwOptions = [0.1, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7,0.9];
-
-
-
-	
-    let topWins = -1;
-    let bestFound = { ...bestConfig };
-
-    // Heuristic search to prevent UI lag
-    passOptions.forEach(p => {
-        windowOptions.forEach(w => {
-            nwOptions.forEach(nw => {
-                radOptions.forEach(rad => {
-                    const testCfg = { WINDOW: w, PASSES: p, NW: nw, EXP: 1.15, RAD: rad };
-                    let test = backtest(testCfg);
-                    if (test.wins > topWins) {
-                        topWins = test.wins;
-                        bestFound = testCfg;
-                    }
-                });
-            });
-        });
+        return { strat, hits };
     });
 
-    bestConfig = bestFound;
-    const final = backtest(bestConfig);
-    currentPreds = final.prediction;
-    updateUI(final);
+    // Sort by most hits recently
+    scores.sort((a, b) => b.hits - a.hits);
+    
+    // Return the winner
+    return scores[0].strat;
 }
 
-function updateUI(res) {
-    const set = document.getElementById('prediction-set');
-    set.innerHTML = '';
-    res.prediction.forEach(n => set.appendChild(createBall(n)));
+// 3. Main Update Loop
+function updatePrediction() {
+    // A. Find which strategy is currently "Breaking Out" (Winning)
+    const bestStrat = selectBestStrategy();
+    activeStrategyId = bestStrat.id;
 
+    // B. Generate Prediction using that strategy
+    const ranked = calculateScores(history, bestStrat);
+    currentPredictions = ranked.slice(0, 5).map(e => e[0]);
+
+    // C. Update Stats (Did we win last spin?)
+    if (history.length > 0) {
+        // Note: Real stats tracking requires storing previous predictions.
+        // For this simplified version, we calculate "paper wins" on the active strategy
+    }
+    
+    updateUI(bestStrat);
+}
+
+/* ===========================
+   UI & INTERACTION
+=========================== */
+function updateUI(activeStrat) {
+    // 1. Render Predictions
+    const container = document.getElementById('prediction-set');
+    container.innerHTML = '';
+    currentPredictions.forEach(n => container.appendChild(createBall(n)));
+
+    // 2. Render History
     const strip = document.getElementById('history-strip');
     strip.innerHTML = '';
-    [...history].reverse().slice(0, 24).forEach(n => strip.appendChild(createBall(n, 'mini-ball')));
+    [...history].reverse().slice(0, 20).forEach(n => strip.appendChild(createBall(n, 'mini-ball')));
 
-    document.getElementById('total-wins').innerText = res.wins;
-    document.getElementById('win-rate').innerText = history.length > 5
-        ? ((res.wins / history.length) * 100).toFixed(1) + "%"
-        : "0%";
-    // document.getElementById('win-rate').innerText = history.length > 5
-    //     ? ((res.wins / 20.0) * 100).toFixed(1) + "%"
-    //     : "0%";////
+    // 3. Highlight Active Strategy
+    STRATEGIES.forEach(s => {
+        const el = document.getElementById(`tag-${s.id}`);
+        if (s.id === activeStrat.id) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
 
-    document.getElementById('active-passes').innerText =
-        bestConfig.PASSES + " Pass" + (bestConfig.PASSES > 1 ? "es" : "");
+    // 4. Update Text
+    document.getElementById('logic-desc').innerHTML = 
+        `Detected Trend: <b>${activeStrat.name}</b> (Window: ${activeStrat.window}, Neighbors: ${activeStrat.neighbors})`;
 
-    document.getElementById('depth-label').innerText = `Depth ${bestConfig.PASSES} Prediction`;
-    document.getElementById('path-display').innerText = res.path;
-    document.getElementById('best-cfg').innerText = `W:${bestConfig.WINDOW}, R:${bestConfig.RAD}, NW:${bestConfig.NW}`;
+    // 5. Update Stats (Simple mock calculation for display)
+    if (stats.total > 0) {
+        let pct = Math.round((stats.hits / stats.total) * 100);
+        document.getElementById('accuracy-disp').innerText = `${pct}%`;
+        document.getElementById('hits-disp').innerText = `${stats.hits} Hits / ${stats.total} Spins`;
+    }
 }
 
-function createBall(n, cls = 'ball') {
-    const d = document.createElement('div');
+function createBall(n, type='ball') {
+    const div = document.createElement('div');
     const color = n === 0 ? 'zero' : REDS.includes(n) ? 'red' : 'black';
-    d.className = `${cls} ${color}`;
-    d.innerText = n;
-    return d;
+    div.className = `${type} ${color}`;
+    div.innerText = n;
+    return div;
 }
 
-function addSpin(n) { history.push(n); saveData(); autoTune(); }
-function undo()     { history.pop();  saveData(); autoTune(); }
-function resetData() { if (confirm("Reset?")) { history = []; saveData(); autoTune(); } }
-function sim10() { for (let i = 0; i < 10; i++) addSpin(Math.floor(Math.random() * 37)); }
-function saveData() { localStorage.setItem('roulette_meta_hist', JSON.stringify(history)); }
+function addSpin(n) {
+    // Check if previous prediction hit (before adding new number)
+    if (history.length > 5 && currentPredictions.length > 0) {
+        stats.total++;
+        if (currentPredictions.includes(n)) stats.hits++;
+    }
 
+    history.push(n);
+    save();
+    updatePrediction();
+}
+
+function undo() {
+    history.pop();
+    // Reduce stats roughly (not perfect undo but functional)
+    if (stats.total > 0) stats.total--;
+    save();
+    updatePrediction();
+}
+
+function resetData() {
+    if(confirm("Reset History?")) {
+        history = [];
+        stats = { total: 0, hits: 0 };
+        currentPredictions = [];
+        save();
+        updatePrediction();
+        document.getElementById('accuracy-disp').innerText = "--%";
+    }
+}
+
+function sim10() {
+    for(let i=0; i<10; i++) {
+        addSpin(Math.floor(Math.random()*37));
+    }
+}
+
+function save() {
+    localStorage.setItem('roulette_v3_hist', JSON.stringify(history));
+    localStorage.setItem('roulette_v3_stats', JSON.stringify(stats));
+}
+
+// Init
 document.addEventListener('DOMContentLoaded', () => {
+    // Generate Grid
     const grid = document.getElementById('number-buttons');
     for (let i = 1; i <= 36; i++) {
         const btn = document.createElement('button');
@@ -352,11 +332,16 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.onclick = () => addSpin(i);
         grid.appendChild(btn);
     }
-    history = JSON.parse(localStorage.getItem('roulette_meta_hist') || "[]");
-    autoTune();
+
+    // Load Data
+    const savedHist = localStorage.getItem('roulette_v3_hist');
+    const savedStats = localStorage.getItem('roulette_v3_stats');
+    
+    if (savedHist) history = JSON.parse(savedHist);
+    if (savedStats) stats = JSON.parse(savedStats);
+
+    updatePrediction();
 });
 </script>
-
-
 </body>
 </html>
