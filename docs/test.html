@@ -1262,6 +1262,10 @@ iframe, .notranslate {
     el.classList.add('notranslate');
     observer.disconnect();
   }
+  document.querySelectorAll('.google-symbols').forEach(el => {
+    el.classList.add('notranslate');
+});
+console.log("observer");
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
