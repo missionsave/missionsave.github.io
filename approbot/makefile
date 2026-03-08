@@ -3,6 +3,8 @@ CXX       := g++
 # CXXFLAGS  :=  -Wall -Wextra -Werror
 CXXFLAGS  := -std=c++20 -Iinclude -I../common -MMD -MP -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS -D_WINDOWS -D_USRDLL     -D_GNU_SOURCE 
 
+CXXFLAGS  += -I/usr/include/lua5.4 -I../common/sol2/include
+
 ifneq ($(dbg),)
 	dbgd:=g
 	# CXXFLAGS+= -g -O0 -Wall -Wextra -fsanitize=thread -fno-omit-frame-pointer
@@ -23,17 +25,15 @@ TARGET    := frobot.exe
 LDFLAGS+=  -Wl,--as-needed -Wl,--gc-sections
 
 # lib files
-SRC_LIB :=  \
-	luanew.cpp \
-	movement.cpp \
-	scint.cpp \
-    ../common/fl_scintilla.cpp \
-    ../common/font_loader.cpp \
-    ../common/general.cpp
+SRC_LIB :=  
 
 # exec
 SRC_APP := \
-    frobot.cpp
+    frobot.cpp\
+	luanew.cpp \
+    ../common/fl_scintilla.cpp \
+    ../common/font_loader.cpp \
+    ../common/general.cpp
 
 define common
 CXXFLAGS+= -I../common
@@ -156,12 +156,20 @@ DEPS_APP := $(OBJS_APP:.o$(dbgd)=.d)
 
 all: $(TARGET)
 
+ifneq ($(pch),)
+PCH_HEADERS = includes.hpp 
+endif
+
+# Precompile rule
+%.hpp.gch: %.hpp
+	$(CXX) $(CXXFLAGS) -x c++-header $< -o $@
+
 # --- Biblioteca estática ---
 $(LIBNAME): $(OBJS_LIB)
 	ar rcs $@ $^
 
 # --- Executável linkando objetos app + lib ---
-$(TARGET): $(OBJS_APP) $(LIBNAME)
+$(TARGET): $(PCH_HEADERS:.hpp=.hpp.gch) $(OBJS_APP) $(LIBNAME)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS) 
 	@if [ "$(nr)" != "1" ]; then \
 		sleep 0.2; \

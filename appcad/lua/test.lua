@@ -65,7 +65,7 @@ container_height=2591
 container_long=6058
 --container_long=1000
 --container_long=12192
-fcompartment=1000
+fcompartment=450
 ttmosaics=23
 container_midle=container_width/2
 
@@ -87,9 +87,25 @@ container_long=12192
 compartments=4
 ttmosaics=53
 compart_len=(container_long-120*(compartments+1))/compartments
+end
+
+function c10()
+container_long=2991
+compartments=1
+ttmosaics=11
+compart_len=(container_long-120*(compartments+1))/compartments
+end 
+
+function c6()
+container_long=1829
+compartments=1
+ttmosaics=7
+compart_len=(container_long-120*(compartments+1))/compartments
 end 
 
 globals()
+--c6()
+----c10()
 --c40()
 
 
@@ -418,7 +434,8 @@ Movel(0,240,0)
 Part mosaic_clones
 for i=0, ttmosaics do
 Clone(mosaic,1)
-Movel(0,0,-203*i-fcompartment)
+Movel(0,0,-203*i-0)
+--Movel(0,0,-203*i-fcompartment)
 end
 
 
@@ -448,6 +465,16 @@ Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
 Part sketch_profile
 Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
 Offset (-2)
+
+--Part sketch_profile
+--Pl 43,15 @0,-15 @-43,0 @0,150 @50,0 @0,-15
+--Offset (-1.5)
+
+--Part test
+--Clone sketch_profile
+--Extrude 1000
+--error()
+
 
 
 Part corner
@@ -703,11 +730,13 @@ Part rail_right
 Clone(rail,1)
 Movel(container_width/4*2)
 
+
 Part rail_clones
 Clone(rail,1)
 Movel(0,tunel_height)
 Clone(rail_right,1)
 Movel(0,tunel_height)
+--do return end
 
 Part rail_clones_up
 Clone(rail_clones,1)

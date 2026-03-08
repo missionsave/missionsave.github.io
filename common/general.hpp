@@ -1,5 +1,5 @@
 #ifndef GENERAL_HPP
-#define GENERAL_HPP
+#define GENERAL_HPP 1
 
 #include <iostream>
 #include <mutex>
@@ -8,6 +8,8 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <atomic>
+
 
 typedef std::vector<char> vchar;
 typedef std::vector<std::vector<char>> vvchar;
@@ -152,6 +154,8 @@ void replace_All(std::string & data, std::string toSearch, std::string replaceSt
 
 std::string joinv(const std::vector<int>& vec, std::string delimiter);
 
+bool Contains(std::string text, std::string target = "world");
+
 
 
 struct combR{
@@ -228,5 +232,26 @@ void trim(std::string& str);
         {thecontent} \
         last_event = now;\
     }}
+
+
+
+void copy_html(const std::string& html);
+
+
+
+#include <vector>
+#include <bitset>
+
+inline bool hasDuplicates(const std::vector<int>& v) {
+    static std::bitset<1000001> seen; // adjust size
+    seen.reset();
+
+    for (int x : v) {
+        if (seen[x]) return true;
+        seen[x] = true;
+    }
+    return false;
+}
+
 
 #endif // GENERAL_HPP

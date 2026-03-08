@@ -447,6 +447,24 @@ bat() {
     echo "Consumo instantâneo (W):"
     echo "$(cat /sys/class/power_supply/BAT0/current_now) * $(cat /sys/class/power_supply/BAT0/voltage_now) / 1000000000000" | bc -l
 }
+gif2webp() {
+    if [ -z "$1" ]; then
+        echo "Usage: gif2webp input.gif [output.webp]"
+        return 1
+    fi
+
+    in="$1"
+    out="${2:-${in%.*}.webp}"
+
+    ffmpeg -i "$in" \
+      -vcodec libwebp \
+      -filter:v "fps=12,scale=iw:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+      -lossless 0 -qscale 60 \
+      -compression_level 6 \
+      -loop 0 \
+      "$out"
+}
+
 
 
 

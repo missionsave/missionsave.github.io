@@ -118,6 +118,8 @@ crbot/*6h_1000.json
 # !.github/workflows/crobot.js
 # !.github/workflows/crobot.js
 # !.github/**/**
+docs/pages/extras/roul.*
+docs/pages/extras/roul*.*
 
 
 !2d

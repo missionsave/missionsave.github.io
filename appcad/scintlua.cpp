@@ -1,10 +1,11 @@
-#ifdef _WIN32 
-#include <lua.hpp>
-	#else
-#include <lua5.4/lua.hpp> 
-#endif
-#include "fl_scintilla.hpp"
+// #ifdef _WIN32 
+// #include <lua.hpp>
+// 	#else
+// #include <lua5.4/lua.hpp> 
+// #endif
+// #include "fl_scintilla.hpp" 
 
+#include "includes.hpp"
 using namespace std;
 
 void lua_str(const string &str,bool isfile);

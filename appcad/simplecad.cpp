@@ -1674,8 +1674,13 @@ customDrawer->SetZLayer(Graphic3d_ZLayerId_Topmost);
 		}
 	};
 
+//region luadraw
 	struct luadraw {
 		TopLoc_Location Origin;
+		string  from_sketch="";
+		float Extrude_val=0;
+		int clone_qtd=0;
+
 		int type=0;
 		// vector<luadraw*> vnl;
 		bool editing=0; 
@@ -2142,6 +2147,24 @@ void clone(luadraw* toclone, bool copy_placement = false) {
         }
 
         mergeShape(cshape, shape);
+		bool contain=Contains(toclone->name,"sketch");
+		 
+		if(this->from_sketch=="" && contain){
+			this->from_sketch=toclone->name;
+			// toclone->clone_qtd++;
+		}
+
+		if(toclone->clone_qtd==0)clone_qtd=1;
+		// this->clone_qtd+=toclone->clone_qtd;
+				
+		if(this->from_sketch==""  && !contain){
+			this->from_sketch=toclone->from_sketch;
+			// this->clone_qtd=toclone->clone_qtd;
+			// return;
+		}
+		this->clone_qtd+=toclone->clone_qtd;
+		// this->clone_qtd++;
+		this->Extrude_val=toclone->Extrude_val;
     }
 }
 
@@ -7221,7 +7244,7 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 
 	lua.set_function("Part", [occv, &lua](const std::string& name) {
 		auto* obj = new OCC_Viewer::luadraw(name, occv);
-		lua[name] = obj;  // same as: name = obj in Lua
+		lua[name] = obj;  // same as: name = obj in Lua, now  part names are luadraw
 		current_part = obj;
 		return obj;
 	});
@@ -7236,13 +7259,8 @@ void bind_luadraw(sol::state& lua, OCC_Viewer* occv) {
 	// };
 
 
-#include <BRepAlgoAPI_Fuse.hxx>
-#include <ShapeUpgrade_UnifySameDomain.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Builder.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopoDS_Solid.hxx>
-#include <stdexcept>
+
+//region lua sol
 
 lua.set_function("Origin", [occv](Standard_Real x=0,Standard_Real y=0,Standard_Real z=0) { 
 	if (current_part)current_part->redisplay();
@@ -8189,10 +8207,6 @@ lua.set_function("Offset", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
     current_part->createOffset(val);
 });
-#include <BRepTools.hxx>
-#include <ShapeFix_Shape.hxx>
-
-
 
 lua.set_function("FilletToAllEdges", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
@@ -8275,6 +8289,7 @@ lua.set_function("Extrude", [&](float val=0){
     extruded.Location(savedLoc);
 
     // 5) Add and make it the current shape
+    current_part->Extrude_val=val;
     current_part->mergeShape(current_part->cshape, extruded);
     current_part->shape = extruded;
 });
@@ -9912,64 +9927,70 @@ static Fl_Menu_Item items[] = {
 
 	{0},
 
-	{"&Help", 0, ([](Fl_Widget*, void* v) { 
-		// win->begin();
-		Fl_Group::current(nullptr);  // clear current group
+	// {"&Help", 0, ([](Fl_Widget*, void* v) { 
+	// 	// win->begin();
+	// 	Fl_Group::current(nullptr);  // clear current group
 
-		static Fl_Window* fhelp = new Fl_Window(
-			win->x() + win->w()/4,   // position relative to parent
-			win->y() + win->h()/4,
-			win->w()/2, win->h()/2,
-			"Help"
-		);
-		// fhelp->set_menu_window();
+	// 	static Fl_Window* fhelp = new Fl_Window(
+	// 		win->x() + win->w()/4,   // position relative to parent
+	// 		win->y() + win->h()/4,
+	// 		win->w()/2, win->h()/2,
+	// 		"Help"
+	// 	);
+	// 	// fhelp->set_menu_window();
 
-		// make it a child of 'parent' so no new taskbar icon
-		fhelp->set_modal();   // owned by parent, not independent
+	// 	// make it a child of 'parent' so no new taskbar icon
+	// 	fhelp->set_modal();   // owned by parent, not independent
 
-		static Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
-		fh->textfont(0);
-		// if(string(fh->value()).size()<10) fh->value("<html><body>
-		if(fh->value()==0) fh->value("<html><body>\
-		<h2>Keys:</h2>\
-		<p><b>Ctrl + Mouse Click </b> Go to the code of the Part under the mouse cursor\
-		<p><p>\ 
-		<h2>Commands:</h2>\
-		<p><b>Origin(x,y,z) </b> Move all subsequent Parts to the specified (x,y,z) relative to world coordinates until another Origin is defined\
-		<p><b>Part [label] </b> Create a new Part with a label of your choice\
-		<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes\
-		<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square\
-		<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. (closed polyline) Offset -3  = offset 3 inside, Offset 3  = offset 3 outside. e.g. (opened polyline) Offset -3  = offset 3 to right, Offset 3  = offset 3 to left\
-		<p><b>Circle (radius,x,y) </b>  \
-		<p><b>Extrude ([height]) </b> Extrusion of last polyline or circle from Part \
-		<p><b>Dup () </b> Duplicates last shape from Part, so the new be moved or rotated \
-		<p><b>Fuse () </b> \ Fuse the 2 last solids or 2d in the same Part \
-		<p><b>Subtract () </b> \ Subtract the last solid or 2d from previous shape in the same Part \
-		<p><b>Movel (x,y,z) </b> \ Move last solid from Part \
-		<p><b>Rotatelx (angle) </b> \ Rotate x on point relative to 0,0,0 of last solid from Part \
-		<p><b>Rotately (angle) </b> \ Rotate y on point relative to 0,0,0 of last solid from Part \
-		<p><b>Rotatelz (angle) </b> \ Rotate z on point relative to 0,0,0 of last solid from Part \
-		</body></html>");
+	// 	static Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
+	// 	fh->textfont(0);
+
+	// 	stringstream strm;
+	// 	strm<<"<html><body>";
+	// 	strm<<"<h2>Keys:</h2>";
+	// 	strm<<"<p><b>Ctrl + Mouse Click </b> Go to the code of the Part under the mouse cursor";
+	// 	strm<<"<p><p>"; 
+
+	// 	strm<<"<h2>Commands:</h2>";
+	// 	strm<<"<p><b>Origin(x,y,z) </b> Move all subsequent Parts to the specified (x,y,z) relative to world coordinates until another Origin is defined";
+	// 	strm<<"<p><b>Part [label] </b> Create a new Part with a label of your choice";
+	// 	strm<<"<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes";
+	// 	strm<<"<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square";
+	// 	strm<<"<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. (closed polyline) Offset -3  = offset 3 inside, Offset 3  = offset 3 outside. e.g. (opened polyline) Offset -3  = offset 3 to right, Offset 3  = offset 3 to left";
+	// 	strm<<"<p><b>Circle (radius,x,y) </b>  ";
+	// 	strm<<"<p><b>Extrude ([height]) </b> Extrusion of last polyline or circle from Part ";
+	// 	strm<<"<p><b>Dup () </b> Duplicates last shape from Part, so the new be moved or rotated ";
+	// 	strm<<"<p><b>Fuse () </b> Fuse the 2 last solids or 2d in the same Part ";
+	// 	strm<<"<p><b>Subtract () </b> Subtract the last solid or 2d from previous shape in the same Part ";
+	// 	strm<<"<p><b>Movel (x,y,z) </b> Move last solid from Part ";
+	// 	strm<<"<p><b>Rotatelx (angle) </b> Rotate x on point relative to 0,0,0 of last solid from Part ";
+	// 	strm<<"<p><b>Rotately (angle) </b> Rotate y on point relative to 0,0,0 of last solid from Part ";
+	// 	strm<<"<p><b>Rotatelz (angle) </b> Rotate z on point relative to 0,0,0 of last solid from Part ";
+		
+	// 	strm<<"</body></html>";
+
+ 
+	// 	if(fh->value()==0) fh->value(strm.str().c_str());
 
 
-		fhelp->end();
-		fhelp->show();
+	// 	fhelp->end();
+	// 	fhelp->show();
 
-	 }),
-	 (void*)menu,FL_MENU_DIVIDER},
-	{0},
+	//  }),
+	//  (void*)menu,FL_MENU_DIVIDER},
+	// {0},
 
-	{"test", 0, ([](Fl_Widget*, void* v) {
-		 cotm("test")
-		//  WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test2.stl");
-		 // // lua_init();
-		 // // getallsqlitefuncs();
-		 // string val=getfunctionhelp();
-		 // cot1(val);
-		 // fl_message(val.c_str());
-	 }),
-	 (void*)menu,FL_MENU_DIVIDER},
-	{0},
+	// {"test", 0, ([](Fl_Widget*, void* v) {
+	// 	 cotm("test")
+	// 	//  WriteBinarySTL(occv->ulua["corner_clones"]->shape,"test2.stl");
+	// 	 // // lua_init();
+	// 	 // // getallsqlitefuncs();
+	// 	 // string val=getfunctionhelp();
+	// 	 // cot1(val);
+	// 	 // fl_message(val.c_str());
+	//  }),
+	//  (void*)menu,FL_MENU_DIVIDER},
+	// {0},
 
 
 	{0}	 // End marker
@@ -10093,7 +10114,8 @@ TopoDS_Shape FixFaceOrientation(const TopoDS_Shape& shape)
 
     return result;
 }
-
+//region menu
+ 
 void fill_menu(){
 // menu->add("File/Export/test", 0,
 //     [](Fl_Widget*, void* ud){
@@ -10104,8 +10126,149 @@ void fill_menu(){
 //     occv, 0);
 
 
-menu->add("File/Export visible solids/STL Single solid", 0,
-    [](Fl_Widget*, void* ud){
+
+
+
+	menu->add("Tools/List of profiles with length and quantity", 0, [](Fl_Widget*, void* ud){
+        OCC_Viewer* v = (OCC_Viewer*)(ud);
+
+stringstream strm;
+// string nm = "sketch_profile";
+
+strm << "<html><body>";
+
+for (int ji = 0; ji < occv->vlua.size(); ++ji) {
+    auto jo = occv->vlua[ji];
+	if(!Contains(jo->name,"sketch"))continue;
+
+string nm = jo->name;
+
+strm << "<h2>Profile Summary: <b>" << nm << "</b></h2>";
+
+strm << "<table border='1' cellpadding='4' cellspacing='0' "
+        "style='border-collapse:collapse;'>";
+
+strm << "<tr style='background:#eee;'>"
+        "<th style='padding:4px 8px; line-height:1.2; height:20px;'>Name</th>"
+        "<th style='padding:4px 8px; line-height:1.2; height:20px;'>Length</th>"
+        "<th style='padding:4px 8px; line-height:1.2; height:20px;'>Quantity</th>"
+        "<th style='padding:4px 8px; line-height:1.2; height:20px;'>Total Length</th>"
+        "</tr>";
+
+struct EntryAgg {
+    std::string first_name;
+    int total_qtty = 0;
+};
+
+std::unordered_map<float, EntryAgg> agg;
+
+for (int i = 0; i < occv->vlua.size(); ++i) {
+    auto o = occv->vlua[i];
+    if (o->from_sketch != nm) continue;
+    if (!o->visible_hardcoded) continue;
+
+    float val = std::abs(o->Extrude_val);
+    int qtty = o->clone_qtd;
+
+    auto &slot = agg[val];
+	// cotm2(o->from_sketch, o->name)
+    if (slot.total_qtty == 0) {
+        slot.first_name = o->name;
+    }
+    slot.total_qtty += qtty;
+}
+
+float total_len = 0.0f;
+
+// strm << "<pre>Name\t\tLength\tQuantity\tTotal Length\n";
+
+// for (auto &p : agg) {
+//     float val = p.first;
+//     const auto &e = p.second;
+//     float subtotal = val * e.total_qtty;
+
+//     strm << e.first_name << "\t\t"
+//          << val << "\t"
+//          << e.total_qtty << "\t"
+//          << subtotal << "\n";
+// }
+
+// strm << "TOTAL\t\t\t" << total_len << "\n";
+
+
+for (auto &p : agg) {
+    float val = p.first;
+    const auto &e = p.second;
+
+    float subtotal = val * e.total_qtty;
+    total_len += subtotal;
+
+    strm << "<tr style='padding:4px 8px; line-height:1.2; height:20px;'>"
+            "<td style='padding:4px 8px; line-height:1.2; height:20px;'><b>" << e.first_name << "</b></td>"
+            "<td style='padding:4px 8px; line-height:1.2; height:20px;'>" << val << "</td>"
+            "<td style='padding:4px 8px; line-height:1.2; height:20px;'>" << e.total_qtty << "</td>"
+            "<td style='padding:4px 8px; line-height:1.2; height:20px;'>" << subtotal << "</td>"
+         "</tr>";
+
+    // cotm2(e.first_name, val, e.total_qtty);
+}
+
+strm << "<tr style='background:#ddd;'>"
+        "<td colspan='3'><b>Total Length</b></td>"
+        "<td><b>" << total_len << "</b></td>"
+     "</tr>";
+
+strm << "</table>";
+
+	}
+
+
+
+
+
+
+
+
+
+strm << "</body></html>";
+
+// cotm2(nm, total_len);
+
+
+			Fl_Group::current(nullptr);  // clear current group
+
+		static Fl_Window* fhelp = new Fl_Window(
+			win->x() + win->w()/4,   // position relative to parent
+			win->y() + win->h()/4,
+			win->w()/2, win->h()/2,
+			"Help"
+		);
+		// fhelp->set_menu_window();
+
+		// make it a child of 'parent' so no new taskbar icon
+		fhelp->set_modal();   // owned by parent, not independent
+
+		static Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
+		fh->textfont(0);
+		fh->value(strm.str().c_str());
+		fhelp->end();
+		fhelp->show();
+
+		// cotm2(strm.str());
+		std::string html_data =strm.str();
+		copy_html(html_data);
+		return;
+	// Fl::copy(html_data.c_str(), (int)html_data.length(), 1, "text/html");
+string plain="teste";
+/* 1️⃣ HTML clipboard */
+Fl::copy(html_data.c_str(), (int)html_data.size(), 1, "text/html");
+
+/* 2️⃣ Plain text clipboard (CRITICAL) */
+Fl::copy(plain.c_str(), (int)plain.size(), 1, "text/plain;charset=utf-8");
+	}, occv, 0);
+
+
+menu->add("Tools/Export visible solids/STL Single solid", 0, [](Fl_Widget*, void* ud){
         OCC_Viewer* v = (OCC_Viewer*)(ud);
 
         // Create a single compound
@@ -10165,7 +10328,7 @@ WriteBinarySTL(oriented, "../approbot/stl/test2.stl");
     },
     occv, 0);
 
-menu->add("File/Export visible solids/STL Multiple solids", 0,
+menu->add("Tools/Export visible solids/STL Multiple solids", 0,
     [](Fl_Widget*, void* ud){
         OCC_Viewer* v = (OCC_Viewer*)(ud);
 
@@ -10216,7 +10379,59 @@ menu->add("File/Export visible solids/STL Multiple solids", 0,
     occv, 0);
 
 
+	menu->add("Help", 0, [](Fl_Widget*, void* ud){
+	Fl_Group::current(nullptr);  // clear current group
+
+		static Fl_Window* fhelp = new Fl_Window(
+			win->x() + win->w()/4,   // position relative to parent
+			win->y() + win->h()/4,
+			win->w()/2, win->h()/2,
+			"Help"
+		);
+		// fhelp->set_menu_window();
+
+		// make it a child of 'parent' so no new taskbar icon
+		fhelp->set_modal();   // owned by parent, not independent
+
+		static Fl_Help_View* fh = new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
+		fh->textfont(0);
+
+		stringstream strm;
+		strm<<"<html><body>";
+		strm<<"<h2>Keys:</h2>";
+		strm<<"<p><b>Ctrl + Mouse Click </b> Go to the code of the Part under the mouse cursor";
+		strm<<"<p><p>"; 
+
+		strm<<"<h2>Commands:</h2>";
+		strm<<"<p><b>Origin(x,y,z) </b> Move all subsequent Parts to the specified (x,y,z) relative to world coordinates until another Origin is defined";
+		strm<<"<p><b>Part [label] </b> Create a new Part with a label of your choice";
+		strm<<"<p><b>Clone ([label],[copy placement=0]) </b> Clone the Part with the given label; [copy placement]: 0 = no, 1 = yes";
+		strm<<"<p><b>Pl [coords] </b> Create polyline with coords Autocad style, dont accept variables yet, e.g. Pl 0,0 10,0 @0,10 @-10,0 0,0  =  a square";
+		strm<<"<p><b>Offset ([thickness]) </b> Creates offset of last polyline, e.g. (closed polyline) Offset -3  = offset 3 inside, Offset 3  = offset 3 outside. e.g. (opened polyline) Offset -3  = offset 3 to right, Offset 3  = offset 3 to left";
+		strm<<"<p><b>Circle (radius,x,y) </b>  ";
+		strm<<"<p><b>Extrude ([height]) </b> Extrusion of last polyline or circle from Part ";
+		strm<<"<p><b>Dup () </b> Duplicates last shape from Part, so the new be moved or rotated ";
+		strm<<"<p><b>Fuse () </b> Fuse the 2 last solids or 2d in the same Part ";
+		strm<<"<p><b>Subtract () </b> Subtract the last solid or 2d from previous shape in the same Part ";
+		strm<<"<p><b>Movel (x,y,z) </b> Move last solid from Part ";
+		strm<<"<p><b>Rotatelx (angle) </b> Rotate x on point relative to 0,0,0 of last solid from Part ";
+		strm<<"<p><b>Rotately (angle) </b> Rotate y on point relative to 0,0,0 of last solid from Part ";
+		strm<<"<p><b>Rotatelz (angle) </b> Rotate z on point relative to 0,0,0 of last solid from Part ";
+		
+		strm<<"</body></html>";
+
+ 
+		if(fh->value()==0) fh->value(strm.str().c_str());
+
+
+		fhelp->end();
+		fhelp->show();
+}, occv, 0);
+
+
+
 }
+//region main
 int main(int argc, char** argv) {
 	test();
 	// pausa

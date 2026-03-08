@@ -1,44 +1,45 @@
-#include "GraphicsCostEstimator_patch.h"
-#include <osg/io_utils> 
-#include <osgViewer/Viewer>
+// #include "GraphicsCostEstimator_patch.h"
+// #include <osg/io_utils> 
+// #include <osgViewer/Viewer>
+// // #include <osgViewer/CompositeViewer>
+// #include <osgViewer/ViewerEventHandlers>
+// #include <osgGA/TrackballManipulator>
+// #include <osgGA/NodeTrackerManipulator>
+// #include <osgGA/OrbitManipulator>
+// #include <osgDB/ReadFile>
+// #include <osg/AlphaFunc>
+// #include <osg/BlendFunc>
+// #include <osg/Depth>
+// // #include <osg/Geode> 
+// #include <osg/Material>
+// #include <osg/LOD>
+// #include <osg/Math>
+// #include <osg/MatrixTransform>
+// #include <osg/PolygonOffset>
+// #include <osg/Projection>
+// // #include <osg/ShapeDrawable>
+// // #include <osg/Texture2D>
+// // #include <osg/TextureBuffer>
+// // #include <osg/Image>
+// // #include <osg/Texture2DArray>
+// // #include <osg/Multisample> 
+// #include <osg/LineWidth>  
+// // #include <osg/Camera>
+// #include <osg/PositionAttitudeTransform>
+// #include <osg/ComputeBoundsVisitor>
+// #include <osg/Notify>
 // #include <osgViewer/CompositeViewer>
-#include <osgViewer/ViewerEventHandlers>
-#include <osgGA/TrackballManipulator>
-#include <osgGA/NodeTrackerManipulator>
-#include <osgGA/OrbitManipulator>
-#include <osgDB/ReadFile>
-#include <osg/AlphaFunc>
-#include <osg/BlendFunc>
-#include <osg/Depth>
-// #include <osg/Geode>
-#include <osg/Material>
-#include <osg/LOD>
-#include <osg/Math>
-#include <osg/MatrixTransform>
-#include <osg/PolygonOffset>
-#include <osg/Projection>
-// #include <osg/ShapeDrawable>
-// #include <osg/Texture2D>
-// #include <osg/TextureBuffer>
-// #include <osg/Image>
-// #include <osg/Texture2DArray>
-// #include <osg/Multisample> 
-#include <osg/LineWidth>  
-// #include <osg/Camera>
-#include <osg/PositionAttitudeTransform>
-#include <osg/ComputeBoundsVisitor>
-#include <osg/Notify>
-#include <osgViewer/CompositeViewer>
-#include <osg/Vec3> 
+// #include <osg/Vec3> 
 
 
-#include <osgUtil/SmoothingVisitor>
-#include <osgUtil/Optimizer>
-#include <osg/PolygonMode>
-
-#include <thread>
-#include <mutex>
-#include "frobot.hpp"
+// #include <osgUtil/SmoothingVisitor>
+// #include <osgUtil/Optimizer>
+// #include <osg/PolygonMode>
+   
+// #include <thread>
+// #include <mutex>
+#include "includes.hpp"
+// #include "frobot.hpp" 
 
 // void makeCadStyleNode(osg::ref_ptr<osg::Group> root,osg::Node* model);
 // void makeCadStyleNode(

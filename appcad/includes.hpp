@@ -296,6 +296,17 @@ extern "C" {
 #include <AIS_Shape.hxx>
 #include <V3d_View.hxx>
 
+#include <BRepTools.hxx>
+#include <ShapeFix_Shape.hxx>
+
+#include <BRepAlgoAPI_Fuse.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Builder.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS_Solid.hxx>
+#include <stdexcept>
+
 #include <V3d_View.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Pnt.hxx>
@@ -357,6 +368,7 @@ extern "C" {
 #endif
 #include <sol/sol.hpp> 
 
+#include "fl_scintilla.hpp"
 #include "general.hpp"
 
 void scint_init(int x,int y,int w,int h);

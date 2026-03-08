@@ -2,10 +2,15 @@
 #include <iostream>
 #include <filesystem>
 #include <vector>
+#include <cstring>
+#include <thread>
+
 #include <ctime>
 #include <chrono>
 #include <iomanip>
 #include <algorithm> // Necessário para std::find
+#include <atomic>
+
 
 using namespace std;
 
@@ -176,6 +181,17 @@ std::string joinv(const std::vector<int>& vec, std::string delimiter) {
     }
     return oss.str();
 }
+bool Contains(std::string text, std::string target ){
+
+	if (text.find(target) != std::string::npos) {
+		return 1;
+		std::cout << "Found\n";
+	} else {
+		return 0;
+		std::cout << "Not found\n";
+	}
+	return 0;
+}
 
 combR::combR(int n,int K,bool tocache){
     k=K;
@@ -317,3 +333,136 @@ void appwdir() {
     fs::current_path(exePath);  // Muda diretamente o diretório de trabalho
     std::cout << "Current Working Directory: " << fs::current_path() << std::endl; 
 }
+
+
+
+#ifndef onlystd
+
+#if defined(__linux__) 
+#include <X11/Xlib.h> 
+#include <X11/Xatom.h>
+#endif
+void copy_html(const std::string& html)
+{
+#if defined(_WIN32)
+// ---------------------- WINDOWS -----------------------------
+    std::string header =
+        "Version:0.9\r\n"
+        "StartHTML:00000000\r\n"
+        "EndHTML:00000000\r\n"
+        "StartFragment:00000000\r\n"
+        "EndFragment:00000000\r\n";
+
+    std::string full =
+        header +
+        "<html><body><!--StartFragment-->" +
+        html +
+        "<!--EndFragment--></body></html>";
+
+    auto start_html = header.size();
+    auto start_frag = full.find("<!--StartFragment-->");
+    auto end_frag   = full.find("<!--EndFragment-->") + strlen("<!--EndFragment-->");
+    auto end_html   = full.size();
+
+    char hdr[200];
+    sprintf(hdr,
+        "Version:0.9\r\n"
+        "StartHTML:%08d\r\n"
+        "EndHTML:%08d\r\n"
+        "StartFragment:%08d\r\n"
+        "EndFragment:%08d\r\n",
+        (int)start_html, (int)end_html, (int)start_frag, (int)end_frag);
+
+    memcpy(&full[0], hdr, strlen(hdr));
+
+    OpenClipboard(nullptr);
+    EmptyClipboard();
+
+    UINT fmt = RegisterClipboardFormatA("HTML Format");
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, full.size() + 1);
+    memcpy(GlobalLock(hMem), full.c_str(), full.size() + 1);
+    GlobalUnlock(hMem);
+
+    SetClipboardData(fmt, hMem);
+    CloseClipboard();
+
+#elif defined(__APPLE__)
+// ---------------------- MACOS -------------------------------
+    @autoreleasepool {
+        NSPasteboard* pb = [NSPasteboard generalPasteboard];
+        [pb clearContents];
+        NSString* nsHtml = [NSString stringWithUTF8String:html.c_str()];
+        [pb setString:nsHtml forType:NSHTMLPboardType];
+    }
+
+#elif defined(__linux__)
+// ---------------------- LINUX / X11 -------------------------
+//  #if defined(__linux__)
+// #include <X11/Xlib.h>
+// #include <X11/Xatom.h>
+
+// void copy_html(const std::string& html)
+std::thread([html]() {
+    Display* dpy = XOpenDisplay(nullptr);
+    if (!dpy) return;
+
+    Window win = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy),
+                                     0, 0, 1, 1, 0, 0, 0);
+
+    Atom clip     = XInternAtom(dpy, "CLIPBOARD", False);
+    Atom targets  = XInternAtom(dpy, "TARGETS", False);
+    Atom htmlAtom = XInternAtom(dpy, "text/html", False);
+    Atom utf8     = XInternAtom(dpy, "UTF8_STRING", False);
+
+    XSetSelectionOwner(dpy, clip, win, CurrentTime);
+
+    // Event loop for selection requests
+    for (;;) {
+        XEvent ev;
+        XNextEvent(dpy, &ev);
+
+        if (ev.type == SelectionRequest) {
+            XSelectionRequestEvent* req = &ev.xselectionrequest;
+
+            XEvent res;
+            memset(&res, 0, sizeof(res));
+            res.xselection.type      = SelectionNotify;
+            res.xselection.display   = req->display;
+            res.xselection.requestor = req->requestor;
+            res.xselection.selection = req->selection;
+            res.xselection.time      = req->time;
+            res.xselection.target    = req->target;
+            res.xselection.property  = None;
+
+            if (req->target == targets) {
+                Atom list[2] = { htmlAtom, utf8 };
+                XChangeProperty(dpy, req->requestor, req->property,
+                                XA_ATOM, 32, PropModeReplace,
+                                (unsigned char*)list, 2);
+                res.xselection.property = req->property;
+            }
+            else if (req->target == htmlAtom) {
+                XChangeProperty(dpy, req->requestor, req->property,
+                                htmlAtom, 8, PropModeReplace,
+                                (unsigned char*)html.c_str(),
+                                html.size());
+                res.xselection.property = req->property;
+            }
+
+            XSendEvent(dpy, req->requestor, False, 0, &res);
+            XFlush(dpy);
+        }
+        else if (ev.type == SelectionClear) {
+            break; // lost clipboard ownership
+        }
+    }
+
+    XDestroyWindow(dpy, win);
+    XCloseDisplay(dpy);
+}).detach();
+
+#else
+    #error Unsupported platform
+#endif
+}
+#endif
