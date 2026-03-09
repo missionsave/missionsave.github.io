@@ -1,0 +1,235 @@
+ <!DOCTYPE html>
+ <html lang="en">
+
+ <head>
+	<meta charset="UTF-8">
+ 	<meta name="google" value="notranslate">
+	<meta name="google-adsense-account" content="ca-pub-7469281181086429">
+ 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+ 	<meta content="text/html; charset=UTF-8" http-equiv="content-type">	
+	<meta property="og:description" content="This project aims to create innovative machines capable of preparing 40 fresh, healthy meals every single day.">
+ 	<title translate="no" class="notranslate">Foundation Mission SAVE</title>
+ 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+ 	<link rel="stylesheet" type="text/css" href="https://missionsave.github.io/style.css?1">
+	
+	<link rel="icon" type="image/x-icon" href="https://missionsave.github.io/favicon.ico">
+	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico">
+	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
+
+	<script>
+	//region translate
+	var lib;
+ 
+	function menut(lng) {
+		 myTopnav.className = "topnav";
+		// myFunction(); 
+		let alreadyfixed=0;
+		lib.translatePage('', lng, function() {
+			console.log("translated"); 
+		}); 
+		return;
+		closedropdowns();
+		// reloadCSS();
+		params.set('l', lng); 
+		return;
+		console.log("lng", lng);
+		// setCookieNeverExpires('lang', lng);
+		params.set('l', lng);
+		window.location.search = params.toString();
+		// location.reload();
+	}
+
+	function gtElInit() {
+		 lib = new google.translate.TranslateService();
+		//  menut("en-US");
+		 menut("pt-PT");
+		//  menut(langbr);
+	}
+	</script>
+	<script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;client=wt" type="text/javascript"></script>
+
+<style> 
+/* disable hover whenever body.no-hover is present */
+body.no-hover .dropdownc:hover .dropdown-content {
+  display: none !important;
+}
+
+
+
+
+
+</style> 
+
+ </head>
+
+ <body onresize="onresizeFunction()">
+
+ 	<div class="topheader" id="topheaderid">
+ 		<div class="topnav" id="myTopnav">
+ 			<a href="?" onclick='updateurl(this); loadPage("https://missionsave.github.io/home.html"); window.scrollTo(0, 0); return false;' class="active notranslate">Foundation Mission SAVE</a>
+ 		</div>
+ 	</div>
+	<div id="nexttotop" align="center" style="padding-left:10px; padding-right:10px;">
+ 		<h2></h2> 	
+	</div>
+ 	<div id="viewer_v1" class="htr" ></div>
+
+
+
+
+<script>
+//region globals
+
+//google docs
+
+const tdoc = {
+	home:[
+		{
+		url: "https://docs.google.com/document/d/e/2PACX-1vT22WSgbyIKg8iAu6EBv2Qjj-C98asQ3TgcANlro7QqYkaRGBv470_OUPm6ocJht5dx5FXrSkEphQvM/pub&cache=1"	,
+		origin: "https://docs.google.com/document/d/160quPrgk3Dr6j_6X3N7pPvXTIrwfS7y2coClTNTByFs/edit?tab=t.0"
+		}
+	],
+  development: [
+    {
+      url: "https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub",
+	  origin: ""
+    }
+  ],
+  proposal: [
+    {
+      url: "https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub"
+	}
+	],
+  Models: [
+    {
+      url: "https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub"
+	}
+	]
+};
+
+ 
+function fixCommaInsideSpan(html) {
+  // Caso 1: </span><span class="x">,
+  html = html.replace(/<\/span>\s*<span([^>]*)>\s*,\s*<\/span>/g, ",</span><span$1>");
+
+  // Caso 2: </span><span class="x">,texto
+  html = html.replace(/<\/span>\s*<span([^>]*)>\s*,\s*/g, ",</span><span$1>");
+
+  // Caso 3: texto<span class="x">,</span>
+  html = html.replace(/<span([^>]*)>\s*,\s*<\/span>/g, ",<span$1></span>");
+
+  return html;
+}
+
+function loadPage_v2(url) {
+  fetch(url)
+    .then(r => r.text())
+    .then(html => {
+	html=fixCommaInsideSpan(html); 
+		// console.log(html); 
+// 	html = html.replace(/<span>, <\/span>/g, ", ");
+// html = html.replace(/<span>\s*,\s*<\/span>/g, ", ");
+		// console.log(html); 
+
+	// html=html.replace(/<\/?span[^>]*>/gi, "");
+
+
+      const viewer_v1 = document.getElementById('viewer_v1');
+
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+
+	//   removeEmptySpansWithoutClass(tmp); 
+
+      const scripts = Array.from(tmp.querySelectorAll('script'));
+      scripts.forEach(s => s.remove());
+
+      // CSS applied only to loaded HTML
+const styleFix = `
+<style>
+.loaded_page_root, .loaded_page_root *{
+  max-width:100% !important;
+  box-sizing:border-box;
+}
+
+.loaded_page_root img{
+  width:100% !important;
+  height:auto !important;
+  max-width:100% !important;
+  display:block;
+}
+</style>
+`;
+
+      // wrap loaded HTML
+      viewer_v1.innerHTML = styleFix + `<div class="loaded_page_root">${tmp.innerHTML}</div>`;
+// console.log(viewer_v1.innerHTML);
+
+      // Force images responsive
+      viewer_v1.querySelectorAll('.loaded_page_root img').forEach(img => {
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.setProperty('max-width', '100%', 'important');
+        img.style.setProperty('height', 'auto', 'important');
+
+        const span = img.closest('span');
+        if (span) {
+          span.style.removeProperty('width');
+          span.style.removeProperty('height');
+          span.style.setProperty('max-width', '100%', 'important');
+          span.style.setProperty('display', 'block', 'important');
+        }
+      });
+
+      (function runScripts(i) {
+        if (i >= scripts.length) return;
+
+        const oldScript = scripts[i];
+        const newScript = document.createElement('script');
+
+        Array.from(oldScript.attributes).forEach(attr => {
+          newScript.setAttribute(attr.name, attr.value);
+        });
+
+        if (oldScript.src) {
+          newScript.src = new URL(oldScript.getAttribute('src'), url).href;
+          newScript.onload = () => runScripts(i + 1);
+          newScript.onerror = () => runScripts(i + 1);
+          document.body.appendChild(newScript);
+        } else {
+          newScript.textContent = oldScript.textContent;
+          document.body.appendChild(newScript);
+          runScripts(i + 1);
+        }
+
+        onresizeFunction();
+ 
+      })(0);
+    })
+    .catch(err => {
+      console.error(err);
+      document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
+    });
+}
+
+loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url="+tdoc.home[0].url);
+		console.log("tdoc",tdoc.home[0].url);
+
+function onresizeFunction() {
+    var topHeaderEl = document.getElementById("topheaderid");
+    if (topHeaderEl) {
+        var clientHeight = topHeaderEl.clientHeight;
+        document.getElementById('nexttotop').style.paddingTop = clientHeight + 'px';
+    }
+}
+onresizeFunction();
+
+</script>
+
+
+
+
+
+
+

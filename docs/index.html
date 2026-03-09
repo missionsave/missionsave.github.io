@@ -924,10 +924,67 @@ function removeSpacing(root = document.body) {
     el.style.padding = "0";
   }
 }
+
+function cleanHtml(html) {
+  // 1. Cria DOM temporário
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  // 2. Remove <style> e <script>
+//   doc.querySelectorAll("style, script").forEach(el => el.remove());
+
+  // 3. Remove atributos indesejados
+//   const removeAttrs = ["class", "id", "style", "width", "height", "title"];
+//   doc.querySelectorAll("*").forEach(el => {
+//     removeAttrs.forEach(attr => el.removeAttribute(attr));
+//   });
+  const removeAttrs = [ "id", "width", "height", "title"];
+  doc.querySelectorAll("*").forEach(el => {
+    removeAttrs.forEach(attr => el.removeAttribute(attr));
+  });
+
+  // 4. Remove spans que não têm função semântica
+  doc.querySelectorAll("span").forEach(span => {
+    if (!span.attributes.length) {
+      span.replaceWith(...span.childNodes);
+    }
+  });
+
+  // 5. Remove divs que só servem como wrapper
+  doc.querySelectorAll("div").forEach(div => {
+    if (!div.attributes.length) {
+      div.replaceWith(...div.childNodes);
+    }
+  });
+
+  // 6. Remove elementos vazios
+  doc.querySelectorAll("*").forEach(el => {
+    if (!el.textContent.trim() && el.children.length === 0) {
+      el.remove();
+    }
+  });
+
+  // 7. Retorna HTML limpo
+  return doc.body.innerHTML.trim();
+}
+
+function fixCommaInsideSpan(html) {
+  // Caso 1: </span><span class="x">,
+  html = html.replace(/<\/span>\s*<span([^>]*)>\s*,\s*<\/span>/g, ",</span><span$1>");
+
+  // Caso 2: </span><span class="x">,texto
+  html = html.replace(/<\/span>\s*<span([^>]*)>\s*,\s*/g, ",</span><span$1>");
+
+  // Caso 3: texto<span class="x">,</span>
+  html = html.replace(/<span([^>]*)>\s*,\s*<\/span>/g, ",<span$1></span>");
+
+  return html;
+}
 function loadPage_v2(url) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
+		html=fixCommaInsideSpan(html);
       const viewer_v1 = document.getElementById('viewer_v1');
 
       const tmp = document.createElement('div');
@@ -955,6 +1012,8 @@ const styleFix = `
 
       // wrap loaded HTML
       viewer_v1.innerHTML = styleFix + `<div class="loaded_page_root">${tmp.innerHTML}</div>`;
+
+	// viewer_v1.innerHTML=cleanHtml(viewer_v1.innerHTML);
 
       // Force images responsive
       viewer_v1.querySelectorAll('.loaded_page_root img').forEach(img => {
@@ -1223,7 +1282,7 @@ const pValue = params.get("p");
 	if (!pValue || pValue.trim() === "") {
 		// loadPage('gest/index.html');
 		// loadPage('https://missionsave.github.io/gest/index.html');
-		loadPage_v2('https://missionsave.github.io/home.html');
+		// loadPage_v2('https://missionsave.github.io/home.html');
 		// loadPage('https://missionsave.github.io/home.html');
 		onresizeFunction();
 			loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url="+tdoc.home[0].url);
