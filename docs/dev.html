@@ -500,10 +500,12 @@ Object.entries(tdoc).forEach(([key, value]) => {
         
         const btn = document.createElement("button");
         btn.className = "dropbtn";
-        // btn.onclick = (e) => {
-        //     e.stopPropagation(); // Prevent immediate closing
-        //     dropdownFunction(dropdownId);
-        // };
+        btn.onclick = (e) => {
+			if (myTopnav.classList.contains('responsive')){
+				e.stopPropagation(); // Prevent immediate closing
+				dropdownFunction(dropdownId);
+			}
+        };
         btn.innerHTML = `${key}  <i class="fa fa-caret-down"></i>`;
         
         const contentDiv = document.createElement("div");
