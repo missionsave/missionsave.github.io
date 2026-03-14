@@ -25,7 +25,7 @@ endif
 # --- Diretórios e binário final ---
 BUILD_DIR := .objw
 LIBNAME   := libapp.a$(dbgd)
-TARGET    := simplecad.exe
+TARGET    := msvcad.exe
 
 
 LDFLAGS+=  -Wl,--as-needed -Wl,--gc-sections
@@ -128,7 +128,7 @@ endif
 ifeq ($(OS_NAME), Linux)
 	BUILD_DIR := .objl
 	LIBNAME   := libappl.a$(dbgd)
-	TARGET    := simplecad
+	TARGET    := msvcad
 	LDFLAGS+= -L. -l:$(LIBNAME)
 	CXXFLAGS+= -I../common 
 	
@@ -219,7 +219,7 @@ endif
 ifeq ($(OS_NAME), Arm)
 	BUILD_DIR := .obja
 	LIBNAME   := libappa.a$(dbgd)
-	TARGET    := simplecad
+	TARGET    := msvcad
 	LDFLAGS+= -L. -l:$(LIBNAME)
 
 	LDFLAGS+= -lTKFillet -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKMesh -lTKOffset
@@ -255,9 +255,8 @@ endif
 
 # exec
 SRC_APP := \
-    simplecad.cpp \
+    msvcad.cpp \
     scintlua.cpp \
-    helpers.cpp \
     ../common/general.cpp \
     ../common/font_loader.cpp \
     ../common/fl_scintilla.cpp \
@@ -308,7 +307,7 @@ endif
 # --- Executável linkando objetos app + lib ---
 # $(TARGET): $(OBJS_APP) $(LIBNAME) ../common/sol2/include/sol/sol.hpp.gch
 $(TARGET): $(PCH_HEADERS:.hpp=.hpp.gch) $(OBJS_APP) $(LIBNAME) 
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS_APP)  $(LDFLAGS) 
 	@if [ "$(nr)" != "1" ]; then \
 		sleep 0.2; \
 		./$(TARGET); \
