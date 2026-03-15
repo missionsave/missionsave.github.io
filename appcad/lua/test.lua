@@ -105,7 +105,7 @@ end
 
 globals()
 --c6()
-----c10()
+c10()
 --c40()
 
 
@@ -152,6 +152,7 @@ Extrude -6
 Rotatelx(90)
 Movel(0,0,1)
 Fuse()
+FilletToAllEdges(1)
 
 
 
@@ -495,7 +496,7 @@ Clone(corner_clones,1)
 Movel(0,container_height-crn_height,0)
 Clone(corner,1)
 Movel(0,container_height-crn_height,0)
-
+FilletToAllEdges(2)
 
 
 --Part sketch_upn40x20

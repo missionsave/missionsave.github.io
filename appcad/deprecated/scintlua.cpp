@@ -69,42 +69,56 @@ scint* editor;
 void scint_init(int x,int y,int w,int h){ 
 	editor = new scint(x,y,w,h);
 }
-#include <string>
-#include <string>
+#include <string> 
 
 void gopart(const std::string& str) {
     if (str.empty()) return;
 
-    const int docLen   = editor->SendEditor(SCI_GETTEXTLENGTH);
-    const int matchLen = static_cast<int>(str.size());
-    if (matchLen <= 0 || docLen <= 0) return;
+    const int docLen = editor->SendEditor(SCI_GETTEXTLENGTH);
+    if (docLen <= 0) return;
 
-    // Deterministic search over the whole document
-    editor->SendEditor(SCI_SETSEARCHFLAGS, 0);              // adjust flags if needed
+    // Enable regex search
+    editor->SendEditor(SCI_SETSEARCHFLAGS, SCFIND_REGEXP);
+
+    // Search the entire document
     editor->SendEditor(SCI_SETTARGETSTART, 0);
     editor->SendEditor(SCI_SETTARGETEND, docLen);
 
-    const int pos = editor->SendEditor(SCI_SEARCHINTARGET, matchLen, (sptr_t)str.c_str());
-    if (pos == -1) return;                                  // no match
+    // Build regex: allow spaces/tabs, then Part, then optional space/paren, then your text
+    std::string pattern = "^[ \\t]*Part[ \\t]*" + str;
 
-    // Target doc line for the first match
+    // Perform regex search
+    const int pos = editor->SendEditor(
+        SCI_SEARCHINTARGET,
+        pattern.size(),
+        (sptr_t)pattern.c_str()
+    );
+
+    if (pos == -1) return;  // no match
+
+    // Get the matched line
     const int line = editor->SendEditor(SCI_LINEFROMPOSITION, pos);
 
-    // If folding might hide it, ensure it's visible
-    // (optional but helpful when code is folded)
+    // Ensure the line is visible (important if folded)
     editor->SendEditor(SCI_ENSUREVISIBLE, line);
 
-    // Compute wrap-aware visual line index and scroll delta
+    // Scroll so the matched line is at the top
     const int visual_line        = editor->SendEditor(SCI_VISIBLEFROMDOCLINE, line);
     const int current_visual_top = editor->SendEditor(SCI_GETFIRSTVISIBLELINE);
     const int delta              = visual_line - current_visual_top;
 
-    // Scroll so the found line is at the very top of the view
     if (delta != 0)
-        editor->SendEditor(SCI_LINESCROLL, 0, delta);
+        editor->SendEditor(SCI_LINESCROLL, 0, delta-2);
 
-    // Highlight the match (caret stays visible; no jump since line is already at top)
-    editor->SendEditor(SCI_SETSEL, pos, pos + matchLen);
+// editor->SendEditor(SCI_SETSEL, pos, pos); //not working
+// Move caret (this is usually the most reliable way)
+    editor->SendEditor(SCI_GOTOPOS, pos);
+
+    // Optional: force redraw / update UI if still not showing
+    // editor->SendEditor(SCI_SCROLLCARET);
+	// editor->SendEditor(SCI_SETEMPTYSELECTION, pos); 
+	editor->take_focus();
+	Fl::focus(editor);
 }
 
 

@@ -1,9 +1,96 @@
 #include "includes.hpp"
 #include <Geom_Circle.hxx>
+#include <BRepFilletAPI_MakeFillet.hxx>
+#include <Prs3d_IsoAspect.hxx>
 #include "fl_browser_msv.hpp"
 
 //region helpers
+#include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Edge.hxx>
 
+#include <TopExp_Explorer.hxx>
+
+#include <BRep_Builder.hxx>
+#include <BRep_Tool.hxx>
+
+#include <Geom_Surface.hxx>
+#include <Geom_CylindricalSurface.hxx>
+#include <Geom_ConicalSurface.hxx>
+#include <Geom_ToroidalSurface.hxx>
+#include <Geom_SphericalSurface.hxx>
+
+TopoDS_Shape ExtractFilletEdges(const TopoDS_Shape& shape)
+{
+    BRep_Builder builder;
+    TopoDS_Compound result;
+    builder.MakeCompound(result);
+
+    for (TopExp_Explorer fexp(shape, TopAbs_FACE); fexp.More(); fexp.Next())
+    {
+        TopoDS_Face face = TopoDS::Face(fexp.Current());
+        Handle(Geom_Surface) surf = BRep_Tool::Surface(face);
+
+        bool isFillet =
+            surf->DynamicType() == STANDARD_TYPE(Geom_CylindricalSurface) ||
+            surf->DynamicType() == STANDARD_TYPE(Geom_ConicalSurface) ||
+            surf->DynamicType() == STANDARD_TYPE(Geom_ToroidalSurface) ||
+            surf->DynamicType() == STANDARD_TYPE(Geom_SphericalSurface);
+
+        if (!isFillet)
+            continue;
+
+        for (TopExp_Explorer eexp(face, TopAbs_EDGE); eexp.More(); eexp.Next())
+        {
+            builder.Add(result, eexp.Current());
+        }
+    }
+
+    return result;
+}
+
+
+// Generic function: replaces one shape inside a compound with a modified version
+void ReplaceShapeInCompound(
+    TopoDS_Compound& compound,
+    TopoDS_Shape& targetShape,
+    const std::function<TopoDS_Shape(const TopoDS_Shape&)>& modifier
+) {
+    BRep_Builder builder;
+    TopoDS_Compound newCompound;
+    builder.MakeCompound(newCompound);
+
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        const TopoDS_Shape& currentShape = it.Value();
+
+        if (currentShape.IsSame(targetShape)) {
+            TopoDS_Shape newShape = modifier(currentShape);
+            if (!newShape.IsNull()) {
+                builder.Add(newCompound, newShape);
+                targetShape = newShape; // update reference
+            } else {
+                builder.Add(newCompound, currentShape); // fallback
+            }
+        } else {
+            builder.Add(newCompound, currentShape);
+        }
+    }
+
+    compound = newCompound;
+}
+
+
+TopoDS_Shape FixShape(const TopoDS_Shape& s) {
+    ShapeFix_Shape fixer(s);
+    fixer.Perform();
+    return fixer.Shape();
+}
+TopoDS_Shape CleanShape(const TopoDS_Shape& s) {
+    ShapeUpgrade_UnifySameDomain unify(s, true, true, true);
+    unify.Build();
+    return unify.Shape();
+}
 
 static inline gp_Dir sgnDir(const gp_Dir& axis, Standard_Real dot) {
     return (dot >= 0.0) ? axis : gp_Dir(-axis.X(), -axis.Y(), -axis.Z());
@@ -832,6 +919,113 @@ gp_Dir pickcenteraxisDir ; // circle normal
 gp_Trsf initLoc;
 Handle(AIS_Shape) study_trg;
 
+
+//region scint
+
+void lua_str(const string &str,bool isfile);
+void lua_str_realtime(const string &str);
+string currfilename="";
+
+struct scint : public fl_scintilla { 
+	scint(int X, int Y, int W, int H, const char* l = 0)
+	: fl_scintilla(X, Y, W, H, l) {
+		//  show_browser=0; set_flag(FL_ALIGN_INSIDE); 
+		cotm(filename)
+		currfilename=filename;
+		// lua_str(filename,1);
+		}
+	int handle(int e)override;
+};
+
+int scint::handle(int e){
+
+
+
+	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()==FL_F + 1){
+		int currentPos = SendEditor( SCI_GETCURRENTPOS, 0, 0);
+		int currentLine = SendEditor(SCI_LINEFROMPOSITION, currentPos, 0);
+		int lineLength = SendEditor(SCI_LINELENGTH, currentLine, 0);
+		if (lineLength <= 0) return 0; 
+		std::string buffer(lineLength, '\0'); // allocate with room for '\0'
+		SendEditor( SCI_GETLINE, currentLine, (sptr_t)buffer.data()); 
+		buffer.erase(buffer.find_last_not_of("\r\n\0") + 1);
+		// lua_str(buffer,0);
+		return 1;
+	}
+	// if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()==FL_F + 2){
+	// 	// cotm("f2",filename);
+	// 	lua_str(filename,1);
+	// 	return 1; 
+	// }
+	if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='s'){
+		fl_scintilla::handle(e);
+		// cotm("f2",filename)
+		lua_str(filename,1);
+		return 1;
+	}
+
+
+	if(e==FL_UNFOCUS)SendEditor(SCI_AUTOCCANCEL);
+
+
+	int ret= fl_scintilla::handle(e);
+	if(e == FL_KEYDOWN){
+		lua_str_realtime(getalltext());
+	}
+	return ret;
+}
+
+
+scint* editor;
+
+void scint_init(int x,int y,int w,int h){ 
+	editor = new scint(x,y,w,h);
+} 
+
+void gopart(const std::string& str) {
+    if (str.empty()) return;
+
+    const int docLen = editor->SendEditor(SCI_GETTEXTLENGTH);
+    if (docLen <= 0) return;
+
+    // Enable regex search
+    editor->SendEditor(SCI_SETSEARCHFLAGS, SCFIND_REGEXP);
+
+    // Search the entire document
+    editor->SendEditor(SCI_SETTARGETSTART, 0);
+    editor->SendEditor(SCI_SETTARGETEND, docLen);
+
+    // Build regex: allow spaces/tabs, then Part, then optional space/paren, then your text
+    std::string pattern = "^[ \\t]*Part[ \\t]*" + str;
+
+    // Perform regex search
+    const int pos = editor->SendEditor(
+        SCI_SEARCHINTARGET,
+        pattern.size(),
+        (sptr_t)pattern.c_str()
+    );
+
+    if (pos == -1) return;  // no match
+
+    // Get the matched line
+    const int line = editor->SendEditor(SCI_LINEFROMPOSITION, pos);
+
+    // Ensure the line is visible (important if folded)
+    editor->SendEditor(SCI_ENSUREVISIBLE, line);
+
+    // Scroll so the matched line is at the top
+    const int visual_line        = editor->SendEditor(SCI_VISIBLEFROMDOCLINE, line);
+    const int current_visual_top = editor->SendEditor(SCI_GETFIRSTVISIBLELINE);
+    const int delta              = visual_line - current_visual_top;
+
+    if (delta != 0)
+        editor->SendEditor(SCI_LINESCROLL, 0, delta-2);
+ 
+// Move caret (this is usually the most reliable way)
+    editor->SendEditor(SCI_GOTOPOS, pos); 
+	editor->take_focus(); 
+}
+
 //region help 
 struct shelpv{
 	string pname="";
@@ -890,9 +1084,12 @@ struct OCC_Viewer : public flwindow {
 	Handle(Prs3d_LineAspect) highlightaspect = new Prs3d_LineAspect(Quantity_NOC_GREEN, Aspect_TOL_SOLID, 5.0);
 	Handle(Prs3d_Drawer) customDrawerp = new Prs3d_Drawer();
 
+	bool show_fillets=0;
+
 	struct luadraw; 
 
 	OCC_Viewer(int X, int Y, int W, int H, const char* L = 0) : flwindow(X, Y, W, H, L) {
+		
 		Fl::add_timeout(10, idle_refresh_cb, 0);
 	}
 	static void idle_refresh_cb(void*) {
@@ -959,6 +1156,7 @@ struct OCC_Viewer : public flwindow {
 		m_context = new AIS_InteractiveContext(m_viewer);
 		m_view = m_viewer->CreateView();
 		m_view->SetWindow(wind);
+		InitializeCustomWireframeAspects(m_context);
 
 		m_view->SetImmediateUpdate(Standard_False);
 
@@ -985,6 +1183,8 @@ struct OCC_Viewer : public flwindow {
 		m_context->DefaultDrawer()->SetUnFreeBoundaryAspect(edgeAspect);
 		m_context->DefaultDrawer()->SetFreeBoundaryAspect(edgeAspect);
 		m_context->DefaultDrawer()->SetFaceBoundaryAspect(edgeAspect);
+
+
 
 		m_view->SetBackgroundColor(Quantity_NOC_WHITE);
 		// m_view->SetBackgroundColor(Quantity_NOC_GRAY90);
@@ -1103,6 +1303,7 @@ struct OCC_Viewer : public flwindow {
 			if (help.pname != "") {
 				cotm(help.pname) 
 				gopart(help.pname);
+				editor->take_focus();
 				// ld->occv->FitViewToShape(ld->occv->m_view, ld->shape);
 				return 1;
 			}
@@ -1857,6 +2058,74 @@ static void animation_update(void* userdata)
     Fl::repeat_timeout(1.0 / 30.0, animation_update, userdata);
 }
 
+
+//spin
+bool   IsSpinning = false;
+    gp_Pnt SpinPivot;
+    gp_Ax1 SpinAxis;
+    gp_Dir CurrentDir;   // Tracks current rotation axis
+    double SpinStep = 0.02;
+
+    void start_continuous_rotation() {
+        if (IsSpinning) {
+            IsSpinning = false; 
+            return;
+        }
+
+        IsSpinning = true;
+        SpinPivot  = computeVisibleCenter(this);
+        
+        // Requirement: Start on Y-axis
+        CurrentDir = gp_Dir(0, 1, 0); 
+        SpinAxis   = gp_Ax1(SpinPivot, CurrentDir);
+
+        Fl::add_timeout(1.0 / 60.0, SpinCallback, this);
+    }
+
+    static void SpinCallback(void* userdata) {
+        auto* occv = static_cast<OCC_Viewer*>(userdata);
+        int key = Fl::event_key();
+
+        // 1. Stop conditions (Escape or manual toggle)
+        if (!occv->IsSpinning || key == FL_Escape) {
+            occv->IsSpinning = false;
+            occv->projectAndDisplayWithHLR(occv->vshapes);
+            occv->redraw();
+            return;
+        }
+
+		// 2. Listen for axis change (Alt + X, Y, or Z)
+		int state = Fl::event_state(); // Get modifier keys bitmask
+
+		// Check if Alt is held down
+		if (state & FL_ALT) {
+			gp_Dir targetDir = occv->CurrentDir;
+			
+			if      (key == 'x') targetDir = gp_Dir(1, 0, 0);
+			else if (key == 'y') targetDir = gp_Dir(0, 1, 0);
+			else if (key == 'z') targetDir = gp_Dir(0, 0, 1);
+
+			// Update axis ONLY if target is different from current
+			if (!targetDir.IsEqual(occv->CurrentDir, 1e-6)) {
+				occv->CurrentDir = targetDir;
+				occv->SpinAxis   = gp_Ax1(occv->SpinPivot, targetDir);
+			}
+		}
+
+        // 3. Transformation
+        Handle(Graphic3d_Camera) cam = occv->m_view->Camera();
+        gp_Trsf trsf;
+        trsf.SetRotation(occv->SpinAxis, occv->SpinStep);
+
+        cam->SetCenter(occv->SpinPivot);
+        cam->SetEye(cam->Eye().Transformed(trsf));
+        cam->SetUp(cam->Up().Transformed(trsf));
+
+        occv->projectAndDisplayWithHLR(occv->vshapes); //for speed pcs
+        occv->redraw();
+        Fl::repeat_timeout(1.0 / 60.0, SpinCallback, userdata);
+    }
+//region sbt
 	vector<sbts> sbt;
 	void sbtset(bool zdirup=0){
 		sbt.clear();
@@ -2117,8 +2386,36 @@ static void animation_update(void* userdata)
 		}
 		// cotm(vaShape.size(), vshapes.size());
 	}
-	void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
-		perf1(); 
+//region toggle_shaded
+void InitializeCustomWireframeAspects(const Handle(AIS_InteractiveContext)& ctx)
+{
+    if (ctx.IsNull()) return;
+
+    const Handle(Prs3d_Drawer)& drawer = ctx->DefaultDrawer();
+
+    Handle(Prs3d_LineAspect) wireAsp =
+        new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 1.0);
+
+    Handle(Prs3d_IsoAspect) isoAsp =
+        new Prs3d_IsoAspect(Quantity_NOC_GRAY, Aspect_TOL_DASH, 1.0, 1);
+    // isoAsp->SetNumber(0);
+
+    drawer->SetWireAspect(wireAsp);
+    drawer->SetLineAspect(wireAsp);
+
+    drawer->SetUIsoAspect(isoAsp);
+    drawer->SetVIsoAspect(isoAsp);
+
+    drawer->SetSeenLineAspect(wireAsp);
+
+    drawer->SetFaceBoundaryDraw(Standard_False);
+}
+
+void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
+		perf1();
+		// m_context->SetDisplayMode(AIS_HLRMode, Standard_True);
+
+		// cotm(vaShape.size()) 
 		for (std::size_t i = 0; i < vaShape.size(); ++i) {
 			Handle(AIS_Shape) aShape = vaShape[i];
 			if (aShape.IsNull()) continue;
@@ -2130,6 +2427,9 @@ static void animation_update(void* userdata)
 				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
 				m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
 
+
+				// m_context->Remove(aShape, 0); //debug
+
 				aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
 				aShape->Attributes()->SetLineAspect(wireAsp);
 				aShape->Attributes()->SetSeenLineAspect(wireAsp);
@@ -2139,9 +2439,441 @@ static void animation_update(void* userdata)
 				aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
 			} else {
 				hlr_on = 0;
+	// 			// Mudar para modo sombreado
+				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+
+				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+
+				aShape->SetColor(Quantity_NOC_GRAY70); 
+if(1){
+				// aShape->Attributes()->SetFaceBoundaryDraw(1);//////////////////
+				aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
+				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+				aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
+}
+	// 			// opcional
+	// 		// m_context->Redisplay(aShape, AIS_Shaded, 0);
+	// 		    m_context->SetPolygonOffsets(
+    //     aShape,
+    //     Aspect_POM_Fill,   // mode: fill + edges
+    //     0.0f,             // factor
+    //     0,             // units
+    //     0     // update viewer immediately
+    // );
+// m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+// aShape->SetColor(Quantity_NOC_GRAY70);
+// 				aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
+// 				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+// 				aShape->Attributes()->SetFaceBoundaryUpperContinuity(GeomAbs_C2);
+// 				m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         0,             // factor
+//         0,             // units
+//         0     // update viewer immediately
+//     );
+
+if(0){
+ 
+				// aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+				if(vlua[i]->name=="framev"  ){
+aShape->SetZLayer(Graphic3d_ZLayerId_Top);
+				}else{
+					// aShape->SetZLayer(Graphic3d_ZLayerId_Bot);
+				}
+
+				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+// aShape->SetColor(Quantity_NOC_GRAY70);
+aShape->SetColor(Quantity_NOC_WHITE);
+				// aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
+				// aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
+
+// Drawer global (ou shaded->Attributes() se quiseres só para este objeto)
+Handle(Prs3d_Drawer) drawer = m_context->DefaultDrawer();
+
+// Ativa o desenho das face boundaries (as edges reais entre faces)
+drawer->SetFaceBoundaryDraw(Standard_True);
+
+// Configura cor e espessura das boundaries (ficam pretas e nítidas)
+Handle(Prs3d_Drawer) objDrawer = aShape->Attributes();
+objDrawer->SetFaceBoundaryDraw(Standard_True);
+objDrawer->SetFaceBoundaryAspect(new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 1.8)); // 1.0 a 1.5 costuma ficar bom
+
+// Crucial: suprime as boundaries com continuidade alta (seams suaves, como em cilindros ou fillets)
+drawer->SetFaceBoundaryUpperContinuity(GeomAbs_C2);  // ou GeomAbs_C2 para esconder ainda mais seams suaves
+// GeomAbs_C0 = mostra tudo (arestas "duras" só)
+// GeomAbs_C1 = esconde seams tangentes (bom para cilindros)
+// GeomAbs_C2 = esconde mais (fillets suaves)
+
+// Desativa isoparamétricas (linhas U/V da triangulação)
+drawer->SetIsoOnTriangulation(Standard_False);
+
+// m_view->SetZClippingDepth(1.0);
+// m_view->SetZClippingWidth(2000.0);
+
+// m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         0.1,             // factor
+//         0,             // units
+//         0     // update viewer immediately
+//     );
+
+// Display
+// m_context->Display(shaded, Standard_True);
+if(0 &&vlua[i]->name=="framev")
+{
+// 	Graphic3d_ZLayerId edgeLayer;  // ou int edgeLayer; (Graphic3d_ZLayerId é um enum int)
+
+// // Cria uma nova ZLayer custom (inserida antes da Graphic3d_ZLayerId_Top)
+// m_viewer->AddZLayer(edgeLayer);  // edgeLayer recebe o novo ID
+
+// // Atribui esta layer ao teu AIS_Shape (todo o objeto vai para esta layer)
+// m_context->SetZLayer(aShape, edgeLayer);
+
+	// cotm2("framev")
+// 			    m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         0.5,             // factor
+//         2,             // units
+//         0     // update viewer immediately
+//     );
+// }else{
+// m_context->SetPolygonOffsets(
+//         aShape,
+//         Aspect_POM_Fill,   // mode: fill + edges
+//         1,             // factor
+//         -1,             // units
+//         0     // update viewer immediately
+//     );
+
+
+// #include <Graphic3d_ZLayerSettings.hxx>
+// #include <Graphic3d_PolygonOffset.hxx>
+
+// Cria ID para nova layer (inserida antes da Top por defeito)
+Graphic3d_ZLayerId myEdgeLayer;
+m_viewer->AddZLayer(myEdgeLayer);  // retorna o ID
+
+// Obtém as settings da layer para modificar
+Graphic3d_ZLayerSettings layerSettings = m_viewer->ZLayerSettings(myEdgeLayer);
+
+// Configurações úteis para edges/overlay sem z-fighting
+// layerSettings.SetEnableDepthTest(Standard_True);   // testa profundidade (normal)
+// layerSettings.SetEnableDepthWrite(Standard_True); // NÃO escreve profundidade → objetos por cima não ocultam os de trás (bom para linhas por cima)
+// layerSettings.SetClearDepth(Standard_False);       // não limpa depth buffer (se quiseres overlay puro, podes por True)
+
+// Polygon offset na layer inteira (empurra ligeiramente as linhas para a frente)
+// Graphic3d_PolygonOffset offset;
+// offset.Factor = 1.0;   // experimenta 0.5 a 2.0
+// offset.Units  = 0.0;   // ajuda mais em zoom out extremo
+// layerSettings.SetPolygonOffset(offset);
+// Ou conveniência: layerSettings.SetDepthOffsetPositive(); // offset mínimo positivo
+
+// Opcional: torna immediate para desenhar por último
+// layerSettings.SetImmediate(Standard_True);
+
+// Aplica as settings
+m_viewer->SetZLayerSettings(myEdgeLayer, layerSettings);
+
+// Atribui ao teu objeto (ou só às edges se separares)
+m_context->SetZLayer(aShape, myEdgeLayer);
+// m_context->Redisplay(aShape, Standard_True);
+
+}
+}
+if(0){
+m_context->Remove(aShape,0);
+// Handle(AIS_Shape) &obj = aShape;
+// m_context->Remove(obj,0);
+// m_context->Erase(obj,0);
+
+// Garantir triangulação (obrigatório para PolyAlgo)
+BRepMesh_IncrementalMesh(aShape->Shape(), 0.5);
+
+Handle(AIS_Shape) obj = new AIS_Shape(aShape->Shape());
+
+// HLR exige Shaded
+obj->SetDisplayMode(AIS_Shaded);
+
+Handle(Prs3d_Drawer) dr = obj->Attributes();
+
+// 1) HLR rápido
+dr->SetTypeOfHLR(Prs3d_TOH_PolyAlgo);
+
+// 2) NÃO desenhar faces
+dr->SetFaceBoundaryDraw(Standard_False);
+dr->SetWireDraw(Standard_True);
+
+// 3) Wire aspect explícito (CRUCIAL)
+Handle(Prs3d_LineAspect) wire =
+    new Prs3d_LineAspect(
+        Quantity_NOC_BLACK,
+        Aspect_TOL_SOLID,
+        1.0
+    );
+
+dr->SetWireAspect(wire);
+
+// NÃO definir HiddenLineAspect → linhas escondidas não aparecem
+
+m_context->Display(obj, Standard_True);
+}
+if(0){
+m_context->Remove(aShape,0);
+// Handle(AIS_Shape) visible = new AIS_Shape(aShape);  // ou AIS_Shape se quiseres cores custom
+
+// aShape->SetTransparency(1.0);        // remove fill completamente
+aShape->SetDisplayMode(AIS_Shaded);  // mantém shaded para boundaries funcionarem bem
+
+Handle(Prs3d_Drawer) drawer = m_context->DefaultDrawer();
+drawer->SetFaceBoundaryDraw(Standard_True);
+
+Handle(Prs3d_LineAspect) boundaryAspect = drawer->FaceBoundaryAspect();
+boundaryAspect->SetColor(Quantity_NOC_BLACK);
+boundaryAspect->SetWidth(1.5);  // ou 3 como tinhas
+
+drawer->SetIsoOnTriangulation(Standard_False);
+drawer->SetFreeBoundaryDraw(Standard_False);
+drawer->SetUnFreeBoundaryDraw(Standard_False);
+
+// Para prismas/extrusões poligonais, normalmente não precisas de continuity filter (já ficam clean)
+
+m_context->Display(aShape, 0);
+}
+
+
+
+// 			Handle(AIS_Shape)& highlight = vaShape[i];
+// Handle(Prs3d_LineAspect) la =
+//     new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 2.0);
+
+// highlight->Attributes()->SetLineAspect(la);
+// highlight->Attributes()->SetWireAspect(la);
+// highlight->Attributes()->SetFreeBoundaryAspect(la);
+// highlight->Attributes()->SetUnFreeBoundaryAspect(la);
+// highlight->Attributes()->SetFaceBoundaryAspect(la);
+// highlight->Attributes()->SetHiddenLineAspect(la);
+// highlight->Attributes()->SetVectorAspect(la);
+// highlight->Attributes()->SetSectionAspect(la);
+// highlight->Attributes()->SetSeenLineAspect(la);
+
+
+
+
+
+			}
+			m_context->Redisplay(aShape, 0);
+			// FixZPrecisionAndGhostLines_793(m_context,m_view,aShape);
+		}
+
+		perf1("toggle_shaded_transp");
+		if (hlr_on == 1) {
+			cotm("hlr1")
+			// cotm2(vshapes.size())
+				// projectAndDisplayWithHLR(vaShape);
+				projectAndDisplayWithHLR(vshapes);
+				// if(m_context->IsDisplayed(visible_))visible_->SetZLayer(Graphic3d_ZLayerId_Top);
+				// projectAndDisplayWithHLR(vshapes);
+		} else {
+			cotm("hlr0") if (!visible_.IsNull()) {
+				m_context->Remove(visible_, 0);
+				visible_.Nullify();
+			}
+			// zghost();
+		}
+		currentMode = fromcurrentMode;
+		// redraw();
+	}
+
+
+void toggle_shaded_transpv2_nw(Standard_Integer fromcurrentMode = AIS_WireFrame)
+{
+    perf1();
+
+    // Aspects created once – good (zero isolines kills gray fillet lines)
+    Handle(Prs3d_IsoAspect) wireAsp = new Prs3d_IsoAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 1.0, 0);
+    Handle(Prs3d_LineAspect) invisAsp = new Prs3d_LineAspect(Quantity_NOC_WHITE, Aspect_TOL_SOLID, 0.0);
+    // Alternative for truly invisible hidden lines: Quantity_NOC_TRANSPARENT if your OCCT supports it
+
+    for (std::size_t i = 0; i < vaShape.size(); ++i)
+    {
+        Handle(AIS_Shape) aShape = vaShape[i];
+        if (aShape.IsNull()) continue;
+
+        if (fromcurrentMode == AIS_WireFrame)
+        {
+            hlr_on = 1;
+
+            // 1. Switch mode
+            m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
+
+            // 2. Critical: force presentation computation NOW → initializes drawer internals
+            m_context->Redisplay(aShape, Standard_False);
+
+            // 3. Now create & link fresh drawer (safe after Redisplay)
+            Handle(Prs3d_Drawer) newDrawer = new Prs3d_Drawer();
+            if (!m_context->DefaultDrawer().IsNull())
+            {
+                newDrawer->Link(m_context->DefaultDrawer());
+            }
+
+            // 4. Assign it
+            aShape->SetAttributes(newDrawer);
+
+            // 5. Now safe to set aspects
+            newDrawer->SetLineAspect(wireAsp);
+            newDrawer->SetWireAspect(wireAsp);
+            newDrawer->SetUIsoAspect(wireAsp);
+            newDrawer->SetVIsoAspect(wireAsp);
+            newDrawer->SetSeenLineAspect(wireAsp);
+            newDrawer->SetHiddenLineAspect(invisAsp);
+
+            // Clean up fillet/iso garbage
+            newDrawer->SetFaceBoundaryDraw(Standard_False);
+            newDrawer->SetTypeOfHLR(Prs3d_TOH_NotSet); // or Prs3d_TOH_PolyAlgo if you want approximate HLR
+        }
+        else  // back to shaded
+        {
+            hlr_on = 0;
+
+            // Safe here
+            // aShape->UnsetAttributes();
+
+            m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
+            aShape->SetColor(Quantity_NOC_GRAY70);
+
+            // Restore visible boundaries if needed
+            Handle(Prs3d_Drawer) dr = aShape->Attributes();
+            if (!dr.IsNull())
+            {
+                dr->SetFaceBoundaryDraw(Standard_True);
+                dr->SetFaceBoundaryAspect(
+                    new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 1.0)
+                );
+            }
+        }
+
+        // Redisplay again to reflect changes
+        m_context->Redisplay(aShape, Standard_False);
+    }
+
+    // HLR handling
+    if (hlr_on == 1)
+    {
+        projectAndDisplayWithHLR(vshapes);
+    }
+    else
+    {
+        if (!visible_.IsNull())
+        {
+            m_context->Remove(visible_, Standard_False);
+            visible_.Nullify();
+        }
+    }
+
+    m_context->UpdateCurrentViewer();
+
+    currentMode = fromcurrentMode;
+
+    perf1("toggle_shaded_transp");
+}
+
+
+void toggle_shaded_transpv1(Standard_Integer fromcurrentMode = AIS_WireFrame) {
+		perf1(); 
+		for (std::size_t i = 0; i < vaShape.size(); ++i) {
+			Handle(AIS_Shape) aShape = vaShape[i];
+			if (aShape.IsNull()) continue;
+
+			if (fromcurrentMode == AIS_Shaded) {
+				hlr_on = 1;
+				// Mudar para modo wireframe
+				// // aShape->UnsetColor();
+				// aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+				// m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
+
+				// aShape->Attributes()->SetFaceBoundaryDraw(Standard_False);
+				// aShape->Attributes()->SetLineAspect(wireAsp);
+				// aShape->Attributes()->SetSeenLineAspect(wireAsp);
+				// aShape->Attributes()->SetWireAspect(wireAsp);
+				// aShape->Attributes()->SetUnFreeBoundaryAspect(wireAsp);
+				// aShape->Attributes()->SetFreeBoundaryAspect(wireAsp);
+				// aShape->Attributes()->SetFaceBoundaryAspect(wireAsp);
+// aShape->UnsetAttributes(); 
+
+// // 1. Set the display mode
+// m_context->SetDisplayMode(aShape, AIS_WireFrame, Standard_False);
+
+// 2. Apply your custom Aspect to ALL wire-related categories
+// auto drawer = aShape->Attributes();
+// drawer->SetLineAspect(wireAsp);
+// drawer->SetWireAspect(wireAsp);
+// drawer->SetUnFreeBoundaryAspect(wireAsp);
+// drawer->SetFreeBoundaryAspect(wireAsp);
+// drawer->SetFaceBoundaryAspect(wireAsp);
+// drawer->SetSeenLineAspect(wireAsp);
+
+// // Crucial: Fillets often rely on IsoAspects in Wireframe mode
+// // Prs3d_IsoAspect(Color, Type, Width, NumberOfIsolines)
+// Handle(Prs3d_IsoAspect) wireAsp = new Prs3d_IsoAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 2.0, 1);
+
+// // Now these will all work without errors:
+// // aShape->Attributes()->SetLineAspect(wireAsp);   // Works (Upcast)
+// aShape->Attributes()->SetUIsoAspect(wireAsp);   // Works (Exact match)
+// aShape->Attributes()->SetVIsoAspect(wireAsp);   // Works (Exact match)
+// // drawer->SetUIsoAspect(wireAsp);
+// // drawer->SetVIsoAspect(wireAsp);
+
+// // 3. Disable Face Boundaries if you only want the wireframe
+// drawer->SetFaceBoundaryDraw(Standard_False);
+
+// 4. Tell the context to push these changes to the GPU
+// m_context->Redisplay(aShape, Standard_False); // Standard_False avoids an immediate viewer update
+// m_context->UpdateCurrentViewer();             // Updates everything at once
+			
+
+
+// 1. Create a brand new, fresh Drawer
+Handle(Prs3d_Drawer) newDrawer = new Prs3d_Drawer();
+
+// 2. Link it to the context's defaults (optional, but prevents other crashes)
+newDrawer->Link(m_context->DefaultDrawer());
+
+// 3. Create your Aspect (Color, Type, Width, IsolineCount)
+// Setting '0' here is what fixes the gray lines on fillets!
+Handle(Prs3d_IsoAspect) visibleAsp = new Prs3d_IsoAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 1.0, 0);
+
+// 4. Populate the aspects (Order doesn't matter now)
+newDrawer->SetLineAspect(visibleAsp);
+newDrawer->SetWireAspect(visibleAsp);
+newDrawer->SetUIsoAspect(visibleAsp);
+newDrawer->SetVIsoAspect(visibleAsp);
+newDrawer->SetSeenLineAspect(visibleAsp);
+
+// 5. Hide hidden lines without messy flags
+Handle(Prs3d_LineAspect) hiddenAsp = new Prs3d_LineAspect(Quantity_NOC_WHITE, Aspect_TOL_SOLID, 0.0);
+newDrawer->SetHiddenLineAspect(hiddenAsp);
+
+// 6. Set HLR and disable Face Boundaries
+newDrawer->SetTypeOfHLR(Prs3d_TOH_PolyAlgo);
+newDrawer->SetFaceBoundaryDraw(Standard_False);
+
+// 7. SWAP the drawer on the shape
+aShape->SetAttributes(newDrawer);
+
+// 8. Update
+m_context->Redisplay(aShape, Standard_True);
+
+
+
+
+			} else {
+				hlr_on = 0;
 				// 			// Mudar para modo sombreado
 				aShape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
-				if (0) {
+				if (1) {
 					m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
 					aShape->SetColor(Quantity_NOC_GRAY70);
@@ -2152,7 +2884,7 @@ static void animation_update(void* userdata)
 				}
 				 
 
-				if (1) { 
+				if (0) { 
 					if (vlua[i]->name == "framev") {
 						aShape->SetZLayer(Graphic3d_ZLayerId_Top);
 					} else {
@@ -2204,7 +2936,6 @@ static void animation_update(void* userdata)
 
 				Handle(AIS_Shape) & highlight = vaShape[i];
 				Handle(Prs3d_LineAspect) la = new Prs3d_LineAspect(Quantity_NOC_BLACK, Aspect_TOL_SOLID, 2.0);
-
 				highlight->Attributes()->SetLineAspect(la);
 				highlight->Attributes()->SetWireAspect(la);
 				highlight->Attributes()->SetFreeBoundaryAspect(la);
@@ -2284,16 +3015,45 @@ static void animation_update(void* userdata)
 		algo->Projector(projector);
 		algo->Update();	 // This is the main bottleneck - coarser mesh = much faster here
 
-		// 5. Extract visible edges and transform back
-		HLRBRep_PolyHLRToShape hlrToShape;
-		hlrToShape.Update(algo);
-		algo.Nullify();
+		// // 5. Extract visible edges and transform back
+		// HLRBRep_PolyHLRToShape hlrToShape;
+		// hlrToShape.Update(algo);
+		// algo.Nullify();
 
-		TopoDS_Shape vEdges = hlrToShape.VCompound();  // Visible sharp edges (adjust for other types if needed)
-		BRepBuilderAPI_Transform visT(vEdges, invTrsf);
-		TopoDS_Shape result = visT.Shape();
+		// TopoDS_Shape vEdges = hlrToShape.VCompound();  // Visible sharp edges (adjust for other types if needed)
+		// BRepBuilderAPI_Transform visT(vEdges, invTrsf);
+		// TopoDS_Shape result = visT.Shape();
 
-		visible_ = new AIS_NonSelectableShape(result);
+		// visible_ = new AIS_NonSelectableShape(result);
+
+// 5. Extract visible edges (Sharp + Smooth + Outlines) fillet lines
+HLRBRep_PolyHLRToShape hlrToShape;
+hlrToShape.Update(algo);
+
+BRep_Builder builder;
+TopoDS_Compound visibleCompound;
+builder.MakeCompound(visibleCompound);
+
+// 1. Sharp visible edges (Hard edges)
+TopoDS_Shape vEdges = hlrToShape.VCompound();
+if (!vEdges.IsNull()) builder.Add(visibleCompound, vEdges);
+
+// 2. Smooth visible edges (This captures your FILLETS)
+TopoDS_Shape rg1Edges = hlrToShape.Rg1LineVCompound();
+if (!rg1Edges.IsNull()) builder.Add(visibleCompound, rg1Edges);
+
+// 3. Silhouette edges (Outlines of curved surfaces)
+TopoDS_Shape outEdges = hlrToShape.OutLineVCompound();
+if (!outEdges.IsNull()) builder.Add(visibleCompound, outEdges);
+
+// Transform the combined compound back
+BRepBuilderAPI_Transform visT(visibleCompound, invTrsf);
+TopoDS_Shape result = visT.Shape();
+
+visible_ = new AIS_NonSelectableShape(result);
+// ... rest of your display code
+
+
 		visible_->SetColor(Quantity_NOC_BLACK);
 		visible_->SetWidth(2.2);
 		m_context->Display(visible_, false);
@@ -2593,7 +3353,8 @@ void fillbrowser(void*) {
 			std::cout << "Callback data_ptr=" << ld->name << ", code=" << code << std::endl;
 
 			if (code == 2 && !fbm->isrightclick) {
-				gopart(ld->name);
+				gopart(ld->name); 
+				return;
 			}
 			if (code == 2 && fbm->isrightclick) {
 				FitViewToShape(ld->occv->m_view, ld->shape);
@@ -3189,6 +3950,273 @@ lua.set_function("Dup", [&](){
         luaL_error(lua.lua_state(), "Current part has no shape.");
 	current_part->mergeShape(current_part->cshape, baseShape);
 });
+lua.set_function("Subtract", [&]() {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    if (compound.IsNull()) {
+        throw std::runtime_error("Current part's compound is null.");
+    }
+
+    // Collect top-level solids and faces
+    std::vector<TopoDS_Solid> solids;
+    std::vector<TopoDS_Face>  faces;
+
+    for (TopExp_Explorer ex(compound, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+    for (TopExp_Explorer ex(compound, TopAbs_FACE); ex.More(); ex.Next()) {
+        faces.push_back(TopoDS::Face(ex.Current()));
+    }
+
+    bool is3D = !solids.empty();
+    bool is2D = !is3D && !faces.empty();
+
+    size_t count = is3D ? solids.size() : faces.size();
+    if (count < 2) {
+        throw std::runtime_error("Subtract requires at least two objects (solids or faces).");
+    }
+
+    TopoDS_Shape object; // base (from which we subtract)
+    TopoDS_Shape tool;   // cutter (subtracted)
+
+    if (is3D) {
+        object = solids[solids.size() - 2];
+        tool   = solids.back();
+    } else {
+        object = faces[faces.size() - 2];
+        tool   = faces.back();
+    }
+
+    // Boolean cut
+    BRepAlgoAPI_Cut cutOp(object, tool);
+
+    // Increase fuzzy tolerance for better robustness (especially useful for 2D-like cases)
+    cutOp.SetFuzzyValue(1e-6);
+
+    cutOp.Build();
+
+    if (!cutOp.IsDone()) {
+        throw std::runtime_error("Boolean subtract (cut) failed.");
+    }
+
+    TopoDS_Shape result = cutOp.Shape();
+    if (result.IsNull()) {
+        throw std::runtime_error("Boolean subtract produced null shape.");
+    }
+
+    // Optional cleanup – unify coincident edges/vertices
+    ShapeUpgrade_UnifySameDomain unifier(result, true, true, true);
+    unifier.Build();
+    if (!unifier.Shape().IsNull()) {
+        result = unifier.Shape();
+    }
+
+    // Rebuild compound: keep all except the last two, add the new result
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+
+    // Collect all top-level objects in order
+    TopTools_ListOfShape allShapes;
+    for (TopExp_Explorer ex(compound, is3D ? TopAbs_SOLID : TopAbs_FACE); ex.More(); ex.Next()) {
+        allShapes.Append(ex.Current());
+    }
+
+    // Convert to vector for indexing
+    std::vector<TopoDS_Shape> shapeVec;
+    for (TopTools_ListIteratorOfListOfShape it(allShapes); it.More(); it.Next()) {
+        shapeVec.push_back(it.Value());
+    }
+
+    // Add all except the last two
+    for (size_t i = 0; i < shapeVec.size() - 2; ++i) {
+        builder.Add(newCompound, shapeVec[i]);
+    }
+
+    // Add the result
+    builder.Add(newCompound, result);
+
+    // Update current part
+    current_part->cshape = newCompound;
+    current_part->shape  = result;  // last result is the "active" shape
+});
+lua.set_function("Common", [&]() {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    TopoDS_Compound& compound = current_part->cshape;
+    if (compound.IsNull()) {
+        throw std::runtime_error("Current part's compound is null.");
+    }
+
+    // Collect top-level solids and faces
+    std::vector<TopoDS_Solid> solids;
+    std::vector<TopoDS_Face>  faces;
+
+    for (TopExp_Explorer ex(compound, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+    for (TopExp_Explorer ex(compound, TopAbs_FACE); ex.More(); ex.Next()) {
+        faces.push_back(TopoDS::Face(ex.Current()));
+    }
+
+    bool is3D = !solids.empty();
+    bool is2D = !is3D && !faces.empty();
+
+    size_t count = is3D ? solids.size() : faces.size();
+    if (count < 2) {
+        throw std::runtime_error("Common requires at least two objects (solids or faces).");
+    }
+
+    TopoDS_Shape object;
+    TopoDS_Shape tool;
+
+    if (is3D) {
+        object = solids[solids.size() - 2];
+        tool   = solids.back();
+    } else {
+        object = faces[faces.size() - 2];
+        tool   = faces.back();
+    }
+
+    // Boolean common (intersection)
+    BRepAlgoAPI_Common commonOp(object, tool);
+
+    // Same fuzzy tolerance as Subtract for numerical robustness
+    commonOp.SetFuzzyValue(1e-6);
+
+    commonOp.Build();
+
+    if (!commonOp.IsDone()) {
+        throw std::runtime_error("Boolean common (intersection) failed.");
+    }
+
+    TopoDS_Shape result = commonOp.Shape();
+    if (result.IsNull()) {
+        throw std::runtime_error("Boolean common produced null shape.");
+    }
+
+    // Cleanup: unify coincident edges/vertices
+    ShapeUpgrade_UnifySameDomain unifier(result, true, true, true);
+    unifier.Build();
+    if (!unifier.Shape().IsNull()) {
+        result = unifier.Shape();
+    }
+
+    // Rebuild compound: keep all except the last two, add the new result
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+
+    // Collect all top-level objects in order
+    TopTools_ListOfShape allShapes;
+    for (TopExp_Explorer ex(compound, is3D ? TopAbs_SOLID : TopAbs_FACE); ex.More(); ex.Next()) {
+        allShapes.Append(ex.Current());
+    }
+
+    // Convert to vector for indexing
+    std::vector<TopoDS_Shape> shapeVec;
+    for (TopTools_ListIteratorOfListOfShape it(allShapes); it.More(); it.Next()) {
+        shapeVec.push_back(it.Value());
+    }
+
+    // Add all except the last two
+    for (size_t i = 0; i < shapeVec.size() - 2; ++i) {
+        builder.Add(newCompound, shapeVec[i]);
+    }
+
+    // Add the result
+    builder.Add(newCompound, result);
+
+    // Update current part
+    current_part->cshape = newCompound;
+    current_part->shape  = result;
+});
+lua.set_function("FilletToAllEdgesv1", [&](double val) {
+    if (!current_part) luaL_error(lua.lua_state(), "No current part.");
+	// current_part->update_placement();
+	// current_part->shape=ApplyFilletToAllEdges(current_part->cshape,val);
+	current_part->ttfillet=1;
+ReplaceShapeInCompound(
+    current_part->cshape,
+    current_part->shape,
+    [&](const TopoDS_Shape& s) {
+        auto clean = CleanShape(s);
+        BRepFilletAPI_MakeFillet fillet(clean);
+        for (TopExp_Explorer exp(clean, TopAbs_EDGE); exp.More(); exp.Next())
+            fillet.Add(TopoDS::Edge(exp.Current()));
+       
+
+for (int ic = 1; ic <= fillet.NbContours(); ++ic) {
+    int nbEdges = fillet.NbEdges(ic);
+    for (int ie = 1; ie <= nbEdges; ++ie) {
+        fillet.SetRadius(val, ic, ie);
+    }
+}
+
+
+
+        fillet.Build();
+        if (!fillet.IsDone()) return s;
+        return FixShape(fillet.Shape());
+    }
+);
+// current_part->ashape->Attributes()->SetFaceBoundaryDraw(false);
+});
+lua.set_function("FilletToAllEdges", [&](double val)
+{
+
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+	if(!current_part->occv->show_fillets)return;
+
+    current_part->ttfillet = 1;
+
+    ReplaceShapeInCompound(
+        current_part->cshape,
+        current_part->shape,
+        [&](const TopoDS_Shape& s)
+        {
+            TopoDS_Shape clean = CleanShape(s);
+
+            BRepFilletAPI_MakeFillet fillet(clean);
+
+            // add all edges with same radius
+            for (TopExp_Explorer exp(clean, TopAbs_EDGE); exp.More(); exp.Next())
+            {
+                TopoDS_Edge e = TopoDS::Edge(exp.Current());
+                fillet.Add(val, e);
+            }
+
+            fillet.Build();
+
+            if (!fillet.IsDone())
+                return s;
+
+            TopoDS_Shape result = fillet.Shape();
+
+            // remove internal seam edges between tangent faces
+            ShapeUpgrade_UnifySameDomain unify(result);
+            unify.Build();
+            result = unify.Shape();
+
+            // fix tolerances and small geometry issues
+            ShapeFix_Shape fix(result);
+            fix.Perform();
+            result = fix.Shape();
+
+            // refine triangulation (important for smooth display)
+            BRepMesh_IncrementalMesh(result, 0.05);
+
+            return FixShape(result);
+        }
+    );
+
+    // if (current_part->ashape)
+    //     current_part->ashape->Attributes()->SetFaceBoundaryDraw(false);
+});
 }
 //region lua
 nmutex lua_mtx("lua_mtx", 1);
@@ -3299,6 +4327,29 @@ void fill_menu() {
 		[](Fl_Widget* mnu, void* ud) {
 			occv->m_view->FitAll();
 			occv->redraw();
+		},occv, 0);
+
+
+	menu->add(
+		"View/Show fillets", FL_ALT + 'i',
+		[](Fl_Widget* mnu, void* ud) {
+			Fl_Menu_* menu = static_cast<Fl_Menu_*>(mnu);
+			const Fl_Menu_Item* item = menu->mvalue();	// This gets the actually clicked item
+			
+			if (!item->value()) { 
+				occv->show_fillets=0;
+			} else {
+				occv->show_fillets=1;
+			}
+			lua_str(currfilename,1); 
+			occv->redraw(); 
+		},
+		0, FL_MENU_TOGGLE);
+
+	menu->add(
+		"View/Animation", FL_ALT + 'a',
+		[](Fl_Widget* mnu, void* ud) {
+			occv->start_continuous_rotation();
 		},occv, 0);
 
 	menu->add(
@@ -3581,6 +4632,7 @@ void fill_menu() {
 			strm << "<p><b>Dup () </b> Duplicates last shape from Part, so the new be moved or rotated ";
 			strm << "<p><b>Fuse () </b> Fuse the 2 last solids or 2d in the same Part ";
 			strm << "<p><b>Subtract () </b> Subtract the last solid or 2d from previous shape in the same Part ";
+			strm << "<p><b>Common () </b> Intersect with the last solid or 2d from previous shape in the same Part ";
 			strm << "<p><b>Movel (x,y,z) </b> Move last solid from Part ";
 			strm << "<p><b>Rotatelx (angle) </b> Rotate x on point relative to 0,0,0 of last solid from Part ";
 			strm << "<p><b>Rotately (angle) </b> Rotate y on point relative to 0,0,0 of last solid from Part ";

@@ -107,6 +107,7 @@ int fl_browser_msv::handle(int event){
 				}
 				isrightclick=Fl::event_button()==FL_RIGHT_MOUSE;
 				callbackFunc(data_ptr, code,(void*)this);  // pass clicked line index
+				return 1;
 			}
 			// if (data_ptr) {
 			//     // Cast back to your original type
