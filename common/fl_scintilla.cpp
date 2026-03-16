@@ -1,5 +1,5 @@
 #pragma region Includes_globals
-
+//region globals
 #ifndef SC_CP_UTF8
 #define SC_CP_UTF8 65001
 #endif
@@ -67,6 +67,8 @@ void setscint(fl_scintilla* editor,string filename);
 struct sfiles{
 	sptr_t p;
 	bool notsaved=0;
+	// int recent_pos=0;
+	// int first_visible_line=0;
 };
 unordered_map<string,sfiles> files;
 bool loading=0;
@@ -82,6 +84,7 @@ std::string load_app_font(const std::string& filename);
 #pragma endregion Includes_globals
 
 #pragma region find
+//region find
 
 class FixedSubWindow;
 FixedSubWindow* wFind=0;
@@ -397,7 +400,8 @@ void menu_callback(Fl_Widget* w, void* data) {
     Fl_Menu_Bar* menu = (Fl_Menu_Bar*)w;
     fl_scintilla* vs = (fl_scintilla*)data;
     const Fl_Menu_Item* m = menu->mvalue();  // the selected item
-
+	vs->navigatorSetUpdated();
+	
     if (m && m->label()) {
         printf("You selected: %s\n", m->label());
 		
@@ -1131,7 +1135,7 @@ void fl_scintilla::navigatorSetUpdated(){
 		cotm("v1")
 	    filesfirstline[curr_file_pointer]=SendEditor(SCI_GETFIRSTVISIBLELINE,0,0);
         filesfirstline[curr_file_pointer]=SendEditor(SCI_DOCLINEFROMVISIBLE,filesfirstline[curr_file_pointer],0);
-        // filescaret[curr_file_pointer]=SendEditor(SCI_GETCURRENTPOS);
+        filescaret[curr_file_pointer]=SendEditor(SCI_GETCURRENTPOS);
         files[filename].notsaved=SendEditor(SCI_GETMODIFY  , 0,0);
 		cotm("v2")
 		setnsaved();
@@ -1330,14 +1334,26 @@ void setscint(fl_scintilla* editor,string filename){
 	}else{ 
 		editor->SendEditor(SCI_SETDOCPOINTER,0, files[filename].p); 
         // printf("fl %s\n",editor->filename.c_str());
-		editor->SendEditor(SCI_SETFIRSTVISIBLELINE, editor->filesfirstline[files[filename].p], 0); 
-		// editor->SendEditor(SCI_SETANCHOR, editor->filescaret[files[filename].p], 0); 
-		// editor->SendEditor(SCI_SETCURRENTPOS, editor->filescaret[files[filename].p], 0); 
-		// Fl::focus(editor);
+		editor->SendEditor(SCI_SETFIRSTVISIBLELINE, editor->filesfirstline[files[filename].p], 0); ////
+		editor->SendEditor(SCI_SETANCHOR, editor->filescaret[files[filename].p], 0); 
+		editor->SendEditor(SCI_SETCURRENTPOS, editor->filescaret[files[filename].p], 0); 
+		Fl::focus(editor);
 	}
     editor->curr_file_pointer=files[filename].p;
     editor->filename=filename;
     editor->set_lua();
+
+	
+// 	editor->SendEditor(SCI_GOTOPOS, files[filename].recent_pos,0);
+
+// 	editor->SendEditor(SCI_GOTOPOS, files[filename].recent_pos,0);
+// 	intptr_t displayLine = editor->SendEditor(SCI_VISIBLEFROMDOCLINE,files[filename].first_visible_line);  
+// if (displayLine >= 0) {
+// 	cotm(displayLine,files[filename].first_visible_line);
+// editor->SendEditor(SCI_SETFIRSTVISIBLELINE, displayLine,0); 
+// }
+	// editor->SendEditor(SCI_SETFIRSTVISIBLELINE, files[filename].first_visible_line,0);
+	editor->take_focus(); 
 		// sci_setup(SCINTILLA(editor[ieditor]));
 		// sci_setStyleCommon(SCINTILLA(editor[ieditor]));
 		// sci_setStyleC(SCINTILLA(editor[ieditor]));

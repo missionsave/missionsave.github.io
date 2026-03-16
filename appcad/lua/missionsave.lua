@@ -541,6 +541,7 @@ end
 
 
 globals()
+c6()
 struct()
 --robot()
  

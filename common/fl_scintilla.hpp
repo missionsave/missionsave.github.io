@@ -142,7 +142,7 @@ struct fl_scintilla : public Fl_Scintilla {
 	std::string comment;
 	void toggle_comment();
 	std::unordered_map<sptr_t, uptr_t> filesfirstline;
-	// std::unordered_map<sptr_t,uptr_t> filescaret;
+	std::unordered_map<sptr_t,uptr_t> filescaret;
 	fl_scintilla(int X, int Y, int W, int H, const char* l = 0);
 	// void resize(int x, int y, int w, int h) override;
 	int handle(int e) override;
