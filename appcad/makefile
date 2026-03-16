@@ -1,7 +1,7 @@
 # --- Configurações do compilador e flags ---
 CXX       := g++
 # CXXFLAGS  :=  -Wall -Wextra -Werror
-CXXFLAGS  := -std=c++20 -Iinclude -I../common -MMD -MP -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS -D_WINDOWS -D_USRDLL
+CXXFLAGS  := -std=c++2a -Iinclude -I../common -MMD -MP -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS -D_WINDOWS -D_USRDLL
 CXXFLAGS  += -I/usr/include/lua5.4 -I../common/sol2/include
 # CXXFLAGS  += -include sol/sol.hpp
 # g++ -std=c++20 -I. -x c++-header sol/sol.hpp -o sol.hpp.gch -O0 -w -Wfatal-errors -DNDEBUG -march=native -mtune=native -I/usr/include/lua5.4

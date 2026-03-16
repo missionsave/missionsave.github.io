@@ -23,7 +23,8 @@ using namespace std;
 int fl_browser_msv::handle(int event){ 
 	if(event==FL_PUSH){
 		int scrollPos = position();
-		line_height = full_height()/ size();
+		if(size()<=0)return 1;
+		line_height = full_height()/ size(); 
 		int relative_y = Fl::event_y() - this->y() +scrollPos;
 		int clicked_line = relative_y / line_height;
 		clicked_line++;

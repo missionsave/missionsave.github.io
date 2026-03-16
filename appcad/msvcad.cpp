@@ -932,7 +932,9 @@ struct scint : public fl_scintilla {
 		//  show_browser=0; set_flag(FL_ALIGN_INSIDE); 
 		cotm(filename)
 		currfilename=filename;
-		// lua_str(filename,1);
+		callbackOnload=([this]() {
+			lua_str(filename,1);
+		});
 		}
 	int handle(int e)override;
 };
@@ -2445,11 +2447,13 @@ void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
 				aShape->SetColor(Quantity_NOC_GRAY70); 
+				aShape->SetColor(Quantity_NOC_WHITE);
 if(1){
 				// aShape->Attributes()->SetFaceBoundaryDraw(1);//////////////////
 				aShape->Attributes()->SetFaceBoundaryDraw(!vlua[i]->ttfillet);//////////////////
 				aShape->Attributes()->SetFaceBoundaryAspect(edgeAspect);
 				aShape->Attributes()->SetSeenLineAspect(edgeAspect); //
+				
 }
 	// 			// opcional
 	// 		// m_context->Redisplay(aShape, AIS_Shaded, 0);
@@ -3344,6 +3348,7 @@ bool anysolo() {
 	return 1;
 }
 void fillbrowser(void*) {
+	// if(occv->vshapes.empty())return;
 	perf();
 	static int binit = 0; 
 	if (!binit) {

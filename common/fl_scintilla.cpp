@@ -195,6 +195,7 @@ public:
         // Fl_Window::resize(parent()->x()+parent()->w()-fixed_w-16, Y, fixed_w, fixed_h);
     }
 };
+
 void fl_scintilla::searchshow(){
 	if(!wFind){
 		Fl_Group::current(parent()); // important
@@ -269,6 +270,7 @@ std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int 
 #pragma endregion find
 
 #pragma region menu
+//region menu
 
 #include <FL/Fl_Menu_Bar.H>
 
@@ -409,6 +411,11 @@ void menu_callback(Fl_Widget* w, void* data) {
 		// vs->bfilesmodified->deselect();
 		vs->getfuncs();
 
+
+		//run callback after file is opened
+		if (vs->callbackOnload)vs->callbackOnload();
+		vs->update_menu();
+
     } else {
         printf("No menu item selected.\n");
     }
@@ -425,6 +432,8 @@ public:
         Fl_Menu_Bar::resize(X, Y, W, 22);
     }
 };
+
+//region implementation
 
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {	
 	SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
@@ -452,9 +461,9 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
 	cotm("cb_editor")
     // helperinit();
 	// cotm("helperinit")
-	update_menu();
 	SendEditor(SCI_AUTOCSETAUTOHIDE,0);
 	cotm("SCI_AUTOCSETAUTOHIDE")
+	update_menu();
 
 }
 void fl_scintilla::toggle_comment() {
@@ -541,9 +550,27 @@ void fl_scintilla::toggle_comment() {
 
 void fl_scintilla::update_menu(){ 
 	    window()->begin(); 
+		// fmb=new fl_scintilla::MyMenuBar(x(),y(),w(),22,0,this);
+		// size(w(),h()-22);
+		// position(x(),y()+22);
+
+		if(fmb){
+		fmb->clear();
+		fmb->hide();
+fmb->redraw();
+		delete fmb;
+fmb = nullptr;
+}
+
 		fmb=new fl_scintilla::MyMenuBar(x(),y(),w(),22,0,this);
-		size(w(),h()-22);
-		position(x(),y()+22);
+		cotm(y(),fmb->y());
+		if(y()==0){
+			size(w(),h()-22);
+			position(x(),y()+22);
+		}
+			fmb->position(fmb->x(),0);
+
+
     // fmb->add("Files/Open folder",0, menu_callback);
 	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
 	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
@@ -577,9 +604,20 @@ fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
 
 
 
+// cotm(88888888888888);
+// // lfiles.clear();
+// // 	lfiles=list_files_in_dir(folder);
+// cotm(99999999999999);
+// 	// vector<_FileEntry> &files=lfiles;
+	vector<_FileEntry> vfiles=list_files_in_dir(folder);
 
-	lfiles=list_files_in_dir(folder);
-	vector<FileEntry> &files=lfiles;
+std::sort(vfiles.begin(), vfiles.end(),
+    [](const _FileEntry& a, const _FileEntry& b) {
+        return a.accesstime > b.accesstime;
+    }
+);
+
+
 	// std::sort(files.begin(), files.end(), sortByFilename);
     // for (const auto& f : files) {
 	// 	editor->bfiles->add(fs::path(f.filename).filename().string().c_str());
@@ -597,16 +635,16 @@ fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
 	fn="Files/Folder "+fn;
 
 	fmb->add(fn.c_str(),0, 0,0,FL_MENU_DIVIDER | FL_MENU_INACTIVE);
-	bool is_first=0;
-    std::sort(files.begin(), files.end());
-    for (const auto& f : files) {
+	static bool is_first=1;
+    // std::sort(files.begin(), files.end());
+    for (const auto& f : vfiles) {
 		string str=(fs::path(f.filename).filename().string());
-		cotm(str);
+		cotm(str,f.accesstime);
 		// cotm("FICH", folder+str);
 		//open first last modified
-		if(!is_first){
+		if(is_first){
 			setscint(this,folder+str);
-			is_first=1;
+			is_first=0;
 		}
 		string fl = std::string("Files/") + str;
 
@@ -672,12 +710,13 @@ string fl_scintilla::getSelected(){
 		}
 		
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='b'){
-            helperinit();
+            // helperinit();
             return 0;
         }
 
         if(e == FL_KEYDOWN && Fl::event_state(FL_CTRL) && Fl::event_key()=='s'){
             save();
+			update_menu();//////
 			// cotm("f1");
             return 0;
         }
@@ -1244,6 +1283,7 @@ static void cb_editor(Scintilla::SCNotification *scn, void *data)
 }
 
 void setscint(fl_scintilla* editor,string filename){ 
+	set_access_time(filename,time(0));
 	loading=1;
     // cotm("setscint");	
     // return;
@@ -1312,13 +1352,13 @@ void setscint(fl_scintilla* editor,string filename){
 
 
 // Optional: Sort function by filename
-bool sortByFilename(const FileEntry& a, const FileEntry& b) {
+bool sortByFilename(const _FileEntry& a, const _FileEntry& b) {
     return a.filename < b.filename;
 }
 
 //sorted by last modified
-std::vector<FileEntry> fl_scintilla::list_files_in_dir(const std::string path) {
-    std::vector<FileEntry> entries;
+std::vector<_FileEntry> fl_scintilla::list_files_in_dir(const std::string path) {
+    std::vector<_FileEntry> entries;
 
     for (const auto& entry : fs::directory_iterator(path)) {
         if (entry.is_regular_file()) {
@@ -1328,36 +1368,17 @@ std::vector<FileEntry> fl_scintilla::list_files_in_dir(const std::string path) {
             );
             std::time_t cftime = std::chrono::system_clock::to_time_t(sctp);
 
-            entries.push_back(FileEntry{
+            entries.push_back({
                 entry.path().filename().string(),
-                cftime
+                cftime,
+				get_last_access(entry.path())
             });
         }
     }
-
     return entries;
 }
 
-void updatenavigator(fl_scintilla* editor){
-	if(!editor->bfilesmodified)return;
-	editor->lfiles=editor->list_files_in_dir(editor->folder);
-	vector<FileEntry> &files=editor->lfiles;
-	std::sort(files.begin(), files.end(), sortByFilename);
-    for (const auto& f : files) {
-		editor->bfiles->add(fs::path(f.filename).filename().string().c_str());
-        // std::cout << f.filename << " - " << std::asctime(std::localtime(&f.modified));
-    }
-
-	
-    std::sort(files.begin(), files.end());
-    for (const auto& f : files) {
-		editor->bfilesmodified->add(fs::path(f.filename).filename().string().c_str());
-
-
-        // std::cout << std::asctime(std::localtime(&f.modified)) << " " << f.filename << '\n';
-    }
-}
-
+ 
 void fl_scintilla::setnsaved(){
 	if(!bfilesmodified)return;
 
@@ -1386,107 +1407,7 @@ void fl_scintilla::setnsaved(){
 	}
 }
 
-// extern Fl_Menu_Bar* menu;
-
-
-void fl_scintilla::helperinit(){   
-
-
-
-
-
-	if(!show_browser)return;
-	show_browser=0;
-	// Fl_Browser
-    window()->begin(); 
-	int sz=22*3;
-    size(w(),h()-sz); 
-    navigator=new Fl_Window(x(), h()+22*1 ,w(),sz);
-    // navigator=new Fl_Group(x(), h()+22*1 ,w(),sz);
-    
-    navigator->box(FL_FLAT_BOX);
-    navigator->color(FL_BLUE);
-
-	bfiles=new Fl_Browser(0,0,w()*0.33,navigator->h());
-	bfiles->type(FL_HOLD_BROWSER);
-
-	bfiles->callback([](Fl_Widget *widget, void* v){
-		fl_scintilla* vs=(fl_scintilla*)v;
-		Fl_Browser* b=vs->bfiles;
-		// cotm(b->value())
-		stringstream strm;
-		strm<<vs->folder<<b->text(b->value());
-		string str=strm.str();
-		if (!str.empty() && str.back() == '*') {
-			str.pop_back();
-		}
-        setscint(vs,str);
-		vs->bfilesmodified->deselect();
-		vs->getfuncs();
-    },this); 
-
-	// bfiles->add("luafunc0.lua");
-	// bfiles->add("json.lua");
-
-
-	bfilesmodified=new Fl_Browser(w()*0.33,0,w()*0.33,navigator->h());
-	bfilesmodified->type(FL_HOLD_BROWSER);
-	bfilesmodified->callback([](Fl_Widget *widget, void* v){
-		fl_scintilla* vs=(fl_scintilla*)v;
-		Fl_Browser* b=vs->bfilesmodified;
-		// cotm(b->value())
-		stringstream strm;
-		strm<<vs->folder<<b->text(b->value());
-		string str=strm.str();
-		if (!str.empty() && str.back() == '*') {
-			str.pop_back();
-		}
-        setscint(vs,str);
-		vs->bfiles->deselect();
-		vs->getfuncs();
-    },this); 
-
-	updatenavigator(this);
-
-
-	bfunctions=new Fl_Browser(w()*0.66,0,w()*0.34,navigator->h());
-	bfunctions->type(FL_HOLD_BROWSER);
-	bfunctions->callback([](Fl_Widget *widget, void* v){
-		fl_scintilla* editor=(fl_scintilla*)v;
-		Fl_Browser* b=editor->bfunctions;
-		int sel=b->value()-1;
-		if(sel<editor->vline.size()){
-			// cotm(vs->vline[sel])
-			int line = editor->vline[sel];  // line you want at the top (0-based)
-			
-			// Get visual line number (taking wrap into account)
-			int visual_line = editor->SendEditor(SCI_VISIBLEFROMDOCLINE, line);
-
-			// Get current first visible visual line
-			int current_visual_top = editor->SendEditor(SCI_GETFIRSTVISIBLELINE);
-
-			// Calculate how many lines to scroll
-			int delta = visual_line - current_visual_top;
-
-			// Scroll so the line is at the top
-			editor->SendEditor(SCI_LINESCROLL, 0, delta);
-
-			// Optionally move caret there too
-			int pos = editor->SendEditor(SCI_POSITIONFROMLINE, line);
-			editor->SendEditor(SCI_SETSEL, pos, pos);
-		}
-		// vs->getfuncs();
-		// cotm(b->value()) 
-    },this); 
-
-	navigator->show();
-    // window()->end();
-    // child_to_local(navigator);
-	Fl_Group::current(nullptr);
-	window()->redraw();
-
-}
-
+ 
 
 
 

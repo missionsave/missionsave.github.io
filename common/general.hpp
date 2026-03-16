@@ -254,4 +254,117 @@ inline bool hasDuplicates(const std::vector<int>& v) {
 }
 
 
+
+#include <filesystem>
+#include <ctime>
+
+#if defined(_WIN32)
+    #include <windows.h>
+#elif defined(__APPLE__) || defined(__linux__)
+    #include <sys/stat.h>
+#endif
+
+inline std::time_t get_last_access(const std::filesystem::path& p) {
+#if defined(_WIN32)
+
+    HANDLE h = CreateFileW(
+        p.wstring().c_str(),
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (h == INVALID_HANDLE_VALUE)
+        return 0;
+
+    FILETIME atime;
+    if (!GetFileTime(h, NULL, &atime, NULL)) {
+        CloseHandle(h);
+        return 0;
+    }
+    CloseHandle(h);
+
+    ULARGE_INTEGER ull;
+    ull.LowPart  = atime.dwLowDateTime;
+    ull.HighPart = atime.dwHighDateTime;
+
+    // Convert Windows FILETIME (100ns since 1601) → Unix time_t (seconds since 1970)
+    return static_cast<std::time_t>((ull.QuadPart - 116444736000000000ULL) / 10000000ULL);
+
+#elif defined(__APPLE__) || defined(__linux__)
+
+    struct stat s;
+    if (stat(p.c_str(), &s) != 0)
+        return 0;
+
+    return s.st_atime;   // last access time (POSIX)
+
+#else
+    return 0; // Unsupported platform
+#endif
+}
+
+
+
+#include <string>
+#include <ctime>
+#include <filesystem>
+
+#if defined(_WIN32)
+    #include <windows.h>
+#else
+    #include <sys/stat.h>
+    #include <fcntl.h>
+    #include <unistd.h>
+#endif
+
+inline bool set_access_time(const std::filesystem::path& path, std::time_t new_atime) {
+#if defined(_WIN32)
+    // Convert time_t → Windows FILETIME (100ns intervals since 1601)
+    LONGLONG ll = Int32x32To64(new_atime, 10000000) + 116444736000000000LL;
+
+    FILETIME ft;
+    ft.dwLowDateTime  = (DWORD)ll;
+    ft.dwHighDateTime = (DWORD)(ll >> 32);
+
+    HANDLE h = CreateFileW(
+        path.wstring().c_str(),
+        FILE_WRITE_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (h == INVALID_HANDLE_VALUE)
+        return false;
+
+    // Set only access time, keep creation & modification unchanged
+    FILETIME dummy = {0,0};
+    BOOL ok = SetFileTime(h, NULL, &ft, NULL);
+
+    CloseHandle(h);
+    return ok;
+
+#else
+    // Linux / macOS: use utimensat()
+    struct timespec times[2];
+
+    // atime
+    times[0].tv_sec  = new_atime;
+    times[0].tv_nsec = 0;
+
+    // keep mtime unchanged
+    times[1].tv_nsec = UTIME_OMIT;
+
+    return utimensat(AT_FDCWD, path.c_str(), times, 0) == 0;
+#endif
+}
+
+
+
 #endif // GENERAL_HPP

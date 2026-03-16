@@ -6,6 +6,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <functional>
 
 #include "Fl_Scintilla.h"
 #include "general.hpp"
@@ -25,15 +26,16 @@ inline void child_to_local(Fl_Group* wd) {
 	}
 }
 
-struct FileEntry {
+struct _FileEntry {
 	std::string filename;
 	std::time_t modified;
+    std::time_t accesstime; 
 
-	// Sort by modified time (ascending)
-	bool operator<(const FileEntry& other) const { return modified > other.modified; }
+	// // Sort by modified time (ascending)
+	// bool operator<(const _FileEntry& other) const { return modified > other.modified; }
 
-	// Sort by filename (lexicographically)
-	bool operator==(const FileEntry& other) const { return filename == other.filename; }
+	// // Sort by filename (lexicographically)
+	// bool operator==(const _FileEntry& other) const { return filename == other.filename; }
 };
 
 #include <FL/Fl_Menu_Button.H>
@@ -130,6 +132,7 @@ struct FileEntry {
 #include <tuple>
 #include <vector>
 struct fl_scintilla : public Fl_Scintilla {
+	std::function<void()> callbackOnload;
 	std::string filename = "";
 	std::string floaded = "";
 	bool show_browser = 1;
@@ -149,7 +152,7 @@ struct fl_scintilla : public Fl_Scintilla {
 	std::tuple<int, int> csearch(const char* needle, bool dirDown = true, int flags = SCFIND_MATCHCASE);
 	void searchshow();
 
-	std::vector<FileEntry> list_files_in_dir(const std::string path);
+	std::vector<_FileEntry> list_files_in_dir(const std::string path);
 	void update_menu();
 	void move_item(Fl_Browser* browser, std::string str);
 
@@ -159,7 +162,7 @@ struct fl_scintilla : public Fl_Scintilla {
 	Fl_Window* navigator;
 	// Fl_Group * navigator;
 	Fl_Button* btntop;
-	void helperinit();
+	// void helperinit();
 	Fl_Browser* bfiles;
 	Fl_Browser* bfilesmodified = 0;
 	Fl_Browser* bfunctions = 0;
@@ -170,7 +173,7 @@ struct fl_scintilla : public Fl_Scintilla {
 	std::string sfunctions = "";
 
 	void navigatorSetUpdated();
-	std::vector<FileEntry> lfiles;
+	// std::vector<_FileEntry> lfiles;
 
 	class MyMenuBar : public Fl_Menu_Bar {
 	   public:
@@ -328,5 +331,5 @@ struct fl_scintilla : public Fl_Scintilla {
 		}
 	};
 
-	MyMenuBar* fmb;
+	MyMenuBar* fmb=nullptr;
 };

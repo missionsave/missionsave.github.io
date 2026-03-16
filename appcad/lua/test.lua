@@ -10,8 +10,8 @@
 --Offset -6
 --Extrude 7
 
- --
-
+ --    
+  
 --Part sketch_profile1
 --Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
 --Offset (-2)
