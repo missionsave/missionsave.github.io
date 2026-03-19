@@ -1,5 +1,5 @@
 #pragma region Includes_globals
-//region globals
+//region globals 
 #ifndef SC_CP_UTF8
 #define SC_CP_UTF8 65001
 #endif
@@ -547,126 +547,100 @@ void fl_scintilla::toggle_comment() {
     SendEditor(SCI_ENDUNDOACTION);
 }
 
+void fl_scintilla::update_menu() {
+	window()->begin(); 
 
- 
-
-
-
-void fl_scintilla::update_menu(){ 
-	    window()->begin(); 
-		// fmb=new fl_scintilla::MyMenuBar(x(),y(),w(),22,0,this);
-		// size(w(),h()-22);
-		// position(x(),y()+22);
-
-		if(fmb){
+	if (fmb) {
 		fmb->clear();
 		fmb->hide();
-fmb->redraw();
+		fmb->redraw();
 		delete fmb;
-fmb = nullptr;
-}
+		fmb = nullptr;
+	}
 
-		fmb=new fl_scintilla::MyMenuBar(x(),y(),w(),22,0,this);
-		cotm(y(),fmb->y());
-		if(y()==0){
-			size(w(),h()-22);
-			position(x(),y()+22);
-		}
-			fmb->position(fmb->x(),0);
+	fmb = new fl_scintilla::MyMenuBar(x(), y(), w(), 22, 0, this);
+	cotm(y(), fmb->y());
+	if (y() == 0) {
+		size(w(), h() - 22);
+		position(x(), y() + 22);
+	}
+	fmb->position(fmb->x(), 0);
 
-
-    // fmb->add("Files/Open folder",0, menu_callback);
+	// fmb->add("Files/Open folder",0, menu_callback);
 	// FixedHeight_Menu_Bar* fmb=new FixedHeight_Menu_Bar(X,0,W,22);
 	// fmb->add("File/Open", FL_ALT + 'o', [](Fl_Widget*, void*) {  });
-	    // Initial menu items
-    // fmb->add("Files/Quit", 0, menu_callback);
+	// Initial menu items
+	// fmb->add("Files/Quit", 0, menu_callback);
 
-fmb->add("Files", 0, 0, 0, FL_SUBMENU);
-fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
-// fmb->add("Options/test",0,menu_cb);
-// fmb->add("Help",0,0,0,FL_MENU_DIVIDER);
-// fmb->add("testing",0,0,0,0);
-// fmb->add("testing2",0,0,0,0);
- 
-// fmb->add("Options/Enable feature A", 0, menu_cb, (void*)"A",FL_MENU_TOGGLE);
-// fmb->add("Options/Enable feature B", 0, menu_cb, (void*)"B",FL_MENU_TOGGLE);
-// fmb->add("Options/Enable feature C", FL_MENU_TOGGLE, menu_cb, (void*)"C");
+	fmb->add("Files", 0, 0, 0, FL_SUBMENU);
+	fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
+	// fmb->add("Options/test",0,menu_cb);
+	// fmb->add("Help",0,0,0,FL_MENU_DIVIDER);
+	// fmb->add("testing",0,0,0,0);
+	// fmb->add("testing2",0,0,0,0);
 
+	// fmb->add("Options/Enable feature A", 0, menu_cb, (void*)"A",FL_MENU_TOGGLE);
+	// fmb->add("Options/Enable feature B", 0, menu_cb, (void*)"B",FL_MENU_TOGGLE);
+	// fmb->add("Options/Enable feature C", FL_MENU_TOGGLE, menu_cb, (void*)"C");
 
-    // Fl::add_handler(outsideHandler);
+	// Fl::add_handler(outsideHandler);
 
-    // mainWin = (Fl_Window*)this;
-    // myMenu = new Fl_Menu_Button(50,50,100,30,"Menu");
-    // myMenu->type(Fl_Menu_Button::POPUP3);
-    // myMenu->add("Option A", 0, menu_cb, (void*)"A");
-    // myMenu->add("Option B", 0, menu_cb, (void*)"B");
-    // myMenu->add("Option C", 0, menu_cb, (void*)"C");
+	// mainWin = (Fl_Window*)this;
+	// myMenu = new Fl_Menu_Button(50,50,100,30,"Menu");
+	// myMenu->type(Fl_Menu_Button::POPUP3);
+	// myMenu->add("Option A", 0, menu_cb, (void*)"A");
+	// myMenu->add("Option B", 0, menu_cb, (void*)"B");
+	// myMenu->add("Option C", 0, menu_cb, (void*)"C");
 
+	// cotm(88888888888888);
+	// // lfiles.clear();
+	// // 	lfiles=list_files_in_dir(folder);
+	// cotm(99999999999999);
+	// 	// vector<_FileEntry> &files=lfiles;
+	vector<_FileEntry> vfiles = list_files_in_dir(folder);
 
-
-
-
-
-
-// cotm(88888888888888);
-// // lfiles.clear();
-// // 	lfiles=list_files_in_dir(folder);
-// cotm(99999999999999);
-// 	// vector<_FileEntry> &files=lfiles;
-	vector<_FileEntry> vfiles=list_files_in_dir(folder);
-
-std::sort(vfiles.begin(), vfiles.end(),
-    [](const _FileEntry& a, const _FileEntry& b) {
-        return a.accesstime > b.accesstime;
-    }
-);
-
+	std::sort(vfiles.begin(), vfiles.end(),
+			  [](const _FileEntry& a, const _FileEntry& b) { return a.accesstime > b.accesstime; });
 
 	// std::sort(files.begin(), files.end(), sortByFilename);
-    // for (const auto& f : files) {
+	// for (const auto& f : files) {
 	// 	editor->bfiles->add(fs::path(f.filename).filename().string().c_str());
-    //     // std::cout << f.filename << " - " << std::asctime(std::localtime(&f.modified));
-    // }
-	string fn=folder;
-	replace_All(fn,"/","");
-
-
-
+	//     // std::cout << f.filename << " - " << std::asctime(std::localtime(&f.modified));
+	// }
+	string fn = folder;
+	replace_All(fn, "/", "");
 
 	// replace_All(fn,"/","");
 	// fn="Files/"+fn+" folder recents";
 
-	fn="Files/Folder "+fn;
+	fn = "Files/Folder " + fn;
 
-	fmb->add(fn.c_str(),0, 0,0,FL_MENU_DIVIDER | FL_MENU_INACTIVE);
-	static bool is_first=1;
-    // std::sort(files.begin(), files.end());
-    for (const auto& f : vfiles) {
-		string str=(fs::path(f.filename).filename().string());
-		cotm(str,f.accesstime);
+	fmb->add(fn.c_str(), 0, 0, 0, FL_MENU_DIVIDER | FL_MENU_INACTIVE);
+	static bool is_first = 1;
+	// std::sort(files.begin(), files.end());
+	for (const auto& f : vfiles) {
+		string str = (fs::path(f.filename).filename().string());
+		cotm(str, f.accesstime);
 		// cotm("FICH", folder+str);
-		//open first last modified
-		if(is_first){
-			setscint(this,folder+str);
-			is_first=0;
+		// open first last modified
+		if (is_first) {
+			setscint(this, folder + str);
+			is_first = 0;
 		}
 		string fl = std::string("Files/") + str;
 
-    	fmb->add(fl.c_str(),0, menu_callback,this);
+		fmb->add(fl.c_str(), 0, menu_callback, this);
 		// break;
 
+		// std::cout << std::asctime(std::localtime(&f.modified)) << " " << f.filename << '\n';
+	}
 
-        // std::cout << std::asctime(std::localtime(&f.modified)) << " " << f.filename << '\n';
-    }
-
-
-    
-    // Dynamically add more items later
-    // fmb->add("Edits/Copy", FL_COMMAND + 'c', menu_callback);
-    // fmb->add("Edits/Paste", FL_COMMAND + 'v', menu_callback);
+	// Dynamically add more items later
+	// fmb->add("Edits/Copy", FL_COMMAND + 'c', menu_callback);
+	// fmb->add("Edits/Paste", FL_COMMAND + 'v', menu_callback);
 }
-bool isFilenameValid(const char *filename) {
-    if (!filename) return false;
+bool isFilenameValid(const char* filename) {
+	if (!filename) return false;
     size_t len = strlen(filename);
     if (len > 255) return false;
     try {
@@ -687,26 +661,8 @@ string fl_scintilla::getSelected(){
 	delete[] buffer;
 	return selectedText;
 }
-
-    //  void fl_scintilla::resize(int x, int y, int w, int h)  {
-    //     // Redimensiona o box para manter margens de 10 px
-    //    Fl_Window* p=window(); 
-    // resize(x,y,w,h-44);
-    // toggleSearchGroup->resize(x,y+h,w,44);
-    // navigator->resize(x,y+h+44,w,p->h()-(y+h+44));
-
-    //     // Fl_Window::resize(x, y, w, h);
-    // }
-	int fl_scintilla::handle(int e)  { 
-		// if(e==FL_MOUSEWHEEL) {
-        //         int dy = Fl::event_dy();  // positive = scroll down
-		// 		cotm(dy)
-        //         // offset += dy * 10;        // adjust scroll speed
-        //         // redraw();
-        //         return 1; // event handled
-        //     }
-
-
+ 
+	int fl_scintilla::handle(int e)  {  
 
 		if (e == FL_KEYDOWN && Fl::event_key() == FL_Shift_L) {
 			printf("Shift pressionado\n");
@@ -1136,15 +1092,8 @@ void fl_scintilla::navigatorSetUpdated(){
 	    filesfirstline[curr_file_pointer]=SendEditor(SCI_GETFIRSTVISIBLELINE,0,0);
         filesfirstline[curr_file_pointer]=SendEditor(SCI_DOCLINEFROMVISIBLE,filesfirstline[curr_file_pointer],0);
         filescaret[curr_file_pointer]=SendEditor(SCI_GETCURRENTPOS);
-        files[filename].notsaved=SendEditor(SCI_GETMODIFY  , 0,0);
-		cotm("v2")
-		setnsaved();
-		cotm("v3")
-		if(bfilesmodified){
-			cotm("v4")
-			move_item(bfilesmodified,filename);
-			cotm("v5")
-		}
+        files[filename].notsaved=SendEditor(SCI_GETMODIFY  , 0,0); 
+		setnsaved(); 
 }
 static void cb_editor(Scintilla::SCNotification *scn, void *data)
 {
@@ -1396,31 +1345,31 @@ std::vector<_FileEntry> fl_scintilla::list_files_in_dir(const std::string path) 
 
  
 void fl_scintilla::setnsaved(){
-	if(!bfilesmodified)return;
+	// if(!bfilesmodified)return;
 
-	lop(i,1,bfiles->size()+1){
-		string str=bfiles->text(i);
-		if (!str.empty() && str.back() == '*') {
-			str.pop_back();
-		}
-		// cotm(str);
-		if(files[folder+str].notsaved){
-			str+="*";
-		}
-		bfiles->text(i,str.c_str());
-	}
-	lop(i,1,bfilesmodified->size()+1){
-		string str=bfilesmodified->text(i);
-		if (!str.empty() && str.back() == '*') {
-			str.pop_back();
-		}
-		// cotm(str);
-		// cotm(files[folder+str].notsaved)
-		if(files[folder+str].notsaved){
-			str+="*";
-		}
-		bfilesmodified->text(i,str.c_str());
-	}
+	// lop(i,1,bfiles->size()+1){
+	// 	string str=bfiles->text(i);
+	// 	if (!str.empty() && str.back() == '*') {
+	// 		str.pop_back();
+	// 	}
+	// 	// cotm(str);
+	// 	if(files[folder+str].notsaved){
+	// 		str+="*";
+	// 	}
+	// 	bfiles->text(i,str.c_str());
+	// }
+	// lop(i,1,bfilesmodified->size()+1){
+	// 	string str=bfilesmodified->text(i);
+	// 	if (!str.empty() && str.back() == '*') {
+	// 		str.pop_back();
+	// 	}
+	// 	// cotm(str);
+	// 	// cotm(files[folder+str].notsaved)
+	// 	if(files[folder+str].notsaved){
+	// 		str+="*";
+	// 	}
+	// 	bfilesmodified->text(i,str.c_str());
+	// }
 }
 
  

@@ -934,6 +934,7 @@ struct scint : public fl_scintilla {
 		currfilename=filename;
 		callbackOnload=([this]() {
 			lua_str(filename,1);
+			win->label(filename.c_str());
 		});
 		}
 	int handle(int e)override;
@@ -2446,7 +2447,7 @@ void toggle_shaded_transp(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 
 				m_context->SetDisplayMode(aShape, AIS_Shaded, Standard_False);
 
-				aShape->SetColor(Quantity_NOC_GRAY70); 
+				// aShape->SetColor(Quantity_NOC_GRAY70); 
 				aShape->SetColor(Quantity_NOC_WHITE);
 if(1){
 				// aShape->Attributes()->SetFaceBoundaryDraw(1);//////////////////
@@ -3347,6 +3348,7 @@ bool anysolo() {
 	}
 	return 1;
 }
+int browser_position=0;
 void fillbrowser(void*) {
 	// if(occv->vshapes.empty())return;
 	perf();
@@ -3355,6 +3357,7 @@ void fillbrowser(void*) {
 		binit = 1;
 		fbm->setCallback([](void* data, int code, void* fbm_) {
 			OCC_Viewer::luadraw* ld = (OCC_Viewer::luadraw*)data;
+			fl_browser_msv* fbm=(fl_browser_msv*)fbm_;
 			std::cout << "Callback data_ptr=" << ld->name << ", code=" << code << std::endl;
 
 			if (code == 2 && !fbm->isrightclick) {
@@ -3372,14 +3375,18 @@ void fillbrowser(void*) {
 					mhide[ld->name] = 1;
 				else if (mhide[ld->name] == 1)
 					mhide[ld->name] = 0;
+				browser_position=fbm->position();
 				fillbrowser(0); 
+				fbm->position(browser_position);
 			}
 			if (code == 1) {
 				if (msolo[ld->name] == 0)
 					msolo[ld->name] = 1;
 				else if (msolo[ld->name] == 1)
 					msolo[ld->name] = 0; 
+				browser_position=fbm->position();
 				fillbrowser(0); 
+				fbm->position(browser_position);
 			}
 		}); 
 	}

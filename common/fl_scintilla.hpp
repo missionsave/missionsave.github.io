@@ -1,136 +1,31 @@
-#include <FL/Fl_Browser.H>
+
+#include <FL/Fl.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Menu_Bar.H>
+#include <FL/Fl_Menu_Item.H>
+#include <FL/Fl_Menu_Button.H> 
 #include <FL/Fl_Window.H>
 
 #include <string>
 #include <unordered_map>
 #include <functional>
-
-#include "Fl_Scintilla.h"
-#include "general.hpp"
-
-inline void child_to_local(Fl_Group* wd) {
-	int gx = wd->x();
-	int gy = wd->y();
-
-	if (wd->parent()) {
-		gx += wd->parent()->x();
-		gy += wd->parent()->y();
-	}
-	for (int i = 0; i < wd->children(); ++i) {
-		Fl_Widget* o = wd->child(i);
-		// cotm(o->label());
-		o->position(o->x() + gx, o->y() + gy);
-	}
-}
-
-struct _FileEntry {
-	std::string filename;
-	std::time_t modified;
-    std::time_t accesstime; 
-
-	// // Sort by modified time (ascending)
-	// bool operator<(const _FileEntry& other) const { return modified > other.modified; }
-
-	// // Sort by filename (lexicographically)
-	// bool operator==(const _FileEntry& other) const { return filename == other.filename; }
-};
-
-#include <FL/Fl_Menu_Button.H>
-
-// compile: g++ -std=c++17 `fltk-config --cxxflags --ldflags` menu_add_on_click.cpp -o menu_add_on_click
-
-#include <FL/Fl.H>
-#include <FL/Fl_Menu_Bar.H>
-#include <FL/Fl_Menu_Item.H>
-#include <FL/Fl_Window.H>
-
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
-// dynamic_options_playmenu.cpp
-// compile: g++ -std=c++17 `fltk-config --cxxflags --ldflags` dynamic_options_playmenu.cpp -o dynamic_options_playmenu
-
-#include <FL/Fl.H>
-#include <FL/Fl_Menu_Bar.H>
-#include <FL/Fl_Window.H>
-
-#include <cstdio>
-#include <cstring>
-
-// precise_options_region.cpp
-// compile: g++ -std=c++17 `fltk-config --cxxflags --ldflags` precise_options_region.cpp -o precise_options_region
-
-#include <FL/Fl.H>
-#include <FL/Fl_Menu_Bar.H>
-#include <FL/Fl_Menu_Item.H>
-#include <FL/Fl_Window.H>
-
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-
-// int main(int argc, char** argv) {
-//     Fl_Window win(640, 240, "Precise Functions Region");
-//     MyMenuBar* mb = new MyMenuBar(0, 0, 640, 30);
-
-//     // create some left headers so "Functions" won't necessarily be first
-//     mb->add("File/New", 0, nullptr);
-//     mb->add("Edit/Copy", 0, nullptr);
-//     mb->add("View/Zoom", 0, nullptr);
-
-//     // create Functions header
-//     mb->add("Functions", 0, 0, 0, FL_SUBMENU);
-
-//     mb->menu_end();
-//     win.end();
-//     win.show(argc, argv);
-//     return Fl::run();
-// }
-
-// int main(int argc, char** argv) {
-//     Fl_Window win(520, 240, "Dynamic Functions Example");
-//     MyMenuBar* menubar = new MyMenuBar(0, 0, 520, 30);
-
-//     menubar->add("File/New");
-//     menubar->add("File/Open");
-
-//     // create "Functions" header as an (initially empty) submenu header
-//     menubar->add("Functions", 0, 0, 0, FL_SUBMENU);
-//     menubar->menu_end();
-
-//     win.end();
-//     win.show(argc, argv);
-//     return Fl::run();
-// }
-
-// int main(int argc, char** argv) {
-//     Fl_Window win(640, 200, "Add items on Functions click");
-
-//     MyMenuBar menubar(0, 0, 640, 30);
-//     // create some initial menu groups
-//     menubar.add("File/New", 0, nullptr);
-//     menubar.add("File/Open", 0, nullptr);
-
-//     // create an Functions header (as a submenu container with no children initially)
-//     menubar.add("Functions", 0, nullptr, 0, FL_SUBMENU);
-
-//     // add a control item to demonstrate selection of created items is handled
-//     menubar.add("Control/Demo", 0, [](Fl_Widget*, void*){ puts("Demo pressed"); });
-
-//     menubar.menu_end();
-
-//     win.end();
-//     win.show(argc, argv);
-//     return Fl::run();
-// }
-
 #include <tuple>
 #include <vector>
+
+#include "Fl_Scintilla.h"
+#include "general.hpp"
+
+struct _FileEntry {
+	std::string filename;
+	std::time_t modified;
+    std::time_t accesstime;  
+};
+ 
 struct fl_scintilla : public Fl_Scintilla {
 	std::function<void()> callbackOnload;
 	std::string filename = "";
@@ -139,15 +34,15 @@ struct fl_scintilla : public Fl_Scintilla {
 	std::string folder = "lua/";
 	std::vector<std::string> tail_functions;
 	sptr_t curr_file_pointer = 0;
-	std::string comment;
-	void toggle_comment();
 	std::unordered_map<sptr_t, uptr_t> filesfirstline;
 	std::unordered_map<sptr_t,uptr_t> filescaret;
+	std::string comment;
 	fl_scintilla(int X, int Y, int W, int H, const char* l = 0);
 	// void resize(int x, int y, int w, int h) override;
 	int handle(int e) override;
 	std::string getSelected();
 	std::string getalltext();
+	void toggle_comment();
 
 	std::tuple<int, int> csearch(const char* needle, bool dirDown = true, int flags = SCFIND_MATCHCASE);
 	void searchshow();
@@ -158,14 +53,7 @@ struct fl_scintilla : public Fl_Scintilla {
 
 	void save();
 	void setnsaved();
-	void set_lua();
-	Fl_Window* navigator;
-	// Fl_Group * navigator;
-	Fl_Button* btntop;
-	// void helperinit();
-	Fl_Browser* bfiles;
-	Fl_Browser* bfilesmodified = 0;
-	Fl_Browser* bfunctions = 0;
+	void set_lua();  
 	vint vline;
 	vstring vlinestring;
 	vstring vtoggled;
@@ -257,6 +145,7 @@ struct fl_scintilla : public Fl_Scintilla {
 		static constexpr int H_PAD = 14;  // ~7px left + ~7px right
 
 		int handle(int ev) override {
+			// return Fl_Menu_Bar::handle(ev);
 			if (ev == FL_PUSH) {
 				int ex = Fl::event_x();	 // x relative to this widget
 				// find index of the "Functions" header in the flat menu array
