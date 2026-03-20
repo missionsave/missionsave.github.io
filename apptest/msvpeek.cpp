@@ -1,4 +1,5 @@
 // g++ msvpeek.cpp -o msvpeek $(pkg-config --cflags --libs Qt5Widgets) -lX11 -fPIC
+//sudo apt install build-essential qtbase5-dev pkg-config picom
 #include <QApplication>
 #include <QWidget>
 #include <QPushButton>
@@ -9,6 +10,9 @@
 #include <QProcess>
 #include <QDir>
 #include <QFile>
+#include <QClipboard>
+#include <QMimeData>
+
 
 class CaptureZone : public QWidget {
 public:
@@ -85,7 +89,8 @@ private:
     }
 
 void startRecording() {
-        tempPath = QDir::tempPath() + "/apng_temp.png";
+        // tempPath = QDir::tempPath() + "/agif_temp.gif";
+        tempPath = QDir::tempPath() + "/apng_temp.apng";
         
         QPoint globalPos = captureArea->mapToGlobal(QPoint(0, 0));
         int x = globalPos.x();
@@ -104,12 +109,24 @@ void startRecording() {
              << "-framerate" << "60"
              << "-video_size" << QString("%1x%2").arg(w).arg(h)
              << "-i" << QString("%1+%2,%3").arg(display).arg(x).arg(y)
-             // OUTPUT SETTINGS START HERE
+             // OUTPUT SETTINGS START HERE 
              << "-f" << "apng"
              << "-plays" << "0"           // 0 = Infinite loop
-             << "-final_delay" << "3"     // Delay in seconds/100 (3 = 30ms)
+             << "-final_delay" << "1"     // Delay in seconds/100 (3 = 30ms)
              << "-pred" << "1"            // Improves compatibility/compression
              << "-y" << tempPath;
+
+
+// 		tempPath = QDir::tempPath() + "/temp.gif";
+
+// QStringList args;
+// args << "-f" << "x11grab"
+//      << "-framerate" << "30"
+//      << "-video_size" << QString("%1x%2").arg(w).arg(h)
+//      << "-i" << QString("%1+%2,%3").arg(display).arg(x).arg(y)
+//      << "-vf" << "fps=30,scale=iw:-1:flags=lanczos"
+//      << "-y" << tempPath;
+
 
         ffmpeg.setProgram("ffmpeg");
         ffmpeg.setArguments(args);
@@ -121,22 +138,79 @@ void startRecording() {
             recordBtn->setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; border-radius: 5px; height: 35px;");
         }
     }
-    void stopRecording() {
-        ffmpeg.write("q\n");
-        if (!ffmpeg.waitForFinished(10000)) ffmpeg.kill();
+void stopRecording() {
+    ffmpeg.write("q\n");
+    if (!ffmpeg.waitForFinished(10000))
+        ffmpeg.kill();
 
-        isRecording = false;
-        recordBtn->setText("START RECORDING");
-        recordBtn->setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; border-radius: 5px; height: 35px;");
+    isRecording = false;
+    recordBtn->setText("START RECORDING");
+    recordBtn->setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; border-radius: 5px; height: 35px;");
 
-        QString finalPath = QFileDialog::getSaveFileName(this, "Save APNG", "animation.apng", "Animated PNG (*.apng)");
-        
-        if (!finalPath.isEmpty()) {
-            if (QFile::exists(finalPath)) QFile::remove(finalPath);
-            QFile::copy(tempPath, finalPath);
-        }
-        QFile::remove(tempPath);
+    qDebug() << "Temp path:" << tempPath;
+    qDebug() << "Temp exists?" << QFile::exists(tempPath);
+
+    //
+    // 1. COPY TEMP FILE TO CLIPBOARD FIRST
+    //
+    if (QFile::exists(tempPath)) {
+{
+QClipboard *clipboard = QApplication::clipboard();
+QMimeData *mime = new QMimeData();
+
+QFile f(tempPath);
+if (f.open(QIODevice::ReadOnly)) {
+    QByteArray fileData = f.readAll();
+    // mime->setData("image/gif", fileData);
+    mime->setData("image/png", fileData);
+	mime->setData("image/apng", fileData);
+    clipboard->setMimeData(mime);
+}
+
+
+}
+
+
+
+ 
+    } else {
+        qDebug() << "ERROR: Temp file does not exist, cannot copy.";
     }
+
+    //
+    // 2. SAVE DIALOG
+    //
+    QString finalPath = QFileDialog::getSaveFileName(
+        this,
+        "Save APNG",
+        "animation.apng",
+        "Animated PNG (*.apng)"
+    );
+// 	QString finalPath = QFileDialog::getSaveFileName(
+//     this,
+//     "Save GIF",
+//     "animation.gif",
+//     "GIF Image (*.gif)"
+// );
+
+
+    //
+    // 3. SAVE IF USER CHOSE A PATH
+    //
+    if (!finalPath.isEmpty()) {
+        if (QFile::exists(finalPath))
+            QFile::remove(finalPath);
+
+        QFile::copy(tempPath, finalPath);
+        qDebug() << "Saved to:" << finalPath;
+    }
+
+    //
+    // 4. REMOVE TEMP FILE
+    //
+    QFile::remove(tempPath);
+}
+
 };
 
 int main(int argc, char *argv[]) {

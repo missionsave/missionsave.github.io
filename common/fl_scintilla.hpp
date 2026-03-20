@@ -219,6 +219,7 @@ struct fl_scintilla : public Fl_Scintilla {
 			return Fl_Menu_Bar::handle(ev);
 		}
 	};
-
+	
+	std::vector<std::string> hints; 
 	MyMenuBar* fmb=nullptr;
 };

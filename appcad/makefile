@@ -301,7 +301,7 @@ endif
 
 # Precompile rule
 %.hpp.gch: %.hpp
-	$(CXX) $(CXXFLAGS) -x c++-header $< -o $@
+	$(CXX) $(CXXFLAGS) -MMD -MP -x c++-header $< -o $@
 
 # --- Executável linkando objetos app + lib ---
 # $(TARGET): $(OBJS_APP) $(LIBNAME) ../common/sol2/include/sol/sol.hpp.gch
@@ -328,6 +328,10 @@ $(call OBJ_NAME,$(1)): $(1)
 	$(CXX) $(CXXFLAGS) -c $$< -o $$@
 endef
 
+$(OBJS_APP) $(OBJS_LIB): $(PCH_HEADERS:.hpp=.hpp.gch)
+
+
+
 $(foreach src,$(SRC_APP),$(eval $(call MAKE_RULE_APP,$(src))))
 
 # --- Limpeza ---
@@ -337,5 +341,6 @@ clean:
 # --- Incluir dependências ---
 -include $(DEPS_LIB)
 -include $(DEPS_APP)
+-include $(PCH_HEADERS:.hpp=.hpp.gch.d)
 
 .PHONY: all clean

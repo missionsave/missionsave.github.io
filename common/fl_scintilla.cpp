@@ -852,6 +852,13 @@ SendEditor(SCI_SETEXTRADESCENT, -2);
 	SendEditor(SCI_SETKEYWORDS, 0, (sptr_t)keys0.c_str());
 	SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD, RGB(0, 0, 255));
 
+	cotm(hints);
+// Keyword list 2: custom keywords
+string keys2 = "Part";
+SendEditor(SCI_SETKEYWORDS, 2, (sptr_t)keys2.c_str());
+SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD3, RGB(255, 90, 55)); 
+
+
 	int version = SendEditor( 267, 0, 0);
 	// Version is encoded as: MMmm (e.g., 0x030700 for version 3.7.0)
 	int major = (version >> 8) & 0xFF;
@@ -1157,6 +1164,7 @@ static void cb_editor(Scintilla::SCNotification *scn, void *data)
 		// 函数提示功能
 		static const char* pCallTipNextWord = NULL;//下一个高亮位置
 		static const char* pCallTipCurDesc = NULL;//当前提示的函数信息
+		// cotm(notify->ch); 
 		if(notify->ch == '-') { //如果输入了左括号，显示函数提示
 			char word[1000]; //保存当前光标下的单词(函数名)
 			Scintilla::TextRange tr;    //用于SCI_GETTEXTRANGE命令

@@ -933,9 +933,10 @@ struct scint : public fl_scintilla {
 		cotm(filename)
 		currfilename=filename;
 		callbackOnload=([this]() {
+		hints={"Part"};
 			lua_str(filename,1);
 			win->label(filename.c_str());
-		});
+		}); 
 		}
 	int handle(int e)override;
 };

@@ -16,7 +16,7 @@ crn_height=118
 crn_long=178
 
 tunel_height=(container_height-120*3)/4 
-
+ 
 compartments=2
 floors=4
 
@@ -541,7 +541,7 @@ end
 
 
 globals()
-c6()
+--c6()
 struct()
 --robot()
  

@@ -59,12 +59,26 @@ void handle_selection(Display* display, Window window, Atom property) {
                                AnyPropertyType, &actual_type, &actual_format,
                                &n_items, &bytes_after, &data);
 
-            if (data) {
-                if (n_items > 0) {
-                    save_to_file((char*)data, n_items);
-                }
-                XFree(data);
-            }
+			if (data) {
+				if (n_items > 0) {
+
+					// Reject binary data: do NOT save if any '\0' is present
+					int is_text = 1;
+					for (unsigned long i = 0; i < n_items; i++) {
+						if (data[i] == '\0') {
+							is_text = 0;
+							break;
+						}
+					}
+
+					if (is_text) {
+						save_to_file((char*)data, n_items);
+					}
+				}
+
+				XFree(data);
+			}
+
             XDeleteProperty(display, window, property);
             return;
         }
