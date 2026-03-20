@@ -2140,7 +2140,7 @@ alias rm='rm -i'
 export HISTTIMEFORMAT='%F %T '
 
 # Update terminal title
-export PROMPT_COMMAND='history -a; history -n; echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
+export PROMPT_COMMAND='history -a; echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
 
 # Load changes immediately
 alias reload='source ~/.bashrc && openbox --reconfigure && xrdb -merge ~/.Xresources'

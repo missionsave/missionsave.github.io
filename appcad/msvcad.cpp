@@ -2063,72 +2063,93 @@ static void animation_update(void* userdata)
 
 
 //spin
-bool   IsSpinning = false;
-    gp_Pnt SpinPivot;
-    gp_Ax1 SpinAxis;
-    gp_Dir CurrentDir;   // Tracks current rotation axis
-    double SpinStep = 0.02;
+	bool IsSpinning = false;
+	gp_Pnt SpinPivot;
+	gp_Ax1 SpinAxis;
+	gp_Dir CurrentDir;
+	double SpinStep = 0.02;
 
-    void start_continuous_rotation() {
-        if (IsSpinning) {
-            IsSpinning = false; 
-            return;
-        }
+	// New tracking variables
+	double TargetRotation = 0;	 // 0 = infinity
+	double CurrentRotation = 0;	 // Accumulated radians
 
-        IsSpinning = true;
-        SpinPivot  = computeVisibleCenter(this);
-        
-        // Requirement: Start on Y-axis
-        CurrentDir = gp_Dir(0, 1, 0); 
-        SpinAxis   = gp_Ax1(SpinPivot, CurrentDir);
+	void start_continuous_rotation(double spins_amount = 1) {
+		if (IsSpinning) {
+			IsSpinning = false;
+			return;
+		}
 
-        Fl::add_timeout(1.0 / 60.0, SpinCallback, this);
-    }
+		IsSpinning = true;
+		SpinPivot = computeVisibleCenter(this);
 
-    static void SpinCallback(void* userdata) {
-        auto* occv = static_cast<OCC_Viewer*>(userdata);
-        int key = Fl::event_key();
+		// Initialize rotation tracking
+		CurrentRotation = 0;
+		// 1 spin = 2 * PI. If amount is 0, TargetRotation stays 0 (infinite)
+		TargetRotation = spins_amount * (2.0 * M_PI);
 
-        // 1. Stop conditions (Escape or manual toggle)
-        if (!occv->IsSpinning || key == FL_Escape) {
-            occv->IsSpinning = false;
-            occv->projectAndDisplayWithHLR(occv->vshapes);
-            occv->redraw();
-            return;
-        }
+		CurrentDir = gp_Dir(0, 1, 0);
+		SpinAxis = gp_Ax1(SpinPivot, CurrentDir);
 
-		// 2. Listen for axis change (Alt + X, Y, or Z)
-		int state = Fl::event_state(); // Get modifier keys bitmask
+		Fl::add_timeout(1.0 / 60.0, SpinCallback, this);
+	}
 
-		// Check if Alt is held down
-		if (state & FL_ALT) {
-			gp_Dir targetDir = occv->CurrentDir;
-			
-			if      (key == 'x') targetDir = gp_Dir(1, 0, 0);
-			else if (key == 'y') targetDir = gp_Dir(0, 1, 0);
-			else if (key == 'z') targetDir = gp_Dir(0, 0, 1);
+	static void SpinCallback(void* userdata) {
+		auto* occv = static_cast<OCC_Viewer*>(userdata);
 
-			// Update axis ONLY if target is different from current
-			if (!targetDir.IsEqual(occv->CurrentDir, 1e-6)) {
-				occv->CurrentDir = targetDir;
-				occv->SpinAxis   = gp_Ax1(occv->SpinPivot, targetDir);
+		// 1. Stop conditions (Manual toggle or Escape)
+		if (!occv->IsSpinning || Fl::event_key() == FL_Escape) {
+			occv->stop_spinning();
+			return;
+		}
+
+		// 2. Limit Check: If not infinite, check if we've reached the goal
+		if (occv->TargetRotation > 0) {
+			occv->CurrentRotation += std::abs(occv->SpinStep);
+			if (occv->CurrentRotation >= occv->TargetRotation) {
+				occv->stop_spinning();
+				return;
 			}
 		}
 
-        // 3. Transformation
-        Handle(Graphic3d_Camera) cam = occv->m_view->Camera();
-        gp_Trsf trsf;
-        trsf.SetRotation(occv->SpinAxis, occv->SpinStep);
+		// 3. Axis change logic (Alt + X, Y, or Z)
+		int state = Fl::event_state();
+		if (state & FL_ALT) {
+			int key = Fl::event_key();
+			gp_Dir targetDir = occv->CurrentDir;
+			if (key == 'x')
+				targetDir = gp_Dir(1, 0, 0);
+			else if (key == 'y')
+				targetDir = gp_Dir(0, 1, 0);
+			else if (key == 'z')
+				targetDir = gp_Dir(0, 0, 1);
 
-        cam->SetCenter(occv->SpinPivot);
-        cam->SetEye(cam->Eye().Transformed(trsf));
-        cam->SetUp(cam->Up().Transformed(trsf));
+			if (!targetDir.IsEqual(occv->CurrentDir, 1e-6)) {
+				occv->CurrentDir = targetDir;
+				occv->SpinAxis = gp_Ax1(occv->SpinPivot, targetDir);
+			}
+		}
 
-        occv->projectAndDisplayWithHLR(occv->vshapes); //for speed pcs
-        occv->redraw();
-        Fl::repeat_timeout(1.0 / 60.0, SpinCallback, userdata);
-    }
-//region sbt
+		// 4. Transformation
+		Handle(Graphic3d_Camera) cam = occv->m_view->Camera();
+		gp_Trsf trsf;
+		trsf.SetRotation(occv->SpinAxis, occv->SpinStep);
+
+		cam->SetCenter(occv->SpinPivot);
+		cam->SetEye(cam->Eye().Transformed(trsf));
+		cam->SetUp(cam->Up().Transformed(trsf));
+
+		occv->projectAndDisplayWithHLR(occv->vshapes);
+		occv->redraw();
+		Fl::repeat_timeout(1.0 / 60.0, SpinCallback, userdata);
+	}
+
+	// Helper to handle cleanup
+	void stop_spinning() {
+		IsSpinning = false;
+		projectAndDisplayWithHLR(vshapes);
+		redraw();
+	}
+	//region sbt
 	vector<sbts> sbt;
 	void sbtset(bool zdirup=0){
 		sbt.clear();
