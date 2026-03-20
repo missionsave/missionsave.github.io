@@ -1,126 +1,101 @@
-// g++ -std=c++20 -O2 msvclip.cpp -o msvclip -lX11 -lXfixes
-#include <string>
-// #include <vector>
-#include <iostream>
-
-
-using namespace std;
-// vector<string> vclipboard; 
-
+// gcc -O2 msvclip.cpp -o msvclip -lX11 -lXfixes && strip msvclip && pkill msvclip && sudo cp ./msvclip /usr/local/bin && msvclip &
+#include <X11/Xlib.h>
 #include <X11/extensions/Xfixes.h>
-// #include <X11/extensions/XTest.h>
-#include <X11/keysym.h>
-#include <fstream>
-#include <filesystem>
+#include <X11/Xatom.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-void save_to_file(const std::string& text) {
-    std::string path = std::string(getenv("HOME")) + "/msvclip.txt";
+// Stream-based prepending to keep RAM usage near zero
+void save_to_file(const char* text, size_t len) {
+    char path[512];
+    snprintf(path, sizeof(path), "%s/msvclip.txt", getenv("HOME"));
+    char temp_path[512];
+    snprintf(temp_path, sizeof(temp_path), "%s.tmp", path);
 
-    // Read existing file (if any)
-    std::string old;
-    if (std::filesystem::exists(path)) {
-        std::ifstream fin(path, std::ios::binary);
-        old.assign((std::istreambuf_iterator<char>(fin)),
-                    std::istreambuf_iterator<char>());
+    FILE* f_out = fopen(temp_path, "wb");
+    if (!f_out) return;
+
+    // Write new content
+    fwrite(text, 1, len, f_out);
+    fputc('\0', f_out);
+
+    // Stream old content directly from disk to disk
+    FILE* f_in = fopen(path, "rb");
+    if (f_in) {
+        char buffer[4096];
+        size_t n;
+        while ((n = fread(buffer, 1, sizeof(buffer), f_in)) > 0) {
+            fwrite(buffer, 1, n, f_out);
+        }
+        fclose(f_in);
     }
 
-    // Write new content at top, followed by \0, then old content
-    std::ofstream fout(path, std::ios::binary | std::ios::trunc);
-    fout << text << '\0' << old;
+    fclose(f_out);
+    rename(temp_path, path);
 }
 
- 
-
-std::string getClipboardText(Display* display, Window window, Atom property) {
+void handle_selection(Display* display, Window window, Atom property) {
     Atom clipboard = XInternAtom(display, "CLIPBOARD", False);
     Atom utf8 = XInternAtom(display, "UTF8_STRING", False);
-    
-    // Clear previous property value
-    XDeleteProperty(display, window, property);
-    
-    // Request clipboard content
+
     XConvertSelection(display, clipboard, utf8, property, window, CurrentTime);
     XFlush(display);
 
     XEvent event;
-    while (true) {
+    while (1) {
         XNextEvent(display, &event);
-        
         if (event.type == SelectionNotify && event.xselection.selection == clipboard) {
-            if (event.xselection.property == None) {
-                return ""; // Clipboard owner didn't respond
-            }
-            
-            Atom actualType;
-            int actualFormat;
-            unsigned long nItems, bytesAfter;
-            unsigned char* data = nullptr;
+            if (event.xselection.property == None) return;
 
-            XGetWindowProperty(display, window, property, 0, (~0L), False,
-                               AnyPropertyType, &actualType, &actualFormat,
-                               &nItems, &bytesAfter, &data);
-            
-            if (!data) return "";
-            
-            std::string result(reinterpret_cast<char*>(data), nItems);
-            XFree(data);
+            Atom actual_type;
+            int actual_format;
+            unsigned long n_items, bytes_after;
+            unsigned char* data = NULL;
+
+            // Read property (limiting to ~256KB per grab to prevent RAM spikes)
+            XGetWindowProperty(display, window, property, 0, 65536, False,
+                               AnyPropertyType, &actual_type, &actual_format,
+                               &n_items, &bytes_after, &data);
+
+            if (data) {
+                if (n_items > 0) {
+                    save_to_file((char*)data, n_items);
+                }
+                XFree(data);
+            }
             XDeleteProperty(display, window, property);
-            return result;
+            return;
         }
     }
 }
 
-// int listenclipboard() {
 int main() {
-    Display* display = XOpenDisplay(nullptr);
-    if (!display) {
-        std::cerr << "Cannot open X display\n";
-        return 1;
-    }
+    Display* display = XOpenDisplay(NULL);
+    if (!display) return 1;
 
-    // Check for XFixes extension
     int event_base, error_base;
-    if (!XFixesQueryExtension(display, &event_base, &error_base)) {
-        std::cerr << "XFixes extension not available\n";
-        return 1;
-    }
+    if (!XFixesQueryExtension(display, &event_base, &error_base)) return 1;
 
-    // Create a hidden window
-    Window window = XCreateSimpleWindow(display, DefaultRootWindow(display),
-                                        0, 0, 1, 1, 0, 0, 0);
+    Window window = XCreateSimpleWindow(display, DefaultRootWindow(display), 0, 0, 1, 1, 0, 0, 0);
     Atom property = XInternAtom(display, "CLIPBOARD_PROPERTY", False);
-    std::string lastClipboardContent;
-    
-    // Select clipboard change notifications
     Atom clipboard = XInternAtom(display, "CLIPBOARD", False);
-    XFixesSelectSelectionInput(display, window, clipboard, 
-                               XFixesSetSelectionOwnerNotifyMask);
-    
-    // Main event loop
-    while (true) {
+
+    XFixesSelectSelectionInput(display, window, clipboard, XFixesSetSelectionOwnerNotifyMask);
+
+    while (1) {
         XEvent event;
         XNextEvent(display, &event);
-        
-        // Check if it's a clipboard change event
-        if (event.type == event_base + XFixesSelectionNotify) {
-            XFixesSelectionNotifyEvent *sev = (XFixesSelectionNotifyEvent *)&event;
-            if (sev->subtype == XFixesSetSelectionOwnerNotify) {
-                std::string content = getClipboardText(display, window, property);
-                if (!content.empty() && content != lastClipboardContent) {
-                    // std::cout << "Clipboard contents: " << content << "\n";
-					// vclipboard.insert(vclipboard.begin(), content); 
-                    save_to_file(content);
-                    lastClipboardContent = content;
 
-					// vclipboard.push_back(content);
-                    lastClipboardContent = content;
-                }
+        if (event.type == event_base + XFixesSelectionNotify) {
+            XFixesSelectionNotifyEvent* sev = (XFixesSelectionNotifyEvent*)&event;
+            if (sev->subtype == XFixesSetSelectionOwnerNotify) {
+                handle_selection(display, window, property);
             }
         }
     }
 
-    XDestroyWindow(display, window);
     XCloseDisplay(display);
     return 0;
 }
- 

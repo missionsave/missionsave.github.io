@@ -2102,12 +2102,17 @@ installnnnlatest() {
 # Prevent duplicate history entries
 HISTCONTROL=ignoredups:erasedups
 
-# Set history size
-HISTSIZE=10000
-HISTFILESIZE=20000
 
-# Append to history file, don't overwrite
+# Append to history instead of overwriting
 shopt -s histappend
+
+# Write to history after every command
+# PROMPT_COMMAND='history -a; history -n'
+
+# Increase history size (optional)
+HISTSIZE=50000
+HISTFILESIZE=100000
+
 
 # Check window size and update LINES and COLUMNS
 shopt -s checkwinsize
@@ -2135,7 +2140,7 @@ alias rm='rm -i'
 export HISTTIMEFORMAT='%F %T '
 
 # Update terminal title
-export PROMPT_COMMAND='echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
+export PROMPT_COMMAND='history -a; history -n; echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
 
 # Load changes immediately
 alias reload='source ~/.bashrc && openbox --reconfigure && xrdb -merge ~/.Xresources'
