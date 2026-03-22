@@ -1073,35 +1073,35 @@ char* g_szFuncDesc[FUNCSIZE]= { //函数信息
 	" BOOL bRepaint"
 	"="
 };
-void fl_scintilla::move_item(Fl_Browser* browser, string str) {
-	int from=0;
-	int to=1;
+// void fl_scintilla::move_item(Fl_Browser* browser, string str) {
+// 	int from=0;
+// 	int to=1;
 
-	lop(i,1,browser->size()+1){
-		stringstream strm;
-		strm<<folder<<browser->text(i);
-		// cotm(str,strm.str())
-		if(str==strm.str() || str+"*"==strm.str()){
-			from=i;
-			break;
-		}
-	}
-	// cotm(from)
+// 	lop(i,1,browser->size()+1){
+// 		stringstream strm;
+// 		strm<<folder<<browser->text(i);
+// 		// cotm(str,strm.str())
+// 		if(str==strm.str() || str+"*"==strm.str()){
+// 			from=i;
+// 			break;
+// 		}
+// 	}
+// 	// cotm(from)
 
-    if (from == to || from < 1 || to < 1 || from > browser->size() || to > browser->size() + 1)
-        return;
+//     if (from == to || from < 1 || to < 1 || from > browser->size() || to > browser->size() + 1)
+//         return;
 
-    const char* text = browser->text(from);
-    if (!text) return;
+//     const char* text = browser->text(from);
+//     if (!text) return;
 
-    std::string moved_text = text;
-    browser->remove(from);
+//     std::string moved_text = text;
+//     browser->remove(from);
 
-    // Adjust target index if we're moving down (because list shrinks)
-    if (to > from) --to;
+//     // Adjust target index if we're moving down (because list shrinks)
+//     if (to > from) --to;
 
-    browser->insert(to, moved_text.c_str());
-}
+//     browser->insert(to, moved_text.c_str());
+// }
 void fl_scintilla::navigatorSetUpdated(){
 		cotm("v1")
 	    filesfirstline[curr_file_pointer]=SendEditor(SCI_GETFIRSTVISIBLELINE,0,0);

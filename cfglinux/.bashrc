@@ -2137,7 +2137,7 @@ alias mv='mv -i'
 alias rm='rm -i'
 
 # Show history with time
-export HISTTIMEFORMAT='%F %T '
+# export HISTTIMEFORMAT='%F %T '
 
 # Update terminal title
 export PROMPT_COMMAND='history -a; echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'

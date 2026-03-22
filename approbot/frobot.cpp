@@ -22,6 +22,12 @@ osg::Group* group;
 bool makvisible=1;
 bool robotvisible=1;
 
+
+extern Fl_Window* ncnnwin;
+void initncnn();
+
+
+
 #if defined(__linux__)
 int startstream(Window _win);
 #endif
@@ -3461,8 +3467,10 @@ osggl->_pivot = worldCenter * invM;  // agora está no mesmo espaço do transfor
 // osggl->_rootXform->addChild(g); // adiciona ao mesmo espaço
 
 
-
-
+	initncnn(); 
+	win->add(ncnnwin);
+	ncnnwin->position(0,22);
+	ncnnwin->show();
 
 
 

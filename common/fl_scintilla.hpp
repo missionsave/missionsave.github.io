@@ -49,7 +49,7 @@ struct fl_scintilla : public Fl_Scintilla {
 
 	std::vector<_FileEntry> list_files_in_dir(const std::string path);
 	void update_menu();
-	void move_item(Fl_Browser* browser, std::string str);
+	// void move_item(Fl_Browser* browser, std::string str);
 
 	void save();
 	void setnsaved();

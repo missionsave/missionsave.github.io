@@ -31,6 +31,7 @@ SRC_LIB :=
 SRC_APP := \
     frobot.cpp\
 	luanew.cpp \
+    ../apptest/ncnn4.cpp \
     ../common/fl_scintilla.cpp \
     ../common/font_loader.cpp \
     ../common/general.cpp
@@ -82,6 +83,9 @@ ifeq ($(OS_NAME), Linux)
 	LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgFX -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 	
+	CXXFLAGS+=-I/home/super/msv/ncnn/build/install/include -L/home/super/msv/ncnn/build/install/lib
+	LDFLAGS+= -lncnn -lglslang -lMachineIndependent -lGenericCodeGen  -lOSDependent -lSPIRV -lpthread -fopenmp
+
 	LDFLAGS+= -lturbojpeg -lwebsockets
 	LDFLAGS+= -llua5.4
 	# LDFLAGS+=  -lsqlite3 

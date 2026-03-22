@@ -1,4 +1,4 @@
-// g++ ncnn3.cpp -o ncnn3 -I/home/super/msv/ncnn/build/install/include -L/home/super/msv/ncnn/build/install/lib -lncnn -lglslang -lMachineIndependent -lGenericCodeGen  -lOSDependent -lSPIRV -lpthread -fopenmp -lfltk -lfltk_images -lX11 -lXext -lXfixes -lXcursor -lXrender -lXinerama -lXft -lfontconfig
+// g++ ncnn4.cpp -o ncnn4 -I/home/super/msv/ncnn/build/install/include -L/home/super/msv/ncnn/build/install/lib -lncnn -lglslang -lMachineIndependent -lGenericCodeGen  -lOSDependent -lSPIRV -lpthread -fopenmp -lfltk -lfltk_images -lX11 -lXext -lXfixes -lXcursor -lXrender -lXinerama -lXft -lfontconfig
 
 #include <ncnn/net.h>
 #include <FL/Fl.H>
@@ -345,54 +345,129 @@ void yuyv_to_rgb_flipped_optimized(const uint8_t* __restrict yuyv, uint8_t* __re
 
  
 
-class View : public Fl_Window {
+#include <FL/Fl_Gl_Window.H>
+#include <FL/gl.h>
+
+class View : public Fl_Gl_Window {
     uint8_t* rgb_data;
     std::vector<Box> boxes;
     float current_fps;
+    GLuint tex = 0;
+
 public:
-    View(int W, int H) : Fl_Window(W, H, "NCNN + FLTK"), rgb_data(nullptr), current_fps(0) {}
-    void update(uint8_t* d, std::vector<Box> b, float fps) { 
-        rgb_data = d; 
-        boxes = b; 
+    View(int W, int H)
+        : Fl_Gl_Window(W, H, "NCNN + FLTK"),
+          rgb_data(nullptr),
+          current_fps(0) {}
+
+    void update(uint8_t* d, const std::vector<Box>& b, float fps) {
+        rgb_data = d;
+        boxes = b;
         current_fps = fps;
-        redraw(); 
+        redraw();
     }
-    // void draw() override {
-    //     if (rgb_data) fl_draw_image(rgb_data, 0, 0, CAM_W, CAM_H, 3);
-        
-    //     // Draw FPS
-    //     char fps_text[32];
-    //     snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", current_fps);
-    //     fl_color(FL_YELLOW);
-    //     fl_font(FL_HELVETICA_BOLD, 16);
-    //     fl_draw(fps_text, 10, 25);
 
-    //     // Draw boxes
-    //     fl_color(FL_GREEN); fl_line_style(FL_SOLID, 2);
-    //     for(auto& b : boxes) {
-    //         fl_rect(b.x, b.y, b.w, b.h);
-    //         fl_draw(classes[b.id].c_str(), b.x, b.y-5);
-    //     }
-    // }
-    void draw() override {
-        if (rgb_data) fl_draw_image(rgb_data, 0, 0, CAM_W, CAM_H, 3);
-        
-        // Draw FPS
-        char fps_text[32];
-        snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", current_fps);
-        fl_color(FL_YELLOW);
-        fl_font(FL_HELVETICA_BOLD, 16);
-        fl_draw(fps_text, 10, 25);
+private:
+    void init_gl() {
+        if (!tex)
+            glGenTextures(1, &tex);
 
-        // Draw boxes
-        fl_color(FL_GREEN); fl_line_style(FL_SOLID, 2);
-        for(auto& b : boxes) {
-            fl_rect(b.x, b.y, b.w, b.h);
-            fl_draw(classes[b.id].c_str(), b.x, b.y-5);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
+// #include <FL/gl.h>      // Required for gl_draw and gl_font
+// #include <FL/glu.h>
+
+// ... inside your View class ...
+
+
+void draw() override {
+    if (!valid()) {
+        valid(1);
+        glViewport(0, 0, w(), h());
+        init_gl();
+    }
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // --- 1. DRAW IMAGE ---
+    if (rgb_data) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        // Ensure white tint so the texture colors are natural
+        glColor3f(1.0f, 1.0f, 1.0f); 
+        
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, CAM_W, CAM_H-80, 0, GL_RGB, GL_UNSIGNED_BYTE, rgb_data);
+        
+        glBegin(GL_QUADS);
+            glTexCoord2f(0, 1); glVertex2f(-1, -1);
+            glTexCoord2f(1, 1); glVertex2f( 1, -1);
+            glTexCoord2f(1, 0); glVertex2f( 1,  1);
+            glTexCoord2f(0, 0); glVertex2f(-1,  1);
+        glEnd();
+        
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glDisable(GL_TEXTURE_2D);
+    }
+
+    // --- 2. DRAW OVERLAY ---
+    // Push attributes to save the current state (including color/texture)
+    glPushAttrib(GL_ALL_ATTRIB_BITS); 
+    
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glOrtho(0, w(), h(), 0, -1, 1);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    draw_overlay_gl();
+
+    // --- 3. RESTORE EVERYTHING ---
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+    
+    glPopAttrib(); // Restore all GL states to what they were before the overlay
+    
+    glFlush();
+}
+
+void draw_overlay_gl() {
+    // FPS Text (Using gl_font and gl_draw)
+    char fps_text[32];
+    snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", current_fps);
+    
+    gl_font(FL_HELVETICA_BOLD, 16);
+    glColor3f(1.0f, 1.0f, 0.0f); // Yellow
+    gl_draw(fps_text, 10, 25);   // gl_draw uses current raster position/ortho
+
+    // Boxes (Using GL Primitives)
+    glColor3f(0.0f, 1.0f, 0.0f); // Green
+    glLineWidth(2.0f);
+
+    for (auto& b : boxes) {
+        // Draw Rectangle
+        glBegin(GL_LINE_LOOP);
+            glVertex2f(b.x, b.y);
+            glVertex2f(b.x + b.w, b.y);
+            glVertex2f(b.x + b.w, b.y + b.h);
+            glVertex2f(b.x, b.y + b.h);
+        glEnd();
+
+        // Draw Label
+        if (b.id < classes.size()) {
+            gl_draw(classes[b.id].c_str(), b.x, b.y - 5);
         }
     }
-    
+}
 };
+
 View* ncnnwin;
 void ui_update_cb(void*) {
     if (ncnnwin)
@@ -408,8 +483,8 @@ void ncnnrun( ) {
     // net.opt.use_fp16_storage = true; 
     // net.opt.lightmode = true;
     // net.opt.num_threads = 4;   // or 8 depending on your CPU
-    net.load_param("yolo26_no_end_to_end/model.ncnn.param");
-    net.load_model("yolo26_no_end_to_end/model.ncnn.bin");
+    net.load_param("../apptest/yolo26_no_end_to_end/model.ncnn.param");
+    net.load_model("../apptest/yolo26_no_end_to_end/model.ncnn.bin");
     // net.load_param("yolo26_end_to_end/model.ncnn.param");
     // net.load_model("yolo26_end_to_end/model.ncnn.bin");
 
