@@ -1,4 +1,4 @@
-// g++ ncnn4.cpp -o ncnn4 -I/home/super/msv/ncnn/build/install/include -L/home/super/msv/ncnn/build/install/lib -lncnn -lglslang -lMachineIndependent -lGenericCodeGen  -lOSDependent -lSPIRV -lpthread -fopenmp -lfltk -lfltk_images -lX11 -lXext -lXfixes -lXcursor -lXrender -lXinerama -lXft -lfontconfig
+// g++ ncnn4.cpp -o ncnn4 -I/home/super/msv/ncnn/build/install/include -L/home/super/msv/ncnn/build/install/lib -lncnn -lglslang -lMachineIndependent -lGenericCodeGen  -lOSDependent -lSPIRV -lpthread -fopenmp -lfltk -lfltk_images -lX11 -lXext -lXfixes -lXcursor -lXrender -lXinerama -lXft -lfontconfig -lfltk_gl -lGL -lGLU
 
 #include <ncnn/net.h>
 #include <FL/Fl.H>
@@ -437,8 +437,52 @@ void draw() override {
     
     glFlush();
 }
-
 void draw_overlay_gl() {
+    // 1. Get current window dimensions (FLTK methods)
+    int cur_w = this->w();
+    int cur_h = this->h();
+
+    // 2. Define the original resolution the box data refers to
+    // Replace these with your actual source image/model dimensions
+    float orig_w = CAM_W; 
+    float orig_h = CAM_H-80;
+
+    // 3. Calculate scaling factors
+    float sw = (float)cur_w / orig_w;
+    float sh = (float)cur_h / orig_h;
+
+    // --- Draw FPS ---
+    char fps_text[32];
+    snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", current_fps);
+    gl_font(FL_HELVETICA_BOLD, 16);
+    glColor3f(1.0f, 1.0f, 0.0f);
+    gl_draw(fps_text, 10, 25); 
+
+    // --- Draw Boxes ---
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glLineWidth(2.0f);
+
+    for (auto& b : boxes) {
+        // Apply scaling to coordinates and dimensions
+        float rx = b.x * sw;
+        float ry = b.y * sh;
+        float rw = b.w * sw;
+        float rh = b.h * sh;
+
+        glBegin(GL_LINE_LOOP);
+            glVertex2f(rx,      ry);
+            glVertex2f(rx + rw, ry);
+            glVertex2f(rx + rw, ry + rh);
+            glVertex2f(rx,      ry + rh);
+        glEnd();
+
+        if (b.id < classes.size()) {
+            // Draw label at the scaled x and slightly above the scaled y
+            gl_draw(classes[b.id].c_str(), (int)rx, (int)(ry - 5));
+        }
+    }
+}
+void draw_overlay_gl1() {
     // FPS Text (Using gl_font and gl_draw)
     char fps_text[32];
     snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", current_fps);
@@ -454,10 +498,18 @@ void draw_overlay_gl() {
     for (auto& b : boxes) {
         // Draw Rectangle
         glBegin(GL_LINE_LOOP);
-            glVertex2f(b.x, b.y);
-            glVertex2f(b.x + b.w, b.y);
-            glVertex2f(b.x + b.w, b.y + b.h);
-            glVertex2f(b.x, b.y + b.h);
+            // glVertex2f(b.x, b.y);
+            // glVertex2f(b.x + b.w, b.y);
+            // glVertex2f(b.x + b.w, b.y + b.h);
+            // glVertex2f(b.x, b.y + b.h);
+			float sx = w()  / CAM_W;
+float sy = h() / CAM_H;
+
+glVertex2f(b.x * sx,         b.y * sy);
+glVertex2f((b.x+b.w) * sx,   b.y * sy);
+glVertex2f((b.x+b.w) * sx,  (b.y+b.h) * sy);
+glVertex2f(b.x * sx,        (b.y+b.h) * sy);
+
         glEnd();
 
         // Draw Label

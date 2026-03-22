@@ -3470,9 +3470,10 @@ osggl->_pivot = worldCenter * invM;  // agora está no mesmo espaço do transfor
 	initncnn(); 
 	win->add(ncnnwin);
 	ncnnwin->position(0,22);
+	ncnnwin->size(w*0.33,(w*0.33)/ncnnwin->w()*ncnnwin->h());
 	ncnnwin->show();
 
-
+	win->begin();
 
 	fldbg=new Fl_Help_View(0,h*.7,w*0.33,h*0.30);
 	// fldbg=new Fl_Help_View(w*(0.3+0.45),h*.7,w-w*(0.3+0.45),h*0.30);
