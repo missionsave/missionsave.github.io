@@ -1089,16 +1089,16 @@ xprarobo(){
 xpra start :100   --start=/home/super/missionsave/approbot/frobota   --bind-tcp=0.0.0.0:14500   --html=on   --daemon=no   --xvfb="/usr/bin/Xvfb +extension Composite -screen 0 640x400x16"   --pulseaudio=no   --notifications=no --quality=50 --min-quality=30 
 }
 
-dirsize(){ 
-  echo "📁 Subdirectory Sizes:"; 
-  find . -mindepth 1 -maxdepth 1 -type d -print0 | du -sh --files0-from=-; 
-  echo "------"; 
-  echo "📄 Current Directory Files Total:"; 
-  find . -mindepth 1 -maxdepth 1 -type f -print0 | du -ch --files0-from=- | grep total$ | sed 's/total$/current dir/'; 
-  echo "------"; 
-  echo "📦 Total Size (Files + Subdirs):"; 
-  du -sh . | sed 's/\t.*/\ttotal/'; 
+
+run() {
+    bash ~/msv/cfglinux/run.sh "$@"
 }
+
+
+
+
+
+
 
 ramopt() {
 set -e

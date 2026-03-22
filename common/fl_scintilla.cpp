@@ -856,7 +856,15 @@ SendEditor(SCI_SETEXTRADESCENT, -2);
 // Keyword list 2: custom keywords
 string keys2 = "Part";
 SendEditor(SCI_SETKEYWORDS, 2, (sptr_t)keys2.c_str());
-SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD3, RGB(255, 90, 55)); 
+SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD3, RGB(150, 20, 40)); 
+SendEditor(SCI_STYLESETUNDERLINE, SCE_LUA_WORD3, true);
+
+	cotm(hints);
+// Keyword list 3: custom keywords
+string keys3 = "Clone Offset Pl Extrude";
+SendEditor(SCI_SETKEYWORDS, 3, (sptr_t)keys3.c_str());
+SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD4, RGB(0, 150, 80)); 
+SendEditor(SCI_STYLESETUNDERLINE, SCE_LUA_WORD4, true);
 
 
 	int version = SendEditor( 267, 0, 0);
