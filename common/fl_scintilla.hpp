@@ -36,6 +36,9 @@ struct fl_scintilla : public Fl_Scintilla {
 	sptr_t curr_file_pointer = 0;
 	std::unordered_map<sptr_t, uptr_t> filesfirstline;
 	std::unordered_map<sptr_t,uptr_t> filescaret;
+std::unordered_map<sptr_t,std::vector<int>> foldedHeadersMap;
+void save_fold();
+void apply_fold();
 	std::string comment;
 	fl_scintilla(int X, int Y, int W, int H, const char* l = 0);
 	// void resize(int x, int y, int w, int h) override;

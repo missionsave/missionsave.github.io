@@ -1,4 +1,4 @@
-// g++ ncnn4.cpp -o ncnn4 -I/home/super/msv/ncnn/build/install/include -L/home/super/msv/ncnn/build/install/lib -lncnn -lglslang -lMachineIndependent -lGenericCodeGen  -lOSDependent -lSPIRV -lpthread -fopenmp -lfltk -lfltk_images -lX11 -lXext -lXfixes -lXcursor -lXrender -lXinerama -lXft -lfontconfig -lfltk_gl -lGL -lGLU
+// g++ ncnn4.cpp -o ncnn4 -I/home/super/msv/ncnn/build/install/include -L/home/super/msv/ncnn/build/install/lib -lncnn -lglslang -lMachineIndependent -lGenericCodeGen  -lOSDependent -lSPIRV -lpthread -fopenmp -lfltk -lfltk_images -lX11 -lXext -lXfixes -lXcursor -lXrender -lXinerama -lXft -lfontconfig -lfltk_gl -lGL -lGLU -Dtesting
 
 #include <ncnn/net.h>
 #include <FL/Fl.H>
@@ -18,45 +18,47 @@
 #include <thread>
 
 using namespace std;
-// struct performance{ 
-//     std::chrono::steady_clock::time_point pclock;
-//     const char* pname; 
-//     performance(const char*  name=""); //
-//     void p(const char* prefix=""); //
-// };
+#ifdef testing
+struct performance{ 
+    std::chrono::steady_clock::time_point pclock;
+    const char* pname; 
+    performance(const char*  name=""); //
+    void p(const char* prefix=""); //
+};
 
-// performance::performance(const char*  name){
-//     pname=name;
-//     pclock=std::chrono::steady_clock::now();
-// }
-// void performance::p(const char* prefix){
-// 	if(prefix==0){
-// 		pclock=std::chrono::steady_clock::now();
-// 		printf("benchmark\n");
-// 		return;
-// 	}
-// 	auto end = std::chrono::steady_clock::now();
-// 	auto elapsed = end - pclock;
-// 	printf("%s %.9f sec\n",prefix,std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count()/1000000000.0);
-// 	// printf("%s %s %f sec\n",pname,prefix,((double)clock()-pclock)/CLOCKS_PER_SEC);
-// 	fflush(stdout);
-// 	pclock=std::chrono::steady_clock::now();
-// }
-// performance perfinit;
-// void perf(string p){
-//     if(p==""){perfinit.pclock=std::chrono::steady_clock::now();return;}
-//     perfinit.p(p.c_str());
-// } 
-// performance perfinit1;
-// void perf1(string p){
-//     if(p==""){perfinit1.pclock=std::chrono::steady_clock::now();return;}
-//     perfinit1.p(p.c_str());
-// } 
-// performance perfinit2;
-// void perf2(string p){
-//     if(p==""){perfinit2.pclock=std::chrono::steady_clock::now();return;}
-//     perfinit2.p(p.c_str());
-// } 
+performance::performance(const char*  name){
+    pname=name;
+    pclock=std::chrono::steady_clock::now();
+}
+void performance::p(const char* prefix){
+	if(prefix==0){
+		pclock=std::chrono::steady_clock::now();
+		printf("benchmark\n");
+		return;
+	}
+	auto end = std::chrono::steady_clock::now();
+	auto elapsed = end - pclock;
+	printf("%s %.9f sec\n",prefix,std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count()/1000000000.0);
+	// printf("%s %s %f sec\n",pname,prefix,((double)clock()-pclock)/CLOCKS_PER_SEC);
+	fflush(stdout);
+	pclock=std::chrono::steady_clock::now();
+}
+performance perfinit;
+void perf(string p){
+    if(p==""){perfinit.pclock=std::chrono::steady_clock::now();return;}
+    perfinit.p(p.c_str());
+} 
+performance perfinit1;
+void perf1(string p){
+    if(p==""){perfinit1.pclock=std::chrono::steady_clock::now();return;}
+    perfinit1.p(p.c_str());
+} 
+performance perfinit2;
+void perf2(string p){
+    if(p==""){perfinit2.pclock=std::chrono::steady_clock::now();return;}
+    perfinit2.p(p.c_str());
+} 
+#endif
 
 struct Box { int x, y, w, h; int id; float score; };
 
@@ -557,7 +559,7 @@ void ncnnrun( ) {
 
     while (1) {
     // while (Fl::check()) {
-        // perf1("");
+        perf1("");
         v4l2_buffer vbuf{}; vbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE; vbuf.memory = V4L2_MEMORY_MMAP;
         if(ioctl(cam_fd, VIDIOC_DQBUF, &vbuf) < 0) continue;
         
@@ -570,6 +572,7 @@ void ncnnrun( ) {
 // perf1("speed");
         ioctl(cam_fd, VIDIOC_QBUF, &vbuf);
 // perf1("");
+perf1("speed");
         ncnn::Mat in = ncnn::Mat::from_pixels_resize(rgb_buf, ncnn::Mat::PIXEL_RGB, CAM_W, CAM_H, TARGET_SIZE, TARGET_SIZE);
         const float norm[3] = {1/255.f, 1/255.f, 1/255.f};
         in.substract_mean_normalize(0, norm);
@@ -616,10 +619,13 @@ void initncnn(){
     ncnnwin->resizable(ncnnwin);
     thread( ncnnrun).detach();
 }
-// int main() {
-// 	Fl::lock();
-//     initncnn();
-//     while (!ncnninitialized) Fl::wait(0.01);
-//     ncnnwin->show();
-// 	return Fl::run(); 
-// }
+
+#ifdef testing
+int main() {
+	Fl::lock();
+    initncnn();
+    while (!ncnninitialized) Fl::wait(0.01);
+    ncnnwin->show();
+	return Fl::run(); 
+}
+#endif

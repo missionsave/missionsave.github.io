@@ -262,9 +262,22 @@ std::tuple<int,int> fl_scintilla::csearch(const char* needle, bool dirDown, int 
     const int foundPos = posList[idx];
 
     // Move and select
-    SendEditor(SCI_GOTOPOS, foundPos, 0);
-    SendEditor(SCI_SETSEL, foundPos, foundPos + matchLen);
+	int line = SendEditor(SCI_LINEFROMPOSITION, foundPos);
 
+// Walk up until the line becomes visible
+while (!SendEditor(SCI_GETLINEVISIBLE, line)) {
+    int parent = SendEditor(SCI_GETFOLDPARENT, line);
+    if (parent < 0)
+        break;
+
+    // In 3.7, use TOGGLEFOLD to open the folded block
+    SendEditor(SCI_TOGGLEFOLD, parent);
+}
+
+SendEditor(SCI_GOTOPOS, foundPos);
+
+    SendEditor(SCI_SETSEL, foundPos, foundPos + matchLen);
+take_focus();
     // Return (total matches, 0-based index of the current hit)
     return { (int)posList.size(), idx };
 }
@@ -547,6 +560,34 @@ void fl_scintilla::toggle_comment() {
     SendEditor(SCI_ENDUNDOACTION);
 }
 
+//region fold
+void fl_scintilla::apply_fold() {
+	vector<int> & foldedHeaders=foldedHeadersMap[curr_file_pointer];
+	cotm("apply",foldedHeaders);
+    for (int line : foldedHeaders) {
+        SendEditor(SCI_TOGGLEFOLD, line, 0);
+    }
+}
+
+void fl_scintilla::save_fold() {
+	vector<int> & foldedHeaders=foldedHeadersMap[curr_file_pointer];
+	foldedHeaders.clear();
+
+	int lineCount = SendEditor(SCI_GETLINECOUNT, 0, 0);
+
+	for (int line = 0; line < lineCount; ++line) {
+		int level = SendEditor(SCI_GETFOLDLEVEL, line, 0);
+
+		if (level & SC_FOLDLEVELHEADERFLAG) {
+			// Header line
+			if (!SendEditor(SCI_GETFOLDEXPANDED, line, 0)) {
+				// It's collapsed
+				foldedHeaders.push_back(line);
+			}
+		}
+	}
+	cotm("save",foldedHeaders);
+}
 void fl_scintilla::update_menu() {
 	window()->begin(); 
 
@@ -854,14 +895,14 @@ SendEditor(SCI_SETEXTRADESCENT, -2);
 
 	cotm(hints);
 // Keyword list 2: custom keywords
-string keys2 = "Part";
+string keys2 = "Origin Part";
 SendEditor(SCI_SETKEYWORDS, 2, (sptr_t)keys2.c_str());
-SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD3, RGB(150, 20, 40)); 
+SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD3, RGB(180, 40, 40)); 
 SendEditor(SCI_STYLESETUNDERLINE, SCE_LUA_WORD3, true);
 
 	cotm(hints);
 // Keyword list 3: custom keywords
-string keys3 = "Clone Offset Pl Extrude";
+string keys3 = "Clone Offset Pl Extrude Rotatelx Rotately Rotatelz Movel Common Subtract Fuse Circle Dup Copy_placement Revolution";
 SendEditor(SCI_SETKEYWORDS, 3, (sptr_t)keys3.c_str());
 SendEditor(SCI_STYLESETFORE, SCE_LUA_WORD4, RGB(0, 150, 80)); 
 SendEditor(SCI_STYLESETUNDERLINE, SCE_LUA_WORD4, true);
@@ -1104,6 +1145,7 @@ char* g_szFuncDesc[FUNCSIZE]= { //函数信息
 // }
 void fl_scintilla::navigatorSetUpdated(){
 		cotm("v1")
+		save_fold();
 	    filesfirstline[curr_file_pointer]=SendEditor(SCI_GETFIRSTVISIBLELINE,0,0);
         filesfirstline[curr_file_pointer]=SendEditor(SCI_DOCLINEFROMVISIBLE,filesfirstline[curr_file_pointer],0);
         filescaret[curr_file_pointer]=SendEditor(SCI_GETCURRENTPOS);
@@ -1307,6 +1349,8 @@ void setscint(fl_scintilla* editor,string filename){
     editor->curr_file_pointer=files[filename].p;
     editor->filename=filename;
     editor->set_lua();
+	
+		editor->apply_fold();
 
 	
 // 	editor->SendEditor(SCI_GOTOPOS, files[filename].recent_pos,0);

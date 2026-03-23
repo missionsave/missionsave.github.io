@@ -77,7 +77,7 @@ install_ncnn() {
     cd build
 
     echo -e "${BLUE}==> Executando CMake...${RESET}"
-    cmake -DNCNN_VULKAN=ON ..
+    cmake -DNCNN_VULKAN=ON -DCMAKE_INSTALL_PREFIX=/usr/local ..
     if [[ $? -ne 0 ]]; then
         echo -e "${RED}Erro no CMake. Verifique dependências ou submódulos.${RESET}"
         return 1

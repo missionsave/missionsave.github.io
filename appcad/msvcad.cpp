@@ -1,26 +1,9 @@
 #include "includes.hpp"
-#include <Geom_Circle.hxx>
-#include <BRepFilletAPI_MakeFillet.hxx>
-#include <Prs3d_IsoAspect.hxx>
-#include "fl_browser_msv.hpp"
+
+#include "fl_scintilla.hpp"
+#include "general.hpp"
 
 //region helpers
-#include <TopoDS.hxx>
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Face.hxx>
-#include <TopoDS_Edge.hxx>
-
-#include <TopExp_Explorer.hxx>
-
-#include <BRep_Builder.hxx>
-#include <BRep_Tool.hxx>
-
-#include <Geom_Surface.hxx>
-#include <Geom_CylindricalSurface.hxx>
-#include <Geom_ConicalSurface.hxx>
-#include <Geom_ToroidalSurface.hxx>
-#include <Geom_SphericalSurface.hxx>
-
 TopoDS_Shape ExtractFilletEdges(const TopoDS_Shape& shape)
 {
     BRep_Builder builder;
@@ -1030,7 +1013,7 @@ void gopart(const std::string& str) {
 	editor->take_focus(); 
 }
 
-//region help 
+//region shelp 
 struct shelpv{
 	string pname="";
 	string point="";
@@ -4626,6 +4609,7 @@ void fill_menu() {
 		occv, 0);
 
 	menu->add(
+		//region help
 		"Help", 0,
 		[](Fl_Widget*, void* ud) {
 			Fl_Group::current(nullptr);	 // clear current group

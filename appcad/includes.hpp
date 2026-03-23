@@ -354,6 +354,29 @@ extern "C" {
 #include <BRepAdaptor_Surface.hxx>
 #include <Precision.hxx>
 #include <Standard_TypeDef.hxx>
+
+#include <Geom_Circle.hxx>
+#include <BRepFilletAPI_MakeFillet.hxx>
+#include <Prs3d_IsoAspect.hxx>
+#include "fl_browser_msv.hpp"
+
+#include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Edge.hxx>
+
+#include <TopExp_Explorer.hxx>
+
+#include <BRep_Builder.hxx>
+#include <BRep_Tool.hxx>
+
+#include <Geom_Surface.hxx>
+#include <Geom_CylindricalSurface.hxx>
+#include <Geom_ConicalSurface.hxx>
+#include <Geom_ToroidalSurface.hxx>
+#include <Geom_SphericalSurface.hxx>
+
+
 #include <FL/Fl.H>
 #include <FL/Fl_Help_View.H>
 #include <FL/Fl_Window.H>
@@ -369,8 +392,8 @@ extern "C" {
 // #define SOL_ALL_SAFETIES_ON 1
 #include <sol/sol.hpp> 
 
-#include "fl_scintilla.hpp"
-#include "general.hpp"
+// #include "fl_scintilla.hpp"
+// #include "general.hpp"
 
 void scint_init(int x,int y,int w,int h);
 
