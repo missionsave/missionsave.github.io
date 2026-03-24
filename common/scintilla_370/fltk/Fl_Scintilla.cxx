@@ -723,7 +723,7 @@ void Fl_Scintilla::CopyToClipboard(const Scintilla::SelectionText &selectedText)
 	if ( (copy==NULL) || (len<1) ) return;
 
 	if (IsUnicodeMode()) {
-		Fl::copy(copy, len, 1);
+		Fl::copy(copy, len-1, 1);
 	} else {
 		char *dst;
 		int dstsize=len*8;
@@ -735,8 +735,13 @@ void Fl_Scintilla::CopyToClipboard(const Scintilla::SelectionText &selectedText)
 			free(dst);
 			return;
 		}
+		
+		// n includes the null terminator, so the real length is n - 1
+		int realLen = n - 1;
 
-		Fl::copy(dst, n, 1);
+		Fl::copy(dst, realLen, 1);
+ 
+		// Fl::copy(dst, n, 1);
 
 		free(dst);
 	}

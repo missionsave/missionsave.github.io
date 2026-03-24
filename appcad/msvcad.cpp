@@ -4367,7 +4367,7 @@ lua.set_function("Subtract", [&]() {
     // Add all except the last two
     for (size_t i = 0; i < shapeVec.size() - 2; ++i) {
         builder.Add(newCompound, shapeVec[i]);
-    }
+    } 
 
     // Add the result
     builder.Add(newCompound, result);
@@ -4467,8 +4467,8 @@ lua.set_function("Common", [&]() {
     // Update current part
     current_part->cshape = newCompound;
     current_part->shape  = result;
-});
-lua.set_function("FilletToAllEdgesv1", [&](double val) {
+}); 
+lua.set_function("FilletToAllEdges", [&](double val) {
     if (!current_part) luaL_error(lua.lua_state(), "No current part.");
 	// current_part->update_placement();
 	// current_part->shape=ApplyFilletToAllEdges(current_part->cshape,val);
@@ -4499,7 +4499,7 @@ for (int ic = 1; ic <= fillet.NbContours(); ++ic) {
 );
 // current_part->ashape->Attributes()->SetFaceBoundaryDraw(false);
 });
-lua.set_function("FilletToAllEdges", [&](double val)
+lua.set_function("FilletToAllEdges_v0", [&](double val)
 {
 
     if (!current_part)
