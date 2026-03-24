@@ -559,7 +559,7 @@ void ncnnrun( ) {
 
     while (1) {
     // while (Fl::check()) {
-        perf1("");
+        // perf1("");
         v4l2_buffer vbuf{}; vbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE; vbuf.memory = V4L2_MEMORY_MMAP;
         if(ioctl(cam_fd, VIDIOC_DQBUF, &vbuf) < 0) continue;
         
@@ -572,7 +572,7 @@ void ncnnrun( ) {
 // perf1("speed");
         ioctl(cam_fd, VIDIOC_QBUF, &vbuf);
 // perf1("");
-perf1("speed");
+// perf1("speed");
         ncnn::Mat in = ncnn::Mat::from_pixels_resize(rgb_buf, ncnn::Mat::PIXEL_RGB, CAM_W, CAM_H, TARGET_SIZE, TARGET_SIZE);
         const float norm[3] = {1/255.f, 1/255.f, 1/255.f};
         in.substract_mean_normalize(0, norm);

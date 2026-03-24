@@ -84,6 +84,7 @@
 #include <osg/Vec3> 
 
 
+
 #include <osgUtil/SmoothingVisitor>
 #include <osgUtil/Optimizer>
 #include <osg/PolygonMode> 
@@ -100,6 +101,6 @@
 #endif
 #include <sol/sol.hpp> 
 
-#include "fl_scintilla.hpp"
+// #include "fl_scintilla.hpp"
 
-#include "frobot.hpp"
+// #include "frobot.hpp"

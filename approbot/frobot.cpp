@@ -1,5 +1,8 @@
 //region globals
 #include "includes.hpp"
+#include "fl_scintilla.hpp"
+#include "general.hpp"
+#include "frobot.hpp"
 
 Fl_Double_Window* win;
 Fl_Double_Window* flt; 
