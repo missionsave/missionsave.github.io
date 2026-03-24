@@ -39,6 +39,7 @@ struct fl_scintilla : public Fl_Scintilla {
 std::unordered_map<sptr_t,std::vector<int>> foldedHeadersMap;
 void save_fold();
 void apply_fold();
+void FoldFirstLevel();
 	std::string comment;
 	fl_scintilla(int X, int Y, int W, int H, const char* l = 0);
 	// void resize(int x, int y, int w, int h) override;

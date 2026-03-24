@@ -588,6 +588,31 @@ void fl_scintilla::save_fold() {
 	}
 	cotm("save",foldedHeaders);
 }
+
+void fl_scintilla::FoldFirstLevel() {
+    // 1. Get the total number of lines
+    int lineCount = SendEditor( SCI_GETLINECOUNT, 0, 0);
+
+    for (int i = 0; i < lineCount; i++) {
+        // 2. Get the fold level for the current line
+        int level = SendEditor( SCI_GETFOLDLEVEL, i, 0);
+
+        // 3. Check if this line is a header (start of a fold block)
+        // and if it is at the base level (Level 0 / 0x400)
+        if (level & SC_FOLDLEVELHEADERFLAG) {
+            int actualLevel = level & SC_FOLDLEVELNUMBERMASK;
+
+            if (actualLevel == SC_FOLDLEVELBASE) {
+                // 4. If it's currently expanded, toggle it to fold
+                if (SendEditor( SCI_GETFOLDEXPANDED, i, 0)) {
+                    SendEditor( SCI_TOGGLEFOLD, i, 0);
+                }
+            }
+        }
+    }
+}
+
+
 void fl_scintilla::update_menu() {
 	window()->begin(); 
 
@@ -679,6 +704,14 @@ void fl_scintilla::update_menu() {
 	// Dynamically add more items later
 	// fmb->add("Edits/Copy", FL_COMMAND + 'c', menu_callback);
 	// fmb->add("Edits/Paste", FL_COMMAND + 'v', menu_callback);
+
+	fmb->add(
+		"View/Fold all", 0,
+		[](Fl_Widget* mnu, void* ud) {
+			auto* self = static_cast<fl_scintilla*>(ud);
+			self->FoldFirstLevel();
+		},
+		(void*)this);
 }
 bool isFilenameValid(const char* filename) {
 	if (!filename) return false;
@@ -1152,6 +1185,7 @@ void fl_scintilla::navigatorSetUpdated(){
         files[filename].notsaved=SendEditor(SCI_GETMODIFY  , 0,0); 
 		setnsaved(); 
 }
+ 
 static void cb_editor(Scintilla::SCNotification *scn, void *data)
 {
 	if(loading)	return;
@@ -1341,16 +1375,41 @@ void setscint(fl_scintilla* editor,string filename){
 	}else{ 
 		editor->SendEditor(SCI_SETDOCPOINTER,0, files[filename].p); 
         // printf("fl %s\n",editor->filename.c_str());
-		editor->SendEditor(SCI_SETFIRSTVISIBLELINE, editor->filesfirstline[files[filename].p], 0); ////
-		editor->SendEditor(SCI_SETANCHOR, editor->filescaret[files[filename].p], 0); 
-		editor->SendEditor(SCI_SETCURRENTPOS, editor->filescaret[files[filename].p], 0); 
+		// editor->SendEditor(SCI_SETFIRSTVISIBLELINE, editor->filesfirstline[files[filename].p], 0); ////
+		// editor->SendEditor(SCI_SETANCHOR, editor->filescaret[files[filename].p], 0); 
+		// editor->SendEditor(SCI_SETCURRENTPOS, editor->filescaret[files[filename].p], 0); 
 		Fl::focus(editor);
 	}
     editor->curr_file_pointer=files[filename].p;
     editor->filename=filename;
     editor->set_lua();
 	
+	
 		editor->apply_fold();
+		
+		editor->SendEditor(SCI_SETFIRSTVISIBLELINE, editor->filesfirstline[files[filename].p], 0); ////
+		editor->SendEditor(SCI_SETANCHOR, editor->filescaret[files[filename].p], 0); 
+		editor->SendEditor(SCI_SETCURRENTPOS, editor->filescaret[files[filename].p], 0); 
+
+		{
+
+    // Get the matched line
+    const int line = editor->SendEditor(SCI_LINEFROMPOSITION, editor->filescaret[files[filename].p]);
+
+    // Ensure the line is visible (important if folded)
+    editor->SendEditor(SCI_ENSUREVISIBLE, line);
+
+    // Scroll so the matched line is at the top
+    const int visual_line        = editor->SendEditor(SCI_VISIBLEFROMDOCLINE, line);
+    const int current_visual_top = editor->SendEditor(SCI_GETFIRSTVISIBLELINE);
+    const int delta              = visual_line - current_visual_top;
+
+    if (delta != 0)
+        editor->SendEditor(SCI_LINESCROLL, 0, delta-2);
+ 
+// Move caret (this is usually the most reliable way)
+    // editor->SendEditor(SCI_GOTOPOS, pos); 
+		}
 
 	
 // 	editor->SendEditor(SCI_GOTOPOS, files[filename].recent_pos,0);
