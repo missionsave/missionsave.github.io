@@ -30,223 +30,248 @@
 #include "general.hpp"
 
 //region helpers
+//this is not giving errors but isnt that nice, please improve or tune, give complete code
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
 #include <AIS_Shape.hxx>
 #include <AIS_InteractiveContext.hxx>
 #include <Graphic3d_TextureEnv.hxx>
+#include <Graphic3d_Texture2D.hxx>
 #include <Graphic3d_PBRMaterial.hxx>
+#include <Graphic3d_RenderingParams.hxx>
 #include <Image_PixMap.hxx>
 #include <Quantity_ColorRGBA.hxx>
 #include <Aspect_GradientFillMethod.hxx>
 #include <Prs3d_ShadingAspect.hxx>
 
 #include <iostream>
-#include <iomanip>
-#include <algorithm>   // for std::min
+#include <algorithm>
+#include <cmath>
 
-// =======================================================================
-// 1. Create Procedural Studio Environment (lat-long 2D)
-// =======================================================================
-static Handle(Graphic3d_TextureEnv) CreateStudioEnv()
+// -----------------------------------------------------------------------------
+// State
+// -----------------------------------------------------------------------------
+struct ViewState
 {
-    std::cout << "[CreateStudioEnv] === START ===" << std::endl;
+    Graphic3d_TypeOfShadingModel shading;
+    Quantity_Color               bg1;
+    bool                         ibl = false;
+};
 
-    const int W = 1024*2;
-    const int H = 512*2;
+static ViewState g_state;
+static bool      g_saved = false;
 
-    Handle(Image_PixMap) img = new Image_PixMap();
-    if (!img->InitTrash(Image_Format_RGB, W, H))
+struct StudioEnv
+{
+    Handle(Graphic3d_TextureEnv) env;
+    Handle(Image_PixMap)         image;
+};
+
+
+static StudioEnv CreateStudioEnv()
+{
+    StudioEnv out;
+
+    const int W = 2048;
+    const int H = 1024;
+
+    out.image = new Image_PixMap();
+    if (!out.image->InitTrash(Image_Format_RGB, W, H))
+        return out;
+
+    auto gaussian = [](float x, float mu, float sigma)
     {
-        std::cerr << "[CreateStudioEnv] ERROR: Failed to InitTrash Image_PixMap!" << std::endl;
-        return Handle(Graphic3d_TextureEnv)();
-    }
+        float d = (x - mu) / sigma;
+        return std::exp(-0.5f * d * d);
+    };
 
-    std::cout << "[CreateStudioEnv] Image_PixMap created (" << W << "x" << H 
-              << "), Format = " << (int)img->Format() << std::endl;
-
-    // Fill procedural studio lights
     for (int y = 0; y < H; ++y)
     {
-        float t = static_cast<float>(y) / static_cast<float>(H - 1);
-
-        float baseR = 0.45f + 0.25f * t;
-        float baseG = 0.45f + 0.25f * t;
-        float baseB = 0.55f + 0.30f * t;
+        float v   = float(y) / float(H - 1);
+        float lat = (v - 0.5f) * float(M_PI);
+        float latWeight = std::max(0.2f, std::cos(lat));
 
         for (int x = 0; x < W; ++x)
         {
-            float light = 0.0f;
+            float u = float(x) / float(W - 1);
 
-            // Two strong vertical studio light strips
-            if ((x > 120 && x < 180) || (x > 780 && x < 840))
-                light = 0.35f;
-            else if ((x > 380 && x < 440) || (x > 620 && x < 680))
-                light = 0.25f;
+            float light =
+                gaussian(u, 0.25f, 0.03f) +
+                gaussian(u, 0.75f, 0.03f) +
+                0.6f * gaussian(u, 0.5f, 0.08f);
 
-            // Soft top highlight
-            if (y < H / 5)
-                light += 0.25f * (1.0f - 5.0f * static_cast<float>(y) / H);
+            light *= latWeight;
 
-            float r = std::min(1.0f, baseR + light * 0.9f);
-            float g = std::min(1.0f, baseG + light * 0.9f);
-            float b = std::min(1.0f, baseB + light * 1.1f);
+            float base = 0.12f + 0.25f * v; // darker → less shiny
 
-            img->SetPixelColor(x, y, Quantity_Color(r, g, b, Quantity_TOC_RGB));
+            float r = std::min(base + light * 0.9f, 1.0f);
+            float g = std::min(base + light * 0.9f, 1.0f);
+            float b = std::min(base + light * 1.1f, 1.0f);
+
+            out.image->SetPixelColor(x, y, Quantity_Color(r, g, b, Quantity_TOC_RGB));
         }
     }
 
-    std::cout << "[CreateStudioEnv] Pixel filling completed" << std::endl;
-
-    Handle(Graphic3d_TextureEnv) env = new Graphic3d_TextureEnv(img);
-
-    if (env.IsNull())
-    {
-        std::cerr << "[CreateStudioEnv] ERROR: Failed to create Graphic3d_TextureEnv!" << std::endl;
-        return Handle(Graphic3d_TextureEnv)();
-    }
-
-    std::cout << "[CreateStudioEnv] SUCCESS: Graphic3d_TextureEnv created" << std::endl;
-    std::cout << "[CreateStudioEnv] Image size = " << img->Width() << " x " << img->Height() << std::endl;
-    std::cout << "[CreateStudioEnv] === END (success) ===" << std::endl << std::endl;
-
-    return env;
+    out.env = new Graphic3d_TextureEnv(out.image);
+    return out;
 }
 
-// =======================================================================
-// 2. Ensure PBR Environment with detailed debugging
-// =======================================================================
+
+static Handle(Graphic3d_Texture2D) PixmapToTexture(const Handle(Image_PixMap)& img)
+{
+    if (img.IsNull())
+        return Handle(Graphic3d_Texture2D)();
+
+    return new Graphic3d_Texture2D(img);
+}
+
+
+// -----------------------------------------------------------------------------
+// Restore view
+// -----------------------------------------------------------------------------
+static void RestoreView(const Handle(V3d_View)& view)
+{
+    if (!g_saved || view.IsNull())
+        return;
+
+    view->SetShadingModel(g_state.shading);
+    view->SetImageBasedLighting(g_state.ibl);
+
+    view->SetBackgroundImage(Handle(Graphic3d_Texture2D)(), Aspect_FM_STRETCH, Standard_False);
+    view->SetBgGradientColors(g_state.bg1, g_state.bg1, Aspect_GFM_NONE, Standard_False);
+    view->SetBackgroundColor(g_state.bg1);
+
+    view->SetTextureEnv(Handle(Graphic3d_TextureEnv)());
+}
+
+// -----------------------------------------------------------------------------
+// Ensure PBR environment (debug helper, optional)
+// -----------------------------------------------------------------------------
 static void EnsurePBREnvironment(const Handle(V3d_View)& view)
 {
-    std::cout << "[EnsurePBREnvironment] === START ===" << std::endl;
-
     if (view.IsNull())
-    {
-        std::cerr << "[EnsurePBREnvironment] ERROR: View is null!" << std::endl;
         return;
+
+    view->SetShadingModel(Graphic3d_TOSM_PBR);
+
+    StudioEnv studio = CreateStudioEnv();
+    view->SetTextureEnv(studio.env);
+
+    Graphic3d_RenderingParams& params = view->ChangeRenderingParams();
+    params.Method                = Graphic3d_RM_RASTERIZATION;
+    params.PbrEnvPow2Size        = 9;
+    params.PbrEnvSpecMapNbLevels = 6;
+
+    // Shadows (supported in 7.9.3)
+    params.IsShadowEnabled     = Standard_True;
+    params.ShadowMapResolution = 1024;
+    params.ShadowMapBias       = 0.002f;
+
+    view->SetImageBasedLighting(Standard_True);
+    view->GeneratePBREnvironment();
+}
+
+// -----------------------------------------------------------------------------
+// Apply PBR industrial look
+// -----------------------------------------------------------------------------
+static void ApplyPBR(const Handle(V3d_View)& view)
+{
+    if (view.IsNull())
+        return;
+
+    if (!g_saved)
+    {
+        g_state.shading = view->ShadingModel();
+        g_state.bg1     = view->BackgroundColor();
+        g_state.ibl     = view->IsImageBasedLighting();
+        g_saved         = true;
     }
 
     view->SetShadingModel(Graphic3d_TOSM_PBR);
-    std::cout << "[EnsurePBREnvironment] ShadingModel set to PBR" << std::endl;
 
-    Handle(Graphic3d_TextureEnv) env = CreateStudioEnv();
-    if (env.IsNull())
-    {
-        std::cerr << "[EnsurePBREnvironment] ERROR: Environment texture is null!" << std::endl;
-        return;
-    }
+    StudioEnv studio = CreateStudioEnv();
+    view->SetTextureEnv(studio.env);
 
-    view->SetTextureEnv(env);
-    std::cout << "[EnsurePBREnvironment] SetTextureEnv() called" << std::endl;
+    Graphic3d_RenderingParams& p = view->ChangeRenderingParams();
+    p.Method                = Graphic3d_RM_RASTERIZATION;
+    p.PbrEnvPow2Size        = 9;
+    p.PbrEnvSpecMapNbLevels = 6;
 
-    if (view->TextureEnv().IsNull())
-        std::cerr << "[EnsurePBREnvironment] CRITICAL: view->TextureEnv() is still NULL after assignment!" << std::endl;
-    else
-        std::cout << "[EnsurePBREnvironment] view->TextureEnv() check PASSED" << std::endl;
-
-    // Important PBR parameters
-    Graphic3d_RenderingParams& params = view->ChangeRenderingParams();
-    params.Method                = Graphic3d_RM_RASTERIZATION;
-    params.PbrEnvPow2Size        = 9;      // 512x512 - most reliable on OCCT 7.x
-    params.PbrEnvSpecMapNbLevels = 6;
-
-    std::cout << "[EnsurePBREnvironment] RenderingParams set:" << std::endl;
-    std::cout << "   PbrEnvPow2Size       = " << params.PbrEnvPow2Size 
-              << " (internal size = " << (1 << params.PbrEnvPow2Size) << ")" << std::endl;
-    std::cout << "   PbrEnvSpecMapNbLevels= " << params.PbrEnvSpecMapNbLevels << std::endl;
+    // Shadows only (SSAO not available)
+    p.IsShadowEnabled     = Standard_True;
+    p.ShadowMapResolution = 1024;
+    p.ShadowMapBias       = 0.002f;
 
     view->SetImageBasedLighting(Standard_True);
-    std::cout << "[EnsurePBREnvironment] ImageBasedLighting enabled" << std::endl;
-
-    // This is the key call that bakes the IBL maps
-    std::cout << "[EnsurePBREnvironment] Calling GeneratePBREnvironment() ..." << std::endl;
     view->GeneratePBREnvironment();
-    std::cout << "[EnsurePBREnvironment] GeneratePBREnvironment() finished" << std::endl;
 
-    std::cout << "[EnsurePBREnvironment] === END ===\n" << std::endl;
+    // Industrial background (no gradient, no image)
+    view->SetBackgroundImage(Handle(Graphic3d_Texture2D)(), Aspect_FM_STRETCH, Standard_False);
+    view->SetBgGradientColors(g_state.bg1, g_state.bg1, Aspect_GFM_NONE, Standard_False);
+    view->SetBackgroundColor(Quantity_Color(0.92, 0.92, 0.92, Quantity_TOC_RGB));
 }
 
-// =======================================================================
-// 3. Main NiceSteel function
-// =======================================================================
+
+// -----------------------------------------------------------------------------
+// Main NiceSteel function
+// -----------------------------------------------------------------------------
 void NiceSteel(const Handle(V3d_View)& view,
                const std::vector<Handle(AIS_Shape)>& shapes,
                bool enable)
 {
-    std::cout << "[NiceSteel] === START (enable = " << std::boolalpha << enable << ") ===" << std::endl;
-
     if (view.IsNull())
-    {
-        std::cerr << "[NiceSteel] ERROR: View is null!" << std::endl;
         return;
-    }
 
     if (enable)
     {
-        EnsurePBREnvironment(view);
+        ApplyPBR(view);
 
-        // Dark studio background
-        view->SetBgGradientColors(
-            Quantity_Color(0.03f, 0.03f, 0.05f, Quantity_TOC_RGB),
-            Quantity_Color(0.12f, 0.12f, 0.16f, Quantity_TOC_RGB),
-            Aspect_GFM_VER,
-            Standard_False);
-
-        std::cout << "[NiceSteel] Background gradient set" << std::endl;
-
-        for (size_t i = 0; i < shapes.size(); ++i)
+        for (const auto& shape : shapes)
         {
-            const auto& shape = shapes[i];
             if (shape.IsNull())
-            {
-                std::cout << "[NiceSteel] Shape[" << i << "] is null - skipped" << std::endl;
                 continue;
-            }
 
             Graphic3d_PBRMaterial pbr;
-            pbr.SetMetallic(1.0f);
-            pbr.SetRoughness(0.18f);
-            pbr.SetColor(Quantity_ColorRGBA(0.92f, 0.92f, 0.95f, 1.0f));
+            pbr.SetMetallic(0.78f);
+            pbr.SetRoughness(0.42f);
+            pbr.SetColor(Quantity_ColorRGBA(0.75f, 0.78f, 0.80f, 1.0f));
 
             Graphic3d_MaterialAspect mat;
             mat.SetPBRMaterial(pbr);
 
             shape->Attributes()->SetupOwnShadingAspect();
             shape->Attributes()->ShadingAspect()->SetMaterial(mat);
-            shape->Attributes()->SetFaceBoundaryDraw(Standard_False);
+
+            shape->Attributes()->SetFaceBoundaryDraw(Standard_True);
             shape->SynchronizeAspects();
 
-            Handle(AIS_InteractiveContext) ctx = shape->InteractiveContext();
-            if (!ctx.IsNull())
-            {
+            if (auto ctx = shape->InteractiveContext())
                 ctx->Redisplay(shape, Standard_False);
-                std::cout << "[NiceSteel] Shape[" << i << "] PBR steel applied" << std::endl;
-            }
         }
     }
     else
     {
-        std::cout << "[NiceSteel] Disabling PBR..." << std::endl;
-        view->SetShadingModel(Graphic3d_TOSM_FACET);
-        view->SetImageBasedLighting(Standard_False);
+        RestoreView(view);
 
         for (const auto& shape : shapes)
         {
-            if (shape.IsNull()) continue;
+            if (shape.IsNull())
+                continue;
+
             shape->Attributes()->SetFaceBoundaryDraw(Standard_True);
             shape->SynchronizeAspects();
 
-            Handle(AIS_InteractiveContext) ctx = shape->InteractiveContext();
-            if (!ctx.IsNull())
+            if (auto ctx = shape->InteractiveContext())
                 ctx->Redisplay(shape, Standard_False);
         }
     }
 
     view->Redraw();
-    std::cout << "[NiceSteel] Redraw() called === END ===\n" << std::endl;
 }
- 
-// 5. Fallback: Standard metallic material (works without PBR)
+
+
+
+
  // 5. Fallback: Standard metallic material (works without PBR)
 void NiceSteelStandard(
     const Handle(V3d_View)& view,

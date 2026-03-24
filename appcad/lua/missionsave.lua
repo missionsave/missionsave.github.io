@@ -541,9 +541,9 @@ end
 
 
 globals()
-c6()
+--c6()
 --c10()
 --c40()
 struct()
---robot()
+robot()
  
