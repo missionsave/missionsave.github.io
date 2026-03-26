@@ -1,22 +1,34 @@
-#define M_PI 3.14159265358979323846
-#define M_PI_2 1.57079632679489661923
+// pbr_qt5_occt_fixed.cpp
+// Compile: g++ -std=c++11 -fPIC -I/usr/include/qt5 -I/usr/include/qt5/QtCore -I/usr/include/qt5/QtGui -I/usr/include/qt5/QtWidgets -I/opt/occt-7_9_3/include/opencascade -L/opt/occt-7_9_3/lib -lTKOpenGl -lTKernel -lTKMath -lTKService -lTKV3d -lTKMesh -lQt5Core -lQt5Gui -lQt5Widgets -lGL -lGLU pbr_qt5_occt_fixed.cpp -o pbr_qt5_occt_fixed -lX11 -ldl
+// g++ -std=c++20 -fPIC \
+  -I/opt/occt-7_9_3/include/opencascade \
+  pbr_qt5_occt.cpp -o pbr_qt5_occt \
+  -L/opt/occt-7_9_3/lib \
+  -lTKOpenGl -lTKV3d -lTKService -lTKDESTEP -lTKDEIGES -lTKDE \
+  -lTKXSBase -lTKXCAF -lTKCAF -lTKCDF -lTKOffset -lTKBO -lTKBool \
+  -lTKFillet -lTKFeat -lTKShHealing -lTKPrim -lTKTopAlgo -lTKBRep \
+  -lTKGeomAlgo -lTKGeomBase -lTKG3d -lTKG2d -lTKHLR -lTKMesh \
+  -lTKMath -lTKStd -lTKernel \
+  $(pkg-config --cflags --libs Qt5Widgets Qt5Gui Qt5OpenGL Qt5Core) \
+  -lGL -lGLU -lX11 -ldl
+#include <QDebug>
+#include <QApplication>
+#include <QOpenGLWidget>
+#include <QSurfaceFormat>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Graphic3d_MaterialAspect.hxx>
+#include <AIS_Shape.hxx>
+#include <V3d_Viewer.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <OpenGl_GraphicDriver.hxx>
+#include <TopoDS_Shape.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <Xw_Window.hxx>
+#include <Aspect_DisplayConnection.hxx>
+#include <Quantity_Color.hxx>
 
-#include <GL/glew.h> 
-#ifdef __linux__
-extern "C" {
-#include <X11/Xlib.h>
-#include <GL/glx.h>
-#include <GL/glxext.h>
-}
-#endif
-#include <FL/Fl.H>
-#include <FL/Fl_Window.H> 
-#include <FL/Fl_Gl_Window.H>
-#include <FL/Fl_File_Chooser.H> 
-#include <FL/x.H>
-#include <GL/gl.h>
-#include <FL/Fl_Menu_Bar.H>
-#include <FL/fl_ask.H>
+
 
 #include <Aspect_DisplayConnection.hxx>
 #include <OpenGl_GraphicDriver.hxx>
@@ -357,8 +369,7 @@ extern "C" {
 
 #include <Geom_Circle.hxx>
 #include <BRepFilletAPI_MakeFillet.hxx>
-#include <Prs3d_IsoAspect.hxx>
-// #include "fl_browser_msv.hpp"
+#include <Prs3d_IsoAspect.hxx> 
 
 #include <TopoDS.hxx>
 #include <TopoDS_Compound.hxx>
@@ -376,27 +387,232 @@ extern "C" {
 #include <Geom_ToroidalSurface.hxx>
 #include <Geom_SphericalSurface.hxx>
 
+#include <V3d_View.hxx>
+#include <V3d_Viewer.hxx>
+#include <AIS_Shape.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <Graphic3d_TextureEnv.hxx>
+#include <Graphic3d_Texture2D.hxx>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Graphic3d_RenderingParams.hxx>
+#include <Image_PixMap.hxx>
+#include <Quantity_ColorRGBA.hxx>
+#include <Aspect_GradientFillMethod.hxx>
+#include <Prs3d_ShadingAspect.hxx>
+#include <Graphic3d_AspectFillArea3d.hxx>
+#include <V3d_View.hxx>
+#include <V3d_Viewer.hxx>
+#include <V3d_DirectionalLight.hxx>
+#include <V3d_AmbientLight.hxx>
+#include <V3d_DirectionalLight.hxx>
+#include <Graphic3d_RenderingParams.hxx>
+#include <Graphic3d_TextureEnv.hxx>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Graphic3d_MaterialAspect.hxx>
 
-#include <FL/Fl.H>
-#include <FL/Fl_Help_View.H>
-#include <FL/Fl_Window.H>
+#include <Image_AlienPixMap.hxx>
 
-#include <chrono>
-#include <execution> // Para C++17 paralelismo
+#include <Prs3d_Drawer.hxx>
 
-#ifdef _WIN32 
-#include <lua.hpp>
-	#else
-#include <lua5.4/lua.hpp> 
-#endif
-// #define SOL_ALL_SAFETIES_ON 1
-#include <sol/sol.hpp> 
+#include <Quantity_Color.hxx>
+#include <Quantity_ColorRGBA.hxx>
 
-// #include "fl_scintilla.hpp"
-// #include "general.hpp"
+#include <Standard_Handle.hxx>
+#include <AIS_Point.hxx>
+#include <Geom_CartesianPoint.hxx>
 
-void scint_init(int x,int y,int w,int h);
+#include <Xw_Window.hxx>
+#include <Aspect_DisplayConnection.hxx>
+#include <Quantity_Color.hxx>
+#include <Graphic3d_NameOfMaterial.hxx>
+#include <X11/Xlib.h>
 
+#include <QApplication>
+#include <QOpenGLWidget>
+#include <QSurfaceFormat>
+#include <cmath>
+#include <algorithm>
 
+#include <Aspect_DisplayConnection.hxx>
+#include <OpenGl_GraphicDriver.hxx>
+#include <V3d_Viewer.hxx>
+#include <V3d_View.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <Graphic3d_TextureEnv.hxx>
+#include <Image_PixMap.hxx>
+#include <Graphic3d_MaterialAspect.hxx>
+#include <Xw_Window.hxx>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Graphic3d_MaterialAspect.hxx>
+#include <QApplication>
+#include <QOpenGLWidget>
+#include <QSurfaceFormat>
+#include <QScreen>
 
-using namespace std;
+#include <Aspect_DisplayConnection.hxx>
+#include <OpenGl_GraphicDriver.hxx>
+#include <V3d_Viewer.hxx>
+#include <V3d_View.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <Graphic3d_TextureEnv.hxx>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Image_PixMap.hxx>
+#include <Xw_Window.hxx>
+
+#include <QApplication>
+#include <QOpenGLWidget>
+#include <QSurfaceFormat>
+#include <QOpenGLContext>
+
+// OCCT Includes
+#include <Aspect_DisplayConnection.hxx>
+#include <Aspect_NeutralWindow.hxx>
+#include <OpenGl_GraphicDriver.hxx>
+#include <V3d_Viewer.hxx>
+#include <V3d_View.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <Graphic3d_TextureEnv.hxx>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Image_PixMap.hxx>
+#include <Message.hxx>
+#include <Message_PrinterSystemLog.hxx>
+#include <QApplication>
+#include <QOpenGLWidget>
+#include <QSurfaceFormat>
+#include <QDebug>
+
+// OCCT Includes
+#include <Aspect_DisplayConnection.hxx>
+#include <Aspect_NeutralWindow.hxx>
+#include <OpenGl_GraphicDriver.hxx>
+#include <V3d_Viewer.hxx>
+#include <V3d_View.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Quantity_ColorRGBA.hxx>
+
+class OCCTViewerWidget : public QOpenGLWidget {
+public:
+    OCCTViewerWidget(QWidget* parent = nullptr) : QOpenGLWidget(parent) {}
+
+protected:
+    void initializeGL() override {
+        // Force the Qt context to be active before OCCT starts
+        makeCurrent();
+
+        if (!m_viewer.IsNull()) return;
+
+        try {
+            // 1. Create Display Connection
+            Handle(Aspect_DisplayConnection) disp = new Aspect_DisplayConnection();
+
+            // 2. THE NUCLEAR FIX: Standard_False for 'theIsWithDevice'
+            // This parameter is CRITICAL. It tells OCCT:
+            // "Don't try to initialize the graphics device/Visual yourself. 
+            // Just wrap the existing OpenGL state."
+            m_driver = new OpenGl_GraphicDriver(disp, Standard_False);
+            
+            // Disable Legacy Fixed Function Pipeline (FFP)
+            m_driver->ChangeOptions().ffpEnable = Standard_False; 
+
+            m_viewer = new V3d_Viewer(m_driver);
+            m_aisContext = new AIS_InteractiveContext(m_viewer);
+            m_view = m_viewer->CreateView();
+            
+            // 3. Aspect_NeutralWindow: This bypasses the X11 sub-window creation
+            // which is where the XGetVisualInfo error is actually triggered.
+            Handle(Aspect_NeutralWindow) w = new Aspect_NeutralWindow();
+            w->SetSize(width(), height());
+            m_view->SetWindow(w);
+
+            m_view->SetShadingModel(Graphic3d_TOSM_PBR);
+            m_view->SetBackgroundColor(Quantity_NOC_BLACK);
+
+            setupScene();
+
+        } catch (const Standard_Failure& e) {
+            qCritical() << "OCCT Initialization Failed:" << e.GetMessageString();
+        }
+    }
+
+    void setupScene() {
+        // Gold PBR Material
+        Graphic3d_MaterialAspect gold(Graphic3d_NOM_GOLD);
+        Graphic3d_PBRMaterial gPbr;
+        gPbr.SetMetallic(1.0f);
+        gPbr.SetRoughness(0.2f);
+        gPbr.SetColor(Quantity_ColorRGBA(1.0f, 0.71f, 0.29f, 1.0f));
+        gold.SetPBRMaterial(gPbr);
+
+        Handle(AIS_Shape) box = new AIS_Shape(BRepPrimAPI_MakeBox(10, 10, 10).Shape());
+        box->SetMaterial(gold);
+        
+        m_aisContext->Display(box, Standard_False);
+        m_view->MustBeResized();
+        m_view->FitAll(0.01, Standard_False);
+    }
+
+    void paintGL() override {
+        if (!m_view.IsNull()) {
+            m_view->Redraw(); 
+        }
+    }
+
+    void resizeGL(int w, int h) override {
+        if (!m_view.IsNull()) {
+            Handle(Aspect_NeutralWindow) wnd = Handle(Aspect_NeutralWindow)::DownCast(m_view->Window());
+            if (!wnd.IsNull()) wnd->SetSize(w, h);
+            m_view->MustBeResized();
+        }
+    }
+
+private:
+    Handle(OpenGl_GraphicDriver) m_driver;
+    Handle(V3d_Viewer) m_viewer;
+    Handle(V3d_View)   m_view;
+    Handle(AIS_InteractiveContext) m_aisContext;
+};
+
+int main(int argc, char** argv) {
+    // Force X11 backend (non-negotiable for OCCT 7.9 on Linux)
+    qputenv("QT_QPA_PLATFORM", "xcb");
+
+    QSurfaceFormat fmt;
+    fmt.setRenderableType(QSurfaceFormat::OpenGL);
+    fmt.setVersion(4, 5);
+    fmt.setProfile(QSurfaceFormat::CoreProfile);
+
+    // Explicitly set 32-bit RGBA buffers. 
+    // This is what OCCT's PBR engine is usually looking for.
+    fmt.setDepthBufferSize(24);
+    fmt.setStencilBufferSize(8);
+    fmt.setAlphaBufferSize(8); // This is usually the missing piece!
+    fmt.setRedBufferSize(8);
+    fmt.setGreenBufferSize(8);
+    fmt.setBlueBufferSize(8);
+    
+    fmt.setSamples(4);
+    fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+    QSurfaceFormat::setDefaultFormat(fmt);
+
+    QApplication app(argc, argv);
+
+    OCCTViewerWidget widget;
+    widget.resize(1024, 768);
+    widget.show();
+
+    return app.exec();
+}

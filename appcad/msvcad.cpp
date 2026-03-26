@@ -8,10 +8,14 @@
 #include <Quantity_ColorRGBA.hxx>
 #include <AIS_Shape.hxx>
 #include <AIS_InteractiveContext.hxx>
+#include <Graphic3d_TypeOfShadingModel.hxx>
+#include <V3d_SpotLight.hxx>
+#include <Graphic3d_Texture2D.hxx>
 
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
 #include <V3d_DirectionalLight.hxx>
+#include <V3d_AmbientLight.hxx>
 
 #include <Graphic3d_RenderingParams.hxx>
 #include <Graphic3d_TextureEnv.hxx>
@@ -27,6 +31,7 @@
 
 #include <Standard_Handle.hxx>
 #include "fl_scintilla.hpp"
+#include "fl_browser_msv.hpp"
 #include "general.hpp"
 
 //region helpers
@@ -170,7 +175,7 @@ static void EnsurePBREnvironment(const Handle(V3d_View)& view)
     view->SetImageBasedLighting(Standard_True);
     view->GeneratePBREnvironment();
 }
-
+#include <V3d_Light.hxx>
 // -----------------------------------------------------------------------------
 // Apply PBR industrial look
 // -----------------------------------------------------------------------------
@@ -188,9 +193,86 @@ static void ApplyPBR(const Handle(V3d_View)& view)
     }
 
     view->SetShadingModel(Graphic3d_TOSM_PBR);
+	
+
+
+{
+// 	Graphic3d_RenderingParams& aParams = view->ChangeRenderingParams();
+// // specifies rendering mode
+// aParams.Method = Graphic3d_RM_RAYTRACING;
+// // maximum ray-tracing depth
+// aParams.RaytracingDepth = 3;
+// // enable shadows rendering
+// aParams.IsShadowEnabled = true;
+// // enable specular reflections
+// aParams.IsReflectionEnabled = true;
+// // enable adaptive anti-aliasing
+// aParams.IsAntialiasingEnabled = true;
+// // enable light propagation through transparent media
+// aParams.IsTransparentShadowEnabled = true;
+// // update the view
+// view->Update();
+}
+
+
+Handle(V3d_Viewer) viewer = view->Viewer();
+
+
+// Enable default lights (VERY IMPORTANT)
+viewer->SetDefaultLights();
+viewer->SetLightOn();
+
+// Optional: add a directional light for stronger gradient
+Handle(V3d_DirectionalLight) dirLight =
+    new V3d_DirectionalLight(
+        gp_Dir(-1.0, -1.0, -1.0),  // light direction
+        Quantity_Color(Quantity_NOC_WHITE),
+        Standard_True              // headlight = false here
+    );
+dirLight->SetIntensity(1000.0);
+viewer->AddLight(dirLight);
+viewer->SetLightOn(dirLight);
+
+// Create view
+// Handle(V3d_View) view = viewer->CreateView();
+
+// Set background (helps contrast)
+view->SetBackgroundColor(Quantity_NOC_BLACK);
+
+// MUST: enable shading mode
+view->SetShadingModel(V3d_GOURAUD);
+
 
     StudioEnv studio = CreateStudioEnv();
     view->SetTextureEnv(studio.env);
+// 	Handle(V3d_DirectionalLight) l1 = new V3d_DirectionalLight(V3d_XnegYnegZneg, Quantity_NOC_WHITE, Standard_True);
+// Handle(V3d_DirectionalLight) l2 = new V3d_DirectionalLight(V3d_XposYposZpos, Quantity_NOC_GRAY80, Standard_True);
+// view->Viewer()->AddLight(l1);
+// view->Viewer()->SetLightOn(l1);
+// view->Viewer()->AddLight(l2);
+// view->Viewer()->SetLightOn(l2);
+// l1->SetIntensity(0.2f);
+// l2->SetIntensity(0.2f);
+
+// l1->SetIntensity(100.5f);
+// l2->SetIntensity(100.5f);
+
+
+ 
+// Criar uma luz posicional (Point Light)
+// Handle(V3d_Light) light = new V3d_Light (Graphic3d_TypeOfLightSource_Positional);
+// light->SetPosition (gp_Pnt (500.0, 500.0, 500.0));
+// light->SetColor (Quantity_NOC_WHITE);
+// light->SetIntensity (1000.0f); // Valor normalizado
+
+// // Adicionar ao visualizador
+// view->Viewer()->AddLight (light);
+// view->Viewer()->SetLightOn (light);
+
+// Importante para realismo: Ativar o modelo de sombreamento PHONG na View
+// view->SetShadingModel (Graphic3d_TOSM_PHONG);
+
+
 
     Graphic3d_RenderingParams& p = view->ChangeRenderingParams();
     p.Method                = Graphic3d_RM_RASTERIZATION;
@@ -211,6 +293,65 @@ static void ApplyPBR(const Handle(V3d_View)& view)
     view->SetBackgroundColor(Quantity_Color(0.92, 0.92, 0.92, Quantity_TOC_RGB));
 }
 
+static void ApplyFakeBevelNormals(const TopoDS_Shape& theShape,
+                                  const gp_Pnt& theCenter)
+{
+    for (TopExp_Explorer ex(theShape, TopAbs_FACE); ex.More(); ex.Next())
+    {
+        TopoDS_Face face = TopoDS::Face(ex.Current());
+        TopLoc_Location loc;
+        Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
+        if (tri.IsNull())
+            continue;
+
+        Handle(Geom_Surface) surf = BRep_Tool::Surface(face);
+        Handle(Geom_Plane) plane = Handle(Geom_Plane)::DownCast(surf);
+        if (plane.IsNull())
+            continue;
+
+        gp_Dir nFace = plane->Pln().Axis().Direction();
+        if (face.Orientation() == TopAbs_REVERSED)
+            nFace.Reverse();
+
+        const Standard_Integer nbNodes = tri->NbNodes();
+        Handle(TShort_HArray1OfShortReal) norms =
+            new TShort_HArray1OfShortReal(1, 3 * nbNodes);
+
+        for (Standard_Integer i = 1; i <= nbNodes; ++i)
+        {
+            gp_Pnt p = tri->Node(i).Transformed(loc.Transformation());
+
+            // normal radial (rounded cube)
+            gp_Dir nRad(p.X() - theCenter.X(),
+                        p.Y() - theCenter.Y(),
+                        p.Z() - theCenter.Z());
+
+            // ângulo entre normais
+            Standard_Real angle = nRad.Angle(nFace);
+
+            gp_Dir n;
+            if (angle < (M_PI / 3.0)) // < 60º → suaviza (fake bevel)
+            {
+                n = gp_Dir(
+                    nRad.X() * 0.6 + nFace.X() * 0.4,
+                    nRad.Y() * 0.6 + nFace.Y() * 0.4,
+                    nRad.Z() * 0.6 + nFace.Z() * 0.4
+                );
+            }
+            else
+            {
+                n = nFace;
+            }
+
+            Standard_Integer base = 3 * (i - 1) + 1;
+            norms->SetValue(base + 0, (Standard_ShortReal)n.X());
+            norms->SetValue(base + 1, (Standard_ShortReal)n.Y());
+            norms->SetValue(base + 2, (Standard_ShortReal)n.Z());
+        }
+
+        tri->SetNormals(norms);
+    }
+}
 
 // -----------------------------------------------------------------------------
 // Main NiceSteel function
@@ -224,26 +365,122 @@ void NiceSteel(const Handle(V3d_View)& view,
 
     if (enable)
     {
-        ApplyPBR(view);
+        // ApplyPBR(view); return;
+
+    Handle(V3d_Viewer) viewer = view->Viewer();
+ 
+
+// // Desliga todas as luzes existentes
+// viewer->InitActiveLights();
+// while (viewer->MoreActiveLights()) {
+//     Handle(V3d_Light) L = viewer->ActiveLight();
+//     viewer->SetLightOff(L);
+//     viewer->NextActiveLights();
+// }
+
+ 
+
+    viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+    view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+    // // viewer->SetLightOff();
+
+    // Luz ambiente
+    Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+    amb->SetIntensity(2.35f);
+    viewer->AddLight(amb);
+    viewer->SetLightOn(amb);
+
+    // Luz direcional
+    Handle(V3d_DirectionalLight) sun =
+        new V3d_DirectionalLight(gp_Dir(0.4, -0.7, -1.0), Quantity_NOC_WHITE);
+    sun->SetIntensity(1000.5f);
+    viewer->AddLight(sun);
+    viewer->SetLightOn(sun);
+
+
+	Handle(V3d_SpotLight) spot =
+    new V3d_SpotLight(gp_Pnt(0,0,10), gp_Dir(0,0,-1), Quantity_NOC_WHITE);
+
+spot->SetAngle(0.8); // “largura” do cone
+spot->SetIntensity(15.0f);
+
+viewer->AddLight(spot);
+viewer->SetLightOn(spot);
+
+
 
         for (const auto& shape : shapes)
         {
             if (shape.IsNull())
                 continue;
 
-            Graphic3d_PBRMaterial pbr;
-            pbr.SetMetallic(0.78f);
-            pbr.SetRoughness(0.42f);
-            pbr.SetColor(Quantity_ColorRGBA(0.75f, 0.78f, 0.80f, 1.0f));
 
-            Graphic3d_MaterialAspect mat;
-            mat.SetPBRMaterial(pbr);
+shape->UnsetAttributes();
 
-            shape->Attributes()->SetupOwnShadingAspect();
-            shape->Attributes()->ShadingAspect()->SetMaterial(mat);
+TopoDS_Shape bshape = shape->Shape();
 
-            shape->Attributes()->SetFaceBoundaryDraw(Standard_True);
-            shape->SynchronizeAspects();
+    // BRepMesh_IncrementalMesh mesher1(bshape, 0.005, Standard_False, 0.01, Standard_True);
+    // BRepMesh_IncrementalMesh mesher1(bshape, 0.5, Standard_False, 0.1, Standard_True);
+
+    ApplyFakeBevelNormals(bshape, gp_Pnt(5.0, 5.0, 5.0));
+
+    // Handle(AIS_Shape) ais1 = new AIS_Shape(box1);
+// cotm(99999999999);
+    Graphic3d_PBRMaterial pbr1;
+    pbr1.SetMetallic(1.0f);
+    pbr1.SetRoughness(0.05f);
+
+    Graphic3d_MaterialAspect mat1(Graphic3d_NameOfMaterial_UserDefined);
+    mat1.SetPBRMaterial(pbr1);
+    // mat1.SetColor( Quantity_NOC_DARKGOLDENROD2); // azul
+    mat1.SetColor(Quantity_NOC_GRAY20); // azul
+    // mat1.SetColor(Quantity_Color(0.2, 0.4, 1.0, Quantity_TOC_RGB)); // azul
+
+    shape->SetMaterial(mat1);
+    shape->Attributes()->ShadingAspect()->Aspect()
+        ->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+    // REALÇAR ARESTAS (outline)
+    shape->Attributes()->SetFaceBoundaryDraw(Standard_True);
+    shape->Attributes()->SetFaceBoundaryAspect(
+        new Prs3d_LineAspect(Quantity_Color(0,0,0,Quantity_TOC_RGB),
+                             Aspect_TOL_SOLID, 2.0)
+    );
+
+
+            if (auto ctx = shape->InteractiveContext())
+                ctx->Redisplay(shape, Standard_False);
+
+
+// Handle(Prs3d_Drawer) drawer = shape->Attributes();
+// drawer->SetShadingAspect(new Prs3d_ShadingAspect());
+// drawer->ShadingAspect()->SetInterpolation(Graphic3d_TOSM_VERTEX);
+
+continue;
+
+shape->UnsetColor();
+// shape->UnsetAttributes();
+// 1. Criar o material PBR
+Graphic3d_PBRMaterial aPbrMat;
+// aPbrMat.SetColor(Quantity_Color(Quantity_NOC_BLUE));  <----- aqui nao faz nada
+aPbrMat.SetMetallic(0.5f);  // Quase metal para testar brilho
+aPbrMat.SetRoughness(0.5f); // Bem polido
+
+// 2. Configurar o MaterialAspect (CRUCIAL: definir a cor aqui também)
+Graphic3d_MaterialAspect aMat(Graphic3d_NameOfMaterial_UserDefined);
+aMat.SetPBRMaterial(aPbrMat);
+aMat.SetColor(Quantity_Color(Quantity_NOC_GRAY25)); // Sincroniza Albedo com Diffuse
+aMat.SetShininess(1.0f);
+
+// 3. Aplicar diretamente ao AIS_Shape (Método mais limpo)
+shape->SetMaterial(aMat); 
+shape->SetDisplayMode(1);
+
+// 4. Forçar o Shading Model no Aspecto do objeto
+Handle(Prs3d_ShadingAspect) aShading = shape->Attributes()->ShadingAspect();
+aShading->Aspect()->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+aShading->Aspect()->SetInteriorStyle(Aspect_IS_SOLID);
 
             if (auto ctx = shape->InteractiveContext())
                 ctx->Redisplay(shape, Standard_False);
@@ -1458,6 +1695,24 @@ struct OCC_Viewer : public flwindow {
 
 		m_view->SetImmediateUpdate(Standard_False);
 
+
+
+
+Handle(V3d_DirectionalLight) l1 = new V3d_DirectionalLight(V3d_XnegYnegZneg, Quantity_NOC_WHITE, Standard_True);
+Handle(V3d_DirectionalLight) l2 = new V3d_DirectionalLight(V3d_XposYposZpos, Quantity_NOC_GRAY80, Standard_True);
+m_view->Viewer()->AddLight(l1);
+m_view->Viewer()->SetLightOn(l1);
+m_view->Viewer()->AddLight(l2);
+m_view->Viewer()->SetLightOn(l2);
+
+l1->SetIntensity(9.5f);
+l2->SetIntensity(9.5f);
+
+
+
+
+
+
 		SetupHighlightLineType(m_context);
 
 		aCtx = m_graphic_driver->GetSharedContext();
@@ -2038,6 +2293,53 @@ std::cout << "GL_RENDERER: " << (const char*)glGetString(GL_RENDERER) << "\n";
 		myHighlightedPointAIS->SetColor(Quantity_NOC_GREEN);
 		myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
 		// myHighlightedPointAIS->SetTransparency(0.2f);			   // Slightly transparent
+
+
+
+
+// 1. Criar o material PBR
+Graphic3d_PBRMaterial aPbrMat;
+// aPbrMat.SetColor(Quantity_Color(Quantity_NOC_BLUE));  <----- aqui nao faz nada
+aPbrMat.SetMetallic(0.5f);  // Quase metal para testar brilho
+aPbrMat.SetRoughness(0.5f); // Bem polido
+
+// 2. Configurar o MaterialAspect (CRUCIAL: definir a cor aqui também)
+Graphic3d_MaterialAspect aMat(Graphic3d_NameOfMaterial_UserDefined);
+aMat.SetPBRMaterial(aPbrMat);
+aMat.SetColor(Quantity_Color(Quantity_NOC_GREEN)); // Sincroniza Albedo com Diffuse
+aMat.SetShininess(1.0f);
+// aMat.SetCastShadows(false);
+// aMat.SetReceiveShadows(false);
+
+// 3. Aplicar diretamente ao AIS_Shape (Método mais limpo)
+myHighlightedPointAIS->SetMaterial(aMat); 
+myHighlightedPointAIS->SetDisplayMode(1);
+
+// 4. Forçar o Shading Model no Aspecto do objeto
+Handle(Prs3d_ShadingAspect) aShading = myHighlightedPointAIS->Attributes()->ShadingAspect();
+aShading->Aspect()->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+aShading->Aspect()->SetInteriorStyle(Aspect_IS_SOLID);
+
+// // Criar material PBR
+// Graphic3d_MaterialAspect mat(Graphic3d_NOM_UserDefined);
+
+// // Cor emissiva forte (autoiluminado)
+// mat.SetEmissiveColor(Quantity_Color(0.0, 1.0, 0.0, Quantity_TOC_RGB));
+
+// // Opcional: remover influência de sombras
+// mat.SetCastShadows(false);
+// mat.SetReceiveShadows(false);
+
+// // Aplicar ao AIS
+// myHighlightedPointAIS->Attributes()->SetMaterial(mat, false);
+// myHighlightedPointAIS->Redisplay(true);
+
+myHighlightedPointAIS->Attributes()->SetShadingModel(Graphic3d_TOSM_NONE);
+
+
+
+
+
 		myHighlightedPointAIS->SetZLayer(Graphic3d_ZLayerId_Top);  // Ensure it's drawn on top
 
 		m_context->Display(myHighlightedPointAIS, Standard_True);
@@ -2637,8 +2939,60 @@ static void animation_update(void* userdata)
 	}
 
 
+void SetSideBarBackground(const Handle(V3d_View)& view)
+{
+    Standard_Integer width, height;
+    view->Window()->Size(width, height);
 
-	void setbar5per() {
+    // Criar imagem como HANDLE
+    Handle(Image_PixMap) img = new Image_PixMap();
+    img->InitTrash(Image_Format_RGB, width, height);
+
+    // Pintar tudo branco
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            img->SetPixelColor(x, y, Quantity_Color(1,1,1,Quantity_TOC_RGB));
+        }
+    }
+
+    // Barra rosa a 5%
+    int barStart = width * 0.95;
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = barStart; x < width; ++x)
+        {
+            img->SetPixelColor(x, y, Quantity_Color(1.0, 0.4, 0.7, Quantity_TOC_RGB));
+        }
+    }
+
+    // Criar textura a partir do Handle(Image_PixMap)
+    Handle(Graphic3d_Texture2D) tex = new Graphic3d_Texture2D(img);
+
+    // Aplicar como background
+    view->SetBackgroundImage(tex, Aspect_FM_STRETCH, Standard_True);
+    view->Redraw();
+}
+
+void setbar5per(){
+	SetSideBarBackground(m_view);
+// 	Handle(Image_PixMap) img = new Image_PixMap();
+// img->InitTrash(Image_Format_RGB, width, height);
+
+// // pinta tudo branco
+// img->Fill(Quantity_Color(1,1,1,Quantity_TOC_RGB));
+
+// // pinta barra rosa
+// for (int x = width*0.95; x < width; ++x)
+//   for (int y = 0; y < height; ++y)
+//     img->SetPixelColor(x, y, Quantity_Color(1.0, 0.4, 0.7, Quantity_TOC_RGB));
+
+// m_view->SetBackgroundImage(img, Aspect_FM_STRETCH, Standard_True);
+
+}
+
+	void setbar5perv1() {
 		Standard_Integer width, height;
 		m_view->Window()->Size(width, height);
 		Standard_Real barWidth = width * 0.05;
@@ -2688,7 +3042,8 @@ static void animation_update(void* userdata)
 		// For proper transparency rendering
 		aspect->SetSuppressBackFaces(false);
 
-		group->SetGroupPrimitivesAspect(aspect);
+ 		group->SetGroupPrimitivesAspect(aspect);
+		
 		group->AddPrimitiveArray(tri);
 
 		barStruct->Display();
