@@ -517,10 +517,10 @@ shape->UnsetAttributes();
 TopoDS_Shape bshape = shape->Shape();
 
     // BRepMesh_IncrementalMesh mesher1(bshape, 0.005, Standard_False, 0.01, Standard_True);
-    BRepMesh_IncrementalMesh mesher1(bshape, 0.1, Standard_False, 0.1, Standard_True);
+    // BRepMesh_IncrementalMesh mesher1(bshape, 0.1, Standard_False, 0.1, Standard_True);
 
     // ApplyFakeBevelNormals(bshape, view->Camera()->Eye());
-    ApplyFakeBevelNormals(bshape, gp_Pnt(5.0, 5.0, 5.0));
+    // ApplyFakeBevelNormals(bshape, gp_Pnt(5.0, 5.0, 5.0));
 
     // Handle(AIS_Shape) ais1 = new AIS_Shape(box1);
 // cotm(99999999999);
@@ -530,8 +530,8 @@ TopoDS_Shape bshape = shape->Shape();
 
     Graphic3d_MaterialAspect mat1(Graphic3d_NameOfMaterial_UserDefined);
     mat1.SetPBRMaterial(pbr1);
-    mat1.SetColor( Quantity_NOC_DARKGOLDENROD2); // azul
-    // mat1.SetColor(Quantity_NOC_GRAY30); // azul
+    // mat1.SetColor( Quantity_NOC_DARKGOLDENROD2); // azul
+    mat1.SetColor(Quantity_NOC_GRAY30); // azul
     // mat1.SetColor(Quantity_Color(0.2, 0.4, 1.0, Quantity_TOC_RGB)); // azul
 
     shape->SetMaterial(mat1);

@@ -106,13 +106,13 @@ void startRecording() {
 
         QStringList args;
         args << "-f" << "x11grab"
-             << "-framerate" << "60"
+             << "-framerate" << "15"
              << "-video_size" << QString("%1x%2").arg(w).arg(h)
              << "-i" << QString("%1+%2,%3").arg(display).arg(x).arg(y)
              // OUTPUT SETTINGS START HERE 
              << "-f" << "apng"
              << "-plays" << "0"           // 0 = Infinite loop
-             << "-final_delay" << "1"     // Delay in seconds/100 (3 = 30ms)
+             << "-delay" << "5"     // Delay in seconds/100 (3 = 30ms)
              << "-pred" << "1"            // Improves compatibility/compression
              << "-y" << tempPath;
 

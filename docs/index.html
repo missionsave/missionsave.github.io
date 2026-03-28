@@ -1,427 +1,47 @@
  <!DOCTYPE html>
-
  <html lang="en">
 
  <head>
 	<meta charset="UTF-8">
  	<meta name="google" value="notranslate">
 	<meta name="google-adsense-account" content="ca-pub-7469281181086429">
- 	<!-- <meta http-equiv="cache-control" content="no-cache, must-revalidate, post-check=0, pre-check=0" /> -->
- 	<!-- <meta http-equiv="cache-control" content="max-age=0" /> -->
- 	<!-- <meta http-equiv="expires" content="0" /> -->
- 	<!-- <meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" /> -->
- 	<!-- <meta http-equiv="pragma" content="no-cache" /> -->
- 	<!-- <link rel="shortcut icon" href="favicon.ico"> -->
  	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
- 	<meta content="text/html; charset=UTF-8" http-equiv="content-type">
-
-	
+ 	<meta content="text/html; charset=UTF-8" http-equiv="content-type">	
 	<meta property="og:description" content="This project aims to create innovative machines capable of preparing 40 fresh, healthy meals every single day.">
-
  	<title translate="no" class="notranslate">Foundation Mission SAVE</title>
-
- 	<!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"> -->
  	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
- 	<!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">  -->
 
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://unpkg.com/epubjs/dist/epub.min.js"></script> -->
-
- 	<!-- <link  id="pagestyle"  rel="stylesheet" type="text/css" href="style.css?87656576"> -->
- 	<!-- <link  id="pagestyle" rel="stylesheet" type="text/css" href="stylerefresh.css?0382"> -->
- 	<link rel="stylesheet" type="text/css" href="https://missionsave.github.io/style.css?1">
+ 	<link rel="stylesheet" type="text/css" href="https://missionsave.github.io/style.css?1399">
 	
 	<link rel="icon" type="image/x-icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
 
-<style>/* disable hover whenever body.no-hover is present */
-body.no-hover .dropdownc:hover .dropdown-content {
-  display: none !important;
-}
-</style> 
-
-
-
-
-
-
-
-<script>
-//region globals
-
-//google docs
-
-const tdoc = {
-	home:[
-		{
-		url: "https://docs.google.com/document/d/e/2PACX-1vT22WSgbyIKg8iAu6EBv2Qjj-C98asQ3TgcANlro7QqYkaRGBv470_OUPm6ocJht5dx5FXrSkEphQvM/pub"	,
-		origin: "https://docs.google.com/document/d/160quPrgk3Dr6j_6X3N7pPvXTIrwfS7y2coClTNTByFs/edit?tab=t.0"
-		}
-	],
-  development: [
-    {
-      url: "https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub",
-	  origin: ""
-    }
-  ],
-  proposal: [
-    {
-      url: "https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub"
+	<script>
+	//region translate
+	var lib;
+ 
+	function menut(lng) {
+		 myTopnav.className = "topnav";
+		// myFunction();  
+		lib.translatePage('', lng, function() {
+			console.log("translated"); 
+		}); 
+		return;
+		closedropdowns(); 
+		params.set('l', lng); 
+		return;
+		console.log("lng", lng);
+		// setCookieNeverExpires('lang', lng);
+		params.set('l', lng);
+		window.location.search = params.toString();
+		// location.reload();
 	}
-	],
-  Models: [
-    {
-      url: "https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub"
-	}
-	]
-};
 
+	function gtElInit() {
+		 lib = new google.translate.TranslateService();
 
-function fillmenu(){
-	return;
-Object.entries(tdoc).forEach(([key, value]) => {
-  const url = Array.isArray(value) ? value[0].url : value;
-
-  const a = document.createElement("a");
-  a.textContent = key;
-  a.href = "?p=" + key + ".html";
-
-  a.onclick = function (e) {
-    e.preventDefault();
-    updateurl(this);
-    loadPage_v2(url);
-    window.scrollTo(0, 0);
-  };
-
-  document.getElementById("myTopnav").appendChild(a);
-});
-}
-
-
-
-// Object.entries(tdoc).forEach(([key, value]) => {
-//   if (Array.isArray(value)) {
-//     value.forEach(entry => {
-//       console.log(key, entry.url);
-//     });
-//   } else {
-//     console.log(key, value);
-//   }
-// });
-
-
-// function getUrl(section, index = 0) { const value = tdoc[section]; if (Array.isArray(value)) return value[index]?.url; return value;}
-
-
-
-
-//region protectContentFromTranslation
-/**
- * Encontra e protege ícones e contentores de anúncios de serem traduzidos.
- * Esta versão verifica o 'rootElement' E os seus descendentes.
- * @param {HTMLElement} rootElement - O elemento para analisar (ex: document.body ou um novo nó)
- */
-function protectContentFromTranslation(rootElement) {
-    // Apenas processa nós do tipo Elemento
-    if (!rootElement || rootElement.nodeType !== Node.ELEMENT_NODE) {
-        return;
-    }
-
-    const selectors = [
-        // Ícones do Material Icons
-        '.material-icons',
-        '.material-symbols-outlined',
-        '.material-symbols-rounded',
-        '.material-symbols-sharp',
-        
-        // Ícones do Font Awesome (ex: o seu ícone de globo)
-        '.fa', '.fas', '.far', '.fal', '.fab',
-        
-        // Contentores do Google AdSense
-        'ins.adsbygoogle',
-        'iframe[id*="google_ads_frame"]',
-        'iframe[src*="googleads"]',
-        'iframe[src*="googlesyndication"]'
-    ];
-    
-    selectors.forEach(selector => {
-        // 1. Verifica todos os DESCENDENTES do rootElement
-        rootElement.querySelectorAll(selector).forEach(el => {
-            if (!el.classList.contains('notranslate')) {
-                el.classList.add('notranslate');
-                el.setAttribute('translate', 'no');
-            }
-        });
-
-        // 2. Verifica o PRÓPRIO rootElement (A CORREÇÃO CRÍTICA)
-        // Isto apanha casos onde o nó adicionado é o próprio ícone (ex: o 'close')
-        if (rootElement.matches && rootElement.matches(selector)) {
-             if (!rootElement.classList.contains('notranslate')) {
-                rootElement.classList.add('notranslate');
-                rootElement.setAttribute('translate', 'no');
-            }
-        }
-    });
-}
-
-// // Criar o observer (o seu "onchange" para o DOM)
-// const observer = new MutationObserver(function(mutations) {
-//     mutations.forEach(function(mutation) {
-//         // Se novos nós (elementos) foram adicionados
-//         if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-//             mutation.addedNodes.forEach(node => {
-//                 // Passa o novo nó para a nossa função de proteção corrigida
-//                 protectContentFromTranslation(node);
-//             });
-//         }
-//     });
-// });
-
-// // Ligar o observer quando o DOM estiver pronto
-// document.addEventListener('DOMContentLoaded', function() {
-//     // Começa a observar o body por elementos adicionados (ex: anúncios)
-//     observer.observe(document.body, {
-//         childList: true, // Observa adição/remoção de filhos
-//         subtree: true    // Observa em toda a árvore DOM
-//     });
-// });
-</script>
-
-
-
-
-
-
-
-
-<script>
-	function dropdownFunction() {
-		
-		var elements = document.querySelectorAll('.dropdown-content');
-
-		elements.forEach(function(element) {
-			// Do something with each element, for example:
-			// console.log(element.textContent); // Logs the text content of each 
-			element.classList.remove('show');
-		});
-		document.getElementById(arguments[0]).classList.toggle("show");
-	}
-	function resetOverrides() {
-  // dropdown-content may have inline style or override classes
-  document.querySelectorAll('.dropdown-content').forEach(el => {
-    el.style.display = '';
-    el.classList.remove('show', 'force-hide');
-  });
-
-  // If you altered the navbar class for responsive toggle
-  const nav = document.getElementById('myTopnav');
-  if (nav) nav.className = 'topnav';
-}
-//good
-function closedropdowns() {
-	// window.scrollTo(0, 0);
-
-  // 1) Disable hover immediately
-  document.body.classList.add('no-hover');
-
-  // 2) Hide any open menus right now
-  document.querySelectorAll('.dropdown-content').forEach(function(el) {
-    el.classList.remove('show');  // mobile toggle
-    el.style.display = 'none';    // inline-hide for desktop
-  });
-
-  // 3) Prepare a restore function
-  function restore() {
-    // Remove our inline hides
-    document.querySelectorAll('.dropdown-content').forEach(function(el) {
-      el.style.display = '';
-    });
-    // Re-enable hover
-    document.body.classList.remove('no-hover');
-
-    // Cleanup listeners & timeout
-    window.removeEventListener('pointermove', restore);
-    window.removeEventListener('touchstart', restore);
-    clearTimeout(timeoutId);
-  }
-
-  // 4) Listen for the very next pointer/touch event
-  window.addEventListener('pointermove', restore);
-  window.addEventListener('touchstart', restore);
-
-  // 5) Fallback: if no movement within 300ms, restore anyway
-  var timeoutId = setTimeoObject.entries(tdoc).forEach(([key, value]) => {
-  const url = Array.isArray(value) ? value[0].url : value;
-
-  const a = document.createElement("a");
-  a.textContent = key;
-  a.href = "?p=" + key + ".html";
-
-  a.onclick = function (e) {
-    e.preventDefault();
-    updateurl(this);
-    loadPage_v2(url);
-    window.scrollTo(0, 0);
-  };
-
-  document.getElementById("menu").appendChild(a);
-});
-ut(restore, 300);
-}
-function updateurl(arg){
-	console.log("updateurl",arg);
-	console.log("updateurl",arg.href);
-	myTopnav.className = "topnav"; //hides responsive menu
-
-// const newUrl = `${window.location.pathname}?${params.toString()}`;
-// const newUrl = `${window.location.pathname}?${params.toString()}`;
-		// window.history.replaceState({}, '', arg.href);
-    history.pushState({  }, "", arg.href);
-}
-// window.addEventListener('popstate', function (event) {
-//     console.log('Back/forward detected', event.state);
-// 	window.location.reload(); //could be improved calling loadpage to minimize requests ///////////////////
-//     // Call your function here
-//     // myFunctionOnHistoryChange(event);
-// });
-
-window.addEventListener('popstate', function (event) {
-    console.log('Back/forward detected', window.location.search);
-	const params = new URLSearchParams(window.location.search);
-
-console.log(params.get('p')); // "value"
-console.log(params.get('l'));  // "123"
-
-if(params.get('p')==null){
-	loadPage('https://missionsave.github.io/home.html');
-	return;
-}
-
-var gurl="https://missionsave.github.io/pages/"+params.get('p');
-console.log("gurl",gurl);
-
-	loadPage_v2(gurl);
-	// console.log(event.state.href);
-    // if (event.state && event.state.href) {
-    //     console.log(" Load the page dynamically instead of reloading");
-    //     loadPage_v2(event.state.href);
-    // } else {
-    //     // Fallback: reload if no state info
-    //     // window.location.reload();
-    // }
-});
-
-function closedropdowns_v2() {
-	console.log("minocente");
-	resetOverrides();
-	window.dispatchEvent(new Event('resize'));
-	// reloadCSS();
-return;
-  // Add force-hide to all dropdown containers
-  document.querySelectorAll('.dropdownc').forEach(function(container) {
-    container.classList.add('force-hide');
-  });
-
-  // Remove mobile .show class if present
-  document.querySelectorAll('.dropdown-content').forEach(function(el) {
-    el.classList.remove('show');
-  });
-}
-function reloadCSS_v1() {
-  const oldLink = document.getElementById("pagestyle");
-  const href = oldLink.getAttribute("href").split("?")[0];
-
-  // create a new <link> with a cache-busting query
-  const newLink = document.createElement("link");
-  newLink.rel = "stylesheet";
-  newLink.href = href + "?v=" + Date.now();
-  newLink.id = "pagestyle-new";
-
-  // insert new link right after the old one
-  oldLink.parentNode.insertBefore(newLink, oldLink.nextSibling);
-
-  // once the new CSS finishes loading, remove the old one
-  newLink.onload = () => {
-    oldLink.remove();
-    newLink.id = "pagestyle"; // keep consistent id
-  };
-}
-
-// var menuisopened=0;
-	function myFunction() {
-		// console.log(1);
-		var x = document.getElementById("myTopnav");
-		if (x.className === "topnav") {
-			x.className += " responsive"; 
-		} else {
-			x.className = "topnav"; 
-		}
-	}    
-	// Close the dropdown menu if the user clicks outside of it, nao funciona n sei porque
-		// window.onclick = function (event) {
-		// 	// console.log(2);
-		// 	// if(dropvisible){
-		// 	// console.log("event",event);
-		// 	// if (event.target.matches('topnav')) {
-		// 	// 	myFunction();
-		// 	// }
-		// 	// if (!event.target.matches('.dropbtn')) {
-		// 	// closedropdowns(); 
-		// 	// }
-		// }
-
-	document.addEventListener('click', function (event) {
-		// console.log(event.target);
-		if (!event.target.closest('.dropbtn')) {
-			closedropdowns();
-		}
-		if (!myTopnav.contains(event.target)) {
-			// console.log('Clicked outside the box!');
-			myTopnav.className = "topnav";
-			// You can trigger your logic here, like closing a modal or dropdown
-		}
-	});
-
-function onresizeFunction() {
-    var topHeaderEl = document.getElementById("topheaderid");
-    if (topHeaderEl) {
-        var clientHeight = topHeaderEl.clientHeight;
-        document.getElementById('nexttotop').style.paddingTop = clientHeight + 'px';
-    }
-}
-onresizeFunction();
-</script>
-
-
-<!-- Object.entries(tdoc).forEach(([key, value]) => {
-  const url = Array.isArray(value) ? value[0].url : value;
-
-  const a = document.createElement("a");
-  a.textContent = key;
-  a.href = "?p=" + key + ".html";
-
-  a.onclick = function (e) {
-    e.preventDefault();
-    updateurl(this);
-    loadPage_v2(url);
-    window.scrollTo(0, 0);
-  };
-
-  document.getElementById("menu").appendChild(a);
-}); -->
-
-
-
-
-<script>
-	var langbr="";
-	const params = new URLSearchParams(window.location.search);
-	const lValue = params.get("l");
-	var locale;
-	if(!lValue || lValue.trim() === ""){
-		// 1) Prefer the first full tag from navigator.languages
-
+		 // 1) Prefer the first full tag from navigator.languages
 		const fromLanguages = (navigator.languages || []).find(l => l.includes('-'));
 
 		// 2) Fallback: Intl often canonicalizes to a regioned locale
@@ -429,258 +49,17 @@ onresizeFunction();
 
 		// 3) Last resort: plain navigator.language
 		const fromNav = navigator.language;
-
 		const raw = fromLanguages || (fromIntl?.includes('-') ? fromIntl : fromNav);
 
 		// Normalize casing like "pt-PT"
-		locale = raw.split('-').map((p,i) => i ? p.toUpperCase() : p.toLowerCase()).join('-');console.log('Detected locale:', locale);
-		langbr = locale;
-
-		// const userLang = navigator.language || navigator.userLanguage;
-		// params.set('l', 'en');  
-		// params.set('l', langbr);  
-		// const newUrl = `${window.location.pathname}?${params.toString()}`;
-		// window.history.replaceState({}, '', newUrl);
-	}else{
-		langbr=lValue;
-	} 
-	console.log("langbr", langbr);
-var lib;
-	function gtElInit() {
-		 lib = new google.translate.TranslateService();
-		//  protectContentFromTranslation();
-
-
-
-
-//     // Observa o DOM e protege novos elementos (como iframes do AdSense)
-    // const observer = new MutationObserver(mutations => {
-    //   let changed = false;
-    //   for (const m of mutations) {
-    //     if (m.addedNodes.length > 0) {
-    //       changed = true;
-    //       break;
-    //     }
-    //   }
-    //   if (changed){
-	// 	console.log("changed");
-	//    document.querySelectorAll('iframe, script, style, link, .notranslate').forEach(el => el.setAttribute('translate', 'no'));
-
-	//   }
-    // });
-    // observer.observe(document.body, { childList: true, subtree: true });
-	//commented
-
-
-
-// setInterval(() => {
-// 	console.log("interv");
-//     // Target only iframes and potential ad containers
-//     document.querySelectorAll('iframe, [class*="ad"], [id*="ad"]').forEach(el => {
-//         if (el.getAttribute('translate') !== 'no') {
-//             el.setAttribute('translate', 'no');
-//         }
-//     });
-// }, 1000);
-
-	menut(langbr);
-
-		// lib.translatePage('', langbr, function() {
-// 		// 	// div_loader.style.display="none"; 
-// 		// 	// div_all.style.display="block"; 
-// 		// });
+		const locale = raw.split('-').map((p,i) => i ? p.toUpperCase() : p.toLowerCase()).join('-');
+		console.log('Detected locale:', locale);
+		//  menut("en-US");
+		//  menut("pt-PT");
+		 menut(locale);
 	}
-</script>
-<script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;client=wt" type="text/javascript"></script>
-
- </head>
-
- <body onresize="onresizeFunction()">
-
- 	<div class="topheader" id="topheaderid">
- 		<div class="topnav" id="myTopnav">
- 			<a href="?" onclick='updateurl(this); loadPage("https://missionsave.github.io/home.html"); window.scrollTo(0, 0); return false;' class="active notranslate">Foundation Mission SAVE</a>
- 			<!-- <title class="notranslate">Foundation Mission SAVE</title> -->
-
- 			<!-- <div class="dropdownc">
-<button id="myDropdown1b"  onclick="dropdownFunction('myDropdown1')" class="dropbtn">Estufa com abrigo
-<i class="fa fa-caret-down"></i>
-</button>
-<div  id="myDropdown1" class="dropdown-content">
-<a style="" href="?pg=descritiva">Memoria Descritiva</a><a style="" href="?pg=budget">Orçamento do Protótipo</a><a style="" href="?pg=nutri">Factos Nutricionais</a></div>
-</div> -->
-
-
-<!-- ["page1.html", "d1/page1.html", "d1/page3.html", "page3.html"] -->
-
-<!-- fetch('pages.json')
-  .then(res => res.json())
-  .then(files => {
-    files.forEach(file => console.log(file));
-  }); -->
-
-
-
-
-
- 			<!-- <div class="dropdownc">
- 				<button  onclick="dropdownFunction('myDropdown1')" class="dropbtn">Estufas
- 					<i class="fa fa-caret-down"></i>
- 				</button>
- 				<div id="myDropdown1" class="dropdown-content">
- 					<a style="" href="?p=Technology-to-fight-hunger.html">Apresentação</a>
-					<a style="" href="?p=nutrition.html">nutrition</a>
-					<a style="cursor:pointer;" onclick="loadPage('home.html')">Nutrindo esperança</a>
-				</div>
- 			</div> -->
-
-
-			<!-- <a  onclick='loadPage("gest/index.html"); return false;'>gest</a>
-			<a  onclick='loadPage("pages/Nutrition.html"); return false;'>Nutrition</a>
-			<a  onclick='loadPage("pages/Technology-to-fight-hunger.html"); return false;'>Tec</a> -->
-
-			<a  href="?p=Nutrition.html" onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Nutrition.html"); window.scrollTo(0, 0); return false;' >Nutrition</a>
-
-			<!-- <a style="cursor:pointer;" onclick='loadPage_v2("https://missionsave.github.io/pages/Nutrition.html")' >Nutrition</a> -->
-
-
-			<a  href="?p=Reality.html" onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Reality.html"); window.scrollTo(0, 0); return false;' >Reality</a>
-
-
-			<!-- <a onclick='loadPage_v2("https://missionsave.github.io/pages/Nutrition.html")' href="?p=Nutrition.html">Nutrition</a> -->
-			<!-- <a style="cursor:pointer;" href="?p=Technology-to-fight-hunger.html">Studys</a> -->
-			<!-- <a style="cursor:pointer;" href="?p=Self-sufficient_Greenhouse.html">Self-sufficient Greenhouse</a> -->
-			<!-- <a style="cursor:pointer;" href="?p=contact.html">Contact</a> -->
-
-
-
-
-			<!-- <div class="dropdownc">
-				<button onclick="dropdownFunction('myDropdownstdys')" class="dropbtn">Studys
-					<i class="fa fa-caret-down"></i>
-				</button>
-				<div id="myDropdownstdys" class="dropdown-content"> -->
-			
-					<!-- <a href="?p=Technology-to-fight-hunger.html"
-						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Technology-to-fight-hunger.html"); window.scrollTo(0, 0); return false;'>Technology	to fight hunger</a> -->
-			
-					<a href="?p=Self-sufficient_Greenhouse.html"
-						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Self-sufficient_Greenhouse.html"); window.scrollTo(0, 0); return false;'>Self-sufficient Greenhouse</a>
-
-					<!-- <a href="?p=Development.html"
-						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/Development.html"); window.scrollTo(0, 0); return false;'>Development</a> -->
-					<!-- <a href="?p=proposal"
-						onclick='updateurl(this); loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url=https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub&cache=3"); window.scrollTo(0, 0); return false;'>Proposal</a> -->
-					<a href="?p=Development.html"
-						onclick='updateurl(this); loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url=https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub&nocache=3"); window.scrollTo(0, 0); return false;'>Development</a>
-			
-				<!-- </div>
-			</div> -->
-
-			<div class="dropdownc">
-				<button onclick="dropdownFunction('myDropdownextras')" class="dropbtn">Extras
-					<i class="fa fa-caret-down"></i>
-				</button>
-				<div id="myDropdownextras" class="dropdown-content">
-			<!-- ⧸ -->
-					<a href="?p=extras/book/index.html"
-						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/extras/book/index.html"); window.scrollTo(0, 0); return false;'>Books</a>
-
-					<a href="?p=extras/AI_crypto_trading_signal.html"
-						onclick='updateurl(this); loadPage_v2("https://missionsave.github.io/pages/extras/AI_crypto_trading_signal.html"); window.scrollTo(0, 0); return false;'>AI crypto trading signal</a>
-			
-			
-					<!-- <a href="?p=extras/AI_crypto_trading_signal.html"
-						onclick='updateurl(this); loadPage_v2("extras/AI_crypto_trading_signal.html"); window.scrollTo(0, 0); return false;'>AI crypto trading signal</a> -->
-			
-			
-				</div>
-			</div>
-
-
-
- 			<!-- <div class="dropdownc">
- 				<button   onclick="dropdownFunction('myDropdown3')" class="dropbtn">Extras
- 					<i class="fa fa-caret-down"></i>
- 				</button>
- 				<div id="myDropdown3" class="dropdown-content">
-
-			<a style="cursor:pointer;" onclick='closedropdowns(); loadPage_v2("https://missionsave.github.io/pages/Nutrition.html"); ' >Nutrition1</a>
-			<a style="cursor:pointer;" onclick='loadPage_v2("https://missionsave.github.io/pages/Nutrition.html")' >Nutrition</a>
- 					<a style="" href="?p=extras/Millions.html">Euromilions</a>
-					</div>
- 			</div> -->
-
-
-
-
-
-
-
-
- 			<!-- <div class="dropdownc">
- 				<button   onclick="dropdownFunction('myDropdown3')" class="dropbtn">Estufa que produz sopa
- 					<i class="fa fa-caret-down"></i>
- 				</button>
- 				<div id="myDropdown3" class="dropdown-content">
- 					<a style="" href="?pg=descritiva">Memoria Descritiva</a>
-					<a style="" href="?pg=budget">Orçamento do Protótipo</a>
-					<a style="" href="?pg=nutri">Factos Nutricionais</a>
-					<a style="" href="?pg=develop">Desenvolvimento</a><a style="" href="?pg=faq">FAQ</a> 				</div>
- 			</div> -->
-
-
-
-
- 			<!-- <div class="dropdownc">
- 				 				<button id="myDropdown4b" onclick="dropdownFunction('myDropdown4')" class="dropbtn">Trabalho
- 					<i class="fa fa-caret-down"></i>
- 				</button>
- 				<div id="myDropdown4" class="dropdown-content">
- 					<a style="" href="?pg=jobs">Contratação</a><a style="" href="?pg=ponto">Ponto</a> 				</div>
- 			</div> -->
-
- 			<!-- <div class="dropdownc">
- 				 				<button id="myDropdown5b" onclick="dropdownFunction('myDropdown5')" class="dropbtn">Missão
- 					<i class="fa fa-caret-down"></i>
- 				</button>
- 				<div id="myDropdown5" class="dropdown-content">
- 					<a style="" href="?pg=mission">Missão</a><a style="" href="?pg=donate">Doar para as crianças</a> 				</div>
- 			</div> -->
-
- 			
- 			<!-- <div class="dropdownc">
- 				 				<button id="myDropdown6b" onclick="dropdownFunction('myDropdown6')" class="dropbtn">Fábrica
- 					<i class="fa fa-caret-down"></i>
- 				</button>
- 				<div id="myDropdown6" class="dropdown-content">
- 					<a style="" href="?pg=plan">Plano de negócio</a> 				</div>
- 			</div> -->
-
- 			<!-- <a href="	?pg=fund  ">Fundo de investimento</a>  -->
-
-
-
-
-
-
-
- 			<div class="dropdownc">
- 				 				<button onclick="dropdownFunction('myDropdown7')" class="dropbtn"><i class="fas  fa-globe"></i>
- 					<i class="fa fa-caret-down"></i>
- 				</button>
- 				<div id="myDropdown7" class="dropdown-content">
- 					<a class="notranslate" style="cursor:pointer;" onclick="menut('pt-PT'); ">pt-PT</a>
- 					<a class="notranslate" style="cursor:pointer;" onclick="menut('en');">en</a>
- 					<a class="notranslate" style="cursor:pointer;" onclick="menut('fr');">fr</a>
- 					<a class="notranslate" style="cursor:pointer;" onclick="menut('es');">es</a>
- 				</div>
- 			</div>
- 			<!-- <script src="util.js?2038973299"></script> -->
-
-
-
-
+	</script>
+	<script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;client=wt" type="text/javascript"></script>
 
 <style>
 	/* --- Google Translate UI Hiding (Existing Code) --- */
@@ -764,256 +143,201 @@ span.google-src-text:hover {
     /* cursor: default !important; */
 }
 </style>
+<style> 
+/* disable hover whenever body.no-hover is present */
+body.no-hover .dropdownc:hover .dropdown-content {
+  display: none !important;
+}
+</style> 
 
+ </head>
 
+ <body onresize="onresizeFunction()">
 
- 			<a style="font-size:15px; cursor: pointer;" class="icon" onclick="myFunction();"><b>&#9776;</b></a>
- 		</div>
+ 	<div class="topheader" id="topheaderid">
+ 		<div class="topnav" id="myTopnav">
+ 			<a href="?" onclick='updateurl(this); loadPage_v2(workerapi[tdoc.home[0].workerid]+tdoc.home[0].url); window.scrollTo(0, 0); return false;' class="active notranslate">Foundation Mission SAVE</a> 
+ 			<a style="font-size:15px; cursor: pointer;"  class="icon" onclick="myFunction();"><b>&#9776;</b></a> 
+ 		</div> 
  	</div>
-
- 	<div id="nexttotop" align="center" style="padding-left:10px; padding-right:10px;">
- 		<h2></h2> 	
+	<div id="nexttotop" align="center" style="padding-left:10px; padding-right:10px;">
+ 		 	
 	</div>
- 	<script type="text/javascript">
- 		// function onresizeFunction() {
- 		// 	var clientHeight = document.getElementById("topheaderid").clientHeight;
- 		// 	document.getElementById('nexttotop').style.paddingTop = clientHeight + 'px';
- 		// }
- 		// onresizeFunction();
- 	</script>
-
-
-
-
  	<div id="viewer_v1" class="htr" ></div>
 
+ </body>
 
 
-<!-- keep l -->
 <script>
-//   const params = new URLSearchParams(window.location.search);
-  const l = params.get('l');
+//region globals
+const workerapi=["",
+	"https://superdb-api.superbem.workers.dev/clean-doc?url=",
 
-  if (l) {
-    document.querySelectorAll('a[href]').forEach(a => {
-      const href = a.getAttribute('href').trim();
-      if (!href || href === '#' || href === '') return;
+]
+;
+//google docs
 
-      // Split original href into [base, query, hash]
-      const [base, queryAndHash] = href.split('?', 2);
-      let query = '';
-      let hash = '';
-
-      if (queryAndHash) {
-        const hashIndex = queryAndHash.indexOf('#');
-        if (hashIndex >= 0) {
-          query = queryAndHash.slice(0, hashIndex);
-          hash = queryAndHash.slice(hashIndex);
-        } else {
-          query = queryAndHash;
-        }
-      }
-
-      const searchParams = new URLSearchParams(query);
-      searchParams.set('l', l);
-
-      // Rebuild without trimming the original base
-      const newHref = base + '?' + searchParams.toString() + hash;
-      a.setAttribute('href', newHref);
-    });
-  } 
-
-	function menut(lng) {
-		 myTopnav.className = "topnav";
-		// myFunction();
-		lib.translatePage('', lng, function() {
-			// div_loader.style.display="none"; 
-			// div_all.style.display="block"; 
-		});
-
-		closedropdowns();
-		// reloadCSS();
-		params.set('l', lng); 
-		return;
-		console.log("lng", lng);
-		// setCookieNeverExpires('lang', lng);
-		params.set('l', lng);
-		window.location.search = params.toString();
-		// location.reload();
-	} 
-
-	function loadPage(url) {
-
-		fetch(url)
-			.then(response => response.text())
-			.then(html => {
-				document.getElementById('viewer_v1').innerHTML = html;
-			})
-			.catch(err => {
-				document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
-			});
+const tdoc = {
+	home:[
+		{
+		url: "https://docs.google.com/document/d/e/2PACX-1vT22WSgbyIKg8iAu6EBv2Qjj-C98asQ3TgcANlro7QqYkaRGBv470_OUPm6ocJht5dx5FXrSkEphQvM/pub&cache=1"	,
+		origin: "https://docs.google.com/document/d/160quPrgk3Dr6j_6X3N7pPvXTIrwfS7y2coClTNTByFs/edit?tab=t.0",
+		workerid: 1
+		}
+	],
+  Proposals: [
+    {
+	  title: "Local Food Network",
+      url: "https://docs.google.com/document/d/e/2PACX-1vTTuiUJAov1dV9ppMVKhDAM-lZ7eIt1ouQ64gX-Y2BoKIZotKhqbIxqNZ7vol8BFRijm3BuRIuQWoxn/pub?",
+	  origin: "https://docs.google.com/document/d/1RN2lxhjfYsByep8GePUZvVRQdonHtXIJSjWGTGKOFlw/edit",
+		workerid: 1
+	},
+    {
+	  title: "Child healthy food on schools",
+      url: "https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub",
+	  origin: "https://docs.google.com/document/d/1vfAxEfO-OmAUz4u67FxMYJkN-LG9cPpBrZec83s5Mwk/edit",
+		workerid: 1
+	},
+	],
+  Prototype: [
+    {
+	  title: "Prototype",
+      url: "https://docs.google.com/document/d/e/2PACX-1vQOqJ5d41ktREyYnub2n1WIB7R3nzxDtJf6Ag7zZUssoYAuul8g9TWnHon2wTd4YsMYYQzHnMAyrxut/pub?cache=6",
+	  origin: "https://docs.google.com/document/d/15IL0OSNn8sEmfP55lfz3pgfw_q67K56gZB6xqovsJRw/edit?tab=t.0",
+		workerid: 1
+	},
+    // {
+	//   title: "LSF 4 floors 4 Varieties",
+    //   url: "https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub",
+	// 	workerid: 1
+	// }
+	],
+  Ecosystem: [
+    {
+	  title: "Cultivation",
+      url: "https://docs.google.com/document/d/e/2PACX-1vThBsbBiGhBSkhcPM4HH2KYklmM6K66AjXFEaQexuSBuNQ4zK7IYc-ytXvcJipdnnBX-_I5cNQ_904B/pub?cache=3",
+	  origin: "https://docs.google.com/document/d/1lS93MGkFTbNQDtIn6wuTDVqIVJwWR2k3FbeHUykzBgg/edit",
+	  comments:"https://copilot.microsoft.com/chats/7bUWfMSHmkpqnNFpXU4fC",
+		workerid: 1
+    },
+    {
+	  title: "Nutrition",
+      url: "https://missionsave.github.io/pages/Nutrition.html",
+		workerid: 0,
+    //   url: "https://docs.google.com/document/d/e/2PACX-1vTHO6kZdW0369Sdjt1C3P5KI2s4Ioiviv0MjpU0HnQlbHj6GJbZ2cxv95GqT_O_9BPiWCJOXBOp_W6H/pub?cache=8",
+	//   origin: "https://docs.google.com/document/d/1YS73_8VpG503SngWL5M018uygydz7PGOW8-WOLFY5EU/edit?tab=t.0",
+		// workerid: 1
+    }
+  ],
+  Development: [
+    {
+      url: "https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub?cache=3",
+	  origin: "https://docs.google.com/document/d/1Wz9GZ0s8bGxPIiDMyWGvJb5IOqdrnwDyjWyrSXPcGec/edit?tab=t.0",
+	  workerid: 1
+    }
+  ],
+  Books: [
+    {
+      url: "https://missionsave.github.io/books/books.html",
+		workerid: 0,
+		showpub: 1
 	}
-	function loadPage_v2notw(url) {
-  fetch(url)
-    .then(r => r.text())
-    .then(html => {
-      const viewer_v1 = document.getElementById("viewer_v1");
+	]
+};
 
-      // Wrap the loaded HTML in a container to keep it isolated
-      const wrapper = document.createElement("div");
-      wrapper.classList.add("embedded-app");
-      wrapper.innerHTML = html;
-      viewer_v1.innerHTML = "";
-      viewer_v1.appendChild(wrapper);
-
-      // Re-execute scripts inside the wrapper
-      wrapper.querySelectorAll("script").forEach(oldScript => {
-        const newScript = document.createElement("script");
-
-        // Copy attributes (src, type, etc.)
-        Array.from(oldScript.attributes).forEach(attr => {
-          newScript.setAttribute(attr.name, attr.value);
-        });
-
-        if (oldScript.src) {
-          // Resolve relative paths against the loaded page's URL
-          newScript.src = new URL(oldScript.getAttribute("src"), url).href;
-        } else {
-          // Inline script content
-          newScript.textContent = oldScript.textContent;
-        }
-
-        // Replace with executable script
-        oldScript.parentNode.replaceChild(newScript, oldScript);
-      });
-
-      // Optional: scope CSS (replace body/html with .embedded-app)
-      wrapper.querySelectorAll("style").forEach(style => {
-        style.textContent = style.textContent
-          .replace(/\bhtml\b/g, ".embedded-app")
-          .replace(/\bbody\b/g, ".embedded-app");
-      });
-    })
-    .catch(err => {
-      console.error(err);
-      document.getElementById("viewer_v1").innerHTML = "<p>Error loading page.</p>";
-    });
-}
-function removeSpacing(root = document.body) {
-  // 1. Inject global override CSS
-  const style = document.createElement("style");
-  style.textContent = `
-    * {
-      margin: 0 !important;
-      padding: 0 !important;
-      max-width: 100% !important;
-      box-sizing: border-box;
-    }
-    img {
-      max-width: 100% !important;
-      height: auto !important;
-      display: block;
-    }
-  `;
-  document.head.appendChild(style);
-
-  // 2. Remove inline margin/padding
-  const all = root.querySelectorAll("*");
-  for (const el of all) {
-    el.style.margin = "0";
-    el.style.padding = "0";
-  }
-}
-
-function cleanHtml(html) {
-  // 1. Cria DOM temporário
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-
-  // 2. Remove <style> e <script>
-//   doc.querySelectorAll("style, script").forEach(el => el.remove());
-
-  // 3. Remove atributos indesejados
-//   const removeAttrs = ["class", "id", "style", "width", "height", "title"];
-//   doc.querySelectorAll("*").forEach(el => {
-//     removeAttrs.forEach(attr => el.removeAttribute(attr));
-//   });
-  const removeAttrs = [ "id", "width", "height", "title"];
-  doc.querySelectorAll("*").forEach(el => {
-    removeAttrs.forEach(attr => el.removeAttribute(attr));
-  });
-
-  // 4. Remove spans que não têm função semântica
-  doc.querySelectorAll("span").forEach(span => {
-    if (!span.attributes.length) {
-      span.replaceWith(...span.childNodes);
-    }
-  });
-
-  // 5. Remove divs que só servem como wrapper
-  doc.querySelectorAll("div").forEach(div => {
-    if (!div.attributes.length) {
-      div.replaceWith(...div.childNodes);
-    }
-  });
-
-  // 6. Remove elementos vazios
-  doc.querySelectorAll("*").forEach(el => {
-    if (!el.textContent.trim() && el.children.length === 0) {
-      el.remove();
-    }
-  });
-
-  // 7. Retorna HTML limpo
-  return doc.body.innerHTML.trim();
-}
-
+function myFunction() { 
+	var x = document.getElementById("myTopnav");
+	if (x.className === "topnav") {
+		x.className += " responsive"; 
+	} else {
+		x.className = "topnav"; 
+	}
+} 
+http://127.0.0.1:8080/dev.html?p=Development
 function fixCommaInsideSpan(html) {
+  // aceita vírgula ou ponto
+ 
   // Caso 1: </span><span class="x">,
-  html = html.replace(/<\/span>\s*<span([^>]*)>\s*,\s*<\/span>/g, ",</span><span$1>");
+  html = html.replace(
+    /<\/span>\s*<span([^>]*)>\s*([,.])\s*<\/span>/g,
+    "$2</span><span$1> "
+  );
 
   // Caso 2: </span><span class="x">,texto
-  html = html.replace(/<\/span>\s*<span([^>]*)>\s*,\s*/g, ",</span><span$1>");
+  html = html.replace(
+    /<\/span>\s*<span([^>]*)>\s*([,.])\s*/g,
+    "$2</span><span$1> "
+  );
 
   // Caso 3: texto<span class="x">,</span>
-  html = html.replace(/<span([^>]*)>\s*,\s*<\/span>/g, ",<span$1></span>");
+  html = html.replace(
+    /<span([^>]*)>\s*([,.])\s*<\/span>/g,
+    "$2<span$1></span> "
+  );
 
   return html;
 }
-function loadPage_v2(url) {
+function google_ads(){
+	  console.log("ads");
+      var s = document.createElement("script");
+      s.async = false;
+      s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
+      s.crossOrigin = "anonymous";
+      document.head.appendChild(s);
+}
+//region loadpage
+function loadPage_v2(url,menuitem) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
-		html=fixCommaInsideSpan(html);
+	  html=fixCommaInsideSpan(html);  
+
+	//   console.log(html);
+
       const viewer_v1 = document.getElementById('viewer_v1');
 
       const tmp = document.createElement('div');
-      tmp.innerHTML = html;
+      tmp.innerHTML = html; 
 
       const scripts = Array.from(tmp.querySelectorAll('script'));
       scripts.forEach(s => s.remove());
 
       // CSS applied only to loaded HTML
-const styleFix = `
-<style>
-.loaded_page_root, .loaded_page_root *{
-  max-width:100% !important;
-  box-sizing:border-box;
-}
+		const styleFix = `
+		<style>
+		.loaded_page_root, .loaded_page_root *{
+		max-width:100% !important;
+		box-sizing:border-box;
+		}
 
-.loaded_page_root img{
-  width:100% !important;
-  height:auto !important;
-  max-width:100% !important;
-  display:block;
-}
-</style>
-`;
+		.loaded_page_root img{
+		width:100% !important;
+		height:auto !important;
+		max-width:100% !important;
+		display:block;
+		}
+		
+		</style>
+		`;
 
       // wrap loaded HTML
       viewer_v1.innerHTML = styleFix + `<div class="loaded_page_root">${tmp.innerHTML}</div>`;
+// console.log(viewer_v1.innerHTML);
 
-	// viewer_v1.innerHTML=cleanHtml(viewer_v1.innerHTML);
+// Select all elements with classes that have padding
+viewer_v1.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(el => {
+  el.style.paddingTop = '4px';
+  el.style.paddingBottom = '1px';
+//   el.style.marginTop = '0';
+//   el.style.marginBottom = '0';
+});
+viewer_v1.querySelectorAll('ul, li').forEach(el => {
+  el.style.paddingTop = '2px';
+  el.style.paddingBottom = '2px';
+//   el.style.marginTop = '0';
+//   el.style.marginBottom = '0';
+});
+
 
       // Force images responsive
       viewer_v1.querySelectorAll('.loaded_page_root img').forEach(img => {
@@ -1052,255 +376,291 @@ const styleFix = `
           runScripts(i + 1);
         }
 
-        onresizeFunction();
+        // onresizeFunction();/////
+ 
       })(0);
+
+	  if(menuitem?.showpub)google_ads();
+
     })
     .catch(err => {
       console.error(err);
-      document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
+      document.getElementById('viewer_v1').innerHTML = "<p>Error loading page. Maybe it moved, please use the menu.</p>";
     });
 }
-function loadPage_v2_v2working(url) {
-  fetch(url)
-    .then(r => r.text())
-    .then(html => {
-      const viewer_v1 = document.getElementById('viewer_v1');
-
-      // Create a temporary container to parse HTML
-      const tmp = document.createElement('div');
-      tmp.innerHTML = html;
-
-      // Extract scripts in order
-      const scripts = Array.from(tmp.querySelectorAll('script'));
-
-      // Remove script tags from the HTML so they don’t appear twice
-      scripts.forEach(s => s.remove());
-
-      // Put the cleaned HTML in the viewer_v1
-      viewer_v1.innerHTML = tmp.innerHTML;
 
 
-      // 🔹 Force all images to 100% width
-      viewer_v1.querySelectorAll('img').forEach(img => {
-        img.removeAttribute('width');
-        img.removeAttribute('height');
-        img.style.setProperty('width', '100%', 'important');
-        img.style.setProperty('height', 'auto', 'important');
+function onresizeFunction() {
+    var topHeaderEl = document.getElementById("topheaderid");
+    if (topHeaderEl) {
+        var clientHeight = topHeaderEl.clientHeight;
+        document.getElementById('nexttotop').style.paddingTop = clientHeight + 'px';
+    }
+	console.log("onresizeFunction()");
+}
+// onresizeFunction();
 
-        const span = img.closest('span');
-        if (span) {
-          span.style.removeProperty('width');
-          span.style.removeProperty('height');
-          span.style.setProperty('max-width', '100%', 'important');
-          span.style.setProperty('height', 'auto', 'important');
-          span.style.setProperty('display', 'block', 'important');
-          span.style.setProperty('border', '0', 'important');
-          span.style.setProperty('margin', '0', 'important');
+
+function updateurl(arg){
+	console.log("updateurl",arg);
+	console.log("updateurl",arg.href);
+	myTopnav.className = "topnav"; //hides responsive menu
+
+// const newUrl = `${window.location.pathname}?${params.toString()}`;
+// const newUrl = `${window.location.pathname}?${params.toString()}`;
+		// window.history.replaceState({}, '', arg.href);
+    history.pushState({  }, "", arg.href);
+}
+
+//region init
+function init(){
+	const params = new URLSearchParams(window.location.search);
+	const urlp= params.get('p');
+	let isloaded=0;
+	if(urlp){
+		Object.entries(tdoc).forEach(([category, items]) => {
+			items.forEach(item => {
+				if (item.title) { 
+					const generatedp=`${category}/${(item.title || "").replace(/\s+/g, '_')}`; 
+					if(urlp==generatedp){ 
+						isloaded=1;
+						console.log("workerapi[item.workerid]",workerapi[item.workerid]);
+						loadPage_v2(workerapi[item.workerid]+item.url , item);
+						// loadPage_v2(workerapi+item.url);
+						// onresizeFunction();
+						return;
+					}
+				} else {
+					if(urlp==category){ 
+						isloaded=1;
+						console.log("workerapi[item.workerid]",workerapi[item.workerid]);
+						loadPage_v2(workerapi[item.workerid]+item.url , item);
+						// loadPage_v2(workerapi+item.url);
+						// onresizeFunction();
+						return;
+					}
+				}
+			});
+		}); 	
+	}
+	if(isloaded)return;
+	//fallback
+	// loadPage_v2(workerapi+tdoc.home[0].url);
+	loadPage_v2(workerapi[tdoc.home[0].workerid]+tdoc.home[0].url);
+	console.log("tdoc",tdoc.home[0].url);
+}
+init();
+window.addEventListener('popstate', function (event) {
+	init();
+	
+});
+
+
+
+// 1. Inject Styles via JS
+const style = document.createElement('style');
+style.textContent = `
+    .dropdownc {
+        float: left;
+        overflow: hidden;
+    }
+    .dropdownc .dropbtn {
+        font-size: 16px;  
+        border: none;
+        outline: none;
+        color: white;
+        padding: 14px 16px;
+        background-color: inherit;
+        font-family: inherit;
+        margin: 0;
+        cursor: pointer;
+    }
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        background-color: #f9f9f9;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        z-index: 1;
+    }
+    .dropdown-content a {
+        float: none;
+        color: black;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+        text-align: left;
+    }
+    .dropdown-content a:hover {
+        background-color: #ddd;
+    }
+    .show {
+        display: block !important;
+    }
+`;
+document.head.appendChild(style);
+
+// 2. Dropdown Toggle Function
+window.dropdownFunction = function(id) {
+    // Close other open dropdowns first
+    const dropdowns = document.getElementsByClassName("dropdown-content");
+    for (let i = 0; i < dropdowns.length; i++) {
+        if (dropdowns[i].id !== id) {
+            dropdowns[i].classList.remove('show');
         }
-      });
+    }
+    // Toggle the clicked one
+    document.getElementById(id).classList.toggle("show");
+};
 
-      // Now re-inject scripts in order so they execute
-      (function runScripts(i) {
-        if (i >= scripts.length) return;
+// 3. Close dropdowns if user clicks outside
+const myTopnav = document.getElementById("myTopnav");
 
-        const oldScript = scripts[i];
-        const newScript = document.createElement('script');
+window.onclick = function(event) {
+    // ignore clicks on the button/icon that opens the menu
+    if (event.target.matches('.dropbtn') || event.target.closest('.dropbtn')) return;
 
-        // Copy attributes
-        Array.from(oldScript.attributes).forEach(attr => {
-          newScript.setAttribute(attr.name, attr.value);
+    // close dropdowns
+    const dropdowns = document.getElementsByClassName("dropdown-content");
+    for (let i = 0; i < dropdowns.length; i++) {
+        dropdowns[i].classList.remove('show');
+    }
+
+    // if responsive menu is open, close it
+	if (event.target.closest(".icon")) return;
+    if (myTopnav.classList.contains('responsive')) {
+        myTopnav.classList.remove('responsive');
+    }
+};
+
+
+
+// 4. Main Loop to generate Nav
+Object.entries(tdoc).forEach(([key, value]) => {
+    if (key === "home") return;
+			console.log("key",key);
+	console.log("ovalue",value[0].workerid);
+
+    const navContainer = document.getElementById("myTopnav");
+
+    if (Array.isArray(value) && value.length > 1) {
+        // --- CREATE DROPDOWN ---
+        const dropdownDiv = document.createElement("div");
+        dropdownDiv.className = "dropdownc";
+
+        const dropdownId = `dropdown-${key}`;
+        
+        const btn = document.createElement("button");
+        btn.className = "dropbtn";
+        btn.onclick = (e) => {
+			if (myTopnav.classList.contains('responsive')){
+				e.stopPropagation(); // Prevent immediate closing
+				dropdownFunction(dropdownId);
+			}
+        };
+        btn.innerHTML = `${key}  <i class="fa fa-caret-down"></i>`;
+        
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "dropdown-content";
+        contentDiv.id = dropdownId;
+
+        value.forEach(item => {
+            const subLink = document.createElement("a");
+            subLink.textContent = item.title || key; 
+            subLink.href = `?p=${key}/${(item.title || "").replace(/\s+/g, '_')}`;
+            
+            subLink.addEventListener("click", (e) => {
+                e.preventDefault();
+                updateurl(subLink);
+                loadPage_v2(workerapi[item.workerid] + item.url , item);
+                // loadPage_v2(workerapi + item.url);
+                window.scrollTo(0, 0);
+				// Hide any open menus right now
+				document.querySelectorAll('.dropdown-content').forEach(function(el) { 
+					el.style.display = 'none';    // inline-hide for desktop
+					setTimeout(() => { el.style.display = ''; }, 500);
+				}); 
+            });
+            contentDiv.appendChild(subLink);
         });
 
-        if (oldScript.src) {
-          // Remote script
-          newScript.src = new URL(oldScript.getAttribute('src'), url).href;
-          newScript.onload = () => runScripts(i + 1);
-          newScript.onerror = () => runScripts(i + 1);
-          document.body.appendChild(newScript);
-        } else {
-          // Inline script
-          newScript.textContent = oldScript.textContent;
-          document.body.appendChild(newScript);
-          runScripts(i + 1);
-        }
+        dropdownDiv.appendChild(btn);
+        dropdownDiv.appendChild(contentDiv);
+        navContainer.appendChild(dropdownDiv);
 
+    } else {
+        // --- CREATE SINGLE LINK ---
+        const url = Array.isArray(value) ? value[0].url : value;
+        const link = document.createElement("a");
+        link.textContent = key;
+        link.href = `?p=${key}`;
 
-
-
-
-
-		onresizeFunction();
-      })(0);
-    })
-    .catch(err => {
-      console.error(err);
-      document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
-    });
-}
-
-function loadPage_v2_v1(url) {
-  fetch(url)
-    .then(r => r.text())
-    .then(html => {
-      const viewer_v1 = document.getElementById('viewer_v1');
-      viewer_v1.innerHTML = html;
-
-      viewer_v1.querySelectorAll('script').forEach(oldScript => {
-        const script = document.createElement('script');
-
-        if (oldScript.src) {
-          script.src = oldScript.src;
-        } else {
-          script.textContent = oldScript.textContent;
-        }
-
-        // carry over attributes like type/integrity/etc. if you need them
-        Array.from(oldScript.attributes).forEach(({ name, value }) => {
-          script.setAttribute(name, value);
+        link.addEventListener("click", (e) => {
+            e.preventDefault();
+            updateurl(link);
+			console.log("key",key);
+			console.log("value",tdoc[key]);
+            loadPage_v2(workerapi[value[0].workerid] + url, value[0]);
+            // loadPage_v2(workerapi + url);
+            window.scrollTo(0, 0);
         });
+        navContainer.appendChild(link);
+    }
 
-        oldScript.parentNode.replaceChild(script, oldScript);
-      });
-    })
-    .catch(() => {
-      document.getElementById('viewer_v1').innerHTML = "<p>Error loading page.</p>";
-    });
-}
-function loadPage_v2_iframe(url) {
-  const viewer_v1 = document.getElementById("viewer_v1");
-  viewer_v1.innerHTML = ""; // clear previous
+});
 
-  const iframe = document.createElement("iframe");
-  iframe.src = url;
-  iframe.paddingTop=myTopnav.height;
-  iframe.width = "100%";
-  iframe.height = "1000";
-  iframe.style.border = "none";
+//region globe
+// Create the Language Dropdown
+const langDropdown = document.createElement("div");
+langDropdown.className = "dropdownc";
 
-  iframe.onload = () => {
-    console.log("Iframe loaded:", url);
-    // you can access iframe content if same-origin:
-    // const doc = iframe.contentDocument;
-    // doc.body.style.background = "lightyellow";
-  };
+const langBtn = document.createElement("button");
+langBtn.className = "dropbtn";
+// This calls the fixed dropdownFunction above
+langBtn.onclick = (e) => {
+    e.stopPropagation();
+    dropdownFunction('myDropdown7');
+};
+langBtn.innerHTML = '<i class="fas fa-globe"></i> <i class="fa fa-caret-down"></i>';
 
-  viewer_v1.appendChild(iframe);
-}
+const langContent = document.createElement("div");
+langContent.className = "dropdown-content";
+langContent.id = "myDropdown7";
 
-async function loadPage_v1(url, addToHistory = true) {
-  try {
-	// url="https://missionsave.github.io/"+url;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const html = await resp.text();
+const languages = [
+    { code: 'pt-PT', label: 'pt-PT' },
+    { code: 'en', label: 'en' },
+    { code: 'fr', label: 'fr' },
+    { code: 'es', label: 'es' }
+];
 
-    // Parse HTML
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
+languages.forEach(lang => {
+    const a = document.createElement("a");
+    a.className = "notranslate";
+    a.style.cursor = "pointer";
+    a.textContent = lang.label;
+    a.onclick = () => {
+        menut(lang.code);
+        langContent.classList.remove('show'); // Close dropdown
+		// Hide any open menus right now
+		document.querySelectorAll('.dropdown-content').forEach(function(el) { 
+			el.style.display = 'none';    // inline-hide for desktop
+			setTimeout(() => { el.style.display = ''; }, 500);
+		}); 
+    };
+    langContent.appendChild(a);
+});
 
-    // Replace viewer_v1 content
-    const viewer_v1 = document.getElementById("viewer_v1");
-    viewer_v1.innerHTML = doc.body.innerHTML;
+langDropdown.appendChild(langBtn);
+langDropdown.appendChild(langContent);
+document.getElementById("myTopnav").appendChild(langDropdown);
 
-    // Execute <script> tags
-    viewer_v1.querySelectorAll("script").forEach(oldScript => {
-      const newScript = document.createElement("script");
-      if (oldScript.src) {
-        // newScript.src = oldScript.src; // external script
-      } else {
-        // newScript.textContent = oldScript.textContent; // inline script
-      }
-      document.body.appendChild(newScript);
-      document.body.removeChild(newScript);
-    });
-
-    // Update browser history (for back/forward)
-    // if (addToHistory) {
-    //   history.pushState({ url }, "", url);
-    // }
-  } catch (err) {
-    document.getElementById("viewer_v1").innerHTML =
-      "<p>Error loading page: " + err.message + "</p>";
-  }
-}
-
-// Handle back/forward buttons
-// window.addEventListener("popstate", e => {
-//   if (e.state && e.state.url) {
-//     loadPage(e.state.url, false); // don't push again
-//   }
-// });
 
 const path = window.location.pathname.replace(/^\/+/, '');
 console.log("path",path);
 
-const pValue = params.get("p");
-// if (pValue){ //replace "%2F" from p to "/"
-// 	// Clone current params without 'p'
-// 	const params = new URLSearchParams(window.location.search);
-// 	params.delete('p');
 
-// 	// Build query string manually for 'p' so slashes stay literal
-// 	const encodedP = encodeURIComponent(pValue).replace(/%2F/g, '/');
-
-// 	// Combine: 'p' first, then the rest of the params
-// 	let qs = `p=${encodedP}`;
-// 	const rest = params.toString();
-// 	if (rest) qs += `&${rest}`;
-
-// 	const newUrl = `${window.location.pathname}?${qs}${window.location.hash || ''}`;
-// 	window.history.replaceState({}, '', newUrl);
-
-// }
-
-	console.log(pValue);
-
-	async function fileExists(url) {
-	try {
-		const res = await fetch(url, { method: "HEAD" });
-		return res.ok; // true if status is 200–299
-	} catch {
-		return false; // network error, CORS issue, etc.
-	}
-	}
-
-	// Example usage:
-
-	// fileExists("https://missionsave.github.io/books/books.html")
-	// .then(exists => {
-	// 	if (exists) {
-	// 	console.log("✅ File exists");
-	// 	} else {
-	// 	console.log("❌ File not found");
-	// 	}
-	// });
-	if(path=="books/" || path=="books"){
-		loadPage_v2('https://missionsave.github.io/books/books.html');
-		onresizeFunction();
-	}
-	else
-	if (!pValue || pValue.trim() === "") {
-		// loadPage('gest/index.html');
-		// loadPage('https://missionsave.github.io/gest/index.html');
-		// loadPage_v2('https://missionsave.github.io/home.html');
-		// loadPage('https://missionsave.github.io/home.html');
-		onresizeFunction();
-			loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url="+tdoc.home[0].url);
-		console.log("tdoc",tdoc.home[0].url);
-	} else {
-		// loadPage("pages/"+pValue);
-		// loadPage_v2("pages/"+pValue);
-		console.log("pValue",pValue);
-		if(pValue=="Development.html"){
-			loadPage_v2("https://superdb-api.superbem.workers.dev/clean-doc?url=https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub&nocache=3");
-			// removeSpacing(document.getElementById("contents"));
-		}else
-			loadPage_v2("https://missionsave.github.io/pages/"+pValue);
-		setTimeout(function () {
-			onresizeFunction();
-		}, 600);
-		// loadPage("https://missionsave.github.io/pages/"+pValue);
-	}
+onresizeFunction();
 </script>
 
 
@@ -1309,206 +669,3 @@ const pValue = params.get("p");
 
 
 
-
-
-
-
-<!-- <script>
-(function() {
-  const removerFundingChoices = () => {
-    document.querySelectorAll('iframe[src*="fundingchoicesmessages.google.com"]').forEach(el => el.remove());
-    document.querySelectorAll('[style*="fundingchoicesmessages.google.com"]').forEach(el => el.remove());
-  };
-
-  // tentar logo no início
-  removerFundingChoices();
-
-  // observar novos elementos adicionados dinamicamente
-  const observer = new MutationObserver(removerFundingChoices);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-
-  // repetir por segurança depois de alguns segundos
-  setInterval(removerFundingChoices, 2000);
-})();
-
-</script> -->
-
-<br>
-<p></p> 
-
-<!-- 
-<style>
-/* impede elastic scroll no mobile, sem forçar height:100% */
-html, body {
-  overscroll-behavior: none;
-  /* NÃO colocar height:100% aqui — pode diminuir scrollHeight em algumas páginas */
-}
-</style>
-
-<script>
-(function() {
-  const limiteRatio = 0.98; // 98%
-  let scrollMax = 0;
-  let scrollLimite = 0;
-
-  function atualizarLimite() {
-    // recalcula sempre com os valores atuais do documento
-    const doc = document.documentElement;
-    scrollMax = Math.max(0, doc.scrollHeight - window.innerHeight);
-    scrollLimite = scrollMax * limiteRatio;
-  }
-
-  // Inicial
-  atualizarLimite();
-
-  // Recalcula em eventos relevantes
-  window.addEventListener('load', atualizarLimite);
-  window.addEventListener('resize', () => { atualizarLimite(); });
-  // fallback periódico caso algo mude frequentemente (ads, imagens, conteúdo dinâmico)
-  const intervalHandle = setInterval(atualizarLimite, 500);
-
-  // Observa mudanças DOM para recalcular imediatamente quando o conteúdo aumenta
-  const mo = new MutationObserver(() => atualizarLimite());
-  mo.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
-
-  // Helper: verifica se um destino ultrapassaria o limite
-  function excedeLimite(destY) {
-    atualizarLimite(); // garante valores recentes
-    return destY > scrollLimite;
-  }
-
-  // --- Roda do rato / touchpad (wheel) ---
-  window.addEventListener('wheel', (e) => {
-    // deltaY positivo => scroll para baixo
-    if (e.deltaY > 0) {
-      const intended = window.scrollY + e.deltaY;
-      if (excedeLimite(intended)) {
-        e.preventDefault();
-        window.scrollTo({ top: scrollLimite });
-      }
-    }
-  }, { passive: false });
-
-  // --- Touch (mobile) ---
-  // vamos calcular delta entre touchstart e touchmove
-  let touchStartY = null;
-  window.addEventListener('touchstart', (e) => {
-    if (e.touches && e.touches.length) touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-
-  window.addEventListener('touchmove', (e) => {
-    if (!touchStartY) return;
-    const currentY = (e.touches && e.touches.length) ? e.touches[0].clientY : null;
-    if (currentY == null) return;
-    const delta = touchStartY - currentY; // positivo = scroll para baixo
-    if (delta > 0) {
-      const intended = window.scrollY + delta;
-      if (excedeLimite(intended)) {
-        e.preventDefault();
-        window.scrollTo({ top: scrollLimite });
-      }
-    }
-  }, { passive: false });
-
-  window.addEventListener('touchend', () => touchStartY = null);
-
-  // --- Teclado (setas, PageDown, Space, End) ---
-  window.addEventListener('keydown', (e) => {
-    // teclas que movem para baixo
-    const downKeys = ['ArrowDown', 'PageDown', ' ', 'End'];
-    if (downKeys.includes(e.key)) {
-      // estimativa do destino dependendo da tecla
-      let intended = window.scrollY;
-      if (e.key === 'ArrowDown') intended += 40;
-      else if (e.key === 'PageDown') intended += window.innerHeight * 0.9;
-      else if (e.key === ' ') intended += window.innerHeight * 0.9;
-      else if (e.key === 'End') intended = scrollMax;
-
-      if (excedeLimite(intended)) {
-        e.preventDefault();
-        window.scrollTo({ top: scrollLimite });
-      }
-    }
-  });
-
-  // Segurança: caso algo mova o scroll por script, trava imediatamente se passar do limite
-  window.addEventListener('scroll', () => {
-    atualizarLimite();
-    if (window.scrollY > scrollLimite) {
-      window.scrollTo(0, scrollLimite);
-    }
-  }, { passive: false });
-
-  // cleanup (opcional) — caso queiras parar de observar depois de X tempo
-//   setTimeout(() => { mo.disconnect(); clearInterval(intervalHandle); }, 60000);
-})();
-</script> -->
-
-</body>
-
-
-<!-- 
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429"
-     crossorigin="anonymous"></script> -->
-
-<div translate="no" class="notranslate">
-  <script>
-    if (window.location.hostname === "missionsave.org" || window.location.hostname === "www.missionsave.org") {
-	  console.log("ads");
-      var s = document.createElement("script");
-      s.async = false;
-      s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
-      s.crossOrigin = "anonymous";
-      document.head.appendChild(s);
-    }
-  </script>
-</div>
-
-<style>
-.material-icons,
-.material-symbols-outlined,
-.material-symbols-rounded,
-.material-symbols-sharp {
-  translate: no !important;
-  user-select: none !important;
-}
-.notranslate {
-  translate: no !important;
-}
-
-iframe, .notranslate {
-  translate: no !important;
-}
-
-
-#google_esf, #fc-consent-banner, #fc-consent-dialog, [id^="fc-iframe-wrap"], [id^="fc-iframe"], 
-[style*="fundingchoicesmessages.google.com"] {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-
-
-
-
-</style>
-<script>const observer = new MutationObserver(() => {
-  const el = document.querySelector('div[style*="forced-color-adjust"]');
-  if (el && !el.classList.contains('notranslate')) {
-    el.classList.add('notranslate');
-    observer.disconnect();
-  }
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
-
-fillmenu();
-</script>
-</html>
-
- 		 		
-
-
- 		 		
