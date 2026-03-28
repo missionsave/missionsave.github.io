@@ -88,7 +88,7 @@ Clone(corner_clones,1)
 Movel(0,container_height-crn_height,0)
 Clone(corner,1)
 Movel(0,container_height-crn_height,0)
-FilletToAllEdges(2)
+--FilletToAllEdges(2)
 
 
 --Part sketch_upn40x20

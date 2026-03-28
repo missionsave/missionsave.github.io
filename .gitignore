@@ -39,6 +39,7 @@
 !scintlua.cpp
 !helpers.cpp
 !includes.hpp
+!msvcad.cfg
 
 !/approbot
 !frobot.cpp
