@@ -278,29 +278,38 @@ function fixCommaInsideSpan(html) {
   return html;
 }
 //region google_ads 
-function google_ads(add=0) {
-	return;
-    console.log("ads");
-
+function google_ads(add=0) { 
     const url = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
 
-    // Remove existing script if present
-    const existing = document.querySelector(`script[src="${url}"]`);
-    if (existing) {
-        existing.remove();
-        console.log("Removed existing Google Ads script");
+    // 1. Remove the Script Tag
+    const existingScript = document.querySelector(`script[src="${url}"]`);
+    if (existingScript) {
+        existingScript.remove();
     }
 
-	if(add==0)return;
-    // Add new script
+    // 2. Remove the actual Ad Containers/Content
+    const adElements = document.querySelectorAll('.adsbygoogle');
+    adElements.forEach(ad => {
+        ad.innerHTML = ''; // Clears the iframe/content inside
+        ad.style.display = 'none'; // Hides the placeholder
+    });
+
+    console.log("Script removed and ad containers hidden.");
+
+    if (add == 0) return;
+
+    // 3. Re-add script if requested
     const s = document.createElement("script");
-    s.async = false;
+    s.async = true; // Usually better for performance
     s.src = url;
     s.crossOrigin = "anonymous";
     document.head.appendChild(s);
 
+    // Show the containers again if we are adding them back
+    adElements.forEach(ad => ad.style.display = 'block');
+    
     console.log("Google Ads script loaded");
-} 
+}
 // function google_ads(){
 // 	  console.log("ads");
 //       var s = document.createElement("script");
