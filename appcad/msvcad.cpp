@@ -2437,6 +2437,115 @@ void lettherebelight7()
     }
 }
 
+void lettherebelight61() {
+    auto view = m_view;
+    auto viewer = view->Viewer();
+
+    try {
+        if (viewer.IsNull() || view.IsNull()) return;
+
+        viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+        view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+        // --- CLEAR EXISTING LIGHTS ---
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+
+			// --- VIEW METRICS ---
+Standard_Real viewW, viewH;
+view->Size(viewW, viewH);
+
+double t = strcfg("Offset");
+double dynamicIntensity = (viewW * viewH) * strcfg("Intensity");
+
+gp_Pnt center = view->Camera()->Center();
+gp_Pnt eye    = view->Camera()->Eye();
+
+// --- CAMERA BASIS ---
+gp_Dir forward = view->Camera()->Direction();
+gp_Dir up      = view->Camera()->Up();
+
+gp_Dir right(forward.Crossed(up));
+gp_Dir left = -right;
+
+// Convert to vectors
+gp_Vec vRight(right);
+gp_Vec vLeft(left);
+gp_Vec vUp(up);
+gp_Vec vDown = -vUp;
+
+// Offset distance based on view size
+Standard_Real d = t * Max(viewW, viewH);
+
+// Light origins
+gp_Pnt eye_right  = eye.Translated(vRight * d);
+gp_Pnt eye_left   = eye.Translated(vLeft  * d);
+gp_Pnt eye_top    = eye.Translated(vUp    * d);
+gp_Pnt eye_bottom = eye.Translated(vDown  * d);
+
+// Light targets (center shifted in each direction)
+gp_Pnt targetRight  = center.Translated(vRight * d);
+gp_Pnt targetLeft   = center.Translated(vLeft  * d);
+gp_Pnt targetTop    = center.Translated(vUp    * d);
+gp_Pnt targetBottom = center.Translated(vDown  * d);
+
+// Colors
+Quantity_Color colTop    (0.68627, 0.68627, 0.77647, Quantity_TOC_RGB);
+Quantity_Color colBottom (0.68627, 0.68627, 0.77647, Quantity_TOC_RGB);
+Quantity_Color colRight  (0.68627, 0.68627, 0.77647, Quantity_TOC_RGB);
+Quantity_Color colLeft   (0.68627, 0.68627, 0.77647, Quantity_TOC_RGB);
+
+// Intensities
+double I_top    = dynamicIntensity * strcfg("I_top");
+double I_bottom = dynamicIntensity * strcfg("I_bottom");
+double I_right  = dynamicIntensity * strcfg("I_side");
+double I_left   = dynamicIntensity * strcfg("I_side");
+
+double angle = strcfg("Angle");
+double conc  = strcfg("Concentration");
+
+// --- LIGHT CREATION ---
+auto addSpot = [&](const gp_Pnt& origin, const gp_Pnt& tgt,
+                   const Quantity_Color& col, double intensity)
+{
+    gp_Vec vec(origin, tgt);
+    if (vec.SquareMagnitude() <= gp::Resolution()) return;
+
+    Handle(V3d_SpotLight) spot = new V3d_SpotLight(origin, gp_Dir(vec), col);
+    spot->SetIntensity(intensity);
+    spot->SetAngle(angle);
+    spot->SetConcentration(conc);
+    spot->SetCastShadows(Standard_False);
+
+    viewer->AddLight(spot);
+    viewer->SetLightOn(spot);
+};
+
+// --- ADD 4 CAMERA-ALIGNED LIGHTS ---
+addSpot(eye_top,    targetTop,    colTop,    I_top);
+addSpot(eye_bottom, targetBottom, colBottom, I_bottom);
+addSpot(eye_right,  targetRight,  colRight,  I_right);
+addSpot(eye_left,   targetLeft,   colLeft,   I_left);
+
+// --- AMBIENT ---
+Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+amb->SetIntensity(strcfg("Ambient"));
+viewer->AddLight(amb);
+viewer->SetLightOn(amb);
+
+viewer->UpdateLights();
+
+
+    } catch (const Standard_Failure& e) {
+        std::cout << "OCCT Exception: " << e.GetMessageString() << std::endl;
+    }
+}
+
+
 void lettherebelight6() {
     auto view = m_view;
     auto viewer = view->Viewer();
@@ -2470,6 +2579,31 @@ void lettherebelight6() {
         gp_Pnt center = view->Camera()->Center();
         gp_Pnt eye    = view->Camera()->Eye();
 
+
+gp_Dir forward = view->Camera()->Direction();
+gp_Dir up      = view->Camera()->Up();
+
+// Build perpendicular basis
+gp_Dir right(forward.Crossed(up));
+gp_Dir left = -right;
+
+// Convert to vectors (gp_Dir cannot be multiplied by scalars)
+gp_Vec vRight(right);
+gp_Vec vLeft(left);
+gp_Vec vUp(up);
+gp_Vec vDown = -vUp;
+
+// Offset distance
+Standard_Real d = 1000.0;
+
+// Compute points
+gp_Pnt eye_right  = eye.Translated(vRight * d);
+gp_Pnt eye_left   = eye.Translated(vLeft  * d);
+gp_Pnt eye_top    = eye.Translated(vUp    * d);
+gp_Pnt eye_bottom = eye.Translated(vDown  * d);
+
+
+
         // ============================================================
         // 3-LIGHT RIG (REALISTIC):
         //  - TOP LIGHT: coming from +Y (sky)
@@ -2499,11 +2633,13 @@ void lettherebelight6() {
 
         // --- CREATE LIGHT FUNCTION ---
         auto addSpot = [&](const gp_Pnt& tgt, const Quantity_Color& col, double intensity)
-        {
-            gp_Vec vec(eye, tgt);
+        { 
+            gp_Vec vec(eye_right, tgt);
+            // gp_Vec vec(eye, tgt);
             if (vec.SquareMagnitude() <= gp::Resolution()) return;
 
-            Handle(V3d_SpotLight) spot = new V3d_SpotLight(eye, gp_Dir(vec), col);
+            Handle(V3d_SpotLight) spot = new V3d_SpotLight(eye_right, gp_Dir(vec), col);
+            // Handle(V3d_SpotLight) spot = new V3d_SpotLight(eye, gp_Dir(vec), col);
             spot->SetIntensity(intensity);
             spot->SetAngle(angle);
             spot->SetConcentration(conc);
@@ -2561,8 +2697,10 @@ void lettherebelight5() {
 
         double dynamicIntensity = (viewW * viewH) * strcfg("Intensity");
 
-        gp_Pnt center = view->Camera()->Center();
+        gp_Pnt center = view->Camera()->Center(); 
         gp_Pnt eye    = view->Camera()->Eye();
+
+
 
         // --- 3-LIGHT GRADIENT RIG TARGETS ---
         gp_Pnt targetTop    (center.X(), center.Y() + offsetH, center.Z());
@@ -2944,7 +3082,7 @@ for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next()) {
 			initialize_opencascade();
 		}
 		if (!m_initialized) return;
-		lettherebelight6();
+		lettherebelight61();
 		{ 
 		// auto view=m_view;
 		// auto viewer=view->Viewer();
