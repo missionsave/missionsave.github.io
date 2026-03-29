@@ -201,7 +201,7 @@ const tdoc = {
 	],
   Prototype: [
     {
-	  title: "Prototype",
+	//   title: "Prototype", //nao deve ter titulo se tiver so um no array 
       url: "https://docs.google.com/document/d/e/2PACX-1vQOqJ5d41ktREyYnub2n1WIB7R3nzxDtJf6Ag7zZUssoYAuul8g9TWnHon2wTd4YsMYYQzHnMAyrxut/pub?cache=6",
 	  origin: "https://docs.google.com/document/d/15IL0OSNn8sEmfP55lfz3pgfw_q67K56gZB6xqovsJRw/edit?tab=t.0",
 		workerid: 1
@@ -277,14 +277,38 @@ function fixCommaInsideSpan(html) {
 
   return html;
 }
-function google_ads(){
-	  console.log("ads");
-      var s = document.createElement("script");
-      s.async = false;
-      s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
-      s.crossOrigin = "anonymous";
-      document.head.appendChild(s);
-}
+//region google_ads 
+function google_ads(add=0) {
+    console.log("ads");
+
+    const url = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
+
+    // Remove existing script if present
+    const existing = document.querySelector(`script[src="${url}"]`);
+    if (existing) {
+        existing.remove();
+        console.log("Removed existing Google Ads script");
+    }
+
+	if(add==0)return;
+    // Add new script
+    const s = document.createElement("script");
+    s.async = false;
+    s.src = url;
+    s.crossOrigin = "anonymous";
+    document.head.appendChild(s);
+
+    console.log("Google Ads script loaded");
+} 
+// function google_ads(){
+// 	  console.log("ads");
+//       var s = document.createElement("script");
+//       s.async = false;
+//       s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
+//       s.crossOrigin = "anonymous";
+//       document.head.appendChild(s);
+// }
+
 //region loadpage
 function loadPage_v2(url,menuitem) {
   fetch(url)
@@ -380,7 +404,7 @@ viewer_v1.querySelectorAll('ul, li').forEach(el => {
  
       })(0);
 
-	  if(menuitem?.showpub)google_ads();
+	  if(menuitem?.showpub)google_ads(1);else google_ads(0);
 
     })
     .catch(err => {

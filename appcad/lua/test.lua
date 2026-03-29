@@ -880,13 +880,13 @@ end
 --circletest()
 
 
-struct()
+--struct()
 
 --elevator()
 
 --mosaics()
 
---robot1()
+robot1()
 
 
 

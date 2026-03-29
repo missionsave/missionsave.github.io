@@ -60,6 +60,7 @@
 #include <cmath>
 
 
+Handle(AIS_InteractiveContext) ctx;
 Handle(V3d_SpotLight) sun;  
 // -----------------------------------------------------------------------------
 // State
@@ -361,6 +362,102 @@ static void ApplyFakeBevelNormals(const TopoDS_Shape& theShape,
     }
 }
 
+static Handle(Graphic3d_TextureEnv) CreateCadEnv() {
+    const int W = 1024;
+    const int H = 512;
+
+    Handle(Image_PixMap) img = new Image_PixMap();
+    if (!img->InitTrash(Image_Format_RGB32, W, H)) {
+        std::cerr << "Failed to create env map\n";
+        return nullptr;
+    }
+
+    auto softbox = [](float u, float v, float cu, float cv, float su, float sv) -> float {
+        float du = fabs(u - cu); if (du > 0.5f) du = 1.0f - du;
+        float dv = fabs(v - cv);
+        float fu = std::max(0.0f, 1.0f - du / su);
+        float fv = std::max(0.0f, 1.0f - dv / sv);
+        fu = fu * fu * (3.0f - 2.0f * fu);
+        fv = fv * fv * (3.0f - 2.0f * fv);
+        return fu * fv;
+    };
+
+    // 🔥 controla a intensidade global do environment map
+    float envIntensity = 0.25f;   // 25% da intensidade original
+
+    for (int y = 0; y < H; ++y) {
+        float v = static_cast<float>(y) / static_cast<float>(H - 1);
+        for (int x = 0; x < W; ++x) {
+            float u = static_cast<float>(x) / static_cast<float>(W - 1);
+            u = std::max(0.0f, std::min(1.0f, u));
+            v = std::max(0.0f, std::min(1.0f, v));
+
+            float val = 0.05f;
+
+            val += 3.2f * softbox(u, v, 0.5f, 0.18f, 0.20f, 0.24f);
+            val += 2.5f * softbox(u, v, 0.10f, 0.48f, 0.08f, 0.42f);
+            val += 2.2f * softbox(u, v, 0.90f, 0.52f, 0.07f, 0.38f);
+            val += 1.4f * softbox(u, v, 0.5f, 0.75f, 0.32f, 0.22f);
+
+            float r = val;
+            float g = val;
+            float b = val;
+
+            // aplicar intensidade global
+            r *= envIntensity;
+            g *= envIntensity;
+            b *= envIntensity;
+
+            r = std::max(0.0f, std::min(1.0f, r));
+            g = std::max(0.0f, std::min(1.0f, g));
+            b = std::max(0.0f, std::min(1.0f, b));
+
+            img->SetPixelColor(x, y, Quantity_Color(r, g, b, Quantity_TOC_RGB));
+        }
+    }
+
+    return new Graphic3d_TextureEnv(img);
+}
+void ray(const Handle(V3d_View)& myView,  const std::vector<Handle(AIS_Shape)>& shapes){
+		// 1. Configurar a View para Raytracing
+myView->ChangeRenderingParams().Method = Graphic3d_RM_RAYTRACING;
+myView->ChangeRenderingParams().IsAntialiasingEnabled = Standard_True; // Melhora o aspeto do espelho
+
+// 2. Criar o material de espelho
+Graphic3d_MaterialAspect aMirrorMat(Graphic3d_NameOfMaterial_Chrome);
+aMirrorMat.SetSpecularColor(Quantity_NOC_WHITE);
+aMirrorMat.SetAmbientColor(Quantity_NOC_BLACK);
+aMirrorMat.SetDiffuseColor(Quantity_NOC_BLACK);
+aMirrorMat.SetShininess(1.0);
+
+// // 3. Aplicar ao Shape
+// Handle(AIS_Shape) aAISMirror = new AIS_Shape(minhaShape);
+// aAISMirror->SetMaterial(aMirrorMat);
+
+// // 4. Mostrar
+// myContext->Display(aAISMirror, Standard_True);	 
+
+// 	// 1. Ativar o Raytracing na View
+// view->SetRaytracingMode();
+
+// // 2. Configurar o material para ser um espelho perfeito
+// Graphic3d_MaterialAspect aMirrorMat(Graphic3d_NameOfMaterial_Mirror);
+
+// // No modo Raytracing, a "Refratividade" e "Refletividade" são controladas assim:
+// aMirrorMat.SetReflectionModeColor(Quantity_NOC_WHITE); // Reflete todas as cores
+// aMirrorMat.SetAmbientColor(Quantity_NOC_BLACK);       // Sem cor base (opcional)
+// aMirrorMat.SetDiffuseColor(Quantity_NOC_BLACK);       // Sem cor difusa (opcional)
+
+// // 3. Aplicar ao Shape
+        for (const auto& shape : shapes)
+        {
+            if (shape.IsNull())
+                continue;
+shape->SetMaterial(aMirrorMat);
+
+ctx->Redisplay(shape, Standard_True);
+		}
+}
 // -----------------------------------------------------------------------------
 //region NiceSteel 
 // -----------------------------------------------------------------------------
@@ -373,6 +470,14 @@ void NiceSteel(const Handle(V3d_View)& view,
 
     if (enable)
     {
+		// ray(view,shapes);return;
+
+
+// view->SetShadingModel(V3d_GOURAUD);
+
+
+    // StudioEnv studio = CreateStudioEnv();
+    // view->SetTextureEnv(studio.env);//return;
         // ApplyPBR(view); return;
 
     Handle(V3d_Viewer) viewer = view->Viewer();
@@ -392,11 +497,36 @@ void NiceSteel(const Handle(V3d_View)& view,
 //     viewer->DelLight(L);
 // }
 
-
-//  return;
-
     viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
     view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+//  return;
+    // ============================================================
+    // APLICAR ENVIRONMENT MAP (NÃO REMOVE NADA DO TEU CÓDIGO)
+    // ============================================================
+    // Handle(Graphic3d_TextureEnv) env = CreateCadEnv();
+    // // Handle(Graphic3d_TextureEnv) env = CreateCadStudioEnv();
+	// Handle(Graphic3d_TextureEnv) anEnv = new Graphic3d_TextureEnv(Graphic3d_NOT_ENV_CLOUDS);
+    // view->SetTextureEnv(anEnv);
+	
+    // viewer->SetUseEnvironmentMap(Standard_True);
+// 	viewer->SetEnvironmentTexture(env);
+// viewer->SetEnvironmentTextureEnabled(Standard_True);
+// view->ChangeRenderingParams().IsIBLEnabled = Standard_True;
+Graphic3d_RenderingParams& aParams = view->ChangeRenderingParams();
+aParams.Exposure = 0.50f; // Tenta aumentar a exposição
+// aParams.ToneMappingMethod = Graphic3d_TonneMappingMethod_Filmic;
+// aParams.IsReflectionEnabled = 1; // Tenta aumentar a exposição
+// aParams.IsGlobalIlluminationEnabled = 1; // Tenta aumentar a exposição
+// aParams.IsTransparentShadowEnabled = 1; // Tenta aumentar a exposição
+// aParams.Method = Graphic3d_RM_RASTERIZATION; // Garante que estás em rasterização moderna
+
+// Se estiveres a usar o Ray Tracing (opcional, mas o PBR brilha aqui):
+// aParams.Method = Graphic3d_RM_RAYTRACING;
+    // ============================================================
+
+    // viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+    // view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
     // view->SetShadingModel(Graphic3d_TypeOfShadingModel_Phong);
 
 	// viewer->SetLightOn();
@@ -528,15 +658,34 @@ TopoDS_Shape bshape = shape->Shape();
     pbr1.SetMetallic(0.04f);
     pbr1.SetRoughness(0.04f);
 
+	auto srgbToLinear = [](double c)->double {
+    if (c <= 0.04045) return c / 12.92;
+    return pow((c + 0.055) / 1.055, 2.4);
+};
+
+Quantity_Color srgb(0.54118,0.54118,0.61569, Quantity_TOC_RGB);
+Quantity_Color linear(
+    srgbToLinear(srgb.Red()),
+    srgbToLinear(srgb.Green()),
+    srgbToLinear(srgb.Blue()),
+    Quantity_TOC_RGB
+);
+// pbr1.Albedo = linear;
+
     Graphic3d_MaterialAspect mat1(Graphic3d_NameOfMaterial_UserDefined);
     mat1.SetPBRMaterial(pbr1);
+	mat1.SetColor(linear);
+	mat1.SetEmissiveColor(Quantity_NOC_RED);
     // mat1.SetColor( Quantity_NOC_DARKGOLDENROD2); // azul
-    mat1.SetColor(Quantity_NOC_GRAY30); // azul
+    // mat1.SetColor(Quantity_Color(0.54118,0.54118,0.61569, Quantity_TOC_RGB));; // azul
+    // mat1.SetColor(Quantity_NOC_GRAY30); // azul
     // mat1.SetColor(Quantity_Color(0.2, 0.4, 1.0, Quantity_TOC_RGB)); // azul
 
     shape->SetMaterial(mat1);
     shape->Attributes()->ShadingAspect()->Aspect()
         ->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+		
 
     // REALÇAR ARESTAS (outline)
     shape->Attributes()->SetFaceBoundaryDraw(Standard_True);
@@ -1971,6 +2120,7 @@ struct OCC_Viewer : public flwindow {
 		m_viewer->SetDefaultLights();
 		m_viewer->SetLightOn();
 		m_context = new AIS_InteractiveContext(m_viewer);
+		ctx=m_context;
 		m_view = m_viewer->CreateView();
 		m_view->SetWindow(wind);
 		InitializeCustomWireframeAspects(m_context);
@@ -2178,6 +2328,115 @@ void lettherebelight31() {
 }
 
 //region lettherebelight
+void lettherebelight7()
+{
+    auto view   = m_view;
+    auto viewer = view->Viewer();
+
+    try {
+        if (viewer.IsNull() || view.IsNull()) return;
+
+        viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+        view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+        // --- CLEAR EXISTING LIGHTS ---
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+        // --- VIEW METRICS ---
+        Standard_Real viewW, viewH;
+        view->Size(viewW, viewH);
+
+        double t = strcfg("Offset");
+        double halfW = viewW * 0.5;
+        double halfH = viewH * 0.5;
+
+        double offsetW = t * halfW;
+        double offsetH = t * halfH;
+
+        double dynamicIntensity = (viewW * viewH) * strcfg("Intensity");
+
+        gp_Pnt center = view->Camera()->Center();
+        gp_Pnt eye    = view->Camera()->Eye();
+
+        // ============================================================
+        // 6‑LIGHT STUDIO RIG
+        // ============================================================
+
+        gp_Pnt targetTop    (center.X(), center.Y() + offsetH, center.Z());
+        gp_Pnt targetBottom (center.X(), center.Y() - offsetH, center.Z());
+
+        gp_Pnt targetRight  (center.X() + offsetW, center.Y(), center.Z());
+        gp_Pnt targetLeft   (center.X() - offsetW, center.Y(), center.Z());
+
+        gp_Pnt targetFront  (center.X(), center.Y(), center.Z() + offsetH);
+        gp_Pnt targetBack   (center.X(), center.Y(), center.Z() - offsetH);
+
+        // --- COLORS ---
+        Quantity_Color colTop    (0.70, 0.72, 0.85, Quantity_TOC_RGB); // cool sky
+        Quantity_Color colBottom (0.95, 0.85, 0.70, Quantity_TOC_RGB); // warm bounce
+
+        Quantity_Color colRight  (0.80, 0.80, 0.90, Quantity_TOC_RGB);
+        Quantity_Color colLeft   (0.80, 0.80, 0.90, Quantity_TOC_RGB);
+
+        Quantity_Color colFront  (0.95, 0.95, 0.95, Quantity_TOC_RGB); // key
+        Quantity_Color colBack   (0.75, 0.80, 0.95, Quantity_TOC_RGB); // rim
+
+        // --- INTENSITIES ---
+        double I_top    = dynamicIntensity * strcfg("I_top");
+        double I_bottom = dynamicIntensity * strcfg("I_bottom");
+
+        double I_right  = dynamicIntensity * strcfg("I_right");
+        double I_left   = dynamicIntensity * strcfg("I_left");
+
+        double I_front  = dynamicIntensity * strcfg("I_front");
+        double I_back   = dynamicIntensity * strcfg("I_back");
+
+        double angle = strcfg("Angle");
+        double conc  = strcfg("Concentration");
+
+        // --- LIGHT CREATION ---
+        auto addSpot = [&](const gp_Pnt& tgt, const Quantity_Color& col, double intensity)
+        {
+            gp_Vec vec(eye, tgt);
+            if (vec.SquareMagnitude() <= gp::Resolution()) return;
+
+            Handle(V3d_SpotLight) spot = new V3d_SpotLight(eye, gp_Dir(vec), col);
+            spot->SetIntensity(intensity);
+            spot->SetAngle(angle);
+            spot->SetConcentration(conc);
+            spot->SetCastShadows(Standard_False);
+
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+        };
+
+        // --- ADD ALL 6 LIGHTS ---
+        addSpot(targetTop,    colTop,    I_top);
+        addSpot(targetBottom, colBottom, I_bottom);
+
+        addSpot(targetRight,  colRight,  I_right);
+        addSpot(targetLeft,   colLeft,   I_left);
+
+        addSpot(targetFront,  colFront,  I_front);
+        addSpot(targetBack,   colBack,   I_back);
+
+        // --- AMBIENT ---
+        Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+        amb->SetIntensity(strcfg("Ambient"));
+        viewer->AddLight(amb);
+        viewer->SetLightOn(amb);
+
+        viewer->UpdateLights();
+
+    } catch (const Standard_Failure& e) {
+        std::cout << "OCCT Exception: " << e.GetMessageString() << std::endl;
+    }
+}
+
 void lettherebelight6() {
     auto view = m_view;
     auto viewer = view->Viewer();
@@ -2223,9 +2482,12 @@ void lettherebelight6() {
         gp_Pnt targetLeft   (center.X() - offsetW, center.Y(), center.Z());
 
         // --- COLORS (sky / neutral / warm) ---
-        Quantity_Color colTop   (Quantity_NOC_GOLD);
-        Quantity_Color colRight (Quantity_NOC_WHITE);
-        Quantity_Color colLeft  (Quantity_NOC_RED);
+        Quantity_Color colTop   (Quantity_Color(0.68627, 0.68627, 0.77647, Quantity_TOC_RGB));
+        Quantity_Color colRight (Quantity_Color(0.68627, 0.68627, 0.77647, Quantity_TOC_RGB));
+        Quantity_Color colLeft  (Quantity_Color(0.68627, 0.68627, 0.77647, Quantity_TOC_RGB));
+        // Quantity_Color colTop   (Quantity_NOC_GOLD);
+        // Quantity_Color colRight (Quantity_NOC_WHITE);
+        // Quantity_Color colLeft  (Quantity_NOC_RED);
 
         // --- INTENSITIES FROM SLIDERS ---
         double I_top    = dynamicIntensity * strcfg("I_top");
