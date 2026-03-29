@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+ 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TDOC Links</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 20px auto; }
+    h2 { margin-top: 1.5em; }
+    ul { padding-left: 1.2em; }
+    li { margin: 0.3em 0; }
+    a { color: #0645ad; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .origin {
+      font-size: 0.85em;
+      color: #555;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>TDOC Links</h1>
+  <div id="content">A carregar…</div>
+
+  <script type="module">
+    async function loadTdoc() {
+      const res = await fetch('tdoc.json');
+      const tdoc = await res.json();
+      renderTdoc(tdoc);
+    }
+
+    function renderTdoc(tdoc) {
+      const container = document.getElementById('content');
+      container.innerHTML = '';
+
+      for (const [category, items] of Object.entries(tdoc)) {
+        const h2 = document.createElement('h2');
+        h2.textContent = category;
+        container.appendChild(h2);
+
+        const ul = document.createElement('ul');
+
+        for (const item of items) {
+          const li = document.createElement('li');
+
+          // link principal
+          const a = document.createElement('a');
+          a.textContent = item.title || item.url;
+          a.href = item.url;
+          a.target = '_blank';
+          li.appendChild(a);
+
+          // origin (se existir)
+          if (item.origin) {
+            const originLink = document.createElement('a');
+            originLink.textContent = "origin";
+            originLink.href = item.origin;
+            originLink.target = "_blank";
+            originLink.className = "origin";
+            li.appendChild(originLink);
+          }
+
+          ul.appendChild(li);
+        }
+
+        container.appendChild(ul);
+      }
+    }
+
+    loadTdoc().catch(err => {
+      document.getElementById('content').textContent = 'Erro ao carregar tdoc.json';
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
