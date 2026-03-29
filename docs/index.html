@@ -278,38 +278,43 @@ function fixCommaInsideSpan(html) {
   return html;
 }
 //region google_ads 
-function google_ads(add=0) { 
+function google_ads(add = 0) {
     const url = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
 
-    // 1. Remove the Script Tag
-    const existingScript = document.querySelector(`script[src="${url}"]`);
-    if (existingScript) {
-        existingScript.remove();
+    // 1. Remove o script da tag <head>
+    const existing = document.querySelector(`script[src="${url}"]`);
+    if (existing) {
+        existing.remove();
+        console.log("Script de anúncios removido.");
     }
 
-    // 2. Remove the actual Ad Containers/Content
+    // 2. Remove a barra de privacidade/consentimento (o código que você enviou)
+    const privacyToolbar = document.getElementById('ft-floating-toolbar');
+    if (privacyToolbar) {
+        privacyToolbar.remove();
+        console.log("Barra de privacidade removida.");
+    }
+
+    // 3. Esconde os containers de anúncios reais
     const adElements = document.querySelectorAll('.adsbygoogle');
     adElements.forEach(ad => {
-        ad.innerHTML = ''; // Clears the iframe/content inside
-        ad.style.display = 'none'; // Hides the placeholder
+        ad.innerHTML = ''; 
+        ad.style.display = 'none';
     });
-
-    console.log("Script removed and ad containers hidden.");
 
     if (add == 0) return;
 
-    // 3. Re-add script if requested
+    // 4. Se add for 1, recria o script
     const s = document.createElement("script");
-    s.async = true; // Usually better for performance
+    s.async = true;
     s.src = url;
     s.crossOrigin = "anonymous";
     document.head.appendChild(s);
 
-    // Show the containers again if we are adding them back
     adElements.forEach(ad => ad.style.display = 'block');
-    
-    console.log("Google Ads script loaded");
+    console.log("Google Ads script carregado.");
 }
+
 // function google_ads(){
 // 	  console.log("ads");
 //       var s = document.createElement("script");
