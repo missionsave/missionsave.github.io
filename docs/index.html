@@ -17,6 +17,9 @@
 	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
 
+
+
+	
 	<script>
 	//region translate
 	var lib;
@@ -167,17 +170,36 @@ body.no-hover .dropdownc:hover .dropdown-content {
 
  </body>
 
-
+ 
 <script>
+let tdoc;  
+function loadTdocSync() {
+	const xhr = new XMLHttpRequest();
+	xhr.open('GET', 'https://missionsave.github.io/tdoc.json', false);   // false = síncrono / blocking	
+	try {
+		xhr.send();
+		
+		if (xhr.status === 200 || xhr.status === 0) {
+			tdoc = JSON.parse(xhr.responseText);
+			console.log('✅ tdoc carregado com sucesso (blocking)', tdoc);
+		} else {
+			console.error('❌ Erro ao carregar tdoc.js:', xhr.status);
+		}
+	} catch (error) {
+		console.error('❌ Erro na requisição:', error);
+	}
+}
+loadTdocSync();
+
 //region globals
 const workerapi=["",
 	"https://superdb-api.superbem.workers.dev/clean-doc?url=",
 
 ]
 ;
-//google docs
 
-const tdoc = {
+
+const tdoc_deprecated = {
 	home:[
 		{
 		url: "https://docs.google.com/document/d/e/2PACX-1vT22WSgbyIKg8iAu6EBv2Qjj-C98asQ3TgcANlro7QqYkaRGBv470_OUPm6ocJht5dx5FXrSkEphQvM/pub&cache=1"	,

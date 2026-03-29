@@ -1,0 +1,58 @@
+{
+  "home": [
+    {
+      "url": "https://docs.google.com/document/d/e/2PACX-1vT22WSgbyIKg8iAu6EBv2Qjj-C98asQ3TgcANlro7QqYkaRGBv470_OUPm6ocJht5dx5FXrSkEphQvM/pub&cache=1",
+      "origin": "https://docs.google.com/document/d/160quPrgk3Dr6j_6X3N7pPvXTIrwfS7y2coClTNTByFs/edit?tab=t.0",
+      "workerid": 1
+    }
+  ],
+  "Proposals": [
+    {
+      "title": "Local Food Network",
+      "url": "https://docs.google.com/document/d/e/2PACX-1vTTuiUJAov1dV9ppMVKhDAM-lZ7eIt1ouQ64gX-Y2BoKIZotKhqbIxqNZ7vol8BFRijm3BuRIuQWoxn/pub?",
+      "origin": "https://docs.google.com/document/d/1RN2lxhjfYsByep8GePUZvVRQdonHtXIJSjWGTGKOFlw/edit",
+      "workerid": 1
+    },
+    {
+      "title": "Child healthy food on schools",
+      "url": "https://docs.google.com/document/d/e/2PACX-1vTFHortQ_w8HkxXmfFbUebNqo-OduyPM7looeRf4gmkji5fcMqePWZ0e09pwNeW7CkjpPBX5tZelArf/pub",
+      "origin": "https://docs.google.com/document/d/1vfAxEfO-OmAUz4u67FxMYJkN-LG9cPpBrZec83s5Mwk/edit",
+      "workerid": 1
+    }
+  ],
+  "Prototype": [
+    {
+      "url": "https://docs.google.com/document/d/e/2PACX-1vQOqJ5d41ktREyYnub2n1WIB7R3nzxDtJf6Ag7zZUssoYAuul8g9TWnHon2wTd4YsMYYQzHnMAyrxut/pub?cache=6",
+      "origin": "https://docs.google.com/document/d/15IL0OSNn8sEmfP55lfz3pgfw_q67K56gZB6xqovsJRw/edit?tab=t.0",
+      "workerid": 1
+    }
+  ],
+  "Ecosystem": [
+    {
+      "title": "Cultivation",
+      "url": "https://docs.google.com/document/d/e/2PACX-1vThBsbBiGhBSkhcPM4HH2KYklmM6K66AjXFEaQexuSBuNQ4zK7IYc-ytXvcJipdnnBX-_I5cNQ_904B/pub?cache=3",
+      "origin": "https://docs.google.com/document/d/1lS93MGkFTbNQDtIn6wuTDVqIVJwWR2k3FbeHUykzBgg/edit",
+      "comments": "https://copilot.microsoft.com/chats/7bUWfMSHmkpqnNFpXU4fC",
+      "workerid": 1
+    },
+    {
+      "title": "Nutrition",
+      "url": "https://missionsave.github.io/pages/Nutrition.html",
+      "workerid": 0
+    }
+  ],
+  "Development": [
+    {
+      "url": "https://docs.google.com/document/d/e/2PACX-1vSRazloLd0_LlPEj5p7ioDybND-OhuPs1VaeOd8mNTV07pBwZpEFXY6OmcjcxhKVvZsMBSiXOleqJwR/pub?cache=3",
+      "origin": "https://docs.google.com/document/d/1Wz9GZ0s8bGxPIiDMyWGvJb5IOqdrnwDyjWyrSXPcGec/edit?tab=t.0",
+      "workerid": 1
+    }
+  ],
+  "Books": [
+    {
+      "url": "https://missionsave.github.io/books/books.html",
+      "workerid": 0,
+      "showpub": 1
+    }
+  ]
+}
