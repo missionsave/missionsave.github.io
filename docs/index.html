@@ -156,7 +156,7 @@ body.no-hover .dropdownc:hover .dropdown-content {
 
  	<div class="topheader" id="topheaderid">
  		<div class="topnav" id="myTopnav">
- 			<a href="?" onclick='updateurl(this); loadPage_v2(workerapi[tdoc.home[0].workerid]+tdoc.home[0].url); window.scrollTo(0, 0); return false;' class="active notranslate">Foundation Mission SAVE</a> 
+ 			<a href="?" onclick='updateurl(this); to_refresh(); loadPage_v2(workerapi[tdoc.home[0].workerid]+tdoc.home[0].url); window.scrollTo(0, 0); return false;' class="active notranslate">Foundation Mission SAVE</a> 
  			<a style="font-size:15px; cursor: pointer;"  class="icon" onclick="myFunction();"><b>&#9776;</b></a> 
  		</div> 
  	</div>
@@ -238,12 +238,19 @@ const tdoc = {
   ],
   Books: [
     {
+    //   url: "http://127.0.0.1:8080/books/books.html",
       url: "https://missionsave.github.io/books/books.html",
 		workerid: 0,
 		showpub: 1
 	}
 	]
 };
+
+function to_refresh(){
+	console.log("torefresh",typeof adsloaded !== "undefined");
+	if(typeof adsloaded !== "undefined")
+		window.location.href = window.location.href;
+}
 
 function myFunction() { 
 	var x = document.getElementById("myTopnav");
@@ -279,6 +286,7 @@ function fixCommaInsideSpan(html) {
 }
 //region google_ads 
 function google_ads(add = 0) {
+	return;
     console.log("Ajustando Google Ads...");
 
     const url = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
@@ -622,6 +630,7 @@ Object.entries(tdoc).forEach(([key, value]) => {
             subLink.addEventListener("click", (e) => {
                 e.preventDefault();
                 updateurl(subLink);
+				to_refresh();
                 loadPage_v2(workerapi[item.workerid] + item.url , item);
                 // loadPage_v2(workerapi + item.url);
                 window.scrollTo(0, 0);
@@ -648,6 +657,7 @@ Object.entries(tdoc).forEach(([key, value]) => {
         link.addEventListener("click", (e) => {
             e.preventDefault();
             updateurl(link);
+			to_refresh();
 			console.log("key",key);
 			console.log("value",tdoc[key]);
             loadPage_v2(workerapi[value[0].workerid] + url, value[0]);
