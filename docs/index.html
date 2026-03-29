@@ -279,42 +279,53 @@ function fixCommaInsideSpan(html) {
 }
 //region google_ads 
 function google_ads(add = 0) {
+    console.log("Ajustando Google Ads...");
+
     const url = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7469281181086429&hl=pt-PT";
 
-    // 1. Remove o script da tag <head>
+    // 1. Remove o script base
     const existing = document.querySelector(`script[src="${url}"]`);
-    if (existing) {
-        existing.remove();
-        console.log("Script de anúncios removido.");
-    }
+    if (existing) existing.remove();
 
-    // 2. Remove a barra de privacidade/consentimento (o código que você enviou)
-    const privacyToolbar = document.getElementById('ft-floating-toolbar');
-    if (privacyToolbar) {
-        privacyToolbar.remove();
-        console.log("Barra de privacidade removida.");
-    }
+    // 2. Remove TODA a estrutura de anúncios e privacidade
+    // Criamos uma lista de seletores baseada no código que enviou
+    const selectors = [
+        '.adsbygoogle',              // Os anúncios
+        'iframe[name^="googlefc"]',  // Mensagens de consentimento (Funding Choices)
+        'iframe#google_esf',         // Frame de suporte
+        '#ft-floating-toolbar',      // A barra de ferramentas
+        '.ft-container',             // Container da barra
+        'ins.adsbygoogle'            // Tags de inserção
+    ];
 
-    // 3. Esconde os containers de anúncios reais
-    const adElements = document.querySelectorAll('.adsbygoogle');
-    adElements.forEach(ad => {
-        ad.innerHTML = ''; 
-        ad.style.display = 'none';
+    selectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => el.remove());
     });
 
-    if (add == 0) return;
+    // 3. Remove aquele DIV gigante de reset (o que tem centenas de estilos initial)
+    // Geralmente ele aparece logo antes do fechamento do </body>
+    const bodyChildren = document.body.children;
+    if (bodyChildren.length > 0) {
+        const lastChild = bodyChildren[bodyChildren.length - 1];
+        if (lastChild.tagName === 'DIV' && lastChild.style.colorScheme === 'initial') {
+            lastChild.remove();
+        }
+    }
 
-    // 4. Se add for 1, recria o script
+    if (add == 0) {
+        console.log("Tudo limpo!");
+        return;
+    }
+
+    // 4. Se for para adicionar (add == 1)
     const s = document.createElement("script");
     s.async = true;
     s.src = url;
     s.crossOrigin = "anonymous";
     document.head.appendChild(s);
-
-    adElements.forEach(ad => ad.style.display = 'block');
-    console.log("Google Ads script carregado.");
+    console.log("Google Ads script reiniciado.");
 }
-
 // function google_ads(){
 // 	  console.log("ads");
 //       var s = document.createElement("script");
