@@ -269,10 +269,27 @@ const tdoc_deprecated = {
 	]
 };
 
+
+function cleanHTML(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Remove all script tags that point to known ad providers
+    const scripts = doc.querySelectorAll('script');
+    scripts.forEach(script => {
+        if (script.src.includes('doubleclick') || script.src.includes('googleadservices')) {
+            script.remove();
+        }
+    });
+    
+    return doc.body.innerHTML;
+}
 function to_refresh(){
 	console.log("torefresh",typeof adsloaded !== "undefined");
-	if(typeof adsloaded !== "undefined")
-		window.location.href = window.location.href;
+	if(typeof adsloaded !== "undefined"){
+		// window.location.href = window.location.href;
+		cleanHTML(viewer_v1.innerHTML);
+	}
 }
 
 function myFunction() { 
@@ -283,7 +300,7 @@ function myFunction() {
 		x.className = "topnav"; 
 	}
 } 
-http://127.0.0.1:8080/dev.html?p=Development
+// http://127.0.0.1:8080/dev.html?p=Development
 function fixCommaInsideSpan(html) {
   // aceita vírgula ou ponto
  
