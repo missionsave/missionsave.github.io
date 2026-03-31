@@ -311,9 +311,9 @@ function removeGoogleArtifacts() {
 function to_refresh(){
 	console.log("torefresh",typeof adsloaded !== "undefined");
 	if(typeof adsloaded !== "undefined"){
-		// window.location.href = window.location.href;
-		cleanHTML(viewer_v1.innerHTML);
-		removeGoogleArtifacts();
+		window.location.href = window.location.href;
+		// cleanHTML(viewer_v1.innerHTML);
+		// removeGoogleArtifacts();
 	}
 }
 
