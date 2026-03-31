@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html  >
+<head>
+  <meta charset="UTF-8" /> 
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; }
+    label { display: block; margin-top: 1rem; }
+    input, textarea { width: 100%; padding: 0.6rem; }
+    button { margin-top: 1rem; padding: 0.7rem 1rem; }
+    .msg { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Contact</h1>
+  <form id="contactForm">
+    <label>
+      Name
+      <input type="text" name="name" required />
+    </label>
+    <label>
+      Email
+      <input type="email" name="email" required />
+    </label>
+    <label>
+      Message
+      <textarea name="message" rows="6" required></textarea>
+    </label>
+    <button type="submit">Send</button>
+  </form>
+  <div class="msg" id="status"></div>
+
+  <script>
+  	const WORKER_ENDPOINT = "https://superdb-api.superbem.workers.dev/emailsendtome";
+
+
+    const form = document.getElementById("contactForm");
+    const status = document.getElementById("status");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      status.textContent = "Sending…";
+
+      const formData = new FormData(form);
+      const payload = {
+        name: formData.get("name"),
+        email: formData.get("email"),
+        message: formData.get("message"),
+      };
+
+      try {
+        const res = await fetch(WORKER_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Request failed");
+
+        status.textContent = "Sent! Thanks for reaching out.";
+        form.reset();
+      } catch (err) {
+        status.textContent = "Failed to send: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

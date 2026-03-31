@@ -131,6 +131,71 @@ export default {
 
 
 
+
+
+
+
+
+
+// -----------------------------------
+// ENDPOINT /gethtml
+// -----------------------------------
+if (url.pathname === "/gethtml") {
+  const target = url.searchParams.get("url");
+
+  if (!target) {
+    return new Response("Missing parameter: ?url=", { status: 400 });
+  }
+
+  const method = request.method;
+  const body =
+    method !== "GET" && method !== "HEAD"
+      ? await request.text()
+      : null;
+
+  // Fetch ao servidor remoto (com headers reais)
+  const resp = await fetch(target, {
+    method,
+    body,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+      "Accept": "application/json, text/plain, */*",
+      "Referer": "https://www.jogossantacasa.pt/",
+      "Origin": "https://www.jogossantacasa.pt"
+    }
+  });
+
+  const contentType = resp.headers.get("Content-Type") || "text/plain";
+  const data = await resp.text();
+
+  // Resposta com CORS liberado
+  return new Response(data, {
+    status: resp.status,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Content-Type": contentType
+    }
+  });
+}
+
+    
+ 
+    
+
+
+
+
+
+
+
+
+
+    
+
+
     // 👇 manual trigger route
     if (url.pathname === "/trigger-github") {
       const resp = await fetch(
@@ -159,73 +224,181 @@ export default {
 
 
 
+if (url.pathname === "/google-img") {
 
-// --- Clean Google Docs published page with caching ---
+  const targetImage = url.searchParams.get("url");
+  if (!targetImage) {
+    return new Response("Missing url", { status: 400 });
+  }
+
+  const cache = caches.default;
+  const cacheKey = new Request(request.url, request);
+
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  try {
+
+    const imgResp = await fetch(targetImage, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://docs.google.com/",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+      }
+    });
+
+    if (!imgResp.ok) return imgResp;
+
+    const newHeaders = new Headers(imgResp.headers);
+
+    newHeaders.set("Access-Control-Allow-Origin", "*");
+    newHeaders.set("Cache-Control", "public, max-age=604800");
+
+    newHeaders.delete("Cross-Origin-Resource-Policy");
+    newHeaders.delete("Content-Security-Policy");
+
+    const response = new Response(imgResp.body, {
+      status: imgResp.status,
+      headers: newHeaders
+    });
+
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+
+    return response;
+
+  } catch (err) {
+    return new Response("Proxy error", { status: 500 });
+  }
+}
+
+
 if (url.pathname === "/clean-doc") {
+
   const docUrl = url.searchParams.get("url");
+
   if (!docUrl) {
-    return new Response("Missing ?url=", { 
-      status: 400, 
-      headers: cors({}, request) 
+    return new Response("Missing ?url=", {
+      status: 400,
+      headers: cors({}, request)
     });
   }
 
   const cache = caches.default;
   const cacheKey = new Request(request.url, request);
 
-  // Try cache first
-  let cached = await cache.match(cacheKey);
+  const cached = await cache.match(cacheKey);
+
   if (cached) {
     return new Response(cached.body, {
       status: 200,
-      headers: {
-        ...cors({ "Content-Type": "text/html; charset=utf-8" }, request)
-      }
+      headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
     });
   }
 
-  // Fetch Google Docs page
-  const res = await fetch(docUrl);
+  const res = await fetch(docUrl, {
+    headers: { "User-Agent": "Mozilla/5.0" }
+  });
+
   let html = await res.text();
 
-  // Strip everything before <div id="contents">
   const marker = '<div id="contents">';
   const idx = html.indexOf(marker);
 
   if (idx === -1) {
-    return new Response("Could not find contents marker", { 
-      status: 500, 
-      headers: cors({}, request) 
+    return new Response("Could not find contents marker", {
+      status: 500,
+      headers: cors({}, request)
     });
   }
 
   let cleaned = html.substring(idx);
 
-  // Remove ALL <script> tags
+  const workerUrl = new URL(request.url).origin;
+
+  function proxyUrl(u) {
+    return `${workerUrl}/google-img?url=${encodeURIComponent(u)}`;
+  }
+
+  function shouldProxy(u) {
+    return (
+      u.includes("googleusercontent.com") ||
+      u.includes("gstatic.com") ||
+      u.includes("docs.google.com/docs-images-rt")
+    );
+  }
+
+  // -------- src ----------
+  cleaned = cleaned.replace(
+    /(src)=["'](https?:\/\/[^"']+)["']/gi,
+    (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
+  );
+
+  // -------- data-src ----------
+  cleaned = cleaned.replace(
+    /(data-src)=["'](https?:\/\/[^"']+)["']/gi,
+    (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
+  );
+
+  // -------- srcset ----------
+  cleaned = cleaned.replace(
+    /srcset=["']([^"']+)["']/gi,
+    (match, list) => {
+
+      const rewritten = list.split(",").map(part => {
+
+        const [u, size] = part.trim().split(/\s+/);
+
+        if (shouldProxy(u)) {
+          return `${proxyUrl(u)} ${size || ""}`.trim();
+        }
+
+        return part.trim();
+
+      }).join(", ");
+
+      return `srcset="${rewritten}"`;
+    }
+  );
+
+  // -------- CSS url() images ----------
+  cleaned = cleaned.replace(
+    /url\((https?:\/\/[^)]+)\)/gi,
+    (match, u) => {
+      if (shouldProxy(u)) {
+        return `url(${proxyUrl(u)})`;
+      }
+      return match;
+    }
+  );
+
+  // -------- remove scripts ----------
   cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, "");
 
-  // Remove ALL <style> tags
-  cleaned = cleaned.replace(/<style[\s\S]*?<\/style>/gi, "");
+  // -------- simplify styles ----------
+  cleaned = cleaned.replace(/style="([^"]*)"/gi, (match, css) => {
 
-  // Remove inline styles like style="padding:72pt"
-  cleaned = cleaned.replace(/style="[^"]*"/gi, "");
+    const cleanedCss = css
+      .replace(/padding[^;]*;?/gi, "")
+      .replace(/margin-(top|bottom|right)[^;]*;?/gi, "")
+      .replace(/min-width[^;]*;?/gi, "")
+      .replace(/max-width[^;]*;?/gi, "")
+      .trim();
 
-  // Inject your own CSS
+    return cleanedCss ? `style="${cleanedCss}"` : "";
+  });
+
   const styleFix = `
   <style>
-    body, #contents {
-      margin: 0 !important;
-      padding: 0 !important;
-      max-width: 100% !important;
-    }
-    #contents > div {
-      margin: 0 !important;
-      padding: 0 !important;
-    }
+  body,#contents{margin:0!important;padding:0!important;max-width:100%!important}
+  #contents>div{margin:0!important;padding:0!important}
+  img{max-width:100%!important;height:auto!important;display:block}
+  .doc-content{width:100%!important;padding:0!important}
   </style>
   `;
 
-  const finalHtml = styleFix + cleaned;
+  const metaFix = `<meta name="referrer" content="no-referrer">`;
+
+  const finalHtml = metaFix + styleFix + cleaned;
 
   const response = new Response(finalHtml, {
     headers: {

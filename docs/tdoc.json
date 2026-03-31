@@ -48,6 +48,14 @@
       "workerid": 1
     }
   ],
+  "Contact": [
+    {
+      "urldbg": "http://127.0.0.1:8080/contact.html",
+      "url": "https://missionsave.github.io/contact.html",
+      "workerid": 0,
+      "showpub": 1
+    }
+  ],
   "Books": [
     {
       "url": "https://missionsave.github.io/books/books.html",

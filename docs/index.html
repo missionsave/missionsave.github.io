@@ -175,6 +175,7 @@ body.no-hover .dropdownc:hover .dropdown-content {
 let tdoc;  
 function loadTdocSync() {
 	const xhr = new XMLHttpRequest();
+	// xhr.open('GET', 'tdoc.json', false);   // false = síncrono / blocking	
 	xhr.open('GET', 'https://missionsave.github.io/tdoc.json', false);   // false = síncrono / blocking	
 	try {
 		xhr.send();
@@ -527,7 +528,7 @@ function init(){
 	//fallback
 	// loadPage_v2(workerapi+tdoc.home[0].url);
 	loadPage_v2(workerapi[tdoc.home[0].workerid]+tdoc.home[0].url);
-	console.log("tdoc",tdoc.home[0].url);
+	// console.log("tdoc",tdoc.home[0].url);
 }
 init();
 window.addEventListener('popstate', function (event) {
