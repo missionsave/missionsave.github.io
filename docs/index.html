@@ -422,8 +422,17 @@ function loadPage_v2(url,menuitem) {
       const tmp = document.createElement('div');
       tmp.innerHTML = html; 
 
+// Remove spans sem atributos e limpa a fragmentação
+tmp.querySelectorAll('span').forEach(span => {
+  if (span.attributes.length === 0) {
+    span.replaceWith(...span.childNodes);
+  }
+});
+tmp.normalize();
+
       const scripts = Array.from(tmp.querySelectorAll('script'));
       scripts.forEach(s => s.remove());
+
 
       // CSS applied only to loaded HTML
 		const styleFix = `
@@ -470,6 +479,8 @@ viewer_v1.querySelectorAll('.loaded_page_root *').forEach(el => {
     el.style.marginLeft = '0px';
   }
 });
+
+
 
       // Force images responsive
       viewer_v1.querySelectorAll('.loaded_page_root img').forEach(img => {
