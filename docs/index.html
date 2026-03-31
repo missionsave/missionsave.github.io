@@ -175,7 +175,7 @@ body.no-hover .dropdownc:hover .dropdown-content {
 let tdoc;  
 function loadTdocSync() {
 	const xhr = new XMLHttpRequest();
-	// xhr.open('GET', 'tdoc.json', false);   // false = síncrono / blocking	
+	// xhr.open('GET', 'tdoc.json?', false);   // false = síncrono / blocking	
 	xhr.open('GET', 'https://missionsave.github.io/tdoc.json', false);   // false = síncrono / blocking	
 	try {
 		xhr.send();
@@ -461,6 +461,15 @@ viewer_v1.querySelectorAll('ul, li').forEach(el => {
 //   el.style.marginBottom = '0';
 });
 
+// Reset negative left margins to zero
+viewer_v1.querySelectorAll('.loaded_page_root *').forEach(el => {
+  const style = window.getComputedStyle(el);
+  const marginLeft = parseFloat(style.marginLeft);
+
+  if (marginLeft < 0) {
+    el.style.marginLeft = '0px';
+  }
+});
 
       // Force images responsive
       viewer_v1.querySelectorAll('.loaded_page_root img').forEach(img => {
