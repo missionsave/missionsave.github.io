@@ -166,8 +166,8 @@ for i = 0, compartments - 1 do
 	Clone(longitudinal,1)
 	Movel(0,0,(-compart_len-120)*i)
 
-	Part longi_clones
 	for j = 0, floors - 1 do
+	Part longi_clones
 	Clone(longitudinal,1)
 	Movel(0,tunel_height*j+120,(-compart_len-120)*i)
 	Clone(longitudinal,1)

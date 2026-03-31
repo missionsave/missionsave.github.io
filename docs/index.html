@@ -17,6 +17,30 @@
 	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
 
+	<script>
+function updateCanonical() {
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+        canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonical);
+    }
+
+    // Forces the domain to missionsave.org
+    // window.location.search captures the "?p=..." part
+    const domain = "https://missionsave.org";
+    const path = window.location.pathname;
+    const search = window.location.search;
+
+    canonical.setAttribute('href', domain + path + search);
+}
+
+// Call this every time you change the innerHTML content
+updateCanonical();
+
+// Call this every time your script changes the innerHTML/page
+updateCanonical();
+	</script>
 
 
 	
@@ -524,7 +548,7 @@ viewer_v1.querySelectorAll('.loaded_page_root *').forEach(el => {
       })(0);
 
 	  if(menuitem?.showpub)google_ads(1);else google_ads(0);
-
+updateCanonical();
     })
     .catch(err => {
       console.error(err);
@@ -553,6 +577,7 @@ function updateurl(arg){
 // const newUrl = `${window.location.pathname}?${params.toString()}`;
 		// window.history.replaceState({}, '', arg.href);
     history.pushState({  }, "", arg.href);
+	updateCanonical();
 }
 
 //region init
