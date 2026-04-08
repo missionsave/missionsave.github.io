@@ -1,6 +1,6 @@
 function pglobals()
-
-
+pav_width = 10000
+pav_long = 10000
 
 
 end
