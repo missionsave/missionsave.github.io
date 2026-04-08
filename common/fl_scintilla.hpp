@@ -25,21 +25,31 @@ struct _FileEntry {
 	std::time_t modified;
     std::time_t accesstime;  
 };
- 
+struct uhist {
+    std::vector<int> caretHistory;
+    std::vector<int> viewHistory;   // first visible line
+    int caretIndex = -1;
+    bool suppressHistory = false;
+};
+
+extern std::unordered_map<sptr_t,uhist> vuhist;
 struct fl_scintilla : public Fl_Scintilla {
+	sptr_t curr_file_pointer = 0;
 	std::function<void()> callbackOnload;
 	std::string filename = "";
 	std::string floaded = "";
 	bool show_browser = 1;
 	std::string folder = "lua/";
 	std::vector<std::string> tail_functions;
-	sptr_t curr_file_pointer = 0;
 	std::unordered_map<sptr_t, uptr_t> filesfirstline;
 	std::unordered_map<sptr_t,uptr_t> filescaret;
 std::unordered_map<sptr_t,std::vector<int>> foldedHeadersMap;
+
 void save_fold();
 void apply_fold();
 void FoldFirstLevel();
+void recordCaret();
+void gocaret(int dir);
 	std::string comment;
 	fl_scintilla(int X, int Y, int W, int H, const char* l = 0);
 	// void resize(int x, int y, int w, int h) override;

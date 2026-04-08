@@ -51,25 +51,12 @@ Origin(0,0,0)
 
 Part sketch_upn40x20
 Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
-
-
-
-
+ 
 Part sketch_profile
 Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
 Offset (-2)
 
---Part sketch_profile
---Pl 43,15 @0,-15 @-43,0 @0,150 @50,0 @0,-15
---Offset (-1.5)
-
---Part test
---Clone sketch_profile
---Extrude 1000
---error()
-
-
-
+ 
 Part corner
 Pl 0,0 162,0 @0,118 @-162,0 0,0
 Extrude(crn_long)
@@ -91,15 +78,6 @@ Movel(0,container_height-crn_height,0)
 --FilletToAllEdges(2)
 
 
---Part sketch_upn40x20
---Pl 0,0 0,40 @20,0 @0,-5 @-1,-1 @-14,-2 @0,-24 @14,-2 @1,-1 @0,-5 0,0
-
-
-
-
---Part sketch_profile
---Pl 50,20 @0,-20 @-50,0 @0,120 @50,0 @0,-20
---Offset -2
 
 Part frame
 Clone sketch_profile
@@ -162,6 +140,12 @@ for i = 0, compartments - 1 do
 	Clone(framev,1)
 	Movel(0,0,(-compart_len-120)*i)
 	
+	Part framevar
+	Clone(framev,1)
+	Rotately(180)
+	Movel(container_width,0,(-compart_len-120)*i-120)
+	
+	
 	Part longc
 	Clone(longitudinal,1)
 	Movel(0,0,(-compart_len-120)*i)
@@ -174,20 +158,7 @@ for i = 0, compartments - 1 do
 	Rotatelz(180)
 	Movel(container_width,tunel_height*j+120*2,((-compart_len-120)*i)) 
 	end
---Clone(longitudinal,1)
---Movel(0,tunel_height+120*1)
---Clone(longitudinal,1)
---Movel(0,tunel_height*2+120*1)
---Clone(longitudinal,1)
---Movel(0,tunel_height*3+120*1)
-
---Part longi_right_clones
---Clone(longitudinal_clones,1)
---Rotately(180)
---Movel(container_width,0.01,-container_long)
---Clone(longitudinal,0)
---Rotately(180)
---Movel(container_width,120,-container_long+120)
+ 
 end 
 
 
@@ -240,30 +211,7 @@ Part upn_ref_right
 Clone(upn_ref,0)
 Copy_placement(framev_right_back)
 
---Part longitudinal
---Clone sketch_profile
---Extrude(-container_long+120*2)
---Movel(0,120,-120)
-
---Part longitudinal_clones
---Clone(longitudinal,1)
---Movel(0,120*1) 
---Clone(longitudinal,1)
---Movel(0,tunel_height+120*1)
---Clone(longitudinal,1)
---Movel(0,tunel_height*2+120*1)
---Clone(longitudinal,1)
---Movel(0,tunel_height*3+120*1)
-
---Part longi_right_clones
---Clone(longitudinal_clones,1)
---Rotately(180)
---Movel(container_width,0.01,-container_long)
---Clone(longitudinal,0)
---Rotately(180)
---Movel(container_width,120,-container_long+120)
-
-
+ 
 
 Part transversal
 Clone sketch_profile
@@ -287,11 +235,6 @@ Movel(0,tunel_height*2+120*1)
 Clone(transversal_back,1)
 Movel(0,tunel_height*3+120*1)
 
-
---Clone sketch_profile
---Extrude(container_width-50*2)
---Rotately(-90)
---Movel(container_width-50,tunel_height+120*2,-container_long)
 
 
 Part pillar

@@ -62,6 +62,148 @@
 
 Handle(AIS_InteractiveContext) ctx;
 Handle(V3d_SpotLight) sun;  
+Handle(V3d_View) m_view; 
+double strcfg(const std::string& label,double min=0,double max=10);
+#include <gp_Dir.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Ax1.hxx>
+#include <gp_Trsf.hxx>
+
+gp_Dir RotateDir(const gp_Dir& dir,
+                 const gp_Dir& axis,
+                 double degrees)
+{
+    // Convert degrees to radians
+    double radians = degrees * M_PI / 180.0;
+
+    // Build rotation transform
+    gp_Trsf trsf;
+    trsf.SetRotation(gp_Ax1(gp_Pnt(0,0,0), axis), radians);
+
+    // Apply to a vector (gp_Dir cannot be transformed directly)
+    gp_Vec v(dir.X(), dir.Y(), dir.Z());
+    v.Transform(trsf);
+
+    // Return normalized direction
+    return gp_Dir(v);
+}
+
+void addViewportLights(const Handle(V3d_View)& view, const Handle(V3d_Viewer)& viewer)
+{
+    // Clear existing lights (your code is fine)
+    TColStd_ListOfTransient lights;
+    for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+        lights.Append(viewer->ActiveLight());
+
+    for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+        viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+
+// const int qtty = strcfg("qtty", 1, 31);
+// gp_Dir dir(strcfg("gx", 0.8), strcfg("gy", -0.6), strcfg("gz", 0.9));  // tune base if you want
+
+// for(int i = 0; i < qtty; ++i)
+// {
+//     double angle = i * (360.0 / qtty);   // even spread around
+
+//     // gp_Dir dir = base;
+//     dir = RotateDir(dir, gp_Dir(0,0,1), angle);           // around Z
+//     dir = RotateDir(dir, gp_Dir(1,0,0), 25.0 + i*3.0);    // small variation in elevation
+
+//     Handle(V3d_DirectionalLight) light = new V3d_DirectionalLight(dir, Quantity_NOC_WHITE, Standard_True);
+
+//     // vary intensity a bit so not all lights are equal
+//     light->SetIntensity(strcfg("Intensity1", 0.5, 2.0) * (0.7 + 0.6 * sin(i * 1.3)));
+
+//     viewer->AddLight(light);
+//     viewer->SetLightOn(light);
+// }
+
+
+
+gp_Dir d1(strcfg("gx",-0.99,1), strcfg("gy",-0.99,1), strcfg("gz",-0.99,1));
+
+// Get camera rotation
+const Graphic3d_Mat4d& mat = view->Camera()->OrientationMatrix();
+
+
+gp_Mat R(
+    mat.GetValue(0,0), mat.GetValue(0,1), mat.GetValue(0,2),
+    mat.GetValue(1,0), mat.GetValue(1,1), mat.GetValue(1,2),
+    mat.GetValue(2,0), mat.GetValue(2,1), mat.GetValue(2,2)
+);
+
+for(int i = 1; i < strcfg("qtty",1,31); i++)
+{
+    // gp_Dir d = d1;
+    d1 = RotateDir(d1, gp_Dir(0,0,1), i * strcfg("z",1,90));
+    d1 = RotateDir(d1, gp_Dir(0,1,0), i * strcfg("y",1,90));
+    d1 = RotateDir(d1, gp_Dir(1,0,0), i * strcfg("x",1,90));
+
+    // Anchor to viewport
+    gp_Dir d_view = gp_Dir(R * d1.XYZ());
+
+    Handle(V3d_DirectionalLight) keyLight =
+        new V3d_DirectionalLight(d_view, Quantity_NOC_WHITE, 0);
+
+    keyLight->SetIntensity(strcfg("Intensity1", 0.1, 24.0));
+    viewer->AddLight(keyLight);
+    viewer->SetLightOn(keyLight);
+
+
+
+
+
+	// gp_Dir d1(strcfg("gx",-0.99,1),strcfg("gy",-0.99,1), strcfg("gz",-0.99,1));
+	// for(int i=1;i<strcfg("qtty",1,31);i++){
+    // // 1. KEY LIGHT: Primary bright light (Front-Top-Right in world)
+
+	// // gp_Dir d1(1.0, -1.0, 1.0);
+	// d1=RotateDir(d1,gp_Dir(0, 0, 1),i*strcfg("z",1,90));
+	// d1=RotateDir(d1,gp_Dir(0, 1, 0),i*strcfg("y",1,90));
+	// d1=RotateDir(d1,gp_Dir(1, 0, 0),i*strcfg("x",1,90));
+    // Handle(V3d_DirectionalLight) keyLight = new V3d_DirectionalLight(
+    //     // gp_Dir(1.0, -1.0, 1.0),      // direction towards the light (or from light - both work, OCCT normalizes)
+	// 	d1,
+    //     Quantity_NOC_WHITE,
+    //     0);             // <-- Important: not a headlight
+
+    // keyLight->SetIntensity(strcfg("Intensity1", 0.1, 24.0));
+    // viewer->AddLight(keyLight);
+    // viewer->SetLightOn(keyLight);
+// continue;
+//     // 2. FILL LIGHT: Softer fill from opposite side (Front-Left)
+//     Handle(V3d_DirectionalLight) fillLight = new V3d_DirectionalLight(
+//         // gp_Dir(-1.0, -0.5, 1.0),
+// 		V3d_TypeOfOrientation_Yup_AxoRight,
+//         Quantity_NOC_WHITE,
+//         i);
+
+//     fillLight->SetIntensity(strcfg("Intensity2", 0.1, 24.0));
+//     viewer->AddLight(fillLight);
+//     viewer->SetLightOn(fillLight);
+
+//     // 3. RIM / BACK LIGHT: Creates nice edge highlight from behind/top
+//     Handle(V3d_DirectionalLight) rimLight = new V3d_DirectionalLight(
+//         // gp_Dir(0.2, 1.0, 0.8),       // mostly from back + a bit up
+// 		V3d_TypeOfOrientation_Yup_Top,
+//         Quantity_NOC_WHITE,
+//         i);
+
+//     rimLight->SetIntensity(strcfg("Intensity3", 0.1, 24.0));
+//     viewer->AddLight(rimLight);
+//     viewer->SetLightOn(rimLight);
+	}
+
+    // AMBIENT: very subtle
+    Handle(V3d_AmbientLight) ambLight = new V3d_AmbientLight(Quantity_NOC_WHITE);
+    ambLight->SetIntensity(strcfg("amb",0.01,1));   // tweak to taste (0.1–0.25 usually good)
+    viewer->AddLight(ambLight);
+    viewer->SetLightOn(ambLight);
+
+    viewer->UpdateLights();
+}
+
 // -----------------------------------------------------------------------------
 // State
 // -----------------------------------------------------------------------------
@@ -504,11 +646,11 @@ void NiceSteel(const Handle(V3d_View)& view,
     // ============================================================
     // APLICAR ENVIRONMENT MAP (NÃO REMOVE NADA DO TEU CÓDIGO)
     // ============================================================
-    // Handle(Graphic3d_TextureEnv) env = CreateCadEnv();
-    // // Handle(Graphic3d_TextureEnv) env = CreateCadStudioEnv();
+    Handle(Graphic3d_TextureEnv) env = CreateCadEnv();
+    // Handle(Graphic3d_TextureEnv) env = CreateCadStudioEnv();
 	// Handle(Graphic3d_TextureEnv) anEnv = new Graphic3d_TextureEnv(Graphic3d_NOT_ENV_CLOUDS);
-    // view->SetTextureEnv(anEnv);
-	
+    view->SetTextureEnv(env);
+	return;
     // viewer->SetUseEnvironmentMap(Standard_True);
 // 	viewer->SetEnvironmentTexture(env);
 // viewer->SetEnvironmentTextureEnabled(Standard_True);
@@ -1711,23 +1853,24 @@ struct SliderCfg {
     double value;
     double min;
     double max;
+	bool called=0;
 };
 
 //--------------------------------------
 // Build window with sliders from vector
 //--------------------------------------
-    std::vector<SliderCfg> sliders = {
-        {"Angle",   0.2, 0.01, 15.0},
-        {"Intensity",  5.0,  1.0, 40},
-        {"Concentration", 0.0, 0.0, 20.0},
-        {"Offset", 0.1, 0.1, 0.9},
-        {"Metallic", 0.5, 0.01, 1.0},
-        {"Roughness", 0.5, 0.01, 1.0},
-        {"Ambient", 0.5, 0.01, 3.0},
-        {"I_top", 10.5, 0.1, 9000.0}, 
-        {"I_side", 10.5, 0.1, 9000.0}, 
-        {"I_bottom", 10.5, 0.1, 9000.0}, 
-    };
+    std::vector<SliderCfg> sliders;// = {
+    //     {"Angle",   0.2, 0.01, 15.0},
+    //     {"Intensity",  5.0,  1.0, 40},
+    //     {"Concentration", 0.0, 0.0, 20.0},
+    //     {"Offset", 0.1, 0.1, 0.9},
+    //     {"Metallic", 0.5, 0.01, 1.0},
+    //     {"Roughness", 0.5, 0.01, 1.0},
+    //     {"Ambient", 0.5, 0.01, 3.0},
+    //     {"I_top", 10.5, 0.1, 9000.0}, 
+    //     {"I_side", 10.5, 0.1, 9000.0}, 
+    //     {"I_bottom", 10.5, 0.1, 9000.0}, 
+    // };
 void saveSliders(const std::string& filename) {
     std::ofstream f(filename);
     if (!f) return;
@@ -1776,29 +1919,33 @@ void loadSliders(const std::string& filename) {
             s.max = atof(json.c_str() + xpos + 6);
     }
 }
-
-double strcfg(const std::string& label) {
-    static std::unordered_map<std::string, int> index;
+std::unordered_map<std::string, SliderCfg> cfgindex;
+double strcfg(const std::string& label,double min,double max) {
+    // static std::unordered_map<std::string, double> index;
+    // static std::unordered_map<std::string, int> index;
 
     // build once
-    if (index.empty()) {
-		loadSliders("msvcad.cfg");
-        for (int i = 0; i < sliders.size(); ++i)
-            index[sliders[i].label] = i;
-    }
+    // if (index.empty()) {
+	// 	loadSliders("msvcad.cfg");
+    //     for (int i = 0; i < sliders.size(); ++i)
+    //         index[sliders[i].label] = i;
+    // }
 
-    auto it = index.find(label);
-    if (it == index.end())
-        return 0.0;
+    auto it = cfgindex.find(label);
+    if (it == cfgindex.end()){
+		cfgindex[label]={label,(max-min)/2.0,min,max,1};
+		sliders.push_back(cfgindex[label]);
+	}
+    return cfgindex[label].value;
 
-    return sliders[it->second].value;
+ 
 }
 
 //--------------------------------------
 // Callback updates struct value
 //--------------------------------------
 flwindow *floccv;
-Handle(V3d_View) m_view;
+// Handle(V3d_View) m_view;
 std::vector<Handle(AIS_Shape)> flshapes;
 void slider_cb(Fl_Widget *w, void *userdata) {
     auto *cfg = static_cast<SliderCfg*>(userdata);
@@ -1815,8 +1962,8 @@ Graphic3d_PBRMaterial pbr = mat.PBRMaterial();
 // std::cout << "Roughness: " << pbr.Roughness() << "\n";
 // std::cout << "Emission:  " << pbr.Emission()  << "\n";
 
-pbr.SetMetallic(sliders[4].value);
-pbr.SetRoughness(sliders[5].value);
+pbr.SetMetallic(strcfg("Metallic"));
+pbr.SetRoughness(strcfg("Roughness"));
 // mat.SetSpecular(1.0);
 
 mat.SetPBRMaterial(pbr);
@@ -1832,6 +1979,14 @@ shape->SetMaterial(mat);
 	saveSliders("msvcad.cfg");
 	floccv->redraw();
 }
+#include <tuple>
+#include <FL/Fl_Value_Input.H>
+struct SliderPack {
+    Fl_Slider* slider;
+    Fl_Value_Input* minI;
+    Fl_Value_Input* maxI;
+    SliderCfg* cfg; // <-- replace with actual type
+};
 int slidercfg() {
     Fl_Group::current(nullptr);
 
@@ -1848,15 +2003,90 @@ int slidercfg() {
 
     int y = 10;
 
-    for (auto& cfg : sliders) {
-        Fl_Slider* s = new Fl_Slider(20, y, wsl->w() - 40, 30, cfg.label.c_str());
-        s->type(FL_HOR_NICE_SLIDER);
-        s->bounds(cfg.min, cfg.max);
-        s->value(cfg.value);
-        s->callback(slider_cb, &cfg);
-        y += 60;
-    }
+for (auto& cfg : cfgindex) {
+    int x = 20;
+    int width = wsl->w() - 40;
 
+    Fl_Box* label = new Fl_Box(x, y, width, 20, cfg.first.c_str());
+
+    Fl_Value_Input* minInput = new Fl_Value_Input(x, y + 22, 60, 25);
+    minInput->value(cfg.second.min);
+
+    Fl_Value_Input* maxInput = new Fl_Value_Input(x + width - 60, y + 22, 60, 25);
+    maxInput->value(cfg.second.max);
+
+    Fl_Slider* s = new Fl_Slider(x + 70, y + 22, width - 140, 25);
+    s->type(FL_HOR_NICE_SLIDER);
+    s->bounds(cfg.second.min, cfg.second.max);
+    s->value(cfg.second.value);
+
+    // allocate shared state
+    SliderPack* pack = new SliderPack{ s, minInput, maxInput, &cfg.second };
+
+    // --- slider ---
+    s->callback([](Fl_Widget* w, void* data) {
+        auto* p = static_cast<SliderPack*>(data);
+        p->cfg->value = ((Fl_Slider*)w)->value();
+
+
+		lop(i, 0, flshapes.size()) {
+		auto shape=flshapes[i];
+Graphic3d_MaterialAspect mat =
+    shape->Attributes()->ShadingAspect()->Material();
+
+Graphic3d_PBRMaterial pbr = mat.PBRMaterial();
+
+// std::cout << "Metallic:  " << pbr.Metallic()  << "\n";
+// std::cout << "Roughness: " << pbr.Roughness() << "\n";
+// std::cout << "Emission:  " << pbr.Emission()  << "\n";
+
+pbr.SetMetallic(strcfg("Metallic"));
+pbr.SetRoughness(strcfg("Roughness"));
+// mat.SetSpecular(1.0);
+
+mat.SetPBRMaterial(pbr);
+shape->SetMaterial(mat);
+		}
+		addViewportLights(m_view,m_view->Viewer());
+		floccv->redraw();
+    }, pack);
+
+    // --- min ---
+    minInput->callback([](Fl_Widget* w, void* data) {
+        auto* p = static_cast<SliderPack*>(data);
+
+        double minVal = p->minI->value();
+        double maxVal = p->maxI->value();
+        if (minVal >= maxVal) return;
+
+        p->slider->bounds(minVal, maxVal);
+        p->cfg->min = minVal;
+
+        if (p->slider->value() < minVal)
+            p->slider->value(minVal);
+
+        p->slider->redraw();
+    }, pack);
+
+    // --- max ---
+    maxInput->callback([](Fl_Widget* w, void* data) {
+        auto* p = static_cast<SliderPack*>(data);
+
+        double minVal = p->minI->value();
+        double maxVal = p->maxI->value();
+        if (minVal >= maxVal) return;
+
+        p->slider->bounds(minVal, maxVal);
+        p->cfg->max = maxVal;
+
+        if (p->slider->value() > maxVal)
+            p->slider->value(maxVal);
+
+        p->slider->redraw();
+    }, pack);
+
+    y += 70;
+}
     // Expand scrollable area to fit all sliders
     scroll->end();
     wsl->end();
@@ -2328,7 +2558,270 @@ void lettherebelight31() {
 }
 
 //region lettherebelight
+void lettherebelight77() {
+    auto view = m_view;
+    auto viewer = view->Viewer();
+try{
+    if (viewer.IsNull() || view.IsNull()) return;
+
+    // 1. Get Camera Vectors
+    // This allows us to define "Up" and "Right" relative to your current screen
+    gp_Dir eyeDir = view->Camera()->Direction(); // Direction camera is looking
+    gp_Dir upDir  = view->Camera()->Up();        // Screen "Up"
+    gp_Dir sideDir = eyeDir ^ upDir;   // Screen "Right" (Cross product)
+
+    // 2. Define the Diagonal Direction
+    // We want a vector that goes Right (+side) and Up (+up) 
+    // We also add a bit of 'eyeDir' so it points 'into' the screen
+    gp_XYZ diagXYZ = sideDir.XYZ() + upDir.XYZ() + (eyeDir.XYZ() * -1.0);
+    gp_Dir finalDir(diagXYZ);
+
+    // 3. Create the Directional Light
+    Handle(V3d_DirectionalLight) aDiagLight = new V3d_DirectionalLight(finalDir);
+
+    // 4. Set as Headlight
+    // This is the "magic" - it locks this diagonal to your screen.
+    // No matter how you rotate the model, the light stays 
+    // pointing from bottom-left to top-right of your monitor.
+    // aDiagLight->SetHeadlight(Standard_True);
+    
+    aDiagLight->SetIntensity(strcfg("Intensity"));
+    aDiagLight->SetColor(Quantity_NOC_WHITE);
+
+    // --- CLEANUP AND APPLY ---
+    viewer->SetLightOff();
+    
+    // Add a soft ambient light to fill the "back" side so it's not pitch black
+    Handle(V3d_AmbientLight) ambient = new V3d_AmbientLight(Quantity_NOC_WHITE);
+    ambient->SetIntensity(0.2);
+    
+    viewer->AddLight(ambient);
+    viewer->AddLight(aDiagLight);
+    
+    viewer->SetLightOn(ambient);
+    viewer->SetLightOn(aDiagLight);
+
+    viewer->UpdateLights();
+}catch(...){}
+    // view->Redraw();
+}
+void lettherebelight772() {
+    auto view = m_view;
+    auto viewer = view->Viewer();
+
+    try {
+        if (viewer.IsNull() || view.IsNull()) return;
+
+        // Use Phong or Pbr - Phong is often smoother for standard CAD colors
+        view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+        // --- 1. CLEAR EXISTING LIGHTS ---
+        viewer->SetLightOff(); // Quick way to disable all
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+        // // --- 2. AMBIENT LIGHT (The "Gradient" Maker) ---
+        // This ensures no face is ever pitch black.
+        Handle(V3d_AmbientLight) ambient = new V3d_AmbientLight();
+        ambient->SetColor(Quantity_NOC_WHITE);
+        ambient->SetIntensity(0.3); // Low intensity just to fill shadows
+        viewer->AddLight(ambient);
+        viewer->SetLightOn(ambient);
+
+        // // --- 3. MAIN DIRECTIONAL LIGHT (Fixed in Space) ---
+        // // By setting Headlight to FALSE, the light stays put while you rotate the part.
+        // Handle(V3d_DirectionalLight) mainLight = new V3d_DirectionalLight(gp_Dir(-1.0, -1.0, -1.0));
+        // mainLight->SetColor(Quantity_NOC_WHITE);
+        // mainLight->SetIntensity(1.0);
+        // mainLight->SetHeadlight(Standard_False); // Crucial for "movement" feel
+        // viewer->AddLight(mainLight);
+        // viewer->SetLightOn(mainLight);
+
+        // // --- 4. THE "HEADLIGHT" (Soft Fill) ---
+        // // A softer light that follows the camera to highlight front-facing details.
+        // Handle(V3d_DirectionalLight) headLight = new V3d_DirectionalLight(gp_Dir(0.0, 0.0, -1.0));
+        // headLight->SetColor(Quantity_NOC_WHITE);
+        // headLight->SetIntensity(0.5);
+        // headLight->SetHeadlight(Standard_True); 
+        // viewer->AddLight(headLight);
+        // viewer->SetLightOn(headLight);
+
+		// 1. Define the Direction (from 0,0,0 towards 1,1,0)
+// 1. Define Position and Direction
+gp_Pnt aOrigin(0.0, 0.0, 0.0);
+gp_Dir aDirection(1.0, 1.0, 0.0); // Points from 0,0,0 to 1,1,0
+
+// 2. Create the Spotlight
+Handle(V3d_SpotLight) aSpot = new V3d_SpotLight(aOrigin, aDirection);
+
+// 3. Make it "Thin" (Narrow the Beam)
+// Angle is in radians. Standard_PI / 12.0 is 15 degrees. 
+// Smaller = thinner beam.
+aSpot->SetAngle(3.14 / strcfg("Angle")); 
+
+// 4. Intensity and Focus
+aSpot->SetIntensity(strcfg("Intensity"));
+aSpot->SetConcentration(1.0); // Higher values make the beam sharper at the center
+
+// 5. Vital: Keep it in the world, not on the camera
+aSpot->SetHeadlight(0);
+
+viewer->AddLight(aSpot);
+viewer->SetLightOn(aSpot);
+
+        viewer->UpdateLights();
+        view->Redraw();
+
+    } catch (const Standard_Failure& e) {
+        std::cout << "OCCT Exception: " << e.GetMessageString() << std::endl;
+    }
+}
+void lettherebelight771(){
+	    auto view = m_view;
+    auto viewer = view->Viewer();
+
+    try {
+        if (viewer.IsNull() || view.IsNull()) return;
+
+        viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+        view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+        // --- CLEAR EXISTING LIGHTS ---
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+// 1. Criar a luz direcional
+// Direção: x=1.0 (direita), y=1.0 (cima), z=1.0 (frente ao objeto)
+Handle(V3d_DirectionalLight) aLight = new V3d_DirectionalLight(gp_Dir(1.0, 1.0, 1.0));
+
+// 2. Definir como "Headlight" (Fixa na câmera)
+aLight->SetHeadlight(Standard_True);
+
+// 3. Ajustar intensidade e cor (opcional)
+aLight->SetIntensity(strcfg("Intensity"));
+aLight->SetColor(Quantity_NOC_WHITE);
+
+    viewer->AddLight(aLight);
+    viewer->SetLightOn(aLight);
+
+
+viewer->UpdateLights();
+
+
+    } catch (const Standard_Failure& e) {
+        std::cout << "OCCT Exception: " << e.GetMessageString() << std::endl;
+    }
+}
+
 void lettherebelight7()
+{
+    auto view   = m_view;
+    auto viewer = view->Viewer();
+
+    try {
+        if (viewer.IsNull() || view.IsNull()) return;
+
+        viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+        view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+        // Clear all existing lights
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+        Handle(Graphic3d_Camera) cam = view->Camera();
+
+        gp_Dir forward = cam->Direction();        // looking direction (from eye to center)
+        gp_Dir up      = cam->Up();
+        gp_Dir right   = forward ^ up;            // should be normalized already
+
+        gp_Pnt eye     = cam->Eye();
+
+        double strength   = strcfg("DiagonalStrength", 0.8, 3.0);
+        double spotAngle  = strcfg("SpotAngle", 0.6, 1.2);        // larger cone (~35-70°)
+        // double penumbra   = strcfg("SpotPenumbra", 0.15, 0.4);
+        double intensity  = strcfg("Intensity", 800.0, 9000.0);   // much higher for PBR
+
+        // ===================================================================
+        // Diagonal direction in VIEWPORT space: bottom-left → top-right
+        // ===================================================================
+        // "Bottom-left" on screen ≈ -right - up  (in camera local coords)
+        // "Top-right"  on screen ≈ +right + up
+        gp_Vec diagVec = gp_Vec(right) * strength + gp_Vec(up) * strength;
+        if (diagVec.SquareMagnitude() < gp::Resolution())
+            diagVec = gp_Vec(right) + gp_Vec(up);   // fallback
+
+        gp_Dir diagDir(diagVec);
+
+        // Place light far behind the camera so the cone illuminates the whole scene
+        gp_Pnt lightPos = eye.Translated( gp_Vec(forward) * (-50.0) );   // adjust distance if needed
+
+        // Main diagonal spot light
+        Handle(V3d_SpotLight) mainLight = new V3d_SpotLight(
+            lightPos,
+            diagDir,
+            Quantity_NOC_WHITE   // slightly warm
+            // Quantity_Color(1.0, 0.98, 0.92, Quantity_TOC_RGB)   // slightly warm
+        );
+
+        mainLight->SetIntensity(intensity);
+        mainLight->SetAngle(spotAngle);
+        // if (penumbra > 0.0)
+        //     mainLight->SetPenumbraAngle(penumbra);   // may not exist in very old OCCT
+        // mainLight->SetRange(0.0);                    // 0 = infinite range
+        // mainLight->SetAttenuation(1.0, 0.0, 0.0); // optional
+
+        viewer->AddLight(mainLight);
+        viewer->SetLightOn(mainLight);
+
+        // Optional softer fill from opposite diagonal (cooler tone)
+        gp_Vec fillVec = gp_Vec(right) * (-0.6 * strength) + gp_Vec(up) * (0.8 * strength);
+        if (fillVec.SquareMagnitude() > gp::Resolution())
+        {
+            Handle(V3d_SpotLight) fillLight = new V3d_SpotLight(
+                lightPos,
+                gp_Dir(fillVec),
+                Quantity_Color(0.75, 0.82, 1.0, Quantity_TOC_RGB)
+            );
+            fillLight->SetIntensity(intensity * 0.45);
+            fillLight->SetAngle(spotAngle * 1.3);
+            // fillLight->SetRange(0.0);
+            viewer->AddLight(fillLight);
+            viewer->SetLightOn(fillLight);
+        }
+
+        // Strong directional light as main "sun" (often works better with PBR than spots)
+        Handle(V3d_DirectionalLight) dirLight = new V3d_DirectionalLight(
+            diagDir,
+            Quantity_Color(1.0, 1.0, 0.95, Quantity_TOC_RGB)
+        );
+        dirLight->SetIntensity(intensity * 0.6);
+        viewer->AddLight(dirLight);
+        viewer->SetLightOn(dirLight);
+
+        // Ambient (keep subtle)
+        Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+        amb->SetIntensity(strcfg("Ambient", 0.15, 1.5));
+        viewer->AddLight(amb);
+        viewer->SetLightOn(amb);
+
+        viewer->UpdateLights();
+        // view->Redraw();   // force redraw
+
+    } catch (const Standard_Failure& e) {
+        std::cout << "OCCT Exception: " << e.GetMessageString() << std::endl;
+    }
+}
+
+void lettherebelight74()
 {
     auto view   = m_view;
     auto viewer = view->Viewer();
@@ -2544,9 +3037,710 @@ viewer->UpdateLights();
         std::cout << "OCCT Exception: " << e.GetMessageString() << std::endl;
     }
 }
+// SIMPLE VERTICAL BEAM
+void addVerticalBeam(const Handle(V3d_View)& view,
+                     const Handle(V3d_Viewer)& viewer)
+{
+    gp_Pnt eye = view->Camera()->Eye();
+    gp_Dir forward = view->Camera()->Direction();
+    gp_Dir up = view->Camera()->Up();
+    gp_Dir right = forward.Crossed(up);
 
+    gp_Vec vForward(forward);
+    gp_Vec vRight(right);
+    gp_Vec vUp(up);
+
+    Standard_Real viewW, viewH;
+    view->Size(viewW, viewH);
+
+    // camera FOV (vertical)
+    double fovY = view->Camera()->FOVy(); // radians
+
+    // distance from camera
+    double d = 300.0;
+
+    // world units per pixel at depth d
+    double worldPerPixel = (2.0 * d * tan(fovY * 0.5)) / viewH;
+
+    // beam horizontal position in pixels
+    double beamX_px = viewW * 0.8;
+
+    // convert horizontal pixel to world offset
+    double nx_px = beamX_px - (viewW * 0.5);
+    gp_Vec baseOffset = vRight * (nx_px * worldPerPixel);
+
+    int segments = 12;
+
+    for (int i = 0; i < segments; ++i)
+    {
+        double y_px = (viewH * i) / (segments - 1);
+        double ny_px = y_px - (viewH * 0.5);
+
+        gp_Vec verticalOffset = vUp * (ny_px * worldPerPixel);
+
+        gp_Pnt origin =
+            eye.Translated(vForward * d)
+               .Translated(baseOffset)
+               .Translated(verticalOffset);
+
+        Handle(V3d_SpotLight) spot =
+            new V3d_SpotLight(origin, forward, Quantity_NOC_WHITE);
+
+        spot->SetIntensity(300000000.0 / segments);
+        spot->SetAngle(0.5);
+        spot->SetConcentration(2.0);
+
+        viewer->AddLight(spot);
+        viewer->SetLightOn(spot);
+    }
+}
+#include <vector>
+
+void updateVerticalBeam(const Handle(V3d_View)& view,
+                        const Handle(V3d_Viewer)& viewer)
+{
+    static std::vector<Handle(V3d_SpotLight)> beamLights;
+    static bool initialized = false;
+    
+    // Initialize lights if not already done
+    if (!initialized)
+    {
+        // Clear any existing lights by turning them off and removing from viewer
+        for (auto& light : beamLights)
+        {
+            viewer->SetLightOff(light);
+        }
+        beamLights.clear();
+        
+        int segments = 20; // More segments for smoother beam
+        
+        // Temporary position for initialization (will be updated in each frame)
+        gp_Pnt tempPos(0, 0, 0);
+        gp_Dir tempDir(0, 0, 1);
+        Quantity_Color tempColor(Quantity_NOC_WHITE);
+        
+        for (int i = 0; i < segments; ++i)
+        {
+            Handle(V3d_SpotLight) spot = new V3d_SpotLight(tempPos, tempDir, tempColor);
+            spot->SetIntensity(500000000.0 / segments);
+            spot->SetAngle(0.3); // Narrow beam angle
+            spot->SetConcentration(3.0);
+            
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+            beamLights.push_back(spot);
+        }
+        
+        initialized = true;
+    }
+    
+    if (beamLights.empty()) return;
+    
+    gp_Pnt eye = view->Camera()->Eye();
+    gp_Dir forwardDir = view->Camera()->Direction();
+    gp_Dir upDir = view->Camera()->Up();
+    gp_Dir rightDir = forwardDir.Crossed(upDir);
+    
+    // Convert to vectors for arithmetic operations
+    gp_Vec forward(forwardDir);
+    gp_Vec up(upDir);
+    gp_Vec right(rightDir);
+    
+    Standard_Real viewW, viewH;
+    view->Size(viewW, viewH);
+    
+    // Calculate world units at a reasonable distance (adjust as needed)
+    double distance = 500.0;
+    
+    // Get FOV to calculate world coordinates from pixel coordinates
+    double fovY = view->Camera()->FOVy();
+    double worldHeightAtDistance = 2.0 * distance * tan(fovY * 0.5);
+    double worldPerPixelY = worldHeightAtDistance / viewH;
+    
+    // For a vertical beam at a fixed X position (e.g., 20% from left)
+    double beamX_px = viewW * 0.2; // Adjust this value (0.0 to 1.0) for horizontal position
+    
+    // Calculate horizontal offset in world space
+    double nx_px = beamX_px - (viewW * 0.5);
+    double worldOffsetX = nx_px * worldPerPixelY * (viewW / viewH); // Account for aspect ratio
+    
+    // Position lights along the vertical axis
+    int numLights = beamLights.size();
+    for (int i = 0; i < numLights; ++i)
+    {
+        // Map from 0 to 1 along the vertical screen space
+        double t = (double)i / (numLights - 1);
+        
+        // Convert to pixel Y coordinate (0 = top, viewH = bottom)
+        double y_px = t * viewH;
+        
+        // Convert to offset from screen center
+        double ny_px = y_px - (viewH * 0.5);
+        
+        // Convert to world space offset
+        double worldOffsetY = ny_px * worldPerPixelY;
+        
+        // Calculate position in world space
+        gp_Pnt lightPos = eye.Translated(forward * distance)
+                              .Translated(right * worldOffsetX)
+                              .Translated(up * worldOffsetY);
+        
+        // Update light position and direction
+        beamLights[i]->SetPosition(lightPos);
+        beamLights[i]->SetDirection(forwardDir);
+    }
+}
+void addViewportLightsno(const Handle(V3d_View)& view,
+                       const Handle(V3d_Viewer)& viewer)
+{
+    // --- CLEAR EXISTING LIGHTS ---
+    TColStd_ListOfTransient lights;
+    for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+        lights.Append(viewer->ActiveLight());
+    for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+        viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+    Standard_Real viewW, viewH;
+    view->Size(viewW, viewH);
+
+    // ✔ Zoom factor (critical!)
+    double zoom = view->Camera()->Scale();
+
+    // ✔ Base distance (tweakable)
+    double baseD = strcfg("Distance",1,99999);
+
+    // ✔ Final distance that stays consistent with zoom
+    double d = baseD * zoom;
+
+    int cols = 6;
+    int rows = 10;
+	        // --- LIGHT COLOR and conversion to linear
+        auto srgbToLinear = [](double c)->double {
+            if (c <= 0.04045) return c / 12.92;
+            return pow((c + 0.055) / 1.055, 2.4);
+        };
+
+        Quantity_Color srgb(0.54118,0.54118,0.61569, Quantity_TOC_RGB);
+        Quantity_Color linear(
+            srgbToLinear(srgb.Red()),
+            srgbToLinear(srgb.Green()),
+            srgbToLinear(srgb.Blue()),
+            Quantity_TOC_RGB
+        );
+
+    for (int iy = 0; iy < rows; ++iy)
+    {
+        for (int ix = 0; ix < cols; ++ix)
+        {
+            int px = int((viewW * ix) / (cols - 1));
+            int py = int((viewH * iy) / (rows - 1));
+
+            Standard_Real x, y, z;
+            Standard_Real vx, vy, vz;
+
+            // Pixel → world point + ray direction
+            view->ConvertWithProj(px, py, x, y, z, vx, vy, vz);
+
+            gp_Pnt P(x, y, z);
+            gp_Vec dir(vx, vy, vz);
+            dir.Normalize();
+
+            // ✔ Distance now scales with zoom
+            gp_Pnt origin = P.Translated(dir );
+            // gp_Pnt origin = P.Translated(dir * d);
+
+            Handle(V3d_SpotLight) spot =
+                new V3d_SpotLight(origin, gp_Dir(dir), linear);
+                // new V3d_SpotLight(origin, gp_Dir(dir), Quantity_NOC_WHITE);
+
+            spot->SetIntensity(90000000000.0 / (rows * cols));
+            spot->SetAngle(3.0);
+            spot->SetConcentration(3.0);
+
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+        }
+    }
+
+    // Ambient
+    Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+    amb->SetIntensity(strcfg("Ambient",0.1,4));
+    viewer->AddLight(amb);
+    viewer->SetLightOn(amb);
+
+    viewer->UpdateLights();
+}
+
+void addViewportLightsneeds_to_add_spot_too(const Handle(V3d_View)& view,const Handle(V3d_Viewer)& viewer){
+	// Clear existing lights
+TColStd_ListOfTransient lights;
+for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+    lights.Append(viewer->ActiveLight());
+for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+    viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+// 1. KEY LIGHT: Primary bright light (Front-Top-Right)
+Handle(V3d_DirectionalLight) keyLight = new V3d_DirectionalLight(V3d_XposYnegZpos, Quantity_NOC_WHITE);
+keyLight->SetIntensity(strcfg("Intensity1",0.1,24.0)); // Adjust based on your scene scale
+viewer->AddLight(keyLight);
+viewer->SetLightOn(keyLight);
+
+// 2. FILL LIGHT: Softer light to fill in shadows (Front-Left)
+Handle(V3d_DirectionalLight) fillLight = new V3d_DirectionalLight(V3d_XnegYnegZpos, Quantity_NOC_WHITE);
+fillLight->SetIntensity(strcfg("Intensity2",0.1,24.0)); 
+viewer->AddLight(fillLight);
+viewer->SetLightOn(fillLight);
+
+// 3. BACK/RIM LIGHT: Adds a sharp edge to make shapes pop out of the background (Back-Top)
+Handle(V3d_DirectionalLight) rimLight = new V3d_DirectionalLight(V3d_YposZpos, Quantity_NOC_WHITE);
+rimLight->SetIntensity(strcfg("Intensity3",0.1,24.0)); 
+viewer->AddLight(rimLight);
+viewer->SetLightOn(rimLight);
+
+// AMBIENT LIGHT: Keep this very low, just to prevent pitch-black shadows
+Handle(V3d_AmbientLight) ambLight = new V3d_AmbientLight(Quantity_NOC_WHITE);
+ambLight->SetIntensity(0.2);
+viewer->AddLight(ambLight);
+viewer->SetLightOn(ambLight);
+
+viewer->UpdateLights();
+}
+
+
+void addViewportLightsbah(const Handle(V3d_View)& view,
+                           const Handle(V3d_Viewer)& viewer)
+{
+    // --- CLEAR EXISTING LIGHTS ---
+    TColStd_ListOfTransient lights;
+    for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+        lights.Append(viewer->ActiveLight());
+    for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+        viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+    // 1. Get view size in WORLD units (Used for scaling distance)
+    Standard_Real viewW, viewH;
+    view->Size(viewW, viewH);
+
+    // 2. Get window size in PIXELS (Used for screen projection)
+    Standard_Integer winW, winH;
+    view->Window()->Size(winW, winH);
+
+    int cols = 6;
+    int rows = 10;
+
+    // --- ZOOM SCALING MATH ---
+    // Make the distance dynamically scale with the view's current world size.
+    // 1.5 is a multiplier to keep the lights behind the camera. Adjust if needed.
+    double d = std::max(viewW, viewH) * 1.5; 
+
+    // Scale intensity using the Inverse-Square Law based on your original d=300 baseline
+    double baseIntensity =strcfg("Intensity",0.1, 900000000000.0) / (rows * cols);
+    double distanceRatio = d / 300.0;
+    double finalIntensity = baseIntensity * (distanceRatio * distanceRatio);
+
+    for (int iy = 0; iy < rows; ++iy)
+    {
+        for (int ix = 0; ix < cols; ++ix)
+        {
+            // Calculate screen positions using WINDOW PIXELS, not world units
+            int px = int((winW * ix) / (cols - 1));
+            int py = int((winH * iy) / (rows - 1));
+
+            Standard_Real x, y, z;
+            Standard_Real vx, vy, vz;
+
+            // Convert pixel → world point AND ray direction
+            view->ConvertWithProj(px, py, x, y, z, vx, vy, vz);
+
+            gp_Pnt P(x, y, z);
+            gp_Vec dir(vx, vy, vz);
+            dir.Normalize();
+
+            // Distance 'd' now scales perfectly with your zoom level
+            gp_Pnt origin = P.Translated(dir * d);
+
+            Handle(V3d_SpotLight) spot =
+                new V3d_SpotLight(origin, gp_Dir(dir), Quantity_NOC_WHITE);
+
+            // Apply the dynamically scaled intensity
+            spot->SetIntensity(finalIntensity);
+            spot->SetAngle(strcfg("Angle",0.1,22.0));
+            spot->SetConcentration(3.0);
+
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+        }
+    }
+
+    // --- AMBIENT LIGHT ---
+    Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+    // Assuming strcfg is a custom macro/function in your codebase
+    amb->SetIntensity(strcfg("Ambient",0.1,4)); 
+    viewer->AddLight(amb);
+    viewer->SetLightOn(amb);
+    viewer->UpdateLights();
+}
+void addViewportLightsnice(const Handle(V3d_View)& view,
+                       const Handle(V3d_Viewer)& viewer)
+{
+
+	        // --- CLEAR EXISTING LIGHTS ---
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+    Standard_Real viewW, viewH;
+    view->Size(viewW, viewH);
+
+    int cols = 6;
+    int rows = 10;
+
+    for (int iy = 0; iy < rows; ++iy)
+    {
+        for (int ix = 0; ix < cols; ++ix)
+        {
+            int px = int((viewW * ix) / (cols - 1));
+            int py = int((viewH * iy) / (rows - 1));
+
+            // world point on view plane
+            Standard_Real x, y, z;
+            Standard_Real vx, vy, vz;
+
+            // Convert pixel → world point AND ray direction
+            view->ConvertWithProj(px, py, x, y, z, vx, vy, vz);
+
+            gp_Pnt P(x, y, z);
+            gp_Vec dir(vx, vy, vz);
+            dir.Normalize();
+
+            // choose distance along ray
+            double d = 300.0;
+            gp_Pnt origin = P.Translated(dir * d);
+
+            Handle(V3d_SpotLight) spot =
+                new V3d_SpotLight(origin, gp_Dir(dir), Quantity_NOC_WHITE);
+
+            spot->SetIntensity(90000000000.0 / (rows * cols));
+            spot->SetAngle(3.0);
+            spot->SetConcentration(1.0);
+
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+        }
+    }
+
+        // --- AMBIENT LIGHT ---
+        Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+        amb->SetIntensity(strcfg("Ambient",0.1,4));
+        viewer->AddLight(amb);
+        viewer->SetLightOn(amb);
+		 viewer->UpdateLights();
+}
+
+void addViewportLights2(const Handle(V3d_View)& view,
+                       const Handle(V3d_Viewer)& viewer)
+{
+
+	        // --- CLEAR EXISTING LIGHTS ---
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+    gp_Pnt eye      = view->Camera()->Eye();
+gp_Dir forward = view->Camera()->Direction();
+gp_Dir up      = view->Camera()->Up();
+
+// Cross product gives gp_Vec, not gp_Dir
+gp_Vec vRightVec = forward.Crossed(up);
+vRightVec.Normalize();
+gp_Dir right(vRightVec);
+
+// Recompute up to ensure orthogonality
+gp_Vec vUpVec = right.Crossed(forward);
+vUpVec.Normalize();
+gp_Dir up2(vUpVec);
+
+// Convert to gp_Vec for offsets
+gp_Vec vForward(forward);
+gp_Vec vRight(right);
+gp_Vec vUp(up2);
+
+
+    Standard_Real viewW, viewH;
+    view->Size(viewW, viewH);
+
+    double d    = 300.0;                 // depth from camera
+    double fovY = view->Camera()->FOVy(); // radians
+
+    double worldPerPixelY = (2.0 * d * tan(fovY * 0.5)) / viewH;
+    double worldPerPixelX = worldPerPixelY * (viewW / viewH);
+
+    int cols = 6;
+    int rows = 10;
+
+    for (int iy = 0; iy < rows; ++iy)
+    {
+        double y_px = (viewH * iy) / (rows - 1);
+        double dy   = (y_px - viewH * 0.5) * worldPerPixelY;
+
+        for (int ix = 0; ix < cols; ++ix)
+        {
+            double x_px = (viewW * ix) / (cols - 1);
+            double dx   = (x_px - viewW * 0.5) * worldPerPixelX;
+
+            gp_Vec offset = vRight * dx + vUp * dy;
+
+            gp_Pnt origin =
+                eye.Translated(vForward * d)
+                   .Translated(offset);
+
+            Handle(V3d_SpotLight) spot =
+                new V3d_SpotLight(origin, forward, Quantity_NOC_WHITE);
+
+            spot->SetIntensity(500000000.0 / (rows * cols));
+            spot->SetAngle(3.0);
+            spot->SetConcentration(1.0);
+
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+        }
+    }
+
+        // --- AMBIENT LIGHT ---
+        Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+        amb->SetIntensity(strcfg("Ambient",0.1,4));
+        viewer->AddLight(amb);
+        viewer->SetLightOn(amb);
+	 viewer->UpdateLights();
+}
+
+void addViewportLights1(const Handle(V3d_View)& view,
+                       const Handle(V3d_Viewer)& viewer)
+{
+	        // --- CLEAR EXISTING LIGHTS ---
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+    gp_Pnt eye = view->Camera()->Eye();
+    gp_Dir forward = view->Camera()->Direction();
+    gp_Dir up = view->Camera()->Up();
+    gp_Dir right = forward.Crossed(up);
+
+    gp_Vec vForward(forward);
+    gp_Vec vRight(right);
+    gp_Vec vUp(up);
+
+    Standard_Real viewW, viewH;
+    view->Size(viewW, viewH);
+
+    double d = 300.0;        // distance from camera
+    int cols = 6;            // number of lights horizontally
+    int rows = 10;           // number of lights vertically
+
+    for (int iy = 0; iy < rows; ++iy)
+    {
+        double y_px = (viewH * iy) / (rows - 1);
+        double ny = (y_px / viewH) - 0.5;
+
+        for (int ix = 0; ix < cols; ++ix)
+        {
+            double x_px = (viewW * ix) / (cols - 1);
+            double nx = (x_px / viewW) - 0.5;
+
+            gp_Vec offset =
+                vRight * (nx * d) +
+                vUp    * (ny * d);
+
+            gp_Pnt origin =
+                eye.Translated(vForward * d)
+                   .Translated(offset);
+
+            Handle(V3d_SpotLight) spot =
+                new V3d_SpotLight(origin, forward, Quantity_NOC_WHITE);
+
+            spot->SetIntensity(50000000.0 / (rows * cols));
+            spot->SetAngle(3.0);
+            spot->SetConcentration(3.0);
+
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+        }
+    }
+
+        // --- AMBIENT LIGHT ---
+        Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+        amb->SetIntensity(strcfg("Ambient",0.1,4));
+        viewer->AddLight(amb);
+        viewer->SetLightOn(amb);
+	 viewer->UpdateLights();
+}
 
 void lettherebelight6() {
+    auto view = m_view;
+    auto viewer = view->Viewer();
+
+    try {
+        if (viewer.IsNull() || view.IsNull()) return;
+
+        viewer->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+        view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+
+        // --- CLEAR EXISTING LIGHTS ---
+        TColStd_ListOfTransient lights;
+        for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights())
+            lights.Append(viewer->ActiveLight());
+        for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next())
+            viewer->DelLight(Handle(V3d_Light)::DownCast(it.Value()));
+
+			{
+        // --- AMBIENT LIGHT ---
+        Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+        amb->SetIntensity(strcfg("Ambient",0.1,4));
+        viewer->AddLight(amb);
+        viewer->SetLightOn(amb);}
+
+        // --- VIEW METRICS ---
+        Standard_Real viewW, viewH;
+        view->Size(viewW, viewH);
+
+addVerticalBeam(view, viewer );          // narrow angle
+
+        viewer->UpdateLights();
+		return;
+
+
+
+        double t = strcfg("Offset"); // normalized offset in [-1..1] expected
+        double halfW = viewW * 0.5;
+        double halfH = viewH * 0.5;
+
+        // normalized offsets in screen space [-1..1]
+        double offsetW_norm = t; // positive = right, negative = left
+        double offsetH_norm = 0.0; // keep beam centered vertically; change if needed
+
+        double dynamicIntensity = (viewW * viewH) * strcfg("Intensity",1,999);
+
+        gp_Pnt center = view->Camera()->Center();
+        gp_Pnt eye    = view->Camera()->Eye();
+
+        // camera basis
+        gp_Dir forward = view->Camera()->Direction(); // points from eye into scene
+        gp_Dir up      = view->Camera()->Up();
+        gp_Dir right(forward.Crossed(up));
+        // normalize just in case
+        // right.Normalize();
+        // up.Normalize();
+        // forward.Normalize();
+
+        gp_Vec vForward(forward);
+        gp_Vec vRight(right);
+        gp_Vec vUp(up);
+
+        // distance from eye where we place the light origin (near plane-ish)
+        Standard_Real nearDist = strcfg("NearDist", 10.0, 10000.0); // tweakable via config
+        // scale factor to convert normalized screen offset to world offset at nearDist
+        // a simple heuristic: worldOffset = normalizedOffset * nearDist * scaleFactor
+        // scaleFactor controls how many world units correspond to full-screen offset
+        Standard_Real scaleFactor = strcfg("ScreenToWorld", 0.5, 10.0);
+
+        gp_Vec worldOffset = vRight * (offsetW_norm * nearDist * scaleFactor)
+                           + vUp    * (offsetH_norm * nearDist * scaleFactor);
+
+        // --- LIGHT COLOR and conversion to linear
+        auto srgbToLinear = [](double c)->double {
+            if (c <= 0.04045) return c / 12.92;
+            return pow((c + 0.055) / 1.055, 2.4);
+        };
+
+        Quantity_Color srgb(0.54118,0.54118,0.61569, Quantity_TOC_RGB);
+        Quantity_Color linear(
+            srgbToLinear(srgb.Red()),
+            srgbToLinear(srgb.Green()),
+            srgbToLinear(srgb.Blue()),
+            Quantity_TOC_RGB
+        );
+
+        // --- INTENSITIES FROM SLIDERS ---
+        double I_core = dynamicIntensity * strcfg("I_core",1,999);
+        double I_glow = dynamicIntensity * strcfg("I_glow",0.2,999);
+
+        double angle_core = strcfg("Angle",1,10) * (M_PI/180.0); // degrees -> radians if needed
+        double conc_core  = strcfg("Concentration",0,2);
+
+        // Helper to add a camera‑relative spotlight centered at a screen position
+        auto addCameraSpot = [&](double offsetX_norm, double offsetY_norm,
+                                 const Quantity_Color& col, double intensity,
+                                 double angleDeg, double concentration)
+        {
+            // compute origin near the camera and offset in camera space
+            gp_Vec ofs = vRight * (offsetX_norm * nearDist * scaleFactor)
+                       + vUp    * (offsetY_norm * nearDist * scaleFactor);
+
+            gp_Pnt origin = eye.Translated(vForward * nearDist).Translated(ofs);
+
+            // direction is camera forward (beam projects into scene)
+            gp_Dir dir(forward);
+
+            // create spot
+            Handle(V3d_SpotLight) spot = new V3d_SpotLight(origin, dir, col);
+            spot->SetIntensity(intensity);
+            spot->SetAngle(angleDeg);
+            spot->SetConcentration(concentration);
+            // spot->SetCastShadows(Standard_False);
+
+            viewer->AddLight(spot);
+            viewer->SetLightOn(spot);
+        };
+
+        // --- ADD CORE NARROW BEAM centered at normalized offset t horizontally ---
+        // addCameraSpot(offsetW_norm, offsetH_norm, linear, I_core, angle_core, conc_core);
+// Beam parameters
+double beamX = strcfg("BeamX",  -1.0, 1.0);   // horizontal position in screen space
+double beamHeight = 1.0;                          // full vertical span
+int segments = 6;                                  // number of vertical lights
+
+for (int i = 0; i < segments; ++i)
+{
+    double yNorm = -beamHeight * 0.5 + beamHeight * (double(i) / (segments - 1));
+
+    gp_Vec ofs = vRight * (beamX * nearDist * scaleFactor)
+               + vUp    * (yNorm * nearDist * scaleFactor);
+
+    gp_Pnt origin = eye.Translated(vForward * nearDist).Translated(ofs);
+
+    Handle(V3d_SpotLight) spot = new V3d_SpotLight(origin, forward, linear);
+    spot->SetIntensity(I_core / segments);
+    spot->SetAngle(angle_core);          // very small angle
+    spot->SetConcentration(conc_core);   // high concentration
+
+    viewer->AddLight(spot);
+    viewer->SetLightOn(spot);
+}
+
+        // --- OPTIONAL: add a wider, softer glow behind the core for visual richness ---
+        // addCameraSpot(offsetW_norm, offsetH_norm, linear, I_glow, angle_core * 3.0, conc_core * 0.2);
+
+        // --- AMBIENT LIGHT ---
+        Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+        amb->SetIntensity(strcfg("Ambient",0.1,4));
+        viewer->AddLight(amb);
+        viewer->SetLightOn(amb);
+
+        viewer->UpdateLights();
+
+    } catch (const Standard_Failure& e) {
+        std::cout << "OCCT Exception: " << e.GetMessageString() << std::endl;
+    }
+}
+
+
+void lettherebelight611() {
     auto view = m_view;
     auto viewer = view->Viewer();
 
@@ -2574,7 +3768,7 @@ void lettherebelight6() {
         double offsetW = t * halfW;
         double offsetH = t * halfH;
 
-        double dynamicIntensity = (viewW * viewH) * strcfg("Intensity");
+        double dynamicIntensity = (viewW * viewH) * strcfg("Intensity",1,999);
 
         gp_Pnt center = view->Camera()->Center();
         gp_Pnt eye    = view->Camera()->Eye();
@@ -2622,14 +3816,26 @@ gp_Pnt eye_bottom = eye.Translated(vDown  * d);
         // Quantity_Color colTop   (Quantity_NOC_GOLD);
         // Quantity_Color colRight (Quantity_NOC_WHITE);
         // Quantity_Color colLeft  (Quantity_NOC_RED);
+			auto srgbToLinear = [](double c)->double {
+    if (c <= 0.04045) return c / 12.92;
+    return pow((c + 0.055) / 1.055, 2.4);
+};
+
+Quantity_Color srgb(0.54118,0.54118,0.61569, Quantity_TOC_RGB);
+Quantity_Color linear(
+    srgbToLinear(srgb.Red()),
+    srgbToLinear(srgb.Green()),
+    srgbToLinear(srgb.Blue()),
+    Quantity_TOC_RGB
+);
 
         // --- INTENSITIES FROM SLIDERS ---
-        double I_top    = dynamicIntensity * strcfg("I_top");
-        double I_right  = dynamicIntensity * strcfg("I_side");
-        double I_left   = dynamicIntensity * strcfg("I_bottom");
+        double I_top    = dynamicIntensity * strcfg("I_top",1,999);
+        double I_right  = dynamicIntensity * strcfg("I_side",1,999);
+        double I_left   = dynamicIntensity * strcfg("I_bottom",1,999);
 
-        double angle = strcfg("Angle");
-        double conc  = strcfg("Concentration");
+        double angle = strcfg("Angle",1,10);
+        double conc  = strcfg("Concentration",0,2);
 
         // --- CREATE LIGHT FUNCTION ---
         auto addSpot = [&](const gp_Pnt& tgt, const Quantity_Color& col, double intensity)
@@ -2643,20 +3849,23 @@ gp_Pnt eye_bottom = eye.Translated(vDown  * d);
             spot->SetIntensity(intensity);
             spot->SetAngle(angle);
             spot->SetConcentration(conc);
-            spot->SetCastShadows(Standard_False);
+            // spot->SetCastShadows(Standard_False);
 
             viewer->AddLight(spot);
             viewer->SetLightOn(spot);
         };
 
         // --- ADD 3 GRADIENT LIGHTS ---
-        addSpot(targetTop,   colTop,   I_top);
-        addSpot(targetRight, colRight, I_right);
-        addSpot(targetLeft,  colLeft,  I_left);
+        addSpot(targetTop,   linear,   I_top);
+        addSpot(targetRight, linear, I_right);
+        addSpot(targetLeft,  linear,  I_left);
+        // addSpot(targetTop,   colTop,   I_top);
+        // addSpot(targetRight, colRight, I_right);
+        // addSpot(targetLeft,  colLeft,  I_left);
 
         // --- AMBIENT LIGHT ---
         Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
-        amb->SetIntensity(strcfg("Ambient"));
+        amb->SetIntensity(strcfg("Ambient",0.1,4));
         viewer->AddLight(amb);
         viewer->SetLightOn(amb);
 
@@ -3080,9 +4289,13 @@ for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next()) {
 		if (!m_initialized) {
 			glViewport(0, 0, w(), h());
 			initialize_opencascade();
+			addViewportLights(m_view,m_viewer);
 		}
 		if (!m_initialized) return;
-		lettherebelight61();
+		// addViewportLights
+		// lettherebelight6();
+		// updateVerticalBeam(m_view,m_viewer);
+		addViewportLights(m_view,m_viewer);
 		{ 
 		// auto view=m_view;
 		// auto viewer=view->Viewer();
@@ -4769,7 +5982,159 @@ m_context->Display(aShape, 0);
 		currentMode = fromcurrentMode;
 		// redraw();
 	}
+void toggle_shaded_transpvn(Standard_Integer fromcurrentMode = AIS_WireFrame) {
 
+auto viewer=m_view->Viewer();
+
+// Desliga todas as luzes existentes
+// TColStd_ListOfTransient lights;
+
+// viewer->InitActiveLights();
+// while (viewer->MoreActiveLights()) {
+//     lights.Append(viewer->ActiveLight());
+//     viewer->NextActiveLights();
+// }
+
+// for (TColStd_ListIteratorOfListOfTransient it(lights); it.More(); it.Next()) {
+//     Handle(V3d_Light) L = Handle(V3d_Light)::DownCast(it.Value());
+//     viewer->DelLight(L);
+// }
+
+
+
+// viewer->SetLightOff();
+m_view->Viewer()->SetDefaultShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+m_view->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+// // Ambient: strong, soft base
+// Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+// amb->SetIntensity(1.2f);
+// viewer->AddLight(amb);
+// viewer->SetLightOn(amb);
+
+// // Key light: subtle
+// gp_Dir sunDir(-1.0, -1.0, -1.0);
+// Handle(V3d_DirectionalLight) sun = new V3d_DirectionalLight(sunDir, Quantity_NOC_WHITE);
+// sun->SetIntensity(1.0f);   // was 22.5
+// viewer->AddLight(sun);
+// viewer->SetLightOn(sun);
+
+// // Fill light: very soft
+// gp_Dir fillDir(1.0, 0.5, 0.2);
+// Handle(V3d_DirectionalLight) fill = new V3d_DirectionalLight(fillDir, Quantity_NOC_WHITE);
+// fill->SetIntensity(0.6f);  // was 20.8
+// viewer->AddLight(fill);
+// viewer->SetLightOn(fill);
+
+// #include <V3d_DirectionalLight.hxx> 
+// for (viewer->InitActiveLights(); viewer->MoreActiveLights(); viewer->NextActiveLights()) {
+//     viewer->SetLightOff(viewer->ActiveLight());
+// }
+
+// 1. Criar a luz direcional
+// Direção: x=1.0 (direita), y=1.0 (cima), z=1.0 (frente ao objeto)
+// Handle(V3d_DirectionalLight) aLight = new V3d_DirectionalLight(gp_Dir(1.0, 1.0, 1.0));
+
+// // 2. Definir como "Headlight" (Fixa na câmera)
+// aLight->SetHeadlight(Standard_True);
+
+// // 3. Ajustar intensidade e cor (opcional)
+// aLight->SetIntensity(10000.0);
+// aLight->SetColor(Quantity_NOC_WHITE);
+
+
+// viewer->AddLight(aLight);
+// viewer->SetLightOn(aLight);
+
+// lettherebelight77();
+
+
+		for (std::size_t i = 0; i < vaShape.size(); ++i) {
+			Handle(AIS_Shape) shape = vaShape[i];
+			if (shape.IsNull()) continue;
+
+		{
+			shape->UnsetAttributes();	// limpa materiais, cor, largura, etc.
+
+	auto srgbToLinear = [](double c)->double {
+    if (c <= 0.04045) return c / 12.92;
+    return pow((c + 0.055) / 1.055, 2.4);
+};
+
+Quantity_Color srgb(0.54118,0.54118,0.61569, Quantity_TOC_RGB);
+Quantity_Color linear(
+    srgbToLinear(srgb.Red()),
+    srgbToLinear(srgb.Green()),
+    srgbToLinear(srgb.Blue()),
+    Quantity_TOC_RGB
+);
+
+// Graphic3d_MaterialAspect mat(Graphic3d_NameOfMaterial_UserDefined);
+// mat.SetDiffuseColor(Quantity_Color(0.2,0.2,0.2, Quantity_TOC_RGB));
+// mat.SetSpecularColor(Quantity_NOC_WHITE);
+// mat.SetShininess(80.0f); // higher = tighter highlight
+// // mat.SetReflectionModeOn(Graphic3d_TypeOfReflection_Specular);
+// mat.SetTransparency(0.0f);
+
+
+
+// pbr1.Albedo = linear;
+
+    // Graphic3d_MaterialAspect mat1(Graphic3d_NameOfMaterial_Steel);
+    // Graphic3d_MaterialAspect mat1(Graphic3d_NameOfMaterial_ShinyPlastified);
+    Graphic3d_MaterialAspect mat1(Graphic3d_NameOfMaterial_UserDefined);
+	    Graphic3d_PBRMaterial pbr1;
+    pbr1.SetMetallic(strcfg("Metallic",0,1));
+    pbr1.SetRoughness(strcfg("Roughness",0,1)); 
+    // pbr1.SetMetallic(0.94f);
+    // pbr1.SetRoughness(0.44f);
+    mat1.SetPBRMaterial(pbr1);
+	// mat1.SetColor(Quantity_NOC_RED);
+	mat1.SetColor(linear);
+	mat1.SetEmissiveColor(Quantity_NOC_RED);
+	mat1.SetShininess(1.0f);
+	mat1.SetSpecularColor(Quantity_NOC_WHITE);
+    shape->SetMaterial(mat1); 
+
+	BRepMesh_IncrementalMesh mesher1(shape->Shape(), 0.05, Standard_False, 0.1, Standard_True);
+ApplyFakeBevelNormals(shape->Shape(), gp_Pnt(5000.0, 5000.0, 5000.0));
+
+    shape->Attributes()->ShadingAspect()->Aspect()
+    //     ->SetShadingModel(Graphic3d_TypeOfShadingModel_DEFAULT);
+        ->SetShadingModel(Graphic3d_TypeOfShadingModel_Pbr);
+    // REALÇAR ARESTAS
+    shape->Attributes()->SetFaceBoundaryDraw(Standard_True);
+    shape->Attributes()->SetFaceBoundaryAspect(
+        new Prs3d_LineAspect(Quantity_Color(0,0.0,0.0,Quantity_TOC_RGB), Aspect_TOL_SOLID, 2.0)
+        // new Prs3d_LineAspect(Quantity_Color(1,0.35,0.35,Quantity_TOC_RGB), Aspect_TOL_SOLID, 2.0)
+    );
+			Handle(Prs3d_LineAspect) wireAsp = new Prs3d_LineAspect(Quantity_NOC_GRAY, Aspect_TOL_DASH, 0.2);
+			shape->Attributes()->SetUnFreeBoundaryAspect(wireAsp);
+		} 
+			if (m_context->IsDisplayed(shape))
+						m_context->Remove(shape, Standard_False); 
+
+			if (fromcurrentMode == AIS_Shaded) {
+				hlr_on = 1;
+				shape->SetDisplayMode(AIS_WireFrame);
+
+			}else{
+				hlr_on = 0;
+				shape->SetDisplayMode(AIS_Shaded);
+
+			}
+			m_context->Display(shape, 0);
+		}
+
+		if (hlr_on == 1) { 
+				projectAndDisplayWithHLR(vshapes); 
+		} else {
+			if (!visible_.IsNull()) {
+				m_context->Remove(visible_, 0);
+				visible_.Nullify();
+			}
+		currentMode = fromcurrentMode;
+	}
+}
 
 void toggle_shaded_transpv2_nw(Standard_Integer fromcurrentMode = AIS_WireFrame)
 {

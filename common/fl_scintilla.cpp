@@ -613,6 +613,73 @@ void fl_scintilla::FoldFirstLevel() {
 }
 
 
+//region front back navigation
+std::unordered_map<sptr_t,uhist> vuhist;
+void fl_scintilla::gocaret(int dir)
+{
+    uhist& h = vuhist[curr_file_pointer];
+
+    if (h.caretHistory.empty())
+        return;
+
+    int currentPos = SendEditor(SCI_GETCURRENTPOS);
+    int currentLine = SendEditor(SCI_LINEFROMPOSITION, currentPos);
+
+    int newIndex = h.caretIndex;
+
+    // procurar próximo histórico válido
+    while (true)
+    {
+        newIndex += dir;
+
+        if (newIndex < 0 || newIndex >= (int)h.caretHistory.size())
+            return; // não há mais
+
+        int pos = h.caretHistory[newIndex];
+        int line = SendEditor(SCI_LINEFROMPOSITION, pos);
+
+        // filtro: só aceita se diferença > 2 linhas
+        if (abs(line - currentLine) > 2)
+            break;
+    }
+
+    h.caretIndex = newIndex;
+
+    int pos = h.caretHistory[h.caretIndex];
+    int view = h.viewHistory[h.caretIndex];
+
+    h.suppressHistory = true;
+
+    SendEditor(SCI_GOTOPOS, pos);
+    SendEditor(SCI_SETFIRSTVISIBLELINE, view);
+
+    h.suppressHistory = false;
+}
+
+void fl_scintilla::recordCaret()
+{
+    uhist& h = vuhist[curr_file_pointer];
+
+    if (h.suppressHistory)
+        return;
+
+    int pos = SendEditor(SCI_GETCURRENTPOS);
+    int firstVisible = SendEditor(SCI_GETFIRSTVISIBLELINE);
+
+    if (!h.caretHistory.empty() && h.caretHistory.back() == pos)
+        return;
+
+    if (h.caretIndex + 1 < (int)h.caretHistory.size()) {
+        h.caretHistory.erase(h.caretHistory.begin() + h.caretIndex + 1, h.caretHistory.end());
+        h.viewHistory.erase(h.viewHistory.begin() + h.caretIndex + 1, h.viewHistory.end());
+    }
+
+    h.caretHistory.push_back(pos);
+    h.viewHistory.push_back(firstVisible);
+    h.caretIndex = h.caretHistory.size() - 1;
+}
+
+//region updatemenu
 void fl_scintilla::update_menu() {
 	window()->begin(); 
 
@@ -639,6 +706,126 @@ void fl_scintilla::update_menu() {
 	// fmb->add("Files/Quit", 0, menu_callback);
 
 	fmb->add("Files", 0, 0, 0, FL_SUBMENU);
+ 
+
+fmb->add("Files/New", 0,
+    [](Fl_Widget*, void* ud) {
+        auto* self = static_cast<fl_scintilla*>(ud);
+        
+        if (self->folder.empty()) self->folder = ".";
+
+        bool done = false;
+        std::string fullpath;
+        std::string name;
+
+        while (!done) {
+            Fl_Window* win = new Fl_Window(440, 160, "Save New File");
+            win->begin();
+
+            // Current folder (display only)
+            Fl_Box* dir_box = new Fl_Box(20, 15, 220, 25, self->folder.c_str());
+            dir_box->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+            dir_box->labelsize(13);
+
+            // Filename label + input
+            Fl_Box* label = new Fl_Box(20, 55, 80, 30, "Filename:");
+            label->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE);
+            label->labelsize(14);
+
+            Fl_Input* input = new Fl_Input(105, 55, 130, 30);
+            input->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE);
+            input->textsize(16);
+            input->value("new");
+			
+            Fl_Box* labele = new Fl_Box(input->w()+input->x(), input->y(), 50, 30, ".lua");
+            labele->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+            labele->labelsize(14);
+
+            Fl_Button* cancel_btn = new Fl_Button(240, 110, 90, 35, "Cancel");
+            Fl_Button* ok_btn     = new Fl_Button(340, 110, 90, 35, "Save");
+
+            win->end();
+            win->set_modal();
+
+            // 1. Create a state struct to track the user's action reliably
+            struct DialogState {
+                Fl_Window* w;
+                bool saved;
+            } state = { win, false };
+
+            // 2. Use non-capturing lambdas so they can decay to FLTK function pointers
+            auto save_cb = [](Fl_Widget*, void* p) {
+                auto* st = static_cast<DialogState*>(p);
+                st->saved = true;
+                st->w->hide();
+            };
+            
+            auto cancel_cb = [](Fl_Widget*, void* p) {
+                auto* st = static_cast<DialogState*>(p);
+                st->saved = false;
+                st->w->hide();
+            };
+
+            // 3. Bind callbacks to the buttons
+            ok_btn->callback(save_cb, &state);
+            cancel_btn->callback(cancel_cb, &state);
+
+            // 4. Bind the Enter key to the save action
+            input->when(FL_WHEN_ENTER_KEY);
+            input->callback(save_cb, &state);
+
+            win->show();
+
+            // Wait for user interaction
+            while (win->shown()) {
+                Fl::wait();
+            }
+
+            // Extract values before deleting the window
+            name = string(input->value())+".lua";
+            bool was_saved = state.saved;
+            
+            delete win; // clean up immediately
+
+            // 5. Handle cancellation (either via Cancel button or Window Manager 'X')
+            if (!was_saved) {
+                return; 
+            }
+
+            // 6. Handle empty input gracefully
+            if (name.empty()) {
+                fl_alert("Filename cannot be empty.\n\nPlease provide a name.");
+                continue; // Loop again -> show dialog again
+            }
+
+            // Build full path
+            fullpath = self->folder;
+            if (fullpath.back() != '/' && fullpath.back() != '\\') {
+                fullpath += "/";
+            }
+            fullpath += name;
+
+            // Check if file already exists
+            if (fl_access(fullpath.c_str(), 0) == 0) {
+                fl_alert("A file with this name already exists.\n\nPlease choose a different name.");
+                continue; // Loop again -> show dialog again
+            }
+
+            done = true;   // good name, proceed
+        }
+
+        // === Save the file here ===
+        FILE* f = fopen(fullpath.c_str(), "wb");
+        if (f) fclose(f);
+
+        // Or call your real save function:
+        // self->save_file(fullpath.c_str());
+		self->update_menu();
+		setscint(self, self->folder + name);
+        printf("New file created: %s\n", fullpath.c_str());
+    },
+    (void*)this,FL_MENU_DIVIDER);
+
 	fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
 	// fmb->add("Options/test",0,menu_cb);
 	// fmb->add("Help",0,0,0,FL_MENU_DIVIDER);
@@ -710,6 +897,21 @@ void fl_scintilla::update_menu() {
 		[](Fl_Widget* mnu, void* ud) {
 			auto* self = static_cast<fl_scintilla*>(ud);
 			self->FoldFirstLevel();
+		},
+		(void*)this);
+
+	fmb->add(
+		"<", 0,
+		[](Fl_Widget* mnu, void* ud) {
+			auto* self = static_cast<fl_scintilla*>(ud);
+			self->gocaret(-1);
+		},
+		(void*)this);
+	fmb->add(
+		">", 0,
+		[](Fl_Widget* mnu, void* ud) {
+			auto* self = static_cast<fl_scintilla*>(ud);
+			self->gocaret(1);
 		},
 		(void*)this);
 }
@@ -1178,6 +1380,7 @@ char* g_szFuncDesc[FUNCSIZE]= { //函数信息
 // }
 void fl_scintilla::navigatorSetUpdated(){
 		cotm("v1")
+		recordCaret();
 		save_fold();
 	    filesfirstline[curr_file_pointer]=SendEditor(SCI_GETFIRSTVISIBLELINE,0,0);
         filesfirstline[curr_file_pointer]=SendEditor(SCI_DOCLINEFROMVISIBLE,filesfirstline[curr_file_pointer],0);
@@ -1195,6 +1398,7 @@ static void cb_editor(Scintilla::SCNotification *scn, void *data)
 
 	// if (scn->nmhdr.code!=2013)printf("scn %d\n",scn->nmhdr.code);
 	// if (scn->nmhdr.code==SCN_UPDATEUI)printf("SCN_UPDATEUI %d\n",scn->nmhdr.code);
+	if (scn->nmhdr.code==SCN_UPDATEUI)editor->recordCaret();
 
  
 	if (scn->nmhdr.code == SCN_CHARADDED && editor->curr_file_pointer>0)

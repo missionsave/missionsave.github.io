@@ -1570,6 +1570,8 @@ install_occt_7_9_3() {
     tar xf V${OCCT_VER}.tar.gz
     cd OCCT-${OCCT_VER}
 
+	return 1
+
     mkdir -p build
     cd build
 
