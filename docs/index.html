@@ -11,11 +11,13 @@
  	<title translate="no" class="notranslate">Foundation Mission SAVE</title>
  	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
- 	<link rel="stylesheet" type="text/css" href="https://missionsave.github.io/style.css?1399">
+ 	<!-- <link rel="stylesheet" type="text/css" href="style.css"> -->
+ 	<link rel="stylesheet" type="text/css" href="https://missionsave.github.io/style.css">
 	
 	<link rel="icon" type="image/x-icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico">
 	<link rel="icon" type="image/png" href="https://missionsave.github.io/favicon.png">
+	<meta property="og:image" content="https://missionsave.github.io/favicon.png">
 
 	<script>
 function updateCanonical() {
@@ -35,11 +37,36 @@ function updateCanonical() {
     canonical.setAttribute('href', domain + path + search);
 }
 
-// Call this every time you change the innerHTML content
-updateCanonical();
+function updateTitleFromSearch() {
+    // 1. Grab the URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const pValue = urlParams.get('p');
 
-// Call this every time your script changes the innerHTML/page
-updateCanonical();
+    // 2. Only proceed if "?p=" actually exists
+    if (pValue) {
+        // Clean up the string:
+        // - Remove "Proposals/" (if it exists)
+        // - Replace underscores (_) with spaces
+		const v=pValue.split("/");
+		let prefix="";
+		if(v.length>1)prefix=v[v.length-1].split("_").join(" ");
+		let formattedName=prefix+" MSV "+v[0].split("_").join(" ");
+		console.log("v",v,prefix,v.length);
+        // let formattedName = pValue
+        //     .replace('/', '')
+        //     // .replace('Proposals/', '')
+        //     .replace(/_/g, ' ');
+
+        // 3. Update the document title
+        document.title = formattedName;
+    }
+}
+
+// Call this every time you change the innerHTML content
+function updates(){
+	updateCanonical();
+	updateTitleFromSearch();
+}
 	</script>
 
 
@@ -199,7 +226,7 @@ body.no-hover .dropdownc:hover .dropdown-content {
 let tdoc;  
 function loadTdocSync() {
 	const xhr = new XMLHttpRequest();
-	// xhr.open('GET', 'tdoc.json?', false);   // false = síncrono / blocking	
+	// xhr.open('GET', 'tdoc.json', false);   // false = síncrono / blocking	
 	xhr.open('GET', 'https://missionsave.github.io/tdoc.json', false);   // false = síncrono / blocking	
 	try {
 		xhr.send();
@@ -548,7 +575,7 @@ viewer_v1.querySelectorAll('.loaded_page_root *').forEach(el => {
       })(0);
 
 	  if(menuitem?.showpub)google_ads(1);else google_ads(0);
-updateCanonical();
+updates();
     })
     .catch(err => {
       console.error(err);
@@ -577,7 +604,7 @@ function updateurl(arg){
 // const newUrl = `${window.location.pathname}?${params.toString()}`;
 		// window.history.replaceState({}, '', arg.href);
     history.pushState({  }, "", arg.href);
-	updateCanonical();
+	updates();
 }
 
 //region init
@@ -588,6 +615,7 @@ function init(){
 	if(urlp){
 		Object.entries(tdoc).forEach(([category, items]) => {
 			items.forEach(item => {
+				if(item?.notinmenu)return;
 				if (item.title) { 
 					const generatedp=`${category}/${(item.title || "").replace(/\s+/g, '_')}`; 
 					if(urlp==generatedp){ 
@@ -702,7 +730,7 @@ window.onclick = function(event) {
 };
 
 
-
+//region menu
 // 4. Main Loop to generate Nav
 Object.entries(tdoc).forEach(([key, value]) => {
     if (key === "home") return;

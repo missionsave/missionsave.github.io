@@ -3,8 +3,9 @@ p  { text-align: justify;}
 .topnav {  
 
   overflow: hidden;
+  /* display: flex; */
   background-color: #333; 
-  //background-image: linear-gradient(gray, #333);
+  /* background-image: linear-gradient(gray, #333); */
 }
 
 .topnav a {
@@ -14,7 +15,7 @@ p  { text-align: justify;}
   text-align: center;
   padding: 14px 16px;
   text-decoration: none;
-  font-size: 17px;
+  font-size: 16px;
 }
 
 .active {
@@ -31,6 +32,7 @@ p  { text-align: justify;}
 .dropdownc {
 	
   float: left; 
+  display: block;
   overflow: auto;
 }
 
