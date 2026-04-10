@@ -6634,50 +6634,49 @@ visible_ = new AIS_NonSelectableShape(result);
 		}
 		void clone(luadraw* toclone, bool copy_placement = false) {
 			// return;
-    if (!toclone) {
-        throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
-		return;
-    }
+			if (!toclone) {
+				throw std::runtime_error(lua_error_with_line(L, "Something went wrong"));
+				return;
+			}
 
-    this->vpoints = toclone->vpoints;
+			this->vpoints = toclone->vpoints;
 
-    if (!toclone->shape.IsNull()) {
-		toclone->needsplacementupdate=1; //verify better why this is needed
-		toclone->redisplay(); //verify better why this is needed
+			if (!toclone->shape.IsNull()) {
+				toclone->needsplacementupdate = 1;	// verify better why this is needed
+				toclone->redisplay();				// verify better why this is needed
 
-		// auto solids = ExtractSolids(toclone->cshape);
-		// if (solids.size() >0) {
-		// this->shape = solids[0];}
-		// else  this->shape = toclone->cshape;
-        this->shape = toclone->shape;
+				// auto solids = ExtractSolids(toclone->cshape);
+				// if (solids.size() >0) {
+				// this->shape = solids[0];}
+				// else  this->shape = toclone->cshape;
+				this->shape = toclone->shape;
 
-        if (!copy_placement) { 
-			// shape.Location(TopLoc_Location());
-            shape = resetShapePlacement(shape);
-        }
+				if (!copy_placement) {
+					// shape.Location(TopLoc_Location());
+					shape = resetShapePlacement(shape);
+				}
 
-        mergeShape(cshape, shape);
-		bool contain=Contains(toclone->name,"sketch");
-		 
-		if(this->from_sketch=="" && contain){
-			this->from_sketch=toclone->name;
-			// toclone->clone_qtd++;
+				mergeShape(cshape, shape);
+				bool contain = Contains(toclone->name, "sketch");
+
+				if (this->from_sketch == "" && contain) {
+					this->from_sketch = toclone->name;
+					// toclone->clone_qtd++;
+				}
+
+				if (toclone->clone_qtd == 0) clone_qtd = 1;
+				// this->clone_qtd+=toclone->clone_qtd;
+
+				if (this->from_sketch == "" && !contain) {
+					this->from_sketch = toclone->from_sketch;
+					// this->clone_qtd=toclone->clone_qtd;
+					// return;
+				}
+				this->clone_qtd += toclone->clone_qtd;
+				// this->clone_qtd++;
+				this->Extrude_val = toclone->Extrude_val;
+			}
 		}
-
-		if(toclone->clone_qtd==0)clone_qtd=1;
-		// this->clone_qtd+=toclone->clone_qtd;
-				
-		if(this->from_sketch==""  && !contain){
-			this->from_sketch=toclone->from_sketch;
-			// this->clone_qtd=toclone->clone_qtd;
-			// return;
-		}
-		this->clone_qtd+=toclone->clone_qtd;
-		// this->clone_qtd++;
-		this->Extrude_val=toclone->Extrude_val;
-    }
-}
-
 
 		vector<std::vector<gp_Vec2d>> vpoints;
 
@@ -7019,6 +7018,9 @@ lua.set_function("Extrude", [&](float val=0){
 
     // 5) Add and make it the current shape
     current_part->Extrude_val=val;
+    // current_part->from_sketch=current_part->name;
+
+
     current_part->mergeShape(current_part->cshape, extruded);
     current_part->shape = extruded;
 });
@@ -7063,6 +7065,7 @@ lua.set_function("Clone", sol::protect([&](OCC_Viewer::luadraw* val,sol::optiona
     if (!current_part) luaL_error(lua.lua_state(), "No current part."); 
     current_part->clone(val,copy_placement.value_or(0)); 
 })); 
+
 
 lua.set_function("Rotatel", [&](float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 0) {
     if (!current_part)
@@ -7113,6 +7116,86 @@ lua.set_function("Rotatel", [&](float angleDegrees = 0.0f, int x = 0, int y = 0,
     current_part->shape = shapeToRotate;
 });
 
+
+lua.set_function("Mirror", [&](OCC_Viewer::luadraw* original, float midpointrelative = 0.5f, int x = 0, int y = 0, int z = 0){    
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    if (!original || original->cshape.IsNull()) {
+        luaL_error(lua.lua_state(), "Invalid original shape for Mirror.");
+    }
+
+    TopoDS_Shape origShape = original->cshape;
+
+    // Determine mirror normal (plane perpendicular to this axis)
+    gp_Dir normal = gp::DX();   // default
+    if (x != 0)      normal = gp::DX();
+    else if (y != 0) normal = gp::DY();
+    else if (z != 0) normal = gp::DZ();
+
+    // Get bounding box of the ORIGINAL shape (this is key)
+    Bnd_Box bbox;
+    BRepBndLib::Add(origShape, bbox);
+    bbox.SetGap(0.0);
+
+    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+    bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+
+    // === IMPORTANT CHANGE ACCORDING TO YOUR REQUIREMENT ===
+    // When you call: Mirror(frame_top, 200, 1, 0, 0)
+    // → the second parameter (200) is the absolute position of the mirror plane along X
+    // → the mirrored copy will appear symmetric with respect to X=200
+    //   (so if original has a point at X=100, mirrored will have it at X=300 → "at 400" if original goes to 0)
+
+    gp_Pnt planeOrigin;
+
+    if (normal.IsEqual(gp::DX(), Precision::Angular())) {
+        // Use the passed value directly as the plane position on X
+        planeOrigin = gp_Pnt(midpointrelative, (ymin + ymax)*0.5, (zmin + zmax)*0.5);
+    }
+    else if (normal.IsEqual(gp::DY(), Precision::Angular())) {
+        planeOrigin = gp_Pnt((xmin + xmax)*0.5, midpointrelative, (zmin + zmax)*0.5);
+    }
+    else { // DZ
+        planeOrigin = gp_Pnt((xmin + xmax)*0.5, (ymin + ymax)*0.5, midpointrelative);
+    }
+
+    // Create the mirror plane
+    gp_Ax2 mirrorPlane(planeOrigin, normal);
+
+    // Mirror transformation
+    gp_Trsf trsf;
+    trsf.SetMirror(mirrorPlane);
+
+    // Apply the mirror (copy = true is required)
+    BRepBuilderAPI_Transform transformer(origShape, trsf, true);
+    if (!transformer.IsDone()) {
+        luaL_error(lua.lua_state(), "Mirror transformation failed.");
+    }
+
+    TopoDS_Shape mirrored = transformer.Shape();
+
+    // Fix orientation issues (common reason shapes don't appear after mirror)
+    mirrored = BRepBuilderAPI_Copy(mirrored, true, true).Shape();
+
+    // Create compound with original + mirrored
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+
+    // builder.Add(newCompound, origShape);
+    builder.Add(newCompound, mirrored);
+
+    current_part->cshape = newCompound;
+
+	current_part->Extrude_val=original->Extrude_val;
+	current_part->from_sketch=original->from_sketch;
+	current_part->clone_qtd+=1;
+
+    // Don't forget to update your viewer / AIS_Shape here:
+    // e.g. current_part->aisShape->Set(current_part->cshape);
+    //      myContext->Redisplay(current_part->aisShape, true);
+});
 
 lua.set_function("Rotatelx", [&](float angleDegrees = 0.0f) {
   // 1. Get the function from the global Lua table (using the sol::state object 'lua')
@@ -7874,6 +7957,7 @@ void fill_menu() {
 
 				for (int i = 0; i < occv->vlua.size(); ++i) {
 					auto o = occv->vlua[i];
+					cotm(o->from_sketch,nm);
 					if (o->from_sketch != nm) continue;
 					if (!o->visible_hardcoded) continue;
 

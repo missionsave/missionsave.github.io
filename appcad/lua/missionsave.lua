@@ -78,24 +78,39 @@ Movel(0,container_height-crn_height,0)
 --FilletToAllEdges(2)
 
 
-
+--region Frame edge horizontal
 Part frame
 Clone sketch_profile
-Extrude(-(container_long-crn_long*2))
+local extrudelen=(-compart_len-120+crn_long)
+if (compartments==1) then
+	extrudelen=-container_long+crn_long*2
+end
+Extrude(extrudelen)
 Movel(0,0,-crn_long)
 
 Part frame_top
 Clone(frame,1) 
-Movel(0,container_height-crn_height)
+Movel(0,container_height-120)
+
+Part frame_top1
+Clone(frame_top,1) 
+Movel(0,container_height-120)
 
 Part frame_right
-Clone frame
-Rotately(180)
-Movel(container_width,0,-(container_long-crn_long*1))
+Mirror(frame_top,container_width/2,1,0,0)
 
 Part frame_right_top
-Clone (frame_right,1)
-Movel(0,container_height-crn_height)
+Mirror(frame_right,container_height/2,0,1,0)
+
+--do return end
+--Part frame_right
+--Clone frame
+--Rotately(180)
+--Movel(container_width,0,-(container_long-crn_long*1))
+
+--Part frame_right_top
+--Clone (frame_right,1)
+--Movel(0,container_height-crn_height)
 
 
 Part framev
