@@ -615,7 +615,6 @@ function init(){
 	if(urlp){
 		Object.entries(tdoc).forEach(([category, items]) => {
 			items.forEach(item => {
-				if(item?.notinmenu)return;
 				if (item.title) { 
 					const generatedp=`${category}/${(item.title || "").replace(/\s+/g, '_')}`; 
 					if(urlp==generatedp){ 
@@ -735,6 +734,7 @@ window.onclick = function(event) {
 Object.entries(tdoc).forEach(([key, value]) => {
     if (key === "home") return;
 			console.log("key",key);
+				if(item?.notinmenu)return;
 	console.log("ovalue",value[0].workerid);
 
     const navContainer = document.getElementById("myTopnav");

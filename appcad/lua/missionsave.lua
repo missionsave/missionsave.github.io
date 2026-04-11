@@ -101,8 +101,18 @@ Mirror(frame_top,container_width/2,1,0,0)
 
 Part frame_right_top
 Mirror(frame_right,container_height/2,0,1,0)
+Circle(70)
+Rotately(90)
+Movel(0,70,-170)
+Extrude(10000)
+Subtract()
 
---do return end
+Part test
+Mirror(frame_right_top,-container_height/2,0,1,0)
+
+Part test2
+Mirror(test,200,1,0,0)
+do return end
 --Part frame_right
 --Clone frame
 --Rotately(180)
