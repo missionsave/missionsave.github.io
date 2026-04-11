@@ -611,6 +611,7 @@ function updateurl(arg){
 function init(){
 	const params = new URLSearchParams(window.location.search);
 	const urlp= params.get('p');
+	console.log("p",urlp);
 	let isloaded=0;
 	if(urlp){
 		Object.entries(tdoc).forEach(([category, items]) => {
@@ -856,8 +857,7 @@ document.getElementById("myTopnav").appendChild(langDropdown);
 
 
 const path = window.location.pathname.replace(/^\/+/, '');
-console.log("path",path);
-console.log("p",params.get('p'));
+console.log("path",path); 
 
 
 onresizeFunction();
