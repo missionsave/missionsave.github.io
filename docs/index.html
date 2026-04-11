@@ -612,6 +612,7 @@ function init(){
 	const params = new URLSearchParams(window.location.search);
 	const urlp= params.get('p');
 	console.log("p",urlp);
+	if(!urlp)urlp= window.location.pathname.replace(/^\/+/, '');
 	let isloaded=0;
 	if(urlp){
 		Object.entries(tdoc).forEach(([category, items]) => {
