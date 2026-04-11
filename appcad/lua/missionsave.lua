@@ -91,24 +91,33 @@ Movel(0,0,-crn_long)
 Part frame_top
 Clone(frame,1) 
 Movel(0,container_height-120)
+--Circle(40)
 
 Part frame_top1
 Clone(frame_top,1) 
 Movel(0,container_height-120)
+Circle(80)
+--Movel(0,900,0)
 
 Part frame_right
-Mirror(frame_top,container_width/2,1,0,0)
+Mirrorv2(frame_top,container_width/2-60,1,0,0)
+--Clone(frame_top,1)
+--Rotately(180)
+--Movel(container_width)
+Circle(40)
 
 Part frame_right_top
-Mirror(frame_right,container_height/2,0,1,0)
-Circle(70)
-Rotately(90)
-Movel(0,70,-170)
-Extrude(10000)
-Subtract()
+Mirror(frame_right,-container_height/2+120/2,0,1,0)
+--Circle(70)
+--Rotately(90)
+--Movel(0,70,-170)
+--Extrude(10000)
+--Subtract()
+Circle(49)
+--Movel(400)
 
 Part test
-Mirror(frame_right_top,-container_height/2,0,1,0)
+Mirror(frame_right_top,-container_height/2,1,0,0)
 
 Part test2
 Mirror(test,200,1,0,0)

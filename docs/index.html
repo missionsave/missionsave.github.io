@@ -734,6 +734,7 @@ window.onclick = function(event) {
 
 //region menu
 // 4. Main Loop to generate Nav
+const isorg=(window.location.hostname === "missionsave.org" || window.location.hostname === "www.missionsave.org");
 Object.entries(tdoc).forEach(([key, value]) => {
     if (key === "home") return;
 			console.log("key",key);
@@ -767,7 +768,8 @@ Object.entries(tdoc).forEach(([key, value]) => {
         value.forEach(item => {
             const subLink = document.createElement("a");
             subLink.textContent = item.title || key; 
-            subLink.href = `?p=${key}/${(item.title || "").replace(/\s+/g, '_')}`;
+            if(isorg)subLink.href = `/${key}/${(item.title || "").replace(/\s+/g, '_')}`;
+            else subLink.href = `?p=${key}/${(item.title || "").replace(/\s+/g, '_')}`;
             
             subLink.addEventListener("click", (e) => {
                 e.preventDefault();
@@ -794,7 +796,8 @@ Object.entries(tdoc).forEach(([key, value]) => {
         const url = Array.isArray(value) ? value[0].url : value;
         const link = document.createElement("a");
         link.textContent = key;
-        link.href = `?p=${key}`;
+        if(isorg)link.href = `/${key}`;
+        else link.href = `?p=${key}`;
 
         link.addEventListener("click", (e) => {
             e.preventDefault();

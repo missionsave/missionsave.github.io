@@ -7117,23 +7117,17 @@ lua.set_function("Rotatel", [&](float angleDegrees = 0.0f, int x = 0, int y = 0,
 });
 
 
-lua.set_function("Mirror", [&](OCC_Viewer::luadraw* original, float midpointrelative = 0.5f, int x = 0, int y = 0, int z = 0){    
+lua.set_function("Mirrorbaked", [&](OCC_Viewer::luadraw* original, float offset = 0.0f, int x = 0, int y = 0, int z = 0){    
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part.");
 
     if (!original || original->cshape.IsNull()) {
-        luaL_error(lua.lua_state(), "Invalid original shape for Mirror.");
+        luaL_error(lua.lua_state(), "Invalid original shape.");
     }
 
     TopoDS_Shape origShape = original->cshape;
 
-    // Determine mirror normal (plane perpendicular to this axis)
-    gp_Dir normal = gp::DX();   // default
-    if (x != 0)      normal = gp::DX();
-    else if (y != 0) normal = gp::DY();
-    else if (z != 0) normal = gp::DZ();
-
-    // Get bounding box of the ORIGINAL shape (this is key)
+    // 1. Get the Bounding Box of the specific shape
     Bnd_Box bbox;
     BRepBndLib::Add(origShape, bbox);
     bbox.SetGap(0.0);
@@ -7141,62 +7135,338 @@ lua.set_function("Mirror", [&](OCC_Viewer::luadraw* original, float midpointrela
     Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
     bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
 
-    // === IMPORTANT CHANGE ACCORDING TO YOUR REQUIREMENT ===
-    // When you call: Mirror(frame_top, 200, 1, 0, 0)
-    // → the second parameter (200) is the absolute position of the mirror plane along X
-    // → the mirrored copy will appear symmetric with respect to X=200
-    //   (so if original has a point at X=100, mirrored will have it at X=300 → "at 400" if original goes to 0)
+    // Calculate the geometric center of the shape
+    Standard_Real cx = (xmin + xmax) * 0.5;
+    Standard_Real cy = (ymin + ymax) * 0.5;
+    Standard_Real cz = (zmin + zmax) * 0.5;
 
-    gp_Pnt planeOrigin;
+    // 2. Define Mirror Normal and Plane Origin
+    gp_Dir normal;
+    gp_Pnt planeOrigin(cx, cy, cz); // Start at the shape's center
 
-    if (normal.IsEqual(gp::DX(), Precision::Angular())) {
-        // Use the passed value directly as the plane position on X
-        planeOrigin = gp_Pnt(midpointrelative, (ymin + ymax)*0.5, (zmin + zmax)*0.5);
+    if (x != 0) {
+        normal = gp::DX();
+        // Move the plane relative to the center along X
+        planeOrigin.SetX(cx + offset); 
     }
-    else if (normal.IsEqual(gp::DY(), Precision::Angular())) {
-        planeOrigin = gp_Pnt((xmin + xmax)*0.5, midpointrelative, (zmin + zmax)*0.5);
+    else if (y != 0) {
+        normal = gp::DY();
+        planeOrigin.SetY(cy + offset);
     }
-    else { // DZ
-        planeOrigin = gp_Pnt((xmin + xmax)*0.5, (ymin + ymax)*0.5, midpointrelative);
+    else if (z != 0) {
+        normal = gp::DZ();
+        planeOrigin.SetZ(cz + offset);
     }
 
-    // Create the mirror plane
+    // 3. Apply Transformation
     gp_Ax2 mirrorPlane(planeOrigin, normal);
-
-    // Mirror transformation
     gp_Trsf trsf;
     trsf.SetMirror(mirrorPlane);
 
-    // Apply the mirror (copy = true is required)
     BRepBuilderAPI_Transform transformer(origShape, trsf, true);
+    if (!transformer.IsDone()) {
+        luaL_error(lua.lua_state(), "Mirror failed.");
+    }
+
+    TopoDS_Shape mirrored = transformer.Shape();
+    
+    // Optional: Ensure the shape is a clean copy with corrected orientation
+    mirrored = BRepBuilderAPI_Copy(mirrored).Shape();
+
+    // 4. Create result
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+    builder.Add(newCompound, mirrored); // Add original here too if you want both
+
+    current_part->cshape = newCompound;
+	current_part->shape = mirrored; ///for location to work
+    current_part->Extrude_val = original->Extrude_val;
+    current_part->from_sketch = original->from_sketch;
+    current_part->clone_qtd += 1;
+});
+lua.set_function("Mirrorv1", [&](OCC_Viewer::luadraw* original, float offset = 0.0f, int x = 0, int y = 0, int z = 0){    
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part.");
+
+    if (!original || original->cshape.IsNull()) {
+        luaL_error(lua.lua_state(), "Invalid original shape.");
+    }
+
+    // 1. Get the original shape
+    TopoDS_Shape origShape = original->cshape;
+
+    // Calculate Bounding Box for center
+    Bnd_Box bbox;
+    BRepBndLib::Add(origShape, bbox);
+    bbox.SetGap(0.0);
+    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+    bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+
+    Standard_Real cx = (xmin + xmax) * 0.5;
+    Standard_Real cy = (ymin + ymax) * 0.5;
+    Standard_Real cz = (zmin + zmax) * 0.5;
+
+    // 2. Define Mirror Normal and Plane Origin
+    gp_Dir normal;
+    gp_Pnt planeOrigin(cx, cy, cz);
+
+    if (x != 0) {
+        normal = gp::DX();
+        planeOrigin.SetX(cx + offset); 
+    }
+    else if (y != 0) {
+        normal = gp::DY();
+        planeOrigin.SetY(cy + offset);
+    }
+    else if (z != 0) {
+        normal = gp::DZ();
+        planeOrigin.SetZ(cz + offset);
+    }
+
+    // 3. Create the Transformation
+    gp_Ax2 mirrorPlane(planeOrigin, normal);
+    gp_Trsf trsf;
+    trsf.SetMirror(mirrorPlane);
+
+    // 4. Apply as a Location (Non-baked)
+    // We create a new shape object that points to the same geometry but has a new location
+    // Note: We multiply the new transformation with the existing one to be safe
+    TopLoc_Location loc(trsf);
+    TopoDS_Shape mirrored = origShape.Moved(loc); 
+
+    // 5. Create result compound
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+    
+    // Add the mirrored instance to the compound
+    builder.Add(newCompound, mirrored);
+
+    current_part->cshape = newCompound;
+	current_part->shape = mirrored; ///for location to work
+    current_part->Extrude_val = original->Extrude_val;
+    current_part->from_sketch = original->from_sketch;
+    current_part->clone_qtd += 1;
+});
+lua.set_function("Mirrorv2", [&](OCC_Viewer::luadraw* original, float offset = 0.0f, int x = 0, int y = 0, int z = 0){    
+    if (!current_part || !original || original->cshape.IsNull()) {
+        luaL_error(lua.lua_state(), "Invalid part or original shape.");
+    }
+
+    // 1. Calculate the mirror transformation (gp_Trsf)
+    Bnd_Box bbox;
+    BRepBndLib::Add(original->cshape, bbox);
+    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+    bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+
+    gp_Pnt planeOrigin((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
+    gp_Dir normal;
+
+    if (x != 0) { normal = gp::DX(); planeOrigin.SetX(planeOrigin.X() + offset); }
+    else if (y != 0) { normal = gp::DY(); planeOrigin.SetY(planeOrigin.Y() + offset); }
+    else { normal = gp::DZ(); planeOrigin.SetZ(planeOrigin.Z() + offset); }
+
+    gp_Trsf mirrorTrsf;
+    mirrorTrsf.SetMirror(gp_Ax2(planeOrigin, normal));
+
+    // 2. Apply to the Location, NOT the geometry
+    // We take the original geometry and set its location to the mirror transformation.
+    // If the original already had a location, we multiply them:
+    TopLoc_Location combinedLoc = original->cshape.Location() * TopLoc_Location(mirrorTrsf);
+    
+    // Create a new shape handle pointing to the SAME TShape but with NEW Location
+    TopoDS_Shape mirrored = original->cshape.Located(combinedLoc);
+
+    // 3. Wrap in a Compound
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+    builder.Add(newCompound, mirrored);
+
+    current_part->cshape = newCompound;
+	current_part->shape = mirrored; ///for location to work
+    
+    // Sync metadata
+    current_part->Extrude_val = original->Extrude_val;
+    current_part->from_sketch = original->from_sketch;
+});
+lua.set_function("Mirror", [&](OCC_Viewer::luadraw* original, float offset = 0.0f, int x = 0, int y = 0, int z = 0){    
+    if (!current_part || !original || original->cshape.IsNull()) {
+        luaL_error(lua.lua_state(), "Invalid part or original shape.");
+    }
+	original->needsplacementupdate = 1;	// verify better why this is needed
+				original->redisplay();
+
+    // 1. Get the current global bounding box of the original
+    Bnd_Box bbox;
+    BRepBndLib::Add(original->cshape, bbox);
+    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+    bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+
+    // Calculate the center of the bounding box
+    gp_Pnt planeOrigin((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
+    gp_Dir normal;
+
+    // Adjust plane origin based on the user's offset
+    if (x != 0) { 
+        normal = gp::DX(); 
+        planeOrigin.SetX(planeOrigin.X() + offset); 
+    }
+    else if (y != 0) { 
+        normal = gp::DY(); 
+        planeOrigin.SetY(planeOrigin.Y() + offset); 
+    }
+    else { 
+        normal = gp::DZ(); 
+        planeOrigin.SetZ(planeOrigin.Z() + offset); 
+    }
+
+    // 2. Create the Mirror Transformation
+    gp_Trsf mirrorTrsf;
+    mirrorTrsf.SetMirror(gp_Ax2(planeOrigin, normal));
+
+    // 3. APPLY TO LOCATION ONLY
+    // Use 'Moved' to multiply the existing location by the mirror transformation.
+    // This keeps the underlying geometry (TShape) exactly the same as the original.
+    TopoDS_Shape mirrored = original->cshape.Moved(TopLoc_Location(mirrorTrsf));
+
+    // 4. Assign to your part
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+    builder.Add(newCompound, mirrored);
+
+    current_part->cshape = newCompound;
+    current_part->shape = mirrored; 
+    
+    // Metadata sync
+    current_part->Extrude_val = original->Extrude_val;
+    current_part->from_sketch = original->from_sketch;
+    current_part->clone_qtd += 1;
+});
+lua.set_function("Mirrorv4", [&](OCC_Viewer::luadraw* original, float offset = 0.0f, int x = 0, int y = 0, int z = 0){    
+    if (!current_part || !original || original->cshape.IsNull()) {
+        luaL_error(lua.lua_state(), "Invalid part or original shape.");
+    }
+
+    // 1. Get global bounding box (respects current Location)
+    Bnd_Box bbox;
+    BRepBndLib::Add(original->cshape, bbox);
+    Standard_Real xmin, ymin, zmin, xmax, ymax, zmax;
+    bbox.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+
+    gp_Pnt planeOrigin((xmin + xmax) * 0.5, (ymin + ymax) * 0.5, (zmin + zmax) * 0.5);
+    gp_Dir normal;
+
+    if (x != 0) { 
+        normal = gp::DX(); 
+        planeOrigin.SetX(planeOrigin.X() + offset); 
+    }
+    else if (y != 0) { 
+        normal = gp::DY(); 
+        planeOrigin.SetY(planeOrigin.Y() + offset); 
+    }
+    else { 
+        normal = gp::DZ(); 
+        planeOrigin.SetZ(planeOrigin.Z() + offset); 
+    }
+
+    // 2. Mirror transformation (global)
+    gp_Trsf mirrorTrsf;
+    mirrorTrsf.SetMirror(gp_Ax2(planeOrigin, normal));
+
+    // 3. Apply mirror to local geometry (this always produces duplicated geometry + identity location because mirror has det=-1)
+    TopoDS_Shape localShape = original->cshape.Located(TopLoc_Location());
+
+    BRepBuilderAPI_Transform transformer(mirrorTrsf);
+    transformer.Perform(localShape, Standard_True);   // force geometry copy
+
     if (!transformer.IsDone()) {
         luaL_error(lua.lua_state(), "Mirror transformation failed.");
     }
 
-    TopoDS_Shape mirrored = transformer.Shape();
+    TopoDS_Shape mirroredGeom = transformer.Shape();   // geometry is mirrored, location is usually identity
 
-    // Fix orientation issues (common reason shapes don't appear after mirror)
-    mirrored = BRepBuilderAPI_Copy(mirrored, true, true).Shape();
+    // 4. CORRECT COMPOSITION: new_location = mirrorTrsf * original_location
+    //    This is the key fix for correct position in all axes
+    gp_Trsf originalTrsf = original->cshape.Location().Transformation();
+    gp_Trsf newTrsf = mirrorTrsf;
+    newTrsf.Multiply(originalTrsf);                    // mirror first, then original (order matters!)
 
-    // Create compound with original + mirrored
+    TopoDS_Shape mirrored = mirroredGeom.Located(TopLoc_Location(newTrsf));
+
+    // 5. Assign to current part
     TopoDS_Compound newCompound;
     BRep_Builder builder;
     builder.MakeCompound(newCompound);
-
-    // builder.Add(newCompound, origShape);
     builder.Add(newCompound, mirrored);
 
     current_part->cshape = newCompound;
+    current_part->shape  = mirrored; 
 
-	current_part->Extrude_val=original->Extrude_val;
-	current_part->from_sketch=original->from_sketch;
-	current_part->clone_qtd+=1;
-
-    // Don't forget to update your viewer / AIS_Shape here:
-    // e.g. current_part->aisShape->Set(current_part->cshape);
-    //      myContext->Redisplay(current_part->aisShape, true);
+    gp_Trsf finalTrsf = mirrored.Location().Transformation();
+std::cout << "Final mirrored location form: " << finalTrsf.Form() << std::endl;
+// or dump values:
+std::cout << "Translation: " << finalTrsf.TranslationPart().X() << ", " 
+          << finalTrsf.TranslationPart().Y() << ", " 
+          << finalTrsf.TranslationPart().Z() << std::endl;
+    // Metadata sync
+    current_part->Extrude_val = original->Extrude_val;
+    current_part->from_sketch = original->from_sketch;
+    current_part->clone_qtd += 1;
 });
+lua.set_function("Mirrorvn", [&](OCC_Viewer::luadraw* original, float offset, int x, int y, int z){    
+    if (!current_part || !original || original->cshape.IsNull()) {
+        luaL_error(lua.lua_state(), "Invalid part or original shape.");
+    }
 
+    // 1. Get the original part's coordinate system
+    gp_Trsf origTrsf = original->cshape.Location().Transformation();
+    gp_Ax3 origAx3(gp::Origin(), gp::DZ(), gp::DX()); // Local CS
+    origAx3.Transform(origTrsf); // Move to World CS
+
+    // 2. Define the Mirror Plane
+    gp_Pnt p(0, 0, 0);
+    gp_Dir n;
+    if (x != 0)      { p.SetX(offset); n = gp::DX(); }
+    else if (y != 0) { p.SetY(offset); n = gp::DY(); }
+    else             { p.SetZ(offset); n = gp::DZ(); }
+    gp_Ax2 mirrorPlane(p, n);
+
+    // 3. Mirror the Coordinate System (The Placement)
+    // This calculates exactly where the origin and the axes go
+    gp_Ax3 mirroredAx3 = origAx3;
+    mirroredAx3.Mirror(mirrorPlane);
+
+    // 4. Create a CLEAN Rigid Transformation from the mirrored CS
+    // SetTransformation(From, To) creates a right-handed move
+    gp_Trsf finalTrsf;
+    finalTrsf.SetTransformation(mirroredAx3, gp_Ax3()); 
+    finalTrsf.Invert(); // Convert from "move origin to mirroredAx3" to "placement"
+
+    // 5. Mirror the GEOMETRY locally
+    // We flip the shape at (0,0,0) so it's physically a mirror image
+    gp_Trsf localMirror;
+    if (x != 0)      localMirror.SetMirror(gp::YOZ());
+    else if (y != 0) localMirror.SetMirror(gp_Ax2(gp::Origin(), gp::DY()));
+    else             localMirror.SetMirror(gp::XOY());
+
+    BRepBuilderAPI_Transform baker(original->cshape.Located(TopLoc_Location()), localMirror, Standard_True);
+    TopoDS_Shape bakedGeom = baker.Shape();
+
+    // 6. Apply placement and build Compound
+    current_part->shape = bakedGeom.Located(TopLoc_Location(finalTrsf));
+    
+    BRep_Builder builder;
+    builder.MakeCompound(current_part->cshape);
+    builder.Add(current_part->cshape, current_part->shape);
+
+    // Sync Metadata
+    current_part->Extrude_val = original->Extrude_val;
+    current_part->from_sketch = original->from_sketch;
+    current_part->clone_qtd += 1;
+});
 lua.set_function("Rotatelx", [&](float angleDegrees = 0.0f) {
   // 1. Get the function from the global Lua table (using the sol::state object 'lua')
   sol::protected_function Rotatel = lua["Rotatel"];
@@ -7451,18 +7721,63 @@ lua.set_function("DebugShapes", [&]() {
     std::cout << "Edges:  " << edges  << "\n";
     std::cout << "Faces:  " << faces  << "\n";
 });
-lua.set_function("Circle", [&](float radius, float x, float y) {
+lua.set_function("Circlev1", [&](float radius) {
     if (!current_part)
         luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
 
     if (radius <= 0)
         luaL_error(lua.lua_state(), "Circle radius must be > 0.");
 
-    // Define center point
-    gp_Pnt center(x, y, 0.0);
+    // 1. Determine the center point based on current shape location
+    // gp_Pnt center(0, 0, 0); // Default origin
 
-    // Define circle in XY plane
+    // Get the current transformation of the part
+    gp_Trsf partTrsf = current_part->shape.Location().Transformation();
+
+    // Compute the global position of the part's local (0,0,0)
+    gp_Pnt center = gp_Pnt(0, 0, 0).Transformed(partTrsf);
+
+    // 2. Define circle in XY plane at that center
     gp_Ax2 axis(center, gp::DZ());  // Normal = Z axis
+    gp_Circ circ(axis, radius);
+
+    // 3. Build the geometry
+    try {
+        TopoDS_Edge edge = BRepBuilderAPI_MakeEdge(circ); 
+        TopoDS_Wire wire = BRepBuilderAPI_MakeWire(edge); 
+        TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+
+        // 4. Add to current part
+        current_part->mergeShape(current_part->cshape, face);
+    }
+    catch (Standard_Failure& e) {
+        luaL_error(lua.lua_state(), "Failed to create circle face.");
+    }
+});
+lua.set_function("Circle", [&](float radius, float x, float y) {
+    if (!current_part)
+        luaL_error(lua.lua_state(), "No current part. Call Part(name) first.");
+
+    if (radius <= 0)
+        luaL_error(lua.lua_state(), "Circle radius must be > 0.");
+current_part->needsplacementupdate = 1;	// verify better why this is needed
+				current_part->redisplay();
+    // Define center point
+    // gp_Pnt center(x, y, 0.0);
+	    // Get the current transformation of the part
+    gp_Trsf partTrsf = current_part->shape.Location().Transformation();
+
+    // Compute the global position of the part's local (0,0,0)
+    gp_Pnt center = gp_Pnt(0, 0, 0).Transformed(partTrsf);
+
+// 3. Compute the global direction of the local Z-axis
+// This ensures that if the part was mirrored/flipped, the circle flips too!
+gp_Dir localZ = gp::DZ().Transformed(partTrsf);
+
+// 4. Define circle using the dynamic direction
+gp_Ax2 axis(center, localZ);
+    // // Define circle in XY plane
+    // gp_Ax2 axis(center, gp::DZ());  // Normal = Z axis
 
     // Build OCC circle
     gp_Circ circ(axis, radius);
