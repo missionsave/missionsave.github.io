@@ -734,7 +734,7 @@ window.onclick = function(event) {
 Object.entries(tdoc).forEach(([key, value]) => {
     if (key === "home") return;
 			console.log("key",key);
-				if(item?.notinmenu)return;
+				if(item?.notinmenu==1)return;
 	console.log("ovalue",value[0].workerid);
 
     const navContainer = document.getElementById("myTopnav");
