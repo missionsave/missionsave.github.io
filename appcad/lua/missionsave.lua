@@ -105,15 +105,18 @@ Mirrorv2(frame_top,container_width/2-60,1,0,0)
 --Rotately(180)
 --Movel(container_width)
 Circle(40)
+Rotatelx(-90)
+Extrude(-1000)
+--Subtract()
 
 Part frame_right_top
 Mirror(frame_right,-container_height/2+120/2,0,1,0)
---Circle(70)
+Circle(70)
 --Rotately(90)
 --Movel(0,70,-170)
 --Extrude(10000)
 --Subtract()
-Circle(49)
+--Circle(49)
 --Movel(400)
 
 Part test

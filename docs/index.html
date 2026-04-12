@@ -32,7 +32,10 @@ function updateCanonical() {
     // window.location.search captures the "?p=..." part
     const domain = "https://missionsave.org";
     const path = window.location.pathname;
-    const search = window.location.search;
+    let search = window.location.search;
+    const urlParams = new URLSearchParams(window.location.search);
+    const p = urlParams.get('p');
+	if(p)search=p;
 
     canonical.setAttribute('href', domain + path + search);
 }
@@ -40,7 +43,10 @@ function updateCanonical() {
 function updateTitleFromSearch() {
     // 1. Grab the URL parameters
     const urlParams = new URLSearchParams(window.location.search);
-    const pValue = urlParams.get('p');
+    let pValue = urlParams.get('p');
+	if(!pValue){
+		pValue = window.location.pathname.replace(/^\/+/, '');
+	}
 
     // 2. Only proceed if "?p=" actually exists
     if (pValue) {
