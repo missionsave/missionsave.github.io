@@ -619,13 +619,17 @@ function init(){
 	let urlp= params.get('p');
 	console.log("p",urlp);
 	if(!urlp)urlp= window.location.pathname.replace(/^\/+/, '');
+	
 	console.log("p",urlp);
 	let isloaded=0;
 	if(urlp){
+		urlp=urlp.toLowerCase();
 		Object.entries(tdoc).forEach(([category, items]) => {
+			category=category.toLowerCase();
 			items.forEach(item => {
 				if (item.title) { 
-					const generatedp=`${category}/${(item.title || "").replace(/\s+/g, '_')}`; 
+					let generatedp=`${category}/${(item.title || "").replace(/\s+/g, '_')}`; 
+					generatedp=generatedp.toLowerCase();
 					if(urlp==generatedp){ 
 						isloaded=1;
 						console.log("workerapi[item.workerid]",workerapi[item.workerid]);
