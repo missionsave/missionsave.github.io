@@ -60,7 +60,7 @@ Offset (-2)
 Part "corner"
 Pl "0,0 162,0 @0,118 @-162,0 0,0"
 Extrude(-crn_long) 
---Movew(-80,0,0)
+--Movel(-80,0,0)
 
 Part "corner_clones"
 Clone (corner,1) 
@@ -69,7 +69,6 @@ Clone (corner,1)
 Movel(0,0,-container_long+crn_long)
 Clone (corner,1)
 Movel(container_width-crn_width,0,-container_long+crn_long)
-Circle(200)
 
 Part "corner_clones_up"
 Clone(corner,1)
@@ -88,8 +87,9 @@ if (compartments==1) then
 end
 Extrude(extrudelen)
 Circle(10)
-Rotately(90)
 Movel(0,120/2,-60)
+Rotately(90)
+Movel(0,0,-60)
 Extrude(2)
 Subtract()
 Movel(0,0,-crn_long)
@@ -98,7 +98,7 @@ Movel(0,0,-crn_long)
 
 Part "frame_front"
 --Clone(frame,1) 
---Movew(0,container_height-120)
+--Movel(0,container_height-120)
 Inverty(frame,container_height/2-120/2)
 Invertlx(container_width/2-50/2)
 Invertly(-container_height/2+120/2)
@@ -110,7 +110,7 @@ local len=-container_long/2-extrudelen/2+crn_long
 --Mirrorz(frame,len)
 Invertz(frame_front,len)
 Invertz(frame,len)
---Movew(0,container_height-120,0)--fixes mirror like
+--Movel(0,container_height-120,0)--fixes mirror like
 end
 --Mirrory(frame,container_height/2-120/2)
 --Inverty(container_height/2-120/2)
@@ -119,17 +119,17 @@ end
 
 --Part "frame_top1"
 --Clone(frame_top,1) 
---Movew(0,container_height-120)
+--Movel(0,container_height-120)
 --Circle(80)
 ----Extrude(-1000)
 --Rotatelx(-90)
-----Movew(0,900,0"
+----Movel(0,900,0"
 ----do return end
 --Part "frame_right"
 --Mirror(frame_top,container_width/2-60,1,0,0)
 ----Clone(frame_top,1)
 ----Rotately(180)
-----Movew(container_width)
+----Movel(container_width)
 ----Circle(40)
 ----Extrude(-1000)
 ----Rotatelx(-90)
@@ -139,11 +139,11 @@ end
 --Mirror(frame_right,-container_height/2+120/2,0,1,0)
 --Circle(70)
 ----Rotately(90)
-----Movew(0,70,-170)
+----Movel(0,70,-170)
 ----Extrude(10000)
 ----Subtract()
 ----Circle(49)
-----Movew(400)
+----Movel(400)
 --do return end
 --Part "test"
 --Mirror(frame_right_top,-container_height/2,1,0,0)
@@ -154,41 +154,41 @@ end
 --Part (frame_right
 --Clone frame
 --Rotately(180)
---Movew(container_width,0,-(container_long-crn_long*1))
+--Movel(container_width,0,-(container_long-crn_long*1))
 
 --Part (frame_right_top
 --Clone (frame_right,1)
---Movew(0,container_height-crn_height)
+--Movel(0,container_height-crn_height)
 
 
 Part "framev"
 Clone (sketch_profile)
 Extrude((container_height-crn_height*2))
 Rotatelx(-90)
-Movel(0,0,crn_height)
+Movel(0,crn_height)
 
 Part "framevref"
 Clone(framev,1)
-Rotatelz(90)
-Movel(0,-120-50,0)
---do return end
+Rotately(90)
+Movel(120+50)
+
 Part "framevref_right"
 Clone(framevref,1)
-Movel(0,-(container_width-120-50*2),0)
+Movel(container_width-120-50*2)
 
 
 Part "cupnref"
 Clone (sketch_upn40x20)
 Extrude(-400)
 Rotatelx(-90)
-Movew(2+1,crn_height+0,-120+80+2+10)
+Movel(2+1,crn_height+0,-120+80+2+10)
 
 Part "cupnref1"
 --Clone(cupnref,1)
---Movew(0,0,-40-5)
+--Movel(0,0,-40-5)
 Clone(cupnref,1)
 Rotately(90)
-Movew(110,0,20)
+Movel(110,0,20)
 --do return end
 --error()
 
@@ -198,29 +198,29 @@ Clone (sketch_profile)
 Extrude(-compart_len)
 Movel(0,120,-120)
 
-for i = 1, compartments - 1 do
+for i = 0, compartments - 1 do
 	Part "frameva"
 	Clone(framev,1)
-	Movew(0,0,(-compart_len-120)*i)
+	Movel(0,0,(-compart_len-120)*i)
 	
 	Part "framevar"
 	Clone(framev,1)
 	Rotately(180)
-	Movew(container_width,0,(-compart_len-120)*i-120)
+	Movel(container_width,0,(-compart_len-120)*i-120)
 	
 	
 	Part "longc"
 	Clone(longitudinal,1)
-	Movew(0,0,(-compart_len-120)*i)
+	Movel(0,0,(-compart_len-120)*i)
 
 	Part "longi_clones"
 	for j = 0, floors - 1 do
 	Clone(longitudinal,1)
-	Movew(0,tunel_height*j+120,(-compart_len-120)*i)
+	Movel(0,tunel_height*j+120,(-compart_len-120)*i)
 	Invertlx(container_width/2-50/2)
 	--Clone(longitudinal,1)
 	--Rotatelz(180)
-	--Movew(container_width,tunel_height*j+120*2,((-compart_len-120)*i)) 
+	--Movel(container_width,tunel_height*j+120*2,((-compart_len-120)*i)) 
 	end
  
 end 
@@ -231,39 +231,38 @@ end
 --do return end
 Part "framev_back"
 Clone(framev,1)
-Movew(0,0,-container_long+120)
+Movel(0,0,-container_long+120)
 
-Part "framev_right" 
-Mirrorx(framev,container_width/2)
---Clone(framev,1)
---Rotatelz(180)
---Movew(container_width,0,-120)
---do return end
+Part "framev_right"
+Clone(framev,1)
+Rotately(180)
+Movel(container_width,0,-120)
+
 Part "framev_right_back"
 Clone(framev_right,1)
-Movew(0,0,-container_long+120)
+Movel(0,0,-container_long+120)
 
 
 Part "framet"
 Clone (sketch_profile)
 Extrude((container_width-crn_width*2))
 Rotately(90)
-Movew(crn_width)
+Movel(crn_width)
 
 Part "framet_top"
 Clone(framet,1)
-Movew(0,container_height-120)
+Movel(0,container_height-120)
 
 Part "framet_back"
 Clone(framet,1)
 --Mirrorz(-container_long/2+50/2)
 Invertlz(-container_long/2+50/2)
---Movew(container_width-crn_width*2,0,-container_long)
+--Movel(container_width-crn_width*2,0,-container_long)
 --Rotately(-180)
 
 --Part "framet_back_top"
 --Clone(framet_back,1)
---Movew(0,container_height-120)
+--Movel(0,container_height-120)
 
 --do return end
 
@@ -271,12 +270,12 @@ Part "upn_ref"
 Clone (sketch_upn40x20)
 Extrude (200)
 --Copy_placement(framev_back)
-Movew(40-40+2,container_height-crn_height*2,-40)
+Movel(40-40+2,container_height-crn_height*2,-40)
 
 Part "upn_ref_lat"
 Clone(upn_ref,1)
 Rotately(-90)
-Movew(0,0,-120+40+2)
+Movel(0,0,-120+40+2)
 
 Part "upn_ref_right"
 Clone(upn_ref,0)
@@ -284,49 +283,45 @@ Copy_placement(framev_right_back)
 
 
 local len=400
-local xplane=200
+local xplane=150+20
 Part "front_left"
-Originl(xplane,tunel_height,-50,0,90,0)
 Clone(sketch_profile)
-Extrude(len) 
-Circle(4)
---Extrude(10)
+Extrude(len)
 Rotately(90)
-Movel(-60,120/2,0) 
-
---Rotately(90)
+Movel(xplane,tunel_height,-50)
+Circle(4)
+Movel(10,120/2,0)
+Rotately(90)
 Extrude(10)
 Subtract()
 
 
+
 Part "front_right"
---Originl(0,400,0,0,0,0)
---Originl(xplane,tunel_height,-50,0,90,0)
 Mirrorx(front_left,container_width/2-xplane)
---Circle(120)
  do return end
 
 Part "transversal"
 Clone (sketch_profile)
 Extrude(container_width-50*2)
 Rotately(90)
-Movew(50,120,0)
+Movel(50,120,0)
 
 Part "transversal_back"
 Clone(transversal,1)
 Rotately(180)
-Movew(container_width-50*2,0,-container_long)
+Movel(container_width-50*2,0,-container_long)
 
 
 Part "trans_back_clones"
 Clone(transversal_back,1)
-Movew(0,120*1)
+Movel(0,120*1)
 Clone(transversal_back,1)
-Movew(0,tunel_height+120*1)
+Movel(0,tunel_height+120*1)
 Clone(transversal_back,1)
-Movew(0,tunel_height*2+120*1)
+Movel(0,tunel_height*2+120*1)
 Clone(transversal_back,1)
-Movew(0,tunel_height*3+120*1)
+Movel(0,tunel_height*3+120*1)
 
 
 
@@ -335,16 +330,16 @@ Clone (sketch_profile)
 Extrude(tunel_height-120-90)
 Copy_placement(framev)
 Rotately(90)
-Movew(50+120,120*2)
+Movel(50+120,120*2)
 
 Part "pillar_right"
 Clone(pillar,1)
-Movew(container_width-120-50*2)
+Movel(container_width-120-50*2)
 
 Part "pillar_back"
 Clone(pillar,1)
 Rotately(180)
-Movew(-120,0,-container_long)
+Movel(-120,0,-container_long)
 
 --...
 
@@ -354,25 +349,25 @@ Clone (sketch_profile)
 Extrude(-100)
 --Extrude(-(container_long-fcompartment-50))
 --Rotatelz(-90)
---Movew(container_width/4-120/2 , tunel_height+120*2+20,-container_long+50)
+--Movel(container_width/4-120/2 , tunel_height+120*2+20,-container_long+50)
 do return end
 Part "rail_right"
 Clone(rail,1)
-Movew(container_width/4*2)
+Movel(container_width/4*2)
 
 
 Part "rail_clones"
 Clone(rail,1)
-Movew(0,tunel_height)
+Movel(0,tunel_height)
 Clone(rail_right,1)
-Movew(0,tunel_height)
+Movel(0,tunel_height)
 --do return end
 
 Part "rail_clones_up"
 Clone(rail_clones,1)
-Movew(0,tunel_height)
+Movel(0,tunel_height)
 Clone(rail_clones,1)
-Movew(0,tunel_height*2)
+Movel(0,tunel_height*2)
 
 
 
@@ -416,11 +411,11 @@ Clone (sketch_bucket,0)
 Offset (-5.2)
 Extrude (170-50)
 Rotatelx(90)
-Movew(0,170-50,1)
+Movel(0,170-50,1)
 Clone (sketch_bucket)
 Extrude (-6)
 Rotatelx(90)
-Movew(0,0,1)
+Movel(0,0,1)
 Fuse()
 --FilletToAllEdges(1)
 end
@@ -433,12 +428,12 @@ Circle(4)
 --Offset 2
 Extrude (10)
 Rotatelx(-90)
-Movew(15,57,15) 
+Movel(15,57,15) 
 Fuse()
 --Circle(5)
 --Extrude(50)
 --Fuse()
-Movew(220/2-15,170-57-6,-30-6)
+Movel(220/2-15,170-57-6,-30-6)
 
 
 
@@ -446,8 +441,8 @@ Movew(220/2-15,170-57-6,-30-6)
 Part "servo70_arm"
 Clone (servo70,0)
 Rotately(180)
-Rotatelz(-90)
-Movew(57+6,170-6-8,-6)
+Rotatelz(90)
+Movel(57+6,170-6-8,-6)
 
 --do return end
 
@@ -460,7 +455,7 @@ Pl "0,0 90,0 @0,70 @-90,0 0,0"
 Extrude(6)
 Fuse()
 Circle(10)
-Movew(90-8,70/2,36/2)
+Movel(90-8,70/2,36/2)
 Rotately(90)
 Extrude(15)
 --Rotatelz(-90)
@@ -469,13 +464,13 @@ Extrude(15)
 Subtract()
 --Fuse()
 Rotatelx(90)
-Movew(-70-10,170,-70-15)
---Movew(-70-0,170-70,-70-15)
+Movel(-70-10,170,-70-15)
+--Movel(-70-0,170-70,-70-15)
 --Fuse()
 --FilletToAllEdges(2)
 --Rotatelx(45)
 local gap=2
-Movew(-10-gap,-14,29)
+Movel(-10-gap,-14,29)
 
 
 
@@ -485,7 +480,7 @@ Rotately(-90)
 Rotatelz(90)
 Rotately(-90)
 Rotatelz(180)
-Movew(-66-8-6-gap,170-6-14-30,14-6)
+Movel(-66-8-6-gap,170-6-14-30,14-6)
 
 
 
@@ -494,24 +489,24 @@ Pl "0,0 80,0 @20,-6 @180,0"
 Offset (6)
 --Pl "0,12 280,0 @0,6 @-280,0 0,12
 Rotatelx(-90)
---Movew(-280-30,170-36-21/2,14+6)
-Movew(-280-30,170-40-10,14+6-6)
+--Movel(-280-30,170-36-21/2,14+6)
+Movel(-280-30,170-40-10,14+6-6)
 Extrude(36)
-Invertlz(-70/2)
+Invertz(-70/2)
 --Dup()
 --Rotatelx(180)
---Movew(0,36,-70)
+--Movel(0,36,-70)
 Fuse()
---Movew(-280-30,170-40-10,14+6-6)
+--Movel(-280-30,170-40-10,14+6-6)
 --Circle(10)
---Movew(-290,170-14-36/2,-70)
+--Movel(-290,170-14-36/2,-70)
 --Extrude 100
 
 
 Part "servo70_arm1"
 Clone (servo70_arm0,1) 
 --Rotatelz(-90)
-Movew(-220)
+Movel(-220)
 
 
 
@@ -519,7 +514,7 @@ Movew(-220)
 Part "robot_arm2"
 Pl "0,0 240,0 @0,6 @-240,0 0,0"
 --DebugShape()ds1))
-Movew(-280-7-36/2,-(0-156),20-6*0)
+Movel(-280-7-36/2,-(0-156),20-6*0)
 --DebugShape()ds2))
 Rotatelz(-90)
 Rotately(90)
@@ -528,22 +523,22 @@ Extrude(36)
 --DebugShape()ds3))
 Dup()
 --DebugShape()ds4))
-Movew(0,0,-70-6)
+Movel(0,0,-70-6)
 --Rotately(-90)
 --DebugShape()ds5))
 
 
 Part "robot_wrist"
 Pl "0,0 36,0 @0,-60 @-36,0 0,0"
-Movew(-305,-84,20)
+Movel(-305,-84,20)
 --Circle(10)
 Extrude(-52)
 --Extrude(-82)
 Circle(20)
 --Pl "0,0 100,0 @0,20 @-100,0 0,0
-Movew(-305,-84,20)
+Movel(-305,-84,20)
 Rotatelx(90)
-Movew(36/2,0,-82/2)
+Movel(36/2,0,-82/2)
 Extrude(-2)
 Fuse()
 
@@ -551,14 +546,14 @@ Fuse()
 Part "sk5"
 Pl "0,0 77,0 @0,34 @-77,0 0,0"
 Circle(15.8/2)
-Movew(18,20)
+Movel(18,20)
 --Fuse()
 --Subtract()
 DebugShapes()
 Subtract()
 
 Circle(4.4/2)
-Movew(5,15)
+Movel(5,15)
 
 DebugShapes()
 ----Fuse()
@@ -567,12 +562,12 @@ Subtract()
 --DebugShapes()
 
 Circle(120/2)
-Movew(20,55)
+Movel(20,55)
 --Rotatelz(30)
 Common()
 
 
-Movew(-305,-84,20)
+Movel(-305,-84,20)
 Rotatelz(-90)
 Extrude(10)
 

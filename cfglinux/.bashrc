@@ -1952,6 +1952,21 @@ mem() {
     done
     echo "$total KB"
 } 
+mem2() { 
+    total=0
+    for pid in $(pgrep -f "$1"); do
+        if [[ -r "/proc/$pid/smaps" && $(stat -c '%u' /proc/$pid) -eq $(id -u) ]]; then
+            echo "Readable: /proc/$pid/smaps"
+            mem=$(awk '/^Pss:/ {sum+=$2} END {print sum}' "/proc/$pid/smaps" 2>/dev/null)
+        else
+            echo "Not readable, using sudo: /proc/$pid/smaps"
+            mem=$(sudo awk '/^Pss:/ {sum+=$2} END {print sum}' "/proc/$pid/smaps" 2>/dev/null)
+        fi
+        mem=${mem:-0}
+        total=$((total + mem))
+    done
+    echo "$total KB"
+}
 
 
 

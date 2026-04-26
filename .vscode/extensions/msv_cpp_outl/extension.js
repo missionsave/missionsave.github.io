@@ -1,4 +1,38 @@
 const vscode = require('vscode');
+function parseCppFunctions(document) {
+    const text = document.getText();
+    const lines = text.split(/\r?\n/);
+
+    const functions = [];
+
+    // More robust C++ function regex (single-line, JS-compatible)
+    // Matches things like:
+    //   int foo(int x) {
+    //   void Bar::baz() const {
+    //   std::string ns::Class::method(Type a) noexcept {
+    const FUNC_REGEX = /^(?:[\w:<>\~\*&\s]+?\s+)?([A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*\([^()]*\)\s*(?:const\s*)?(?:noexcept\s*)?\{/;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        const match = line.match(FUNC_REGEX);
+        if (match) {
+            const name = match[1].trim();
+
+            functions.push({
+                name,
+                line: i,
+                location: new vscode.Location(
+                    document.uri,
+                    new vscode.Position(i, 0)
+                )
+            });
+        }
+    }
+
+    return functions;
+}
+
 
 class EnhancedOutlineProvider {
     constructor(context) {
@@ -124,6 +158,49 @@ function activate(context) {
             }
         })
     );
+
+
+
+	//f12
+context.subscriptions.push(
+    vscode.languages.registerDefinitionProvider(
+        { scheme: 'file', language: 'cpp' },
+        {
+            provideDefinition(document, position) {
+                const wordRange = document.getWordRangeAtPosition(position);
+                if (!wordRange) return null;
+
+                const word = document.getText(wordRange);
+
+                // Parse functions in this file
+                const functions = parseCppFunctions(document);
+
+                // Try exact match first
+                const match = functions.find(f => f.name.endsWith(word));
+                if (match) return match.location;
+
+                // FALLBACK: find first occurrence of the word in the file
+                const text = document.getText();
+                const index = text.indexOf(word);
+
+                if (index !== -1) {
+                    const before = text.slice(0, index);
+                    const line = before.split(/\r?\n/).length - 1;
+                    const col = index - before.lastIndexOf("\n") - 1;
+
+                    return new vscode.Location(
+                        document.uri,
+                        new vscode.Position(line, col)
+                    );
+                }
+
+                return null;
+            }
+        }
+    )
+);
+
+
 }
 
 exports.activate = activate;

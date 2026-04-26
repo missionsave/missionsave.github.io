@@ -556,7 +556,7 @@ void fl_scintilla::toggle_comment() {
             SendEditor(SCI_INSERTTEXT, non_ws_pos, (sptr_t)comment.c_str());
         }
     }
-
+	patchfix();
     SendEditor(SCI_ENDUNDOACTION);
 }
 
@@ -907,13 +907,13 @@ fmb->add("Files/New", 0,
 			self->gocaret(-1);
 		},
 		(void*)this);
-	fmb->add(
-		">", 0,
-		[](Fl_Widget* mnu, void* ud) {
-			auto* self = static_cast<fl_scintilla*>(ud);
-			self->gocaret(1);
-		},
-		(void*)this);
+	// fmb->add(
+	// 	">", 0,
+	// 	[](Fl_Widget* mnu, void* ud) {
+	// 		auto* self = static_cast<fl_scintilla*>(ud);
+	// 		self->gocaret(1);
+	// 	},
+	// 	(void*)this);
 }
 bool isFilenameValid(const char* filename) {
 	if (!filename) return false;
@@ -937,7 +937,7 @@ string fl_scintilla::getSelected(){
 	delete[] buffer;
 	return selectedText;
 }
- 
+ //region handle
 	int fl_scintilla::handle(int e)  {  
 
 		if (e == FL_KEYDOWN && Fl::event_key() == FL_Shift_L) {
@@ -967,6 +967,12 @@ string fl_scintilla::getSelected(){
 			toggle_comment();
             return 1;
         }
+		
+	if (e == FL_KEYDOWN && Fl::event_key() == (FL_F + 11)) {
+		setbreakpoint(-1);
+		return 1;
+	}
+
 
 		if(e==FL_KEYDOWN && Fl::event_key()==FL_Escape){
 			cotm("esc") 
@@ -1074,11 +1080,98 @@ void fl_scintilla::save(){
 }
 
 
+//to do remove "end" too
+int nextUsefulLine(int startLine,fl_scintilla* editor) {
+    int total = editor->SendEditor(SCI_GETLINECOUNT);
+    bool inBlock = false;
+
+    for (int line = startLine + 1; line < total; ++line) {
+
+        int len = editor->SendEditor(SCI_LINELENGTH, line);
+        if (len <= 1) continue;
+
+        char buf[4096];
+        editor->SendEditor(SCI_GETLINE, line, (sptr_t)buf);
+        buf[len] = 0;
+
+        char* p = buf;
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (*p == 0) continue; // empty
+
+        // If inside block comment, try to exit
+        if (inBlock) {
+            char* end = strstr(p, "*/");
+            if (!end) continue; // still inside block
+            p = end + 2;
+            while (*p && isspace((unsigned char)*p)) p++;
+            if (*p == 0) continue;
+            inBlock = false;
+        }
+
+        // Start of block comment
+        if (strncmp(p, "/*", 2) == 0) {
+            char* end = strstr(p + 2, "*/");
+            if (!end) { inBlock = true; continue; }
+            p = end + 2;
+            while (*p && isspace((unsigned char)*p)) p++;
+            if (*p == 0) continue;
+        }
+
+        // Line comment
+        if (strncmp(p, editor->comment.c_str(), 2) == 0)
+            continue;
+
+        // Found a real line
+        return line;
+    }
+
+    return -1;
+}
 
 
+//region breakpoint
+int breakpointreal=-1;
+void fl_scintilla::setbreakpoint(int val){ 
+
+	static bool isloaded=0;
+	if(!isloaded){
+		//Define a nice small dot / circle marker
+		#define IDM_DOT_MARKER  0
+		SendEditor( SCI_MARKERDEFINE,       IDM_DOT_MARKER, SC_MARK_CIRCLE);     // or SC_MARK_ROUNDRECT, SC_MARK_SMALLRECT, SC_MARK_DOTDOTDOT
+		SendEditor( SCI_MARKERSETFORE,      IDM_DOT_MARKER, RGB(255, 0, 0));     // dot color (red example)
+		SendEditor( SCI_MARKERSETBACK,      IDM_DOT_MARKER, RGB(255, 0, 0));     // background if needed
+		isloaded=1;
+	}
+	SendEditor(SCI_MARKERDELETEALL, IDM_DOT_MARKER);
+	int boneditor=nextUsefulLine(val-1 ,this);
+
+
+	if(val==-1 && breakpoint>-1){ //step forward
+		cotm(breakpoint);
+		boneditor=nextUsefulLine(breakpoint-1 ,this);
+		breakpoint=nextUsefulLine(breakpoint,this);
+
+	}else
+	if(breakpoint==nextUsefulLine(val ,this)){ //toggle
+		breakpoint=-1;
+	}else 
+	if(val>-1){
+		breakpoint=nextUsefulLine(boneditor ,this);
+		// breakpoint=nextUsefulLine(val-1,this);
+	}
+
+
+	if(breakpoint>-1){
+		SendEditor(SCI_MARKERADD, boneditor, IDM_DOT_MARKER);
+		// breakpointreal=breakpoint;
+		// breakpoint=nextUsefulLine(breakpoint,this); //to run current line
+	}
+	
+
+}
 void fl_scintilla::set_lua(){ 
-// 	std::ifstream f("DejaVuSans.ttf", std::ios::binary);
-// if (!f) throw std::runtime_error("Cannot open font file at path: " );
+	// 	std::ifstream f("DejaVuSans.ttf", std::ios::binary);
+	// if (!f) throw std::runtime_error("Cannot open font file at path: " );
 	// string loaded = load_app_font("DejaVuSans-Bold.ttf");
 	// string floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 	// string loaded = load_app_font("DejaVuSansMono.ttf");
@@ -1092,7 +1185,7 @@ void fl_scintilla::set_lua(){
 	// const char* fntname="Cascadia Mono PL SemiBold";
 
 	const char* fntname=floaded.c_str();
-// sleepms(500);
+	// sleepms(500);
 	#ifdef __linux__
 	// const char* fntname="DejaVu Sans";
 	// const char* fntname=loaded.c_str();
@@ -1151,6 +1244,9 @@ SendEditor(SCI_STYLESETUNDERLINE, SCE_LUA_WORD4, true);
 
 	SendEditor(SCI_SETMARGINTYPEN,2, SC_MARGIN_NUMBER);
     SendEditor(SCI_SETMARGINWIDTHN,2, 15);
+	SendEditor(SCI_SETMARGINSENSITIVEN, 2, 1); //enable click event
+	SendEditor(SCI_SETMARGINSENSITIVEN, 1, 1); //enable click event
+	// SendEditor(SCI_SETMARGINMASKN, 2, -1);
 	// char fontname[100] = {0};
 	// SendEditor(SCI_STYLEGETFONT,STYLE_LINENUMBER,(sptr_t)fontname);
 	// printf("fontname %s\n",fontname);
@@ -1199,6 +1295,13 @@ SendEditor(SCI_STYLESETUNDERLINE, SCE_LUA_WORD4, true);
     SendEditor(  SCI_SETWRAPVISUALFLAGS, SC_WRAPVISUALFLAG_END, 0);    
     // Optionally set wrap indent mode
     SendEditor(  SCI_SETWRAPINDENTMODE, SC_WRAPINDENT_INDENT, 0);
+
+	// SendEditor(SCI_SETMARGINMASKN, 0, -1); // margin 0, all markers
+	// Margin 0: line numbers
+// SendEditor(SCI_SETMARGINTYPEN, 0, SC_MARGIN_NUMBER);
+// SendEditor(SCI_SETMARGINWIDTHN, 0, 40);
+// SendEditor(SCI_SETMARGINMASKN, 0, -1); 
+
 }
 vstring fl_scintilla::getfuncs(){
 	// if(!bfunctions)return;
@@ -1389,6 +1492,7 @@ void fl_scintilla::navigatorSetUpdated(){
 		setnsaved(); 
 }
  
+//region notify
 static void cb_editor(Scintilla::SCNotification *scn, void *data)
 {
 	if(loading)	return;
@@ -1437,12 +1541,18 @@ static void cb_editor(Scintilla::SCNotification *scn, void *data)
 		}
 	}
 	
-
+	// editor->SendEditor(SCI_SETMARGINMASKN, 0, -1); // margin 0, all markers
 	if(notify->nmhdr.code == SCN_MARGINCLICK ) {
+		
+		const int line_number = editor->SendEditor(SCI_LINEFROMPOSITION,notify->position);
+		
+		// cotm(notify->margin);
 		if ( notify->margin == 3) {
 			// 确定是页边点击事件
-			const int line_number = editor->SendEditor(SCI_LINEFROMPOSITION,notify->position);
 			editor->SendEditor(SCI_TOGGLEFOLD, line_number);
+		}
+		if ( notify->margin == 1) {
+			editor->setbreakpoint(line_number);
 		}
 	}
 

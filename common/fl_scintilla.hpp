@@ -44,7 +44,8 @@ struct fl_scintilla : public Fl_Scintilla {
 	std::unordered_map<sptr_t, uptr_t> filesfirstline;
 	std::unordered_map<sptr_t,uptr_t> filescaret;
 std::unordered_map<sptr_t,std::vector<int>> foldedHeadersMap;
-
+	int breakpoint=-1;
+	void setbreakpoint(int val=-1);
 void save_fold();
 void apply_fold();
 void FoldFirstLevel();

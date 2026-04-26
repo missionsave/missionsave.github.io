@@ -376,6 +376,36 @@ extern "C" {
 #include <Geom_ToroidalSurface.hxx>
 #include <Geom_SphericalSurface.hxx>
 
+#include <iostream>
+#include <FL/Fl.H>
+#include <FL/Fl_Double_Window.H>
+
+#include <OpenGl_GraphicDriver.hxx>
+#include <V3d_Viewer.hxx>
+#include <V3d_View.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakeTorus.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+
+#include <Graphic3d_TextureEnv.hxx>
+#include <Graphic3d_RenderingParams.hxx>
+#include <Graphic3d_MaterialAspect.hxx>
+#include <Graphic3d_PBRMaterial.hxx>
+#include <Quantity_ColorRGBA.hxx>
+
+#include <Image_PixMap.hxx>
+#include <V3d_PositionalLight.hxx>
+#include <V3d_DirectionalLight.hxx>
+#ifdef _WIN32
+#include <WNT_Window.hxx>
+#else
+#include <Xw_Window.hxx>
+#endif
 
 #include <FL/Fl.H>
 #include <FL/Fl_Help_View.H>
