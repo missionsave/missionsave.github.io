@@ -530,6 +530,7 @@ int Fl_Scintilla::handle_key(int event)
 
 		// printf("keydown:%d  %d %s \n", Fl::event_key(),len,s); 
 		AddCharUTF(s, len);
+		// patchfix();
 		return 1;
 	}
 	return 0;

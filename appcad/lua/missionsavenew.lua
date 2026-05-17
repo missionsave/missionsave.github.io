@@ -412,7 +412,7 @@ Offset (-5.2)
 Extrude (170-50)
 Rotatelx(90)
 Movel(0,170-50,1)
-Clone (sketch_bucket)
+Clone (sketch_bucket,0)
 Extrude (-6)
 Rotatelx(90)
 Movel(0,0,1)
@@ -430,6 +430,9 @@ Extrude (10)
 Rotatelx(-90)
 Movel(15,57,15) 
 Fuse()
+
+Part "servo70_center"
+Clone (servo70,1)
 --Circle(5)
 --Extrude(50)
 --Fuse()
@@ -439,12 +442,13 @@ Movel(220/2-15,170-57-6,-30-6)
 
 
 Part "servo70_arm"
-Clone (servo70,0)
-Rotately(180)
-Rotatelz(90)
+Clone (servo70,1)
+--do return end
+--Rotately(180)
+--Rotatelz(90)
 Movel(57+6,170-6-8,-6)
 
---do return end
+do return end
 
 
 Part "robot_arm0"
@@ -492,7 +496,7 @@ Rotatelx(-90)
 --Movel(-280-30,170-36-21/2,14+6)
 Movel(-280-30,170-40-10,14+6-6)
 Extrude(36)
-Invertz(-70/2)
+Invertlz(-70/2)
 --Dup()
 --Rotatelx(180)
 --Movel(0,36,-70)
@@ -510,9 +514,9 @@ Movel(-220)
 
 
 
-
+arm2len=240
 Part "robot_arm2"
-Pl "0,0 240,0 @0,6 @-240,0 0,0"
+Pl "0,0 arm2len,0 @0,6 @-arm2len,0 0,0"
 --DebugShape()ds1))
 Movel(-280-7-36/2,-(0-156),20-6*0)
 --DebugShape()ds2))
@@ -520,28 +524,46 @@ Rotatelz(-90)
 Rotately(90)
 --DebugShape()ds2b))    -- <--- add this
 Extrude(36)
+Mirrorlz(-(70+6*2)/2)
 --DebugShape()ds3))
-Dup()
+--Dup()
 --DebugShape()ds4))
-Movel(0,0,-70-6)
+--Movel(0,0,-70-6)
 --Rotately(-90)
 --DebugShape()ds5))
 
 
 Part "robot_wrist"
-Pl "0,0 36,0 @0,-60 @-36,0 0,0"
-Movel(-305,-84,20)
---Circle(10)
-Extrude(-52)
+ Rotately(-90)
+ Movel(-305,-84,-56)
+ Rec(70,30)
+Extrude(-10)
+ --Rotately(-90)
+ --Movel(-305,-84,-56)
 --Extrude(-82)
 Circle(20)
 --Pl "0,0 100,0 @0,20 @-100,0 0,0
-Movel(-305,-84,20)
-Rotatelx(90)
-Movel(36/2,0,-82/2)
-Extrude(-2)
-Fuse()
+Movel(0,0,70/2)
+--Rotatelz(90) 
+Extrude(-20)
+Subtract()
+--do return end
+--Fuse()
+--Pl "0,0 100,0 @0,20 @-100,0 0,0"
+Circle(6)
+--Movel(0,70,0)
+--Rotately(-90)
+Circle(4)  
+Subtract()
 
+Extrude(20)
+Movel(0,60,0)
+--Rotately(-90)
+--Rotatelx(90)
+--Move(0,0,1)
+----Rec(6)
+
+do return end
 
 Part "sk5"
 Pl "0,0 77,0 @0,34 @-77,0 0,0"
@@ -579,9 +601,9 @@ end
 
 
 globals()
-c6()
+--c6()
 --c10()
 --c40()
-struct()
---robot()
+--struct()
+robot()
  

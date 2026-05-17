@@ -44,5 +44,11 @@
         "key": "shift+alt+down",
         "command": "-editor.action.copyLinesDownAction",
         "when": "editorTextFocus && !editorReadonly"
-    }
+    },
+	{
+    "key": "ctrl+alt+f",
+    "command": "workbench.action.tasks.runTask",
+    "args": "clang-format",
+    "when": "editorLangId == cpp"
+  }
 ]

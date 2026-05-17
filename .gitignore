@@ -36,6 +36,7 @@
 !/appcad
 !msvcad.cpp
 !simplecad.cpp
+!missioncad.cpp
 !scintlua.cpp
 !helpers.cpp
 !includes.hpp

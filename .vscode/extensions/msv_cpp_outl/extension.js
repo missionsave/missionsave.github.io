@@ -65,7 +65,7 @@ class EnhancedOutlineProvider {
     }
 
     parseRegions(document) {
-        const REGION_REGEX = /\/\/region\s+(.*)$/;
+        const REGION_REGEX = /\/\/ region\s+(.*)$/;
         const regions = [];
         
         for (let i = 0; i < document.lineCount; i++) {

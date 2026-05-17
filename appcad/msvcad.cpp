@@ -166,13 +166,15 @@ struct luadraw {
 	vector<cshapes> cs;
 	vector<TopoDS_Shape> vshape=vector<TopoDS_Shape>(2);
 	TopoDS_Compound fshape;
-	TopLoc_Location current_location=TopLoc_Location().Transformation();
+	bool showPlanet=0;
+	TopLoc_Location current_location=TopLoc_Location();
 	TopLoc_Location start_location=TopLoc_Location();
 	Handle(AIS_Shape) acl;
 	// TopoDS_Shape clocation;
 	BRep_Builder builder;
 	TopoDS_Compound cshape;
 	TopoDS_Shape shape;
+	TopoDS_Shape shapecache;
 	Handle(AIS_Shape) ashape;
 	vector<std::vector<gp_Vec2d>> vpoints;
 	vector<float> extrudes; //for sketch parts
@@ -205,6 +207,115 @@ TopoDS_Shape sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
 
 //     return msg;
 // }
+
+//region my
+void inteligentLoc(TopoDS_Shape & s){
+	if(current_part->showPlanet){
+		s.Location(current_part->current_location.Transformation());
+	}else
+	s.Location(current_part->shape.Location().Transformation());
+}
+void inteligentSetmy(luadraw* current_part){
+    if (!current_part || current_part->shape.IsNull()) 
+        return;
+	const TopoDS_Shape& s = current_part->shape;
+	// bool isSolid=(s.ShapeType()==TopAbs_SOLID || s.ShapeType()==TopAbs_COMPSOLID|| s.ShapeType()==TopAbs_COMPOUND);
+	bool isSolid = TopExp_Explorer(s, TopAbs_SOLID).More();
+
+    BRep_Builder B;
+    TopoDS_Compound finalComp;
+    B.MakeCompound(finalComp);
+
+	if(isSolid){
+		// Add ALL solids from the history (cshape)
+		for (TopExp_Explorer exp(current_part->cshape, TopAbs_SOLID); exp.More(); exp.Next())
+		{
+			B.Add(finalComp, exp.Current());
+			cotm(0);
+		}
+		for (TopExp_Explorer exp(current_part->cshape, TopAbs_COMPOUND); exp.More(); exp.Next())
+		{
+			B.Add(finalComp, exp.Current());
+			cotm(0);
+		}
+	}else{
+		std::vector<TopoDS_Shape> shapes;
+		int lastSolidIndex = -1;
+		int currentIndex = 0;
+
+		// Add ALL solids from the history (cshape)
+		for (TopoDS_Iterator it(current_part->cshape); it.More(); it.Next()) {
+			const TopoDS_Shape& s = it.Value();
+			// if(s.ShapeType()==TopAbs_SOLID || s.ShapeType()==TopAbs_COMPSOLID|| s.ShapeType()==TopAbs_COMPOUND)
+			if(TopExp_Explorer(s, TopAbs_SOLID).More())
+			{
+				B.Add(finalComp, s);
+				lastSolidIndex=currentIndex;
+				cotm("solid")
+
+			}else{
+				shapes.push_back(s);
+				currentIndex++;
+				cotm("nonsolid")
+			}
+		}
+		if(lastSolidIndex==-1)lastSolidIndex=0;
+		// lastSolidIndex++;
+		for (int i = lastSolidIndex; i < (int)shapes.size(); ++i) {
+			const TopoDS_Shape& s = shapes[i];
+			B.Add(finalComp, s);
+		}
+	}
+    // Always add the new shape
+    B.Add(finalComp, current_part->shape);
+
+    // Update
+    current_part->fshape = finalComp;
+    if (current_part->ashape)
+        current_part->ashape->SetShape(current_part->fshape);
+}
+inline void AddToCompound(TopoDS_Compound& compound, const TopoDS_Shape& shape) {
+    // BRep_Builder builder;
+	// static thread_local BRep_Builder builder;
+    // builder.Add(compound, shape);
+    current_part->builder.Add(compound, shape);
+}
+void inteligentSet(luadraw* current_part){
+	if(autorefined){inteligentSetmy(current_part); return;}
+	// else 
+	// inteligentSetFast(current_part);
+	AddToCompound(current_part->cshape,current_part->shape);
+	current_part->fshape = current_part->cshape;
+	current_part->ashape->SetShape(current_part->fshape);
+}
+
+void inteligentmerge(TopoDS_Shape newshape, bool setlocation=1){//,int resetlocation=0) { 
+	// perf2();
+	// cotm("merge");
+    if (newshape.IsNull()) return; 
+    bool previous_solid = (!current_part->shape.IsNull() && current_part->shape.ShapeType() == TopAbs_SOLID);
+    bool previous_compound = (!current_part->shape.IsNull() && current_part->shape.ShapeType() == TopAbs_COMPOUND); 
+    // bool nsis_solid = (newshape.ShapeType() == TopAbs_SOLID); 
+	bool isok=!current_part->shape.IsNull();
+	auto shapetype=newshape.ShapeType();
+
+	// if(current_part->Originl.IsIdentity())
+	// if(setlocation) newshape.Location(current_part->Originl);
+
+    // if (previous_solid || previous_compound) 
+    // if (previous_compound  ) 
+	// if(isok && (shapetype==TopAbs_SOLID || shapetype==TopAbs_FACE ))
+	if(isok && ( (shapetype==TopAbs_SOLID || shapetype==TopAbs_FACE ) ||previous_compound  ))
+	{
+		// current_part->shapecache=
+		AddToCompound(current_part->cshape,current_part->shape);
+    } 
+    current_part->shape = newshape;
+    // perf2("imerge");
+}
+
+
+//region tests
 TopoDS_Shape RebaseLocation(const TopoDS_Shape& s, const TopLoc_Location& newLoc)
 {
     // 1. Compute global transform of the shape
@@ -220,8 +331,40 @@ TopoDS_Shape RebaseLocation(const TopoDS_Shape& s, const TopLoc_Location& newLoc
 
     return out;
 }
+#include <BRepBuilderAPI_Transform.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopLoc_Location.hxx>
 
-void SetReferenceLocationWithoutMoving(TopoDS_Shape& s, const TopLoc_Location& newLoc)
+void SetReferenceLocationWithoutMovingnw(TopoDS_Shape& s, const TopLoc_Location& newLoc){
+    if (s.IsNull()) return;
+
+    const TopLoc_Location oldLoc = s.Location();
+    if (oldLoc.IsEqual(newLoc)) return;
+
+    // 1. Calculate the relative transformation needed to offset the new reference frame.
+    // We want: NewLocation * RelativeTrsf = OldLocation
+    // Therefore: RelativeTrsf = NewLocation.Inverted() * OldLocation
+    gp_Trsf relativeTrsf = newLoc.Transformation().Inverted() * oldLoc.Transformation();
+
+    // 2. Use BRepBuilderAPI_Transform to "bake" the relative transformation 
+    // into the TShape/Geometry. 
+    // Setting the third argument to 'Standard_False' tells OCCT to share 
+    // the geometry if the transformation is just a translation/rotation.
+    BRepBuilderAPI_Transform transformer(s, relativeTrsf, Standard_False);
+    
+    if (!transformer.IsDone()) return;
+
+    TopoDS_Shape result = transformer.Shape();
+
+    // 3. Set the new Top-Level Location. 
+    // Because we moved the geometry by (New^-1 * Old), applying 'New' 
+    // now puts it back at 'Old' in world space.
+    result.Location(newLoc);
+
+    // 4. Update the original shape
+    s = result;
+}
+void SetReferenceLocationWithoutMovingwrkcomp(TopoDS_Shape& s, const TopLoc_Location& newLoc)
 {
     perf2();
 
@@ -288,8 +431,9 @@ void SetReferenceLocationWithoutMoving2(TopoDS_Shape& s, const TopLoc_Location& 
     s = result;
 	perf2("SetReferenceLocationWithoutMoving");
 }
-void SetReferenceLocationWithoutMoving1(TopoDS_Shape& s, const TopLoc_Location& newLoc)
+static void SetReferenceLocationWithoutMoving(TopoDS_Shape& s, const TopLoc_Location& newLoc)
 {
+	return;
 	perf2();
     // 1. Current global transform
     TopLoc_Location oldLoc = s.Location();
@@ -439,8 +583,12 @@ void DrawTrihedron(const Handle(AIS_InteractiveContext)& ctx,
     static Handle(AIS_Axis_NoSelect) axes[3];
 
 	static TopLoc_Location loc=_loc;
+
 	if(_loc!=TopLoc_Location()){
 		loc=_loc;
+	}else if(_loc.IsIdentity()){
+		loc=TopLoc_Location().Transformation();
+		cotm("IsIdentity")
 	}
 
 
@@ -453,7 +601,7 @@ void DrawTrihedron(const Handle(AIS_InteractiveContext)& ctx,
         }
     }
 
-    const Standard_Real L = scale * 50.0;
+    const Standard_Real L = scale * 30.0;
     gp_Pnt origin(0,0,0);
 
 	auto CreateAxis = [&](int index, const gp_Dir& direction, Quantity_NameOfColor col)
@@ -1090,35 +1238,7 @@ static void CountAndMeasureFromRefFace_PlaneFilter(
 
     // return out;
 }
-inline void AddToCompound(TopoDS_Compound& compound, const TopoDS_Shape& shape) {
-    // BRep_Builder builder;
-	// static thread_local BRep_Builder builder;
-    // builder.Add(compound, shape);
-    current_part->builder.Add(compound, shape);
-}
-void inteligentmerge(TopoDS_Shape newshape, bool setlocation=1){//,int resetlocation=0) { 
-	perf2();
-	cotm("merge");
-    if (newshape.IsNull()) return; 
-    bool previous_solid = (!current_part->shape.IsNull() && current_part->shape.ShapeType() == TopAbs_SOLID);
-    bool previous_compound = (!current_part->shape.IsNull() && current_part->shape.ShapeType() == TopAbs_COMPOUND); 
-    // bool nsis_solid = (newshape.ShapeType() == TopAbs_SOLID); 
-	bool isok=!current_part->shape.IsNull();
-	auto shapetype=newshape.ShapeType();
 
-	// if(current_part->Originl.IsIdentity())
-	if(setlocation) newshape.Location(current_part->Originl);
-
-    // if (previous_solid || previous_compound) 
-    // if (previous_compound  ) 
-	// if(isok && (shapetype==TopAbs_SOLID || shapetype==TopAbs_FACE ))
-	if(isok && ( (shapetype==TopAbs_SOLID || shapetype==TopAbs_FACE ) ||previous_compound  ))
-	{
-		AddToCompound(current_part->cshape,current_part->shape);
-    } 
-    current_part->shape = newshape;
-    perf2("imerge");
-}
 //region work
 std::vector<TopoDS_Shape> GetDisplayedSolids1(
     const Handle(AIS_InteractiveContext)& ctx)
@@ -1627,6 +1747,7 @@ void ConvertVec2dToPnt2d(const std::vector<gp_Vec2d>& vpoints, std::vector<gp_Pn
 		// outward: true→offset on the left side of each segment..(negative
 		// number does the same, so no need)
 		TopoDS_Wire MakeOneSidedOffsetWire(const std::vector<gp_Pnt2d>& vpoints, double dist) {
+			
 			// bool closed = ((vpoints[0].X() == vpoints.back().X()) &&
 			// 			   (vpoints[0].Y() == vpoints.back().Y()));
 			// cotm(closed);
@@ -2145,11 +2266,13 @@ void CreateWire(const std::vector<gp_Vec2d>& points, bool closed = false) {
 		BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
 		// mergeShape(current_part->cshape, face);
 		// current_part->shape = face;
-	face.Location(current_part->shape.Location().Transformation());
+	// face.Location(current_part->shape.Location().Transformation());
+		inteligentLoc(face);
 		inteligentmerge(face,0);
 	} else {
 		// current_part->shape = wire;
-	wire.Location(current_part->shape.Location().Transformation());
+	// wire.Location(current_part->shape.Location().Transformation());
+		inteligentLoc(wire);
 		inteligentmerge(wire,0);
 		// mergeShape(current_part->cshape, wire);
 	}
@@ -2191,7 +2314,8 @@ void initialize_opencascade(Fl_Window* wingl) {
     view->SetWindow(wind);
 
 	view->SetImmediateUpdate(Standard_False);
-	view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.08);
+	view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.12,V3d_ZBUFFER);
+	
 
 	// view->ChangeRenderingParams().Method = Graphic3d_RM_RAYTRACING;
 	// view->SetZFitAll(true);
@@ -5232,8 +5356,42 @@ void inteligentSetgood(luadraw* current_part)
     }
 }
 // fast
-void inteligentSetFast(luadraw* current_part) {
-    if (!current_part || current_part->cshape.IsNull() || current_part->shape.IsNull()) return;
+#include <TopExp_Explorer.hxx>   // add this if not already included
+
+
+
+
+
+
+
+
+void inteligentSetgrok(luadraw* current_part)
+{
+    if (!current_part || current_part->shape.IsNull()) 
+        return;
+
+    BRep_Builder B;
+    TopoDS_Compound finalComp;
+    B.MakeCompound(finalComp);
+
+    // Add ALL solids from the history (cshape)
+    for (TopExp_Explorer exp(current_part->cshape, TopAbs_SOLID); exp.More(); exp.Next())
+    {
+        B.Add(finalComp, exp.Current());
+    }
+
+    // Always add the new shape
+    B.Add(finalComp, current_part->shape);
+
+    // Update
+    current_part->fshape = finalComp;
+    if (current_part->ashape)
+        current_part->ashape->SetShape(current_part->fshape);
+}
+
+void inteligentSetFastactual(luadraw* current_part) {
+    if (!current_part || current_part->shape.IsNull()) return;
+    // if (!current_part || current_part->cshape.IsNull() || current_part->shape.IsNull()) return;
 
     bool newShapeIsSolid = (current_part->shape.ShapeType() == TopAbs_SOLID);
     
@@ -5559,10 +5717,8 @@ return;
 // 	}	
 // }
 
-void inteligentSet(luadraw* current_part){
-	if(autorefined)inteligentSetexcelent(current_part);
-	else inteligentSetFast(current_part);
-}
+
+
 bool lua_var_exists(const std::string& name) {
     sol::state& L = *G;
     sol::object v = L.globals()[name];
@@ -5745,9 +5901,9 @@ void Rec(float width, float height = 0){
     TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
 
     // 11. Apply part location
-    face.Location(current_part->current_location.Transformation());
+    // face.Location(current_part->current_location.Transformation());
     // face.Location(current_part->shape.Location().Transformation());
-
+	inteligentLoc(face);
     // 12. Merge into model
     inteligentmerge(face, 0);
 }
@@ -5776,8 +5932,9 @@ void Circle(float radius){
     TopoDS_Wire wire = BRepBuilderAPI_MakeWire(edge);
     TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
 
-	face.Location(current_part->shape.Location().Transformation());
 
+	// face.Location(current_part->shape.Location().Transformation());
+	inteligentLoc(face);
     inteligentmerge(face,0);
     // inteligentset(0);
 
@@ -6698,7 +6855,7 @@ auto eval = [&](const std::string& expr, int line) {
     CreateWire(out, false);
 
 	// inteligentmerge()
-	inteligentset();
+	// inteligentset();
 
 	// ShowTrihedronAtLocation(ctx,current_part->current_location);
 
@@ -6708,11 +6865,34 @@ auto eval = [&](const std::string& expr, int line) {
 }
 
 void Offset(double distance) {
+	// try{
+		if(current_part->shape.ShapeType()!=TopAbs_WIRE && current_part->shape.ShapeType()!=TopAbs_FACE && current_part->vpoints.size()<3 && current_part->shape.ShapeType() != TopAbs_EDGE)
+	// if(current_part->vpoints.size()<3)
+		lua_error_with_where("No points contructed Pl");
+
+
+TopExp_Explorer ex(current_part->shape, TopAbs_EDGE);
+for (; ex.More(); ex.Next()) {
+    TopoDS_Edge e = TopoDS::Edge(ex.Current());
+
+    Standard_Real f, l;
+    Handle(Geom_Curve) c = BRep_Tool::Curve(e, f, l);
+
+    if (!c.IsNull() && !Handle(Geom_Circle)::DownCast(c).IsNull()) {
+		lua_error_with_where("No Circle suported yet");
+        // std::cout << "Found a circular edge\n";
+    }
+}
+
+
+
+
 	vector<gp_Pnt2d> ppoints;
 	ConvertVec2dToPnt2d(current_part->vpoints.back(), ppoints);
 
 	bool closed = ((current_part->vpoints.back()[0].X() == current_part->vpoints.back().back().X()) &&
 					(current_part->vpoints.back()[0].Y() == current_part->vpoints.back().back().Y()));
+	cotm(closed)
 	TopoDS_Face f;
 	if (closed) {
 		f = TopoDS::Face(MakeOffsetRingFace(ppoints, -distance));  // well righ
@@ -6723,6 +6903,7 @@ void Offset(double distance) {
 	}
 	BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true);  // adjust deflection/angle
 	current_part->shape=f;
+// }catch(...){}
 	// mergeShape(current_part->cshape, f);
 	// inteligentmerge(f);
 	// inteligentset();
@@ -6873,8 +7054,31 @@ void ClearAllLocationsInPlace(TopoDS_Shape& s)
 //     // Leaf (face/edge/vertex)
 //     return cleaned;
 // }
-
 void Clone(luadraw* toclone, sol::optional<int> _copy_placement){
+    if (!toclone)
+        lua_error_with_where("Clone name dont exist");
+
+    current_part->vpoints     = toclone->vpoints;
+    current_part->Extrude_val = toclone->Extrude_val;
+
+    int copy_placement = _copy_placement.value_or(0);
+
+    // Detect if 3D
+    for (TopExp_Explorer exp(toclone->fshape, TopAbs_SOLID); exp.More(); exp.Next()) {
+        inteligentmerge(toclone->fshape);
+		SetReferenceLocationWithoutMoving(current_part->shape,toclone->shape.Location());
+		return;
+    }
+
+	// ------------------ 2D FACES ------------------
+	for (TopExp_Explorer exp(toclone->fshape, TopAbs_FACE); exp.More(); exp.Next()) {
+		TopoDS_Shape s = exp.Current();
+		inteligentmerge(s);
+	}
+
+
+}
+void Clonecomplicatedactual(luadraw* toclone, sol::optional<int> _copy_placement){
     if (!toclone)
         lua_error_with_where("Clone name dont exist");
 
@@ -7359,7 +7563,7 @@ void Extrude(float val = 0){
     if (!current_part){// || current_part->shape.IsNull()){ 
 		lua_error_with_where("No shape to extrude."); 
 	}
-
+	TopLoc_Location preserve=current_part->shape.Location();
     TopoDS_Shape baseShape = current_part->shape;
 
     // 1) Save transform
@@ -7415,8 +7619,28 @@ void Extrude(float val = 0){
 
     // 7) Update
     current_part->Extrude_val = abs(val);
+
+if(current_part->showPlanet)
+		SetReferenceLocationWithoutMoving(extruded,preserve.Transformation());
+
     inteligentmerge(extruded,0);
     inteligentset();
+}
+
+void showPlanet(){
+	// TopExp_Explorer ex(current_part->shape, TopAbs_SHAPE);
+    if(current_part->showPlanet){// && !ex.More()){//empty
+		current_part->current_location=current_part->shape.Location();
+	}
+}
+void createPlanet(){
+	if (current_part->shape.IsNull()) { 
+		BRep_Builder builder;
+		TopoDS_Compound comp;
+		builder.MakeCompound(comp);
+		current_part->shape = comp;
+		current_part->showPlanet=1;
+    }
 }
 void Movel(float x = 0, float y = 0, float z = 0,int w=0) {
     if (!current_part) {
@@ -7424,7 +7648,7 @@ void Movel(float x = 0, float y = 0, float z = 0,int w=0) {
     }
 
     if (current_part->shape.IsNull()) {
-        return;
+        createPlanet();
     }
 
     // 1. Create the translation matrix for your delta move (x, y, z)
@@ -7434,7 +7658,10 @@ void Movel(float x = 0, float y = 0, float z = 0,int w=0) {
 
     // 2. CRITICAL FIX: Extract the location directly from the OCCT Shape.
     // This ignores your cached tracker and prevents desync bugs after cloning.
-    TopLoc_Location actualLoc = current_part->shape.Location();
+    TopLoc_Location actualLoc;
+	if(current_part->showPlanet){
+		actualLoc	= current_part->current_location;
+	}else actualLoc	= current_part->shape.Location();
 
     // 3. Calculate the new location by multiplying the translation.
     // (transLoc * actualLoc) moves the object along the GLOBAL World Axes.
@@ -7445,6 +7672,8 @@ void Movel(float x = 0, float y = 0, float z = 0,int w=0) {
 
 	// if(current_part->shape.ShapeType() == TopAbs_COMPOUND){
 		current_part->shape.Location(newLoc);
+
+		showPlanet();
 		// current_part->current_location = newLoc * current_part->current_location;
 	// 	cotm("m1");
 	// }else{
@@ -7675,7 +7904,10 @@ void Rotatelp(float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 1) { // z
 }
 void Rotatel(float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 1) { // z=1 como padrão
     if (!current_part ) return;
-    // if (!current_part || current_part->shape.IsNull()) return;
+    // if (current_part->shape.IsNull()) return;
+	if (current_part->shape.IsNull()) {
+			createPlanet();
+    }
 
     // 1. Validar direção para evitar crash
     if (x == 0 && y == 0 && z == 0) return; 
@@ -7685,7 +7917,15 @@ void Rotatel(float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 1) { // z=
     // 2. Definir o eixo de rotação
     // Pegamos a translação atual para girar em torno do "centro" da peça
     // gp_Trsf currentTrsf = current_part->current_location.Transformation();
-    gp_Trsf currentTrsf = current_part->shape.Location().Transformation();
+
+    TopLoc_Location actualLoc;
+	if(current_part->showPlanet){
+		actualLoc	= current_part->current_location;
+	}else actualLoc	= current_part->shape.Location();
+
+
+    gp_Trsf currentTrsf = actualLoc.Transformation();
+    // gp_Trsf currentTrsf = current_part->shape.Location().Transformation();
     gp_Pnt pivot = currentTrsf.TranslationPart(); 
     gp_Dir direction(x, y, z);
     gp_Ax1 axis(pivot, direction);
@@ -7713,6 +7953,7 @@ void Rotatel(float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 1) { // z=
 		// current_part->current_location = rotLoc*current_part->current_location ;
 	}
 
+	showPlanet();
 
 	// cotm("rotate");
 	// PrintLocationDegrees(current_part->shape.Location());
@@ -8027,6 +8268,151 @@ void CommonAndSubtract(bool iscommon=0) {
 	// 	solids.push_back(TopoDS::Solid(current_part->shape));
   
 
+    bool is3D = (solids.size()>1 && solids.back().ShapeType() == TopAbs_SOLID && solids[solids.size()-2].ShapeType() == TopAbs_SOLID);
+    // bool is3D = !solids.empty();
+    bool is2D = !is3D && (faces.size()>1 && faces.back().ShapeType() == TopAbs_FACE && faces[faces.size()-2].ShapeType() == TopAbs_FACE);
+
+    size_t count = is3D ? solids.size() : faces.size();
+    if (count < 2) {
+        lua_error_with_where("Subtract requires at least two objects (solids or faces).");
+    }
+
+    TopoDS_Shape object; // base (from which we subtract)
+    TopoDS_Shape tool;   // cutter (subtracted)
+
+    if (is3D) {
+        object = solids[solids.size() - 2];
+        tool   = solids.back();
+    } else {
+        object = faces[faces.size() - 2];
+        tool   = faces.back();
+    }
+
+
+
+
+	std::unique_ptr<BRepAlgoAPI_BooleanOperation> cutOp;
+
+	if (iscommon) {
+		cutOp = std::make_unique<BRepAlgoAPI_Common>(object, tool);
+	} else {
+		cutOp = std::make_unique<BRepAlgoAPI_Cut>(object, tool);
+	}
+
+
+    // Boolean cut
+	// if(iscommon)
+    // 	BRepAlgoAPI_Common cutOp(object, tool);
+	// 	else
+	// 	BRepAlgoAPI_Cut cutOp(object, tool);
+
+    // Increase fuzzy tolerance for better robustness (especially useful for 2D-like cases)
+    cutOp->SetFuzzyValue(1e-6);
+	// cutOp->SetRunParallel(Standard_True);
+    cutOp->Build();
+cotm("rich")
+    if (!cutOp->IsDone()) {
+        lua_error_with_where("Boolean subtract (cut) failed.");
+    }
+
+    TopoDS_Shape result = cutOp->Shape();
+    if (result.IsNull()) {
+        lua_error_with_where("Boolean subtract produced null shape.");
+    }
+
+    // Optional cleanup – unify coincident edges/vertices
+    ShapeUpgrade_UnifySameDomain unifier(result, true, true, true);
+    unifier.Build();
+    if (!unifier.Shape().IsNull()) {
+        result = unifier.Shape();
+    }
+cotm("rich")
+    // Rebuild compound: keep all except the last two, add the new result
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+
+    // Collect all top-level objects in order
+    TopTools_ListOfShape allShapes;
+    for (TopExp_Explorer ex(compound, is3D ? TopAbs_SOLID : TopAbs_FACE); ex.More(); ex.Next()) {
+        allShapes.Append(ex.Current());
+    }
+    // for (TopoDS_Iterator it(current_part->cshape); it.More(); it.Next()) {
+    //     const TopoDS_Shape& s = it.Value();
+    //     allShapes.Append(s);
+    // }
+
+    // Convert to vector for indexing
+    std::vector<TopoDS_Shape> shapeVec;
+    for (TopTools_ListIteratorOfListOfShape it(allShapes); it.More(); it.Next()) {
+        shapeVec.push_back(it.Value());
+    }
+
+	cotm("rich")
+
+	current_part->cshape=TopoDS_Compound();
+	cotm(shapeVec.size())
+	if (shapeVec.size() > 1) {
+		// Add all except the last two
+		for (size_t i = 0; i < shapeVec.size() - 2; ++i) {
+			builder.Add(newCompound, shapeVec[i]);
+		}
+
+		// Add the result
+		// builder.Add(newCompound, result);
+
+		// Update current part
+		current_part->cshape = newCompound;
+	}
+	// cotm(1)
+	if(is2D){
+		cotm("rich")
+		TopoDS_Face face;
+		TopExp_Explorer ex(result, TopAbs_FACE);
+		if (ex.More()) {
+			face = TopoDS::Face(ex.Current());
+		}
+		cotm("rich")
+		current_part->shape  = face;
+		// inteligentmerge(face,0);
+	}
+	else{
+		// SetReferenceLocationWithoutMoving(result,preserve);
+		current_part->shape  = result;  // last result is the "active" shape
+		// inteligentmerge(result,0);
+		cotm("rich")
+		if(current_part->showPlanet)
+		// 	SetReferenceLocationWithoutMoving(current_part->shape,current_part->current_location);
+			SetReferenceLocationWithoutMoving(current_part->shape,preserve);
+	}
+}
+void CommonAndSubtractactual(bool iscommon=0) {
+    if (!current_part)
+        lua_error_with_where( "No current part. Call Part(name) first.");
+	
+	TopLoc_Location preserve=current_part->shape.Location();
+
+	AddToCompound(current_part->cshape,current_part->shape);
+    TopoDS_Compound& compound = current_part->cshape;
+    if (compound.IsNull()) {
+        lua_error_with_where("Current part's compound is null.");
+    }
+
+    // Collect top-level solids and faces
+    std::vector<TopoDS_Solid> solids;
+    std::vector<TopoDS_Face>  faces;
+
+    for (TopExp_Explorer ex(compound, TopAbs_SOLID); ex.More(); ex.Next()) {
+        solids.push_back(TopoDS::Solid(ex.Current()));
+    }
+    for (TopExp_Explorer ex(compound, TopAbs_FACE); ex.More(); ex.Next()) {
+        faces.push_back(TopoDS::Face(ex.Current()));
+    }
+	
+	// if(current_part->shape.ShapeType() == TopAbs_SOLID)
+	// 	solids.push_back(TopoDS::Solid(current_part->shape));
+  
+
     bool is3D = !solids.empty();
     bool is2D = !is3D && !faces.empty();
 
@@ -8048,13 +8434,14 @@ void CommonAndSubtract(bool iscommon=0) {
 
 
 
-std::unique_ptr<BRepAlgoAPI_BooleanOperation> cutOp;
 
-if (iscommon) {
-    cutOp = std::make_unique<BRepAlgoAPI_Common>(object, tool);
-} else {
-    cutOp = std::make_unique<BRepAlgoAPI_Cut>(object, tool);
-}
+	std::unique_ptr<BRepAlgoAPI_BooleanOperation> cutOp;
+
+	if (iscommon) {
+		cutOp = std::make_unique<BRepAlgoAPI_Common>(object, tool);
+	} else {
+		cutOp = std::make_unique<BRepAlgoAPI_Cut>(object, tool);
+	}
 
 
     // Boolean cut
@@ -8084,6 +8471,45 @@ if (iscommon) {
         result = unifier.Shape();
     }
 
+
+
+	// TopoDS_Compound newCompound;
+	// BRep_Builder builder;
+	// builder.MakeCompound(newCompound);
+
+	// int n = 0, k = 0;
+	// // 1. Count solids to find the cutoff
+	// for (TopoDS_Iterator it(compound); it.More(); it.Next()) 
+	//     if (it.Value().ShapeType() == TopAbs_SOLID) n++;
+
+	// // 2. Add all shapes in order, skipping only the last 2 solids
+	// for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+	//     const TopoDS_Shape& S = it.Value();
+	//     if (S.ShapeType() != TopAbs_SOLID || ++k <= n - 2) 
+	//         builder.Add(newCompound, S);
+	// }
+
+	// current_part->cshape = newCompound;
+
+
+
+
+	// TopoDS_Compound newCompound;
+	// BRep_Builder builder;
+	// builder.MakeCompound(newCompound);
+
+	// // Collect all top-level shapes
+	// std::vector<TopoDS_Shape> shapes;
+	// for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+	//     shapes.push_back(it.Value());
+	// }
+
+	// for (size_t i = 0, limit = shapes.size() > 2 ? shapes.size() - 2 : 0; i < limit; ++i){
+	//     builder.Add(newCompound, shapes[i]);
+	// }
+
+	// current_part->cshape = newCompound;
+
     // Rebuild compound: keep all except the last two, add the new result
     TopoDS_Compound newCompound;
     BRep_Builder builder;
@@ -8094,6 +8520,10 @@ if (iscommon) {
     for (TopExp_Explorer ex(compound, is3D ? TopAbs_SOLID : TopAbs_FACE); ex.More(); ex.Next()) {
         allShapes.Append(ex.Current());
     }
+    // for (TopoDS_Iterator it(current_part->cshape); it.More(); it.Next()) {
+    //     const TopoDS_Shape& s = it.Value();
+    //     allShapes.Append(s);
+    // }
 
     // Convert to vector for indexing
     std::vector<TopoDS_Shape> shapeVec;
@@ -8102,7 +8532,7 @@ if (iscommon) {
     }
 
 	current_part->cshape=TopoDS_Compound();
-	// cotm(shapeVec.size())
+	cotm(shapeVec.size())
 	if (shapeVec.size() > 1) {
 		// Add all except the last two
 		for (size_t i = 0; i < shapeVec.size() - 2; ++i) {
@@ -8129,7 +8559,8 @@ if (iscommon) {
 		// SetReferenceLocationWithoutMoving(result,preserve);
 		current_part->shape  = result;  // last result is the "active" shape
 		// inteligentmerge(result,0);
-		// SetReferenceLocationWithoutMoving(current_part->shape,preserve.Transformation());
+		if(current_part->showPlanet)
+			SetReferenceLocationWithoutMoving(current_part->shape,preserve);
 	}
 }
 void Fusenw() {
@@ -9246,7 +9677,6 @@ TopoDS_Shape splitShape = splitter.Shape();
 
     inteligentmerge(fused);
 }
-//region fuse
 #include <vector>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
@@ -10040,6 +10470,9 @@ void Fuse() {
         lua_error_with_where("No current part. Call Part(name) first.");
     if (current_part->shape.IsNull())
         lua_error_with_where("No current shape. Call after doing shapes.");
+	
+	TopLoc_Location preserve=current_part->shape.Location();
+
     // Add the most recent shape to the compound before processing
     AddToCompound(current_part->cshape, current_part->shape);
 	
@@ -10094,11 +10527,14 @@ void Fuse() {
     // current_part->cshape.Nullify();
 	current_part->builder=BRep_Builder();
     current_part->builder.MakeCompound(current_part->cshape);
-    current_part->shape.Nullify();
-
+    // current_part->shape.Nullify();
+	current_part->shape=fused;
+	if(current_part->showPlanet)
+		SetReferenceLocationWithoutMoving(current_part->shape,preserve);
     // intelligentmerge handles adding the 'fused' result back to the system
-    inteligentmerge(fused);
+    // inteligentmerge(fused);
 }
+//region fuse
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRep_Builder.hxx>
 #include <TopExp_Explorer.hxx>
@@ -11038,13 +11474,13 @@ void luainit() {
     L = lua.lua_state();
 
 //region binds
-    lua.set_function("Part", &Part);
-    lua.set_function("Originl", &Originl);
-    lua.set_function("Pl", &Pl);
+    lua.set_function("Part", sol::protect(&Part));
+    // lua.set_function("Originl", &Originl);
+    lua.set_function("Pl", sol::protect( &Pl));
     lua.set_function("Circle", &Circle);
     lua.set_function("Rec", &Rec);
     lua.set_function("Extrude", &Extrude);
-    lua.set_function("Offset", &Offset);
+    lua.set_function("Offset", sol::protect( &Offset));
     lua.set_function("Clone",sol::protect( &Clone));
     lua.set_function("Copy_placement", &Copy_placement);
     // lua.set_function("Mirror", &Mirror);

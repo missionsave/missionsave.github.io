@@ -6,7 +6,7 @@
 # Caminho padr�o
 export PATH="$PATH:/$HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/super/desk/missionsave/robot_driver/openvino_toolkit_ubuntu20_2025.0.0.17942.1f68be9f594_x86_64/runtime/lib/intel64:/opt/occt-7_9_3/lib"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/super/desk/missionsave/robot_driver/openvino_toolkit_ubuntu20_2025.0.0.17942.1f68be9f594_x86_64/runtime/lib/intel64:/opt/occt-7_9_3/lib:/opt/gmsh-occ/lib/"
 
 export PATH="$PATH:/usr/lib/x86_64-linux-gnu"
 
@@ -1536,6 +1536,169 @@ install_deb() {
   rm -f "$filename"
 
   echo "✅ $filename instalado com sucesso!"
+}
+install_gmsh() {
+    # --- Configurações de Caminhos ---
+    local OCCT_VER="7_9_3"
+    local OCC_PREFIX="/opt/occt-${OCCT_VER}"
+    local PREFIX="/opt/gmsh-occ"
+    local BUILD_DIR="/tmp/bldgshm"
+    
+    echo "=========================================="
+    echo "Iniciando Build do Gmsh com Suporte OCC"
+    echo "=========================================="
+
+    # 1. Verificações de Ferramentas de Sistema
+    echo "[1/6] Verificando dependências de compilação..."
+    for cmd in cmake g++ make wget tar; do
+        if ! command -v "$cmd" &> /dev/null; then
+            echo "ERRO: Ferramenta '$cmd' não encontrada. Instala-a primeiro."
+            return 1
+        fi
+    done
+
+    # 2. Verificações Profundas do OCCT
+    echo "[2/6] Validando instalação do OCCT em ${OCC_PREFIX}..."
+    
+    local lib_dir="${OCC_PREFIX}/lib"
+    [ -d "${OCC_PREFIX}/lib64" ] && lib_dir="${OCC_PREFIX}/lib64"
+
+    local checks=(
+        "${OCC_PREFIX}/lib/cmake/opencascade/OpenCASCADEConfig.cmake"
+        "${OCC_PREFIX}/include/opencascade/Standard_Version.hxx"
+        "${lib_dir}/libTKernel.so"
+    )
+
+    # for file in "${checks[@]}"; do
+    #     if [ ! -f "$file" ]; then
+    #         echo "ERRO: Arquivo crítico do OCCT ausente: $file"
+    #         return 1
+    #     fi
+    # done
+    # echo "OCCT validado com sucesso ✔"
+
+    # # 3. Limpeza e Download
+    # echo "[3/6] Preparando ambiente de build..."
+    # sudo rm -rf "$BUILD_DIR"
+    # mkdir -p "$BUILD_DIR"
+    # cd "$BUILD_DIR" || exit 1
+
+    # wget -q https://gmsh.info/src/gmsh-4.15.2-source.tgz
+    # if [ $? -ne 0 ]; then echo "ERRO: Falha no download do Gmsh."; return 1; fi
+    
+    # tar xf gmsh-4.15.2-source.tgz
+    # cd gmsh-4.15.2-source || exit 1
+    # mkdir build && cd build
+
+    # 4. Configuração CMake com RPATH Relativo
+    # Nota: '$ORIGIN/../lib' permite que o executável em bin/ procure em lib/ automaticamente
+    echo "[4/6] Configurando CMake..."
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
+        -DENABLE_OCC=ON \
+        -DENABLE_PARSER=ON \
+        -DCMAKE_PREFIX_PATH="${OCC_PREFIX}" \
+        -DOpenCASCADE_DIR="${OCC_PREFIX}/lib/cmake/opencascade" \
+        -DCMAKE_INSTALL_RPATH="\$ORIGIN/../lib:${lib_dir}" \
+        -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+		-DCMAKE_CXX_FLAGS="-w" \
+        -DENABLE_BUILD_DYNAMIC=ON \
+        -DENABLE_BUILD_LIB=ON \
+        -DENABLE_FLTK=OFF \
+        -DENABLE_OPENGL=OFF \
+        -DENABLE_PYTHON=OFF
+
+# ... (resto do script anterior igual até ao passo 4)
+
+    # 5. Verificação de Segurança (Versão Inteligente)
+    echo "[5/6] Verificando se o OpenCASCADE foi incluído no plano de build..."
+    
+    # Vamos verificar se o CMake listou o OpenCASCADE nas opções de build finais
+    if cmake -LAH . | grep -q "ENABLE_OCC:BOOL=ON"; then
+        echo "Suporte OCC confirmado via flag ENABLE_OCC ✔"
+    elif grep -q "OpenCASCADE" <<< $(grep "Build options" ../CMakeLists.txt -A 10); then
+        # Check alternativo no log de saída
+        echo "Suporte OCC confirmado nas opções de build ✔"
+    else
+        # Se chegarmos aqui, realmente não foi detectado
+        echo "ERRO: O OpenCASCADE não aparece nas opções de build."
+        return 1
+    fi
+
+    # 6. Compilação e Instalação
+    echo "[6/6] Compilando e Instalando..."
+    make -j"$(nproc)"
+    sudo make install
+}
+install_gmsh_delete(){
+    # mkdir -p /dev/shm
+    # cd /dev/shm
+    mkdir -p /tmp/gmsh
+    cd /tmp/gmsh
+
+    OCCT_VER=7_9_3
+    OCC_PREFIX=/opt/occt-${OCCT_VER}
+    PREFIX=/opt/gmsh
+    # PREFIX=/opt/gmsh-occ
+
+    # Fonte estável
+    wget https://gmsh.info/src/gmsh-4.15.2-source.tgz
+    tar xf gmsh-4.15.2-source.tgz
+    cd gmsh-4.15.2-source
+
+    mkdir build && cd build
+
+    # cmake .. \
+    #     -DCMAKE_BUILD_TYPE=Release \
+    #     -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+    #     -DENABLE_BUILD_DYNAMIC=OFF \
+    #     -DENABLE_BUILD_LIB=ON \
+    #     -DENABLE_MESH=ON \
+    #     -DENABLE_GEO=ON \
+    #     -DENABLE_OCC=ON \
+    #     -DOCC_INCLUDE_DIR=${OCC_PREFIX}/include/opencascade \
+    #     -DOCC_LIBRARY_DIR=${OCC_PREFIX}/lib \
+    #     -DENABLE_FLTK=OFF \
+    #     -DENABLE_OPENGL=OFF \
+    #     -DENABLE_PARSER=OFF \
+    #     -DENABLE_PYTHON=OFF \
+    #     -DENABLE_POST=ON \        # OBRIGATÓRIO (dependência interna)
+    #     -DENABLE_ONELAB=OFF \
+    #     -DENABLE_MPI=OFF \
+    #     -DENABLE_MED=OFF \
+    #     -DENABLE_TETGEN=OFF \
+    #     -DENABLE_CHACO=OFF \
+    #     -DENABLE_METIS=OFF \
+    #     -DENABLE_MMG3D=OFF \
+    #     -DENABLE_MMG=OFF
+
+	cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+    -DENABLE_OCC=ON \
+    -DOpenCASCADE_DIR=${OCC_PREFIX}/lib/cmake/opencascade \
+    -DENABLE_BUILD_DYNAMIC=OFF \
+    -DENABLE_BUILD_LIB=ON \
+    -DENABLE_MESH=ON \
+    -DENABLE_GEO=ON \
+    -DENABLE_POST=ON \
+    -DENABLE_FLTK=OFF \
+    -DENABLE_OPENGL=OFF \
+    -DENABLE_PARSER=OFF \
+    -DENABLE_PYTHON=OFF \
+    -DENABLE_ONELAB=OFF \
+    -DENABLE_MPI=OFF \
+    -DENABLE_MED=OFF \
+    -DENABLE_TETGEN=OFF \
+    -DENABLE_CHACO=OFF \
+    -DENABLE_METIS=OFF \
+    -DENABLE_MMG3D=OFF \
+    -DENABLE_MMG=OFF
+
+
+    make -j"$(nproc)"
+    sudo make install
 }
 
 install_occt_7_9_3() {

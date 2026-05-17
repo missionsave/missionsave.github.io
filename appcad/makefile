@@ -26,7 +26,7 @@ endif
 # --- Diretórios e binário final ---
 BUILD_DIR := .objw
 LIBNAME   := libapp.a$(dbgd)
-TARGET    := msvcad.exe
+TARGET    := missioncad.exe
 
 
 LDFLAGS+=  -Wl,--as-needed -Wl,--gc-sections
@@ -129,10 +129,10 @@ endif
 ifeq ($(OS_NAME), Linux)
 	BUILD_DIR := .objl
 	LIBNAME   := libappl.a$(dbgd)
-	TARGET    := msvcad
+	TARGET    := missioncad
 	LDFLAGS+= -L. -l:$(LIBNAME)
 	CXXFLAGS+= -I../common 
-	
+	LDFLAGS+= -Wl,-rpath,'$$ORIGIN/libs'
 	
 	
 	# CXXFLAGS+= `fltk-config --cxxflags` -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_THREAD_SAFE -D_REENTRANT
@@ -144,6 +144,12 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+=$(shell pkg-config  openscenegraph-osg openscenegraph-osgViewer --libs) -losgSim -losgManipulator
 	# LDFLAGS+=$(shell pkg-config opencv4 --libs ) 
 	
+# 	export LD_LIBRARY_PATH=/home/super/Downloads/gmsh-4.15.2-Linux64-sdk/lib/:$$LD_LIBRARY_PATH
+# 	CXXFLAGS+= -I/home/super/Downloads/gmsh-4.15.2-Linux64-sdk/include
+# 	LDFLAGS+= -L/home/super/Downloads/gmsh-4.15.2-Linux64-sdk/lib/
+	CXXFLAGS+= -I/opt/gmsh-occ/include
+	LDFLAGS+= -L/opt/gmsh-occ/lib/
+	LDFLAGS+= -lgmsh -lgomp
 
 	LDFLAGS+= -ltbb
 	# dynamic
@@ -214,13 +220,16 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+= -lfreetype
 	# LDFLAGS+=  -l:libstdc++.a
 
-	export LD_LIBRARY_PATH=/opt/occt-7_9_3/lib:$$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=/opt/gmsh-occ/lib/:/opt/occt-7_9_3/lib:$$LD_LIBRARY_PATH
+# 	export LD_LIBRARY_PATH=/opt/occt-7_9_3/lib:$$LD_LIBRARY_PATH
+	
+# 	export LD_LIBRARY_PATH=/opt/occt-7_9_3/lib:/home/super/Downloads/gmsh-4.15.2-Linux64-sdk/lib/:$$LD_LIBRARY_PATH
 
 endif
 ifeq ($(OS_NAME), Arm)
 	BUILD_DIR := .obja
 	LIBNAME   := libappa.a$(dbgd)
-	TARGET    := msvcad
+	TARGET    := missioncad
 	LDFLAGS+= -L. -l:$(LIBNAME)
 
 	LDFLAGS+= -lTKFillet -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKMesh -lTKOffset
@@ -256,7 +265,7 @@ endif
 
 # exec
 SRC_APP := \
-    msvcad.cpp \
+    missioncad.cpp \
     ../common/general.cpp \
     ../common/font_loader.cpp \
     ../common/fl_scintilla.cpp \

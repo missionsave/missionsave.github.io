@@ -6,6 +6,12 @@
             "type": "shell",
             "command": "cp ${workspaceFolder}/.vscode/keybindings.json ~/.config/Code/User/keybindings.json",
             "problemMatcher": []
-        }
+        },
+		{
+		"label": "clang-format",
+		"type": "shell",
+		"command": "clang-format -i ${file}",
+		"problemMatcher": []
+		}
     ]
 }

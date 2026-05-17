@@ -55,6 +55,8 @@ namespace fs = std::filesystem;
 
 #include "fl_scintilla.hpp"
 
+
+#define IDM_DOT_MARKER  0
 #define MARGIN_FOLD_INDEX 3
 
 using namespace Scintilla;
@@ -84,7 +86,7 @@ std::string load_app_font(const std::string& filename);
 #pragma endregion Includes_globals
 
 #pragma region find
-//region find
+// region find
 
 class FixedSubWindow;
 FixedSubWindow* wFind=0;
@@ -286,7 +288,7 @@ take_focus();
 #pragma endregion find
 
 #pragma region menu
-//region menu
+// region menu
 
 #include <FL/Fl_Menu_Bar.H>
 
@@ -417,7 +419,7 @@ void menu_callback(Fl_Widget* w, void* data) {
 	
     if (m && m->label()) {
         printf("You selected: %s\n", m->label());
-		
+		vs->SendEditor(SCI_MARKERDELETEALL, IDM_DOT_MARKER);
 		stringstream strm;
 		strm<<vs->folder<<m->label();
 		string str=strm.str();
@@ -450,7 +452,7 @@ public:
     }
 };
 
-//region implementation
+// region implementation
 
 fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scintilla(X, Y, W, H, l) {	
 	SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
@@ -560,7 +562,7 @@ void fl_scintilla::toggle_comment() {
     SendEditor(SCI_ENDUNDOACTION);
 }
 
-//region fold
+// region fold
 void fl_scintilla::apply_fold() {
 	vector<int> & foldedHeaders=foldedHeadersMap[curr_file_pointer];
 	cotm("apply",foldedHeaders);
@@ -586,7 +588,7 @@ void fl_scintilla::save_fold() {
 			}
 		}
 	}
-	cotm("save",foldedHeaders);
+	// cotm("save",foldedHeaders);
 }
 
 void fl_scintilla::FoldFirstLevel() {
@@ -613,7 +615,7 @@ void fl_scintilla::FoldFirstLevel() {
 }
 
 
-//region front back navigation
+// region front back navigation
 std::unordered_map<sptr_t,uhist> vuhist;
 void fl_scintilla::gocaret(int dir)
 {
@@ -679,7 +681,7 @@ void fl_scintilla::recordCaret()
     h.caretIndex = h.caretHistory.size() - 1;
 }
 
-//region updatemenu
+// region updatemenu
 void fl_scintilla::update_menu() {
 	window()->begin(); 
 
@@ -901,6 +903,33 @@ fmb->add("Files/New", 0,
 		(void*)this);
 
 	fmb->add(
+		"Debug/Step", (FL_F + 11),
+		[](Fl_Widget* mnu, void* ud) {
+			auto* self = static_cast<fl_scintilla*>(ud);
+			if(self->breakpoint>-1){
+				self->step=1;
+
+			}else{
+				fl_message(
+					"Click on the left side of the line number in the vertical bar to set a breakpoint,\n"
+					"then press Ctrl+S to start step-by-step debugging."
+				);
+			}
+		},
+		(void*)this);
+
+	fmb->add(
+		"Debug/Exit debug", (FL_F + 12),
+		[](Fl_Widget* mnu, void* ud) {
+			auto* self = static_cast<fl_scintilla*>(ud);
+			self->breakpoint=-1;
+			self->step=0;
+			self->SendEditor(SCI_MARKERDELETEALL, IDM_DOT_MARKER);
+
+		},
+		(void*)this);
+
+	fmb->add(
 		"<", 0,
 		[](Fl_Widget* mnu, void* ud) {
 			auto* self = static_cast<fl_scintilla*>(ud);
@@ -968,10 +997,11 @@ string fl_scintilla::getSelected(){
             return 1;
         }
 		
-	if (e == FL_KEYDOWN && Fl::event_key() == (FL_F + 11)) {
-		setbreakpoint(-1);
-		return 1;
-	}
+	// if (e == FL_KEYDOWN && Fl::event_key() == (FL_F + 11)) {
+	// 	// setbreakpoint(-1);
+	// 	step=1;
+	// 	return 1;
+	// }
 
 
 		if(e==FL_KEYDOWN && Fl::event_key()==FL_Escape){
@@ -1129,9 +1159,9 @@ int nextUsefulLine(int startLine,fl_scintilla* editor) {
 }
 
 
-//region breakpoint
+// region breakpoint
 int breakpointreal=-1;
-void fl_scintilla::setbreakpoint(int val){ 
+void fl_scintilla::setbreakpoint(int val,bool setonly){ 
 
 	static bool isloaded=0;
 	if(!isloaded){
@@ -1143,6 +1173,7 @@ void fl_scintilla::setbreakpoint(int val){
 		isloaded=1;
 	}
 	SendEditor(SCI_MARKERDELETEALL, IDM_DOT_MARKER);
+	if(!setonly){
 	int boneditor=nextUsefulLine(val-1 ,this);
 
 
@@ -1166,8 +1197,31 @@ void fl_scintilla::setbreakpoint(int val){
 		// breakpointreal=breakpoint;
 		// breakpoint=nextUsefulLine(breakpoint,this); //to run current line
 	}
-	
+}else{
+	SendEditor(SCI_MARKERADD, val, IDM_DOT_MARKER);
 
+	int line = val;  // your target logical line
+
+	// Make sure the line is visible (important for folds)
+	SendEditor(SCI_ENSUREVISIBLE, line);
+
+	// Convert logical line → display line
+	int displayLine = SendEditor(SCI_VISIBLEFROMDOCLINE, line);
+
+	// How many display lines fit on screen
+	int linesOnScreen = SendEditor(SCI_LINESONSCREEN);
+
+	// Compute the first visible display line so target is centered
+	int firstVisible = displayLine - (linesOnScreen / 2);
+	if (firstVisible < 0) firstVisible = 0;
+
+	// Scroll using display lines
+	SendEditor(SCI_SETFIRSTVISIBLELINE, firstVisible);
+
+	// Optional: move caret to the line
+	// SendEditor(SCI_GOTOLINE, line);
+
+}
 }
 void fl_scintilla::set_lua(){ 
 	// 	std::ifstream f("DejaVuSans.ttf", std::ios::binary);
@@ -1482,7 +1536,7 @@ char* g_szFuncDesc[FUNCSIZE]= { //函数信息
 //     browser->insert(to, moved_text.c_str());
 // }
 void fl_scintilla::navigatorSetUpdated(){
-		cotm("v1")
+		// cotm("v1")
 		recordCaret();
 		save_fold();
 	    filesfirstline[curr_file_pointer]=SendEditor(SCI_GETFIRSTVISIBLELINE,0,0);

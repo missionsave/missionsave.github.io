@@ -38,7 +38,8 @@
 // CONFIGURAÇÃO POR JOGO
 // -------------------------------------------------------
 const WORKER = "https://superdb-api.superbem.workers.dev/gethtml";
-const PROXY = url => "https://corsproxy.io/?" + encodeURIComponent(url);
+const PROXY = url => WORKER + encodeURIComponent(url);
+// const PROXY = url => "https://corsproxy.io/?" + encodeURIComponent(url);
 
 const JOGOS = {
   eurodreams: {
