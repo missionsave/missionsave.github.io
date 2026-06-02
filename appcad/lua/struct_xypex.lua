@@ -28,7 +28,7 @@ CreateMat("steel", "blue", [[
 *ELASTIC
 210000., 0.3
 *DENSITY
-7850.
+7.85e-9
 *PLASTIC
 355., 0.
 450., 0.02
@@ -36,17 +36,112 @@ CreateMat("steel", "blue", [[
 1.2e-5
 *CONDUCTIVITY
 45.
-*SPECIFIC HEAT
+*SPECIFIC_HEAT
 470.
 ]])
+CreateMat("scc","red", [[
+*MATERIAL, NAME=SCC_FIBRAS_COMPLETO
+*ELASTIC
+32000., 0.2
+*DENSITY
+2.45e-9
+*PLASTIC
+30., 0.
+45., 0.006
+*EXPANSION
+1.1e-5
+*CONDUCTIVITY
+1.8
+*SPECIFIC_HEAT
+1.0e9
+**traction
+2.1
+**compression
+40.
+**shear
+2.
+
+]])
+
+--CreateMat("scc","red", [[
+--*MATERIAL, NAME=SCC_FIBRAS_COMPLETO
+--*ELASTIC
+--32000., 0.2
+--*DENSITY
+--2.45e-6
+--*PLASTIC
+--30., 0.
+--45., 0.006
+--*EXPANSION
+--1.1e-5
+--*CONDUCTIVITY
+--1.8e-3
+--*SPECIFIC_HEAT
+--900000.
+--]])
+--CreateMat("scc","red", [[
+--*MATERIAL, NAME=SCC_FIBRAS_COMPLETO
+--*ELASTIC
+--3000000., 0.2
+--*DENSITY
+--2.5e-6
+--]])
 
 CreateMat("scc_fresco","cyan", [[
 *MATERIAL, NAME=SCC_FRESCO
 *ELASTIC
-1.e6, 0.499
+1000., 0.499
 *DENSITY
-2400.
+2.4e-6
 ]])
+
+CcxStep([[
+*STEP
+*STATIC 
+
+*BOUNDARY
+CHAO_FIXO, 1, 3, 0.
+
+*ELSET, ELSET=ALL, GENERATE
+1, 999999
+
+*DLOAD
+ALL, GRAV, 9810., 0,-1,0 
+*EL PRINT, ELSET=ALL
+S
+
+*NODE FILE
+U
+*EL FILE
+S, E
+
+*NODE PRINT
+U
+*EL PRINT
+S, E
+*END STEP
+]])
+
+--CcxStep([[
+--*STEP, NLGEOM=YES
+--*STATIC
+--*BOUNDARY
+--CHAO_FIXO, 1, 3, 0.
+--*ELSET, ELSET=ALL, GENERATE
+--1, 999999
+--*DLOAD
+--ALL, GRAV, 9810., 0,-1,0
+--*CONTROLS, PARAMETERS=TIME INCREMENTATION
+--,, 0.1, 1., 10., 1.
+--*RESTART, WRITE, FREQUENCY=1
+--*EL PRINT, ELSET=ALL
+--S, E
+--*NODE FILE
+--U
+--*EL FILE
+--S, E
+--*END STEP
+--]])
 
 end
 function struct_xypex()
@@ -56,7 +151,7 @@ winstdx=1700
 winstdy=1100
 winstdx=1700
 winstdy=2300
-winstdx=2100
+winstdx=21000
 winstdy=2200
 
 wall_width=35
@@ -107,13 +202,41 @@ Mirrorlx(container_width/2-50,1)
 
 
 
-Part ("multi_window")
+Part ("multi_window,scc")
 Rec(winstdx,winstdy)
 Extrude(6)
+
+Part "multi_windowsf,scc"
+Rec(winstdx,winstdy)
+Extrude(6)
+Movel(0,300,20)
+Part "multi_windowsf2,scc_fresco"
+Rec(winstdx,winstdy)
+Extrude(6)
+Movel(0,0,200)
 
 Part "help_window"
 Rec(winstdx,winstdy)
 Extrude(wall_width)
+
+Part "floor,scc"
+Rec(container_width,180)
+Extrude(-container_long)
+Rec(container_width-35*2,180-30*2)
+Movel(35,30,-35)
+Extrude(-container_long+35*2)
+Subtract()
+
+Part "wall_lat"
+Rec(35,container_height)
+Extrude(-container_long)
+
+Part "mold_base"
+Rec(container_width,container_long)
+Rotatelx(-90)
+Extrude(-10)
+
+
 
 Part "hel_wolffia"
 Rec(container_width-wall_width*2,80+120)
@@ -125,7 +248,7 @@ Movel(wall_width)
 --Pl("0,0 -10,-40 -30,-40 -20,0 0,0 150,0 160,-40 180,-40 170,0 150,0 ")
 
 
-Part "extrusion,steel"
+Part "extrusion,scc"
 Clone(sketch_ext)
 Clone(sketch_ext1)
 --Common()
@@ -143,15 +266,26 @@ Subtract()
 Clone(help_window)
 Rotately(90)
 Movel(0,300,-200)
-Arrayl(8,0,0,-winstdx-100)
+Arrayl(4,0,0,-winstdx-100)
+--Clone(help_window)--
+--Rotately(90)
+--Movel(0,300,-container_long+1091.9)
+--Join(1)
 --Arrayl(1,0,winstdy+100)
 Mirrorlx(container_width/2,1)
 Join(1)
+
 Subtract()
 
 
-
-
+Part "test,scc"
+Rec(100)
+Rotatelx(-90)
+Extrude(1000*2)
+Mloc(0,1000*2,0)
+Rec(200)
+Extrude(-1500)
+Fuse()
 
 
 end
