@@ -42,25 +42,43 @@ CreateMat("steel", "blue", [[
 CreateMat("scc","red", [[
 *MATERIAL, NAME=SCC_FIBRAS_COMPLETO
 *ELASTIC
+1.0E9, 0.3
+*DENSITY
+2.1
+*SPECIFIC HEAT
+40.0
+
+]])
+
+CreateMat("scc1","red", [[
+*MATERIAL, NAME=SCC_FIBRAS_COMPLETO
+*ELASTIC
 32000., 0.2
 *DENSITY
 2.45e-9
-*PLASTIC
-30., 0.
-45., 0.006
+
 *EXPANSION
 1.1e-5
 *CONDUCTIVITY
 1.8
 *SPECIFIC_HEAT
 1.0e9
-**traction
-2.1
-**compression
-40.
-**shear
-2.
+]])
 
+
+CreateMat("scct","red", [[
+*MATERIAL, NAME=SCCT
+*ELASTIC
+32000., 0.2
+*DENSITY
+7.45e-9
+
+*EXPANSION
+1.1e-5
+*CONDUCTIVITY
+1.8
+*SPECIFIC_HEAT
+1.0e9
 ]])
 
 --CreateMat("scc","red", [[
@@ -96,29 +114,21 @@ CreateMat("scc_fresco","cyan", [[
 ]])
 
 CcxStep([[
-*STEP
-*STATIC 
+*STEP, NLGEOM=YES
+*STATIC
 
 *BOUNDARY
-CHAO_FIXO, 1, 3, 0.
+CHAO_FIXO,1,3,0.
 
-*ELSET, ELSET=ALL, GENERATE
-1, 999999
+*ELSET,ELSET=ALL,GENERATE
+1,1000,1
 
 *DLOAD
-ALL, GRAV, 9810., 0,-1,0 
-*EL PRINT, ELSET=ALL
-S
+ALL, GRAV, 9810., 0., -1., 0.
 
-*NODE FILE
-U
 *EL FILE
 S, E
 
-*NODE PRINT
-U
-*EL PRINT
-S, E
 *END STEP
 ]])
 
@@ -151,11 +161,11 @@ winstdx=1700
 winstdy=1100
 winstdx=1700
 winstdy=2300
-winstdx=21000
+winstdx=2100
 winstdy=2200
 
 wall_width=35
-slab=30
+slab=10
 lat_thick=50
 
 tunel_height=tunel_height-20
@@ -172,11 +182,11 @@ Rec(container_width/2-wall_width-0,tunel_height)
 --Subtract()
 
 --cunha rail
-Pl "0,0 30,-40 @20,0 @-20,40 0,0"
-Mirrorlx(90,1)
-Join(1)
-Movel(600,tunel_height)
-Subtract()
+--Pl "0,0 30,-40 @20,0 @-20,40 0,0"
+--Mirrorlx(90,1)
+--Join(1)
+--Movel(600,tunel_height)
+--Subtract()
 
 --autorama
 --Mloc()
@@ -248,7 +258,7 @@ Movel(wall_width)
 --Pl("0,0 -10,-40 -30,-40 -20,0 0,0 150,0 160,-40 180,-40 170,0 150,0 ")
 
 
-Part "extrusion,scc"
+Part "extrusion,scc1"
 Clone(sketch_ext)
 Clone(sketch_ext1)
 --Common()
@@ -277,16 +287,45 @@ Join(1)
 
 Subtract()
 
+Part "testc,scc"
+Rec(2000,100)
+Movel(43,767.75,0)
+Extrude(-1000)
 
-Part "test,scc"
-Rec(100)
+
+Part "test,scc1"
+Rec(300)
 Rotatelx(-90)
 Extrude(1000*2)
 Mloc(0,1000*2,0)
-Rec(200)
-Extrude(-1500)
+Rec(400)
+Extrude(-15000)
 Fuse()
 
+Part "test1,scc"
+--Mloc(0,2410,-300)
+Rec(300)
+Extrude(-10000)
+Movel(0,2400,-3000)
+
+width=20000
+height=6000
+Part "testb,scc1"
+Rec(width,10)
+Extrude(-width)
+Movel(0,height)
+Mloc()
+Rec(40,height)
+Extrude(-width)
+Mirrorlx(width/2,1)
+--Fuse()
+
+--Part "tedtd,scc1"
+Mloc(width/2,height)
+Rec(2000-80*2,20000)
+Extrude(-20000)
+--Movel(width/2,height)
+Fuse()
 
 end
 globals()

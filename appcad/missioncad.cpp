@@ -1388,171 +1388,6 @@ TopoDS_Shape RebaseLocation(const TopoDS_Shape &s,
 #include <iostream>
 #include <algorithm>
 #include <cmath>
-
-class AIS_FEM : public AIS_InteractiveObject
-{
-public:
-    struct Node {
-        gp_Pnt p;
-        double value; // Added to hold nodal stress
-    };
-
-    struct Face {
-        std::vector<int> nodes;
-        // Removed 'value' from here since we use nodal values now
-    };
-
-    AIS_FEM(const std::map<int, Node>& nodes, const std::vector<Face>& faces)
-        : myNodes(nodes), myFaces(faces), vmin(0.0), vmax(0.0)
-    {
-        if (!myNodes.empty()) {
-            auto it = myNodes.begin();
-            vmin = it->second.value;
-            vmax = it->second.value;
-            for (const auto& kv : myNodes) {
-                vmin = std::min(vmin, kv.second.value);
-                vmax = std::max(vmax, kv.second.value);
-            }
-        }
-        std::cout << "Smooth Color Scale Limits -> Min: " << vmin << " | Max: " << vmax << "\n";
-    }
-
-    DEFINE_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
-	void recomputeMinMax() {
-		vmin = 1e100;
-		vmax = -1e100;
-	
-		for (auto& kv : myNodes) {
-			vmin = std::min(vmin, kv.second.value);
-			vmax = std::max(vmax, kv.second.value);
-		}
-	
-		std::cout << "Corrected Color Scale -> Min: " << vmin
-				  << " | Max: " << vmax << "\n";
-	}
-protected:
-virtual void Compute(const Handle(PrsMgr_PresentationManager)&,
-                         const Handle(Prs3d_Presentation)& prs,
-                         const Standard_Integer) override
-    {
-        if (myFaces.empty()) return;
-
-        Handle(Graphic3d_Group) group = prs->NewGroup();
-
-        // === Face (Smooth Shaded + 3D Lighting) ===
-        Handle(Graphic3d_AspectFillArea3d) faceAsp = new Graphic3d_AspectFillArea3d();
-        faceAsp->SetInteriorStyle(Aspect_IS_SOLID);
-        
-        // CHANGED: Use VERTEX (Gouraud) or FRAGMENT shading instead of UNLIT.
-        // This allows OpenCASCADE lights to create shadows/highlights over your stress colors,
-        // making the part look like a realistic 3D solid rather than a flat 2D projection.
-        // faceAsp->SetShadingModel(Graphic3d_TOSM_VERTEX); 
-
-        // // Set a standard material (like plastic) so the lighting interacts nicely with vertex colors
-        // Graphic3d_MaterialAspect mat(Graphic3d_NOM_PLASTIC);
-        // faceAsp->SetFrontMaterial(mat);
-        // faceAsp->SetBackMaterial(mat); // In case you look inside the mesh
-		faceAsp->SetShadingModel(Graphic3d_TOSM_UNLIT);
-
-        group->SetGroupPrimitivesAspect(faceAsp);
-
-        for (const auto& f : myFaces)
-        {
-            if (f.nodes.size() == 3)
-            {
-                Handle(Graphic3d_ArrayOfTriangles) tris = 
-                    new Graphic3d_ArrayOfTriangles(3, 0, Standard_False, Standard_True);
-
-                for (int i = 0; i < 3; ++i) {
-                    const Node& n = myNodes.at(f.nodes[i]);
-                    tris->AddVertex(n.p);
-                    tris->SetVertexColor(tris->VertexNumber(), color(n.value));
-                }
-                group->AddPrimitiveArray(tris);
-            }
-            else if (f.nodes.size() == 4)
-            {
-                Handle(Graphic3d_ArrayOfTriangles) tris = 
-                    new Graphic3d_ArrayOfTriangles(6, 0, Standard_False, Standard_True);
-
-                // Triangle 1 (0, 1, 2)
-                for (int i : {0, 1, 2}) {
-                    const Node& n = myNodes.at(f.nodes[i]);
-                    tris->AddVertex(n.p);
-                    tris->SetVertexColor(tris->VertexNumber(), color(n.value));
-                }
-                // Triangle 2 (0, 2, 3)
-                for (int i : {0, 2, 3}) {
-                    const Node& n = myNodes.at(f.nodes[i]);
-                    tris->AddVertex(n.p);
-                    tris->SetVertexColor(tris->VertexNumber(), color(n.value));
-                }
-                group->AddPrimitiveArray(tris);
-            }
-        }
-        
-        // Note: The '=== Edges ===' section has been completely removed to hide the triangles.
-    }
-
-    virtual void ComputeSelection(const Handle(SelectMgr_Selection)&, const Standard_Integer) override {}
-
-private:
-Quantity_Color color(double v) const {
-    // Escala física fixa em MPa
-    const double physMin = 0.0;   // 0 MPa
-    const double physMax = 2.0;  // 30 MPa
-
-    // Normalizar para [0,1]
-    double t = (v - physMin) / (physMax - physMin);
-    if (t < 0.0) t = 0.0;
-    if (t > 1.0) t = 1.0;
-
-    double r, g, b;
-
-    // Green → Yellow → Red
-    if (t < 0.5) {
-        // 0.0 → 0.5 : Green (0,1,0) → Yellow (1,1,0)
-        double k = t * 2.0;
-        r = k;
-        g = 1.0;
-        b = 0.0;
-    } else {
-        // 0.5 → 1.0 : Yellow (1,1,0) → Red (1,0,0)
-        double k = (t - 0.5) * 2.0;
-        r = 1.0;
-        g = 1.0 - k;
-        b = 0.0;
-    }
-
-    // DEBUG opcional
-    // std::cout << "v=" << v << "  t=" << t
-    //           << "  rgb=(" << r << "," << g << "," << b << ")\n";
-
-    return Quantity_Color(r, g, b, Quantity_TOC_RGB);
-}
-
-
-
-
-
-private:
-    std::map<int, Node> myNodes;
-    std::vector<Face> myFaces;
-    double vmin, vmax;
-};
-
-IMPLEMENT_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
-
-
-
-// ============================================================================
-// The rest of your code (helpers, parser, etc.) remains unchanged
-// ============================================================================
-
-// ... (von_mises, ltrim, starts_with, Elem, Dataset, FaceKey, extract_faces, isStressDataset, display_frd_in_occ) ...
-// ============================================================================
-// Helpers
-// ============================================================================
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -1562,655 +1397,766 @@ IMPLEMENT_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
 #include <algorithm>
 #include <string>
 
-// Closed-form cubic solver to calculate Maximum Principal Stress (pure tension/compression peaks)
-static double max_principal(double sx, double sy, double sz, double txy, double tyz, double tzx) {
-    // Stress Invariants
-    double I1 = sx + sy + sz;
-    double I2 = sx * sy + sy * sz + sz * sx - txy * txy - tyz * tyz - tzx * tzx;
-    double I3 = sx * sy * sz + 2.0 * txy * tyz * tzx - sx * tyz * tyz - sy * tzx * tzx - sz * txy * txy;
-
-    // Cubic equation coefficients
-    double Q = (3.0 * I2 - I1 * I1) / 9.0;
-    double R = (9.0 * I1 * I2 - 27.0 * I3 - 2.0 * I1 * I1 * I1) / 54.0;
-    
-    // Catch pure hydrostatic or zero stress states to avoid NaN
-    if (Q >= 0.0) return I1 / 3.0; 
-
-    double Q3 = -Q * Q * Q;
-    double ratio = R / std::sqrt(Q3);
-    ratio = std::max(-1.0, std::min(1.0, ratio)); // Clamp to protect acos domain
-    
-    double theta = std::acos(ratio);
-    
-    // Calculate the three eigenvalues (principal stresses)
-    double sqrt_Q = 2.0 * std::sqrt(-Q);
-    double p1 = sqrt_Q * std::cos(theta / 3.0) + I1 / 3.0;
-    double p2 = sqrt_Q * std::cos((theta + 2.0 * M_PI) / 3.0) + I1 / 3.0;
-    double p3 = sqrt_Q * std::cos((theta + 4.0 * M_PI) / 3.0) + I1 / 3.0;
-
-    // Return the largest positive principal stress (maximum absolute tension)
-    return std::max({p1, p2, p3});
-}
-
-static double von_mises(double sx, double sy, double sz, double txy, double tyz, double tzx) {
-    return std::sqrt(0.5 * ((sx-sy)*(sx-sy) + (sy-sz)*(sy-sz) + (sz-sx)*(sz-sx))
-                     + 3.0 * (txy*txy + tyz*tyz + tzx*tzx));
-}
-
-inline std::string ltrim(std::string s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(),
-        [](unsigned char ch) { return !std::isspace(ch); }));
-    return s;
-}
-
-inline bool starts_with(const std::string& s, const std::string& p) {
-    return s.size() >= p.size() && s.compare(0, p.size(), p) == 0;
-}
-
-struct Elem {
-    int id;
-    std::vector<int> nodes;
-};
-
-struct Dataset {
-    std::string name;
-    std::vector<std::string> entityNames;
-    std::map<int, std::vector<double>> nodeValues; 
-    std::map<int, std::vector<double>> elemValues; 
-};
-
-struct FaceKey {
-    std::vector<int> nodes;
-    bool operator<(const FaceKey& o) const { return nodes < o.nodes; }
-};
-
-static void extract_faces(const Elem& e, std::vector<std::vector<int>>& out) {
-    if (e.nodes.size() == 4) {
-        out.push_back({e.nodes[0], e.nodes[1], e.nodes[2]});
-        out.push_back({e.nodes[0], e.nodes[1], e.nodes[3]});
-        out.push_back({e.nodes[0], e.nodes[2], e.nodes[3]});
-        out.push_back({e.nodes[1], e.nodes[2], e.nodes[3]});
-    } else if (e.nodes.size() == 8) {
-        out.push_back({e.nodes[0], e.nodes[1], e.nodes[2], e.nodes[3]});
-        out.push_back({e.nodes[4], e.nodes[5], e.nodes[6], e.nodes[7]});
-        out.push_back({e.nodes[0], e.nodes[1], e.nodes[5], e.nodes[4]});
-        out.push_back({e.nodes[1], e.nodes[2], e.nodes[6], e.nodes[5]});
-        out.push_back({e.nodes[2], e.nodes[3], e.nodes[7], e.nodes[6]});
-        out.push_back({e.nodes[3], e.nodes[0], e.nodes[4], e.nodes[7]});
-    }
-}
-
-static bool isStressDataset(const Dataset& ds) {
-    std::string n = ds.name;
-    std::transform(n.begin(), n.end(), n.begin(), ::toupper);
-    return n.find("STRESS") != std::string::npos || n == "S";
-}
+#include <AIS_InteractiveObject.hxx>
+#include <AIS_InteractiveContext.hxx>
+#include <Graphic3d_ArrayOfTriangles.hxx>
+#include <Graphic3d_AspectFillArea3d.hxx>
+#include <Graphic3d_Group.hxx>
+#include <Prs3d_Presentation.hxx>
+#include <PrsMgr_PresentationManager.hxx>
+#include <SelectMgr_Selection.hxx>
+#include <Quantity_Color.hxx>
+#include <gp_Pnt.hxx>
 
 // ============================================================================
-// FRD parser + Element-based stress rendering with Tension Isolation
-// ============================================================================
-// ============================================================================
-// UNIVERSAL MATERIAL MODEL + STRESS CLASSIFICATION + PERCENTAGE
+// AIS_FEM — FEM mesh com escala de cor verde→amarelo→vermelho (0→100%)
 // ============================================================================
 
-struct Material {
-    double fc;      // compressive strength
-    double ft;      // tensile strength
-    double kconf;   // confinement factor
-    double kfib;    // fiber factor
-
-    double a_uni;
-    double a_bi;
-    double a_tri;
-    double a_bend;
-    double a_shear;
-};
-
-// ------------------------------------------------------------
-// Principal stresses (C++98 safe)
-// ------------------------------------------------------------
-static void principal_stresses(double sx, double sy, double sz,
-                               double txy, double tyz, double tzx,
-                               double& s1, double& s2, double& s3)
+class AIS_FEM : public AIS_InteractiveObject
 {
-    double I1 = sx + sy + sz;
+public:
+    struct Node { gp_Pnt p; double value; }; // value = % uso (0–100+)
+    struct Face { std::vector<int> nodes; };
 
-    double I2 = sx*sy + sy*sz + sz*sx
-              - (txy*txy + tyz*tyz + tzx*tzx);
+    AIS_FEM(const std::map<int, Node>& nodes, const std::vector<Face>& faces)
+        : myNodes(nodes), myFaces(faces) {}
 
-    double I3 = sx*(sy*sz - tyz*tyz)
-              - sy*(sx*sz - tzx*tzx)
-              + sz*(sx*sy - txy*txy)
-              + 2.0*(txy*tyz*tzx);
+    DEFINE_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
 
-    double p = I1*I1 - 3.0*I2;
-    double q = 2.0*I1*I1*I1 - 9.0*I1*I2 + 27.0*I3;
-
-    double phi = acos(q / (2.0 * sqrt(p*p*p)));
-    double sp  = sqrt(p);
-
-    s1 = (I1 + 2.0*sp*cos(phi/3.0)) / 3.0;
-    s2 = (I1 + 2.0*sp*cos((phi + 2.0*M_PI)/3.0)) / 3.0;
-    s3 = (I1 + 2.0*sp*cos((phi + 4.0*M_PI)/3.0)) / 3.0;
-
-    if(s1 < s2) std::swap(s1, s2);
-    if(s2 < s3) std::swap(s2, s3);
-    if(s1 < s2) std::swap(s1, s2);
-}
-
-// ------------------------------------------------------------
-// Classify stress state
-// ------------------------------------------------------------
-static std::string classify_state(double s1, double s2, double s3)
-{
-    double a1 = fabs(s1), a2 = fabs(s2), a3 = fabs(s3);
-
-    double r2 = a2 / (a1 + 1e-12);
-    double r3 = a3 / (a1 + 1e-12);
-
-    if(r2 < 0.1 && r3 < 0.1) return "Uniaxial";
-    if(r2 >= 0.1 && r3 < 0.1) return "Biaxial";
-
-    if(r2 >= 0.1 && r3 >= 0.1) {
-        if(s1 < 0 && s2 < 0 && s3 < 0) return "Triaxial";
-        return "GeneralTriaxial";
-    }
-
-    if(s1 > 0 && s3 < 0 && fabs(s2) < 0.1*a1) return "Bending";
-
-    if(fabs(s1 + s3) < 0.1*a1 && fabs(s2) < 0.1*a1) return "Shear";
-
-    return "GeneralTriaxial";
-}
-
-// ------------------------------------------------------------
-// Safe limit
-// ------------------------------------------------------------
-static double safe_limit(const Material& m, const std::string& st, double s1)
-{
-    if(st == "Uniaxial")
-        return m.a_uni * (s1>0 ? m.ft*m.kfib : m.fc*m.kconf);
-
-    if(st == "Biaxial")
-        return m.a_bi * (s1>0 ? m.ft*m.kfib : m.fc*m.kconf);
-
-    if(st == "Triaxial" || st == "GeneralTriaxial")
-        return m.a_tri * (s1>0 ? m.ft*m.kfib : m.fc*m.kconf);
-
-    if(st == "Bending")
-        return m.a_bend * (s1>0 ? m.ft*m.kfib : m.fc*m.kconf);
-
-    if(st == "Shear")
-        return m.a_shear * m.fc;
-
-    return m.a_tri * m.fc;
-}
-
-// ------------------------------------------------------------
-// Percent usage
-// ------------------------------------------------------------
-static double percent_usage(double s1, double s2, double s3, double limit)
-{
-    double m = fabs(s1);
-    if(fabs(s2) > m) m = fabs(s2);
-    if(fabs(s3) > m) m = fabs(s3);
-    return 100.0 * m / limit;
-}
-
-// ============================================================================
-// FRD PARSER + OCC RENDERING WITH PERCENTAGE FIELD
-// ============================================================================
-
-void display_frd_in_occ(const std::string& file, const Handle(AIS_InteractiveContext)& ctx)
-{
-    std::ifstream in(file);
-    if(!in.is_open()) { std::cerr << "Cannot open FRD\n"; return; }
-
-    std::map<int, gp_Pnt> nodes;
-    std::map<int, Elem> elems;
-    std::vector<Dataset> datasets;
-
-    bool readingNodes=false, readingElems=false;
-    Dataset* cur=0;
-    int last_elem=-1, last_id=-1;
-
-    std::string line;
-    while(std::getline(in,line))
+protected:
+    virtual void Compute(const Handle(PrsMgr_PresentationManager)&,
+                         const Handle(Prs3d_Presentation)& prs,
+                         const Standard_Integer) override
     {
-        std::string t = ltrim(line);
-        if(t.empty()) continue;
+        if (myFaces.empty()) return;
+        Handle(Graphic3d_Group) group = prs->NewGroup();
+        Handle(Graphic3d_AspectFillArea3d) asp = new Graphic3d_AspectFillArea3d();
+        asp->SetInteriorStyle(Aspect_IS_SOLID);
+        asp->SetShadingModel(Graphic3d_TOSM_UNLIT);
+        group->SetGroupPrimitivesAspect(asp);
 
-        if(t.find("2C")==0){ readingNodes=true; readingElems=false; cur=0; continue; }
-        if(t.find("3C")==0){ readingNodes=false; readingElems=true; cur=0; continue; }
-        if(t.find("100C")==0){ readingNodes=false; readingElems=false; datasets.push_back(Dataset()); cur=&datasets.back(); continue; }
-        if(t.find("-3")==0){ readingNodes=false; readingElems=false; cur=0; continue; }
-
-        if(readingNodes && starts_with(t,"-1")){
-            std::istringstream iss(t);
-            std::string tmp; int id; double x,y,z;
-            iss>>tmp>>id>>x>>y>>z;
-            nodes[id]=gp_Pnt(x,y,z);
-        }
-        else if(readingElems){
-            if(starts_with(t,"-1")){
-                std::istringstream iss(t);
-                std::string tmp; int id;
-                iss>>tmp>>id;
-                elems[id]={id,{}};
-                last_elem=id;
-            } else if(starts_with(t,"-2")){
-                std::istringstream iss(t);
-                std::string tmp; int nid;
-                iss>>tmp;
-                while(iss>>nid) if(nid>0) elems[last_elem].nodes.push_back(nid);
-            }
-        }
-        else if(cur){
-            if(starts_with(t,"-4")){
-                std::istringstream iss(t);
-                std::string tmp; iss>>tmp>>cur->name;
-            }
-            else if(starts_with(t,"-5")){
-                std::istringstream iss(t);
-                std::string tmp, nm; iss>>tmp>>nm;
-                cur->entityNames.push_back(nm);
-            }
-            else if(starts_with(t,"-1")){
-                std::istringstream iss(t);
-                std::string tmp; int id; double v;
-                iss>>tmp>>id; last_id=id;
-                while(iss>>v) cur->elemValues[id].push_back(v);
-            }
-            else if(starts_with(t,"-2")){
-                std::istringstream iss(t);
-                std::string tmp; double v;
-                iss>>tmp;
-                while(iss>>v) cur->elemValues[last_id].push_back(v);
-            }
-        }
-    }
-    in.close();
-
-    // ========================================================================
-    // COMPUTE PERCENTAGE FIELD
-    // ========================================================================
-
-    Material mat;
-    mat.fc=70; mat.ft=5; mat.kconf=1.4; mat.kfib=1.3; // scc+xypex+fibras vidro
-	// Self-Compacting Concrete (SCC) sem aditivos especiais, sem fibras, sem ferro
-// mat.fc    = 50.0;   // MPa  (compressão característica típica 40–60 MPa)
-// mat.ft    = 4.0;    // MPa  (≈ 8–10% de fc, tração direta)
-// mat.kconf = 1.0;    // sem confinamento especial
-// mat.kfib  = 1.0;    // sem fibras (sem reforço pós-fissura)
-
-// mat.fc = 40.0;
-// mat.ft = 3.0;
-// mat.kconf = 1.0;
-// mat.kfib  = 1.0;
-
-
-
-	// constants
-    mat.a_uni=0.35; mat.a_bi=0.40; mat.a_tri=0.50;
-    mat.a_bend=0.60; mat.a_shear=0.15;
-
-    for(size_t i=0;i<datasets.size();++i)
-    {
-        Dataset& ds = datasets[i];
-        if(ds.entityNames.size()==6) // stress dataset
-        {
-            ds.entityNames.push_back("Percent");
-
-            for(auto& kv : ds.elemValues)
-            {
-                if(kv.second.size()<6) continue;
-
-                double sx=kv.second[0], sy=kv.second[1], sz=kv.second[2];
-                double txy=kv.second[3], tyz=kv.second[4], tzx=kv.second[5];
-
-                double s1,s2,s3;
-                principal_stresses(sx,sy,sz,txy,tyz,tzx,s1,s2,s3);
-
-                std::string st = classify_state(s1,s2,s3);
-                double limit = safe_limit(mat,st,s1);
-                double pct   = percent_usage(s1,s2,s3,limit);
-
-                kv.second.push_back(pct);
+        for (const auto& f : myFaces) {
+            if (f.nodes.size() == 3) {
+                Handle(Graphic3d_ArrayOfTriangles) tris =
+                    new Graphic3d_ArrayOfTriangles(3, 0, Standard_False, Standard_True);
+                for (int i = 0; i < 3; ++i) {
+                    const Node& n = myNodes.at(f.nodes[i]);
+                    tris->AddVertex(n.p);
+                    tris->SetVertexColor(tris->VertexNumber(), pctColor(n.value));
+                }
+                group->AddPrimitiveArray(tris);
+            } else if (f.nodes.size() == 4) {
+                Handle(Graphic3d_ArrayOfTriangles) tris =
+                    new Graphic3d_ArrayOfTriangles(6, 0, Standard_False, Standard_True);
+                for (int i : {0,1,2}) {
+                    const Node& n = myNodes.at(f.nodes[i]);
+                    tris->AddVertex(n.p);
+                    tris->SetVertexColor(tris->VertexNumber(), pctColor(n.value));
+                }
+                for (int i : {0,2,3}) {
+                    const Node& n = myNodes.at(f.nodes[i]);
+                    tris->AddVertex(n.p);
+                    tris->SetVertexColor(tris->VertexNumber(), pctColor(n.value));
+                }
+                group->AddPrimitiveArray(tris);
             }
         }
     }
 
-    // ========================================================================
-    // FIND LAST STRESS DATASET AND USE "Percent"
-    // ========================================================================
+    virtual void ComputeSelection(const Handle(SelectMgr_Selection)&,
+                                  const Standard_Integer) override {}
 
-    int ds_idx=-1, ent_idx=-1;
+private:
+    // 0%=verde  50%=amarelo  100%=vermelho  >100%=vermelho puro
+	
+	// ============================================================================
+	// pctColor — fixed: no hard clamp at 100; shows severity above 100%
+	//   0–100%  : green  → yellow
+	//   100–200%: yellow → red
+	//   >200%   : red    → magenta (signals extreme overload)
+	// ============================================================================
+	double pctmax=0;
+	Quantity_Color pctColor(double pct) 
+	{
+		if (std::isnan(pct) || std::isinf(pct)) pct = 0.0;
+		pct = std::max(0.0, pct);
+		if(pct>pctmax){
+			pctmax=pct;
+			cotm(pct);
+		}
+	
+		double r, g, b = 0.0;
+	
+		if (pct <= 100.0)
+		{
+			// green (0,1,0) → yellow (1,1,0)
+			double t = pct / 100.0;
+			r = t;
+			g = 1.0;
+		}
+		else if (pct <= 200.0)
+		{
+			// yellow (1,1,0) → red (1,0,0)
+			double t = (pct - 100.0) / 100.0;
+			r = 1.0;
+			g = 1.0 - t;
+		}
+		else
+		{
+			// red (1,0,0) → magenta (1,0,1)  — extreme overload
+			double t = std::min((pct - 200.0) / 100.0, 1.0);
+			r = 1.0;
+			g = 0.0;
+			b = t;
+		}
+	
+		return Quantity_Color(r, g, b, Quantity_TOC_RGB);
+	}
 
-    for(int i=(int)datasets.size()-1;i>=0;--i){
-        if(datasets[i].entityNames.size()>=7){
-            ds_idx=i; break;
-        }
-    }
-    if(ds_idx<0){ std::cerr<<"No stress dataset\n"; return; }
+    std::map<int, Node> myNodes;
+    std::vector<Face>   myFaces;
+};
 
-    Dataset& rds = datasets[ds_idx];
+IMPLEMENT_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
 
-    for(size_t j=0;j<rds.entityNames.size();++j){
-        if(rds.entityNames[j]=="Percent"){ ent_idx=j; break; }
-    }
-    if(ent_idx<0){ std::cerr<<"No Percent field\n"; return; }
+// ============================================================================
+// Helpers
+// ============================================================================
 
-    // ========================================================================
-    // BUILD ELEMENT SCALAR FIELD (PERCENTAGE)
-    // ========================================================================
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <map>
+#include <set>
+#include <algorithm>
+#include <cmath>
 
-    std::map<int,double> elemScalar;
-    for(auto& kv : rds.elemValues){
-        elemScalar[kv.first] = kv.second[ent_idx];
-    }
+// inline std::string ltrim(std::string s) {
+//     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c){ return !std::isspace(c); }));
+//     return s;
+// }
 
-    // ========================================================================
-    // NODAL AVERAGING
-    // ========================================================================
+// inline bool starts_with(const std::string& s, const std::string& p) {
+//     return s.size() >= p.size() && s.compare(0, p.size(), p) == 0;
+// }
+// struct Elem { int id; std::vector<int> nodes; };
+// struct Dataset {
+//     std::string name;
+//     std::vector<std::string> entityNames;
+//     std::map<int, std::vector<double>> nodeValues;
+// };
 
-    std::map<int,double> sum, cnt;
-    for(auto& kv : nodes){ sum[kv.first]=0; cnt[kv.first]=0; }
+// ----------------------------------------------------------------
+// Material Definition
+// ----------------------------------------------------------------
+// struct Material {
+//     double fck = 70.0, fctk = 5.0;
+//     double kconf = 1.4, kfib = 1.3, gamma_c = 1.5;
+//     double a_uni = 0.85, a_bi = 1.10, a_tri = 1.20, a_bend = 1.00, a_shear = 0.60;
+//     double fcd = 0.0, fctd = 0.0;
 
-    for(auto& kv : elems){
-        int eid=kv.first;
-        if(elemScalar.find(eid)==elemScalar.end()) continue;
-        double v = elemScalar[eid];
-        for(size_t k=0;k<kv.second.nodes.size();++k){
-            int nid = kv.second.nodes[k];
-            sum[nid]+=v; cnt[nid]+=1;
-        }
-    }
+//     void init() {
+//         fcd = fck / gamma_c;
+//         fctd = fctk / gamma_c;
+//     }
+// };
+// static void extract_faces(const Elem& e, std::vector<std::vector<int>>& out) {
+//     if (e.nodes.size() == 4) {
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[2]});
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[3]});
+//         out.push_back({e.nodes[0], e.nodes[2], e.nodes[3]});
+//         out.push_back({e.nodes[1], e.nodes[2], e.nodes[3]});
+//     } else if (e.nodes.size() == 8) {
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[2], e.nodes[3]});
+//         out.push_back({e.nodes[4], e.nodes[5], e.nodes[6], e.nodes[7]});
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[5], e.nodes[4]});
+//         out.push_back({e.nodes[1], e.nodes[2], e.nodes[6], e.nodes[5]});
+//         out.push_back({e.nodes[2], e.nodes[3], e.nodes[7], e.nodes[6]});
+//         out.push_back({e.nodes[3], e.nodes[0], e.nodes[4], e.nodes[7]});
+//     }
+// }
+// // ----------------------------------------------------------------
+// // Core Math
+// // ----------------------------------------------------------------
+// static void principal_stresses(double sx, double sy, double sz, double txy, double tyz, double tzx,
+//                                double& s1, double& s2, double& s3) 
+// {
+//     double I1 = sx + sy + sz;
+//     double I2 = sx*sy + sy*sz + sz*sx - (txy*txy + tyz*tyz + tzx*tzx);
+//     double I3 = sx*(sy*sz - tyz*tyz) - txy*(txy*sz - tyz*tzx) + tzx*(txy*tyz - sy*tzx);
 
-    std::map<int,double> nodeScalar;
-    for(auto& kv : sum){
-        nodeScalar[kv.first] = cnt[kv.first]>0 ? sum[kv.first]/cnt[kv.first] : 0.0;
-    }
+//     double p = std::max(0.0, I1*I1 - 3.0*I2);
+//     if (p < 1e-20) { s1 = s2 = s3 = I1/3.0; return; }
 
-    // ========================================================================
-    // BUILD OCC GEOMETRY
-    // ========================================================================
+//     double arg = (2.0*I1*I1*I1 - 9.0*I1*I2 + 27.0*I3) / (2.0 * p * std::sqrt(p));
+//     double phi = std::acos(std::clamp(arg, -1.0, 1.0));
 
-    std::map<int,AIS_FEM::Node> renderNodes;
-    for(auto& kv : nodes){
-        renderNodes[kv.first] = { kv.second, nodeScalar[kv.first] };
-    }
+//     double sp = 2.0 * std::sqrt(p);
+//     s1 = (I1 + sp * std::cos(phi / 3.0)) / 3.0;
+//     s2 = (I1 + sp * std::cos((phi + 2.0*M_PI) / 3.0)) / 3.0;
+//     s3 = (I1 + sp * std::cos((phi + 4.0*M_PI) / 3.0)) / 3.0;
 
-    std::vector<AIS_FEM::Face> renderFaces;
-    for(auto& kv : elems){
-        std::vector<std::vector<int> > faces;
-        extract_faces(kv.second, faces);
-        for(size_t f=0;f<faces.size();++f){
-            AIS_FEM::Face ff; ff.nodes=faces[f];
-            renderFaces.push_back(ff);
-        }
-    }
+//     if (s1 < s2) std::swap(s1, s2);
+//     if (s2 < s3) std::swap(s2, s3);
+//     if (s1 < s2) std::swap(s1, s2);
+// }
 
-    Handle(AIS_FEM) ais = new AIS_FEM(renderNodes, renderFaces);
-    ais->recomputeMinMax();
-    ctx->Display(ais, Standard_False);
-    ctx->SetDisplayMode(ais, 1, Standard_False);
-    ctx->UpdateCurrentViewer();
+// static std::string classify_state(double s1, double s2, double s3) {
+//     double amax = std::max({std::fabs(s1), std::fabs(s2), std::fabs(s3)});
+//     if (amax < 1e-12) return "Uniaxial";
 
-    std::cout<<"Displayed FEM with percentage usage field.\n";
-}
+//     double r1 = std::fabs(s1) / amax, r2 = std::fabs(s2) / amax, r3 = std::fabs(s3) / amax;
 
+//     if (s1 > 0 && s3 < 0 && r2 < 0.15) {
+//         return (std::fabs(std::fabs(s1) - std::fabs(s3)) / amax < 0.25) ? "Shear" : "Bending";
+//     }
+//     if (s1 < 0 && s2 < 0 && s3 < 0) return "Triaxial";
+//     if (r2 < 0.10 && r3 < 0.10) return "Uniaxial";
+//     if (r3 < 0.10 && r1 >= 0.10 && r2 >= 0.10) return "Biaxial";
+//     return "GeneralTriaxial";
+// }
+
+// static double calculate_exact_usage(const Material& m, const std::string& st, double s1, double s2, double s3) {
+//     double factor = (st == "Uniaxial") ? m.a_uni : (st == "Biaxial") ? m.a_bi : 
+//                     (st == "Bending") ? m.a_bend : (st == "Shear") ? m.a_shear : m.a_tri;
+
+//     double limit_c = std::max(1e-6, m.fcd * m.kconf * factor);
+//     double limit_t = std::max(1e-6, m.fctd * m.kfib * factor);
+
+//     double pct_t  = (s1 > 0) ? (s1 / limit_t) * 100.0 : 0.0;
+//     double pct_c1 = (s1 < 0) ? (std::fabs(s1) / limit_c) * 100.0 : 0.0;
+//     double pct_c2 = (s2 < 0) ? (std::fabs(s2) / limit_c) * 100.0 : 0.0;
+//     double pct_c3 = (s3 < 0) ? (std::fabs(s3) / limit_c) * 100.0 : 0.0;
+
+//     return std::max({pct_t, pct_c1, pct_c2, pct_c3});
+// }
+// static int find_stress_dataset(const std::vector<Dataset>& datasets)
+// {
+//     for (int i = (int)datasets.size()-1; i >= 0; --i) {
+//         if (datasets[i].entityNames.size() != 6) continue;
+//         std::string nm = datasets[i].name;
+//         std::transform(nm.begin(), nm.end(), nm.begin(), ::toupper);
+//         if (nm.find("STRESS") != std::string::npos || nm == "S") return i;
+//     }
+//     // fallback: primeiro com 6 comp que não seja strain
+//     for (int i = 0; i < (int)datasets.size(); ++i) {
+//         if (datasets[i].entityNames.size() != 6) continue;
+//         std::string nm = datasets[i].name;
+//         std::transform(nm.begin(), nm.end(), nm.begin(), ::toupper);
+//         if (nm.find("STRAIN") == std::string::npos &&
+//             nm.find("EPS")    == std::string::npos &&
+//             nm.find("TOSTRAIN") == std::string::npos) return i;
+//     }
+//     return -1;
+// }
+// ----------------------------------------------------------------
+// OCC Rendering & Parsing
+// ----------------------------------------------------------------
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <map>
+#include <set>
+#include <algorithm>
+#include <cmath>
+
+// inline std::string ltrim(std::string s) {
+//     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c){ return !std::isspace(c); }));
+//     return s;
+// }
+
+// struct Elem { int id; std::vector<int> nodes; };
+// struct Dataset {
+//     std::string name;
+//     std::vector<std::string> entityNames;
+//     std::map<int, std::vector<double>> nodeValues;
+// };
+// static void extract_faces(const Elem& e, std::vector<std::vector<int>>& out) {
+//     if (e.nodes.size() == 4) {
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[2]});
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[3]});
+//         out.push_back({e.nodes[0], e.nodes[2], e.nodes[3]});
+//         out.push_back({e.nodes[1], e.nodes[2], e.nodes[3]});
+//     } else if (e.nodes.size() == 8) {
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[2], e.nodes[3]});
+//         out.push_back({e.nodes[4], e.nodes[5], e.nodes[6], e.nodes[7]});
+//         out.push_back({e.nodes[0], e.nodes[1], e.nodes[5], e.nodes[4]});
+//         out.push_back({e.nodes[1], e.nodes[2], e.nodes[6], e.nodes[5]});
+//         out.push_back({e.nodes[2], e.nodes[3], e.nodes[7], e.nodes[6]});
+//         out.push_back({e.nodes[3], e.nodes[0], e.nodes[4], e.nodes[7]});
+//     }
+// }
+
+// inline bool starts_with(const std::string& s, const std::string& p) {
+//     return s.size() >= p.size() && s.compare(0, p.size(), p) == 0;
+// }
+// static int find_stress_dataset(const std::vector<Dataset>& datasets)
+// {
+//     for (int i = (int)datasets.size()-1; i >= 0; --i) {
+//         if (datasets[i].entityNames.size() != 6) continue;
+//         std::string nm = datasets[i].name;
+//         std::transform(nm.begin(), nm.end(), nm.begin(), ::toupper);
+//         if (nm.find("STRESS") != std::string::npos || nm == "S") return i;
+//     }
+//     // fallback: primeiro com 6 comp que não seja strain
+//     for (int i = 0; i < (int)datasets.size(); ++i) {
+//         if (datasets[i].entityNames.size() != 6) continue;
+//         std::string nm = datasets[i].name;
+//         std::transform(nm.begin(), nm.end(), nm.begin(), ::toupper);
+//         if (nm.find("STRAIN") == std::string::npos &&
+//             nm.find("EPS")    == std::string::npos &&
+//             nm.find("TOSTRAIN") == std::string::npos) return i;
+//     }
+//     return -1;
+// }
+// // ----------------------------------------------------------------
+// // Material Definition
+// // ----------------------------------------------------------------
+// struct Material {
+//     double fck = 70.0, fctk = 5.0;
+//     double kconf = 1.4, kfib = 1.3, gamma_c = 1.5;
+//     double a_uni = 0.85, a_bi = 1.10, a_tri = 1.20, a_bend = 1.00, a_shear = 0.60;
+//     double fcd = 0.0, fctd = 0.0;
+
+//     void init() {
+//         fcd = fck / gamma_c;
+//         fctd = fctk / gamma_c;
+//     }
+// };
+
+// // ----------------------------------------------------------------
+// // Core Math
+// // ----------------------------------------------------------------
+// static void principal_stresses(double sx, double sy, double sz, double txy, double tyz, double tzx,
+//                                double& s1, double& s2, double& s3) 
+// {
+//     double I1 = sx + sy + sz;
+//     double I2 = sx*sy + sy*sz + sz*sx - (txy*txy + tyz*tyz + tzx*tzx);
+//     double I3 = sx*(sy*sz - tyz*tyz) - txy*(txy*sz - tyz*tzx) + tzx*(txy*tyz - sy*tzx);
+
+//     double p = std::max(0.0, I1*I1 - 3.0*I2);
+//     if (p < 1e-20) { s1 = s2 = s3 = I1/3.0; return; }
+
+//     double arg = (2.0*I1*I1*I1 - 9.0*I1*I2 + 27.0*I3) / (2.0 * p * std::sqrt(p));
+//     double phi = std::acos(std::clamp(arg, -1.0, 1.0));
+
+//     double sp = 2.0 * std::sqrt(p);
+//     s1 = (I1 + sp * std::cos(phi / 3.0)) / 3.0;
+//     s2 = (I1 + sp * std::cos((phi + 2.0*M_PI) / 3.0)) / 3.0;
+//     s3 = (I1 + sp * std::cos((phi + 4.0*M_PI) / 3.0)) / 3.0;
+
+//     if (s1 < s2) std::swap(s1, s2);
+//     if (s2 < s3) std::swap(s2, s3);
+//     if (s1 < s2) std::swap(s1, s2);
+// }
+
+// static std::string classify_state(double s1, double s2, double s3) {
+//     double amax = std::max({std::fabs(s1), std::fabs(s2), std::fabs(s3)});
+//     if (amax < 1e-12) return "Uniaxial";
+
+//     double r1 = std::fabs(s1) / amax, r2 = std::fabs(s2) / amax, r3 = std::fabs(s3) / amax;
+
+//     if (s1 > 0 && s3 < 0 && r2 < 0.15) {
+//         return (std::fabs(std::fabs(s1) - std::fabs(s3)) / amax < 0.25) ? "Shear" : "Bending";
+//     }
+//     if (s1 < 0 && s2 < 0 && s3 < 0) return "Triaxial";
+//     if (r2 < 0.10 && r3 < 0.10) return "Uniaxial";
+//     if (r3 < 0.10 && r1 >= 0.10 && r2 >= 0.10) return "Biaxial";
+//     return "GeneralTriaxial";
+// }
+
+// static double calculate_exact_usage(const Material& m, const std::string& st, double s1, double s2, double s3) {
+//     double factor = (st == "Uniaxial") ? m.a_uni : (st == "Biaxial") ? m.a_bi : 
+//                     (st == "Bending") ? m.a_bend : (st == "Shear") ? m.a_shear : m.a_tri;
+
+//     double limit_c = std::max(1e-6, m.fcd * m.kconf * factor);
+//     double limit_t = std::max(1e-6, m.fctd * m.kfib * factor);
+
+//     double pct_t  = (s1 > 0) ? (s1 / limit_t) * 100.0 : 0.0;
+//     double pct_c1 = (s1 < 0) ? (std::fabs(s1) / limit_c) * 100.0 : 0.0;
+//     double pct_c2 = (s2 < 0) ? (std::fabs(s2) / limit_c) * 100.0 : 0.0;
+//     double pct_c3 = (s3 < 0) ? (std::fabs(s3) / limit_c) * 100.0 : 0.0;
+
+//     return std::max({pct_t, pct_c1, pct_c2, pct_c3});
+// }
+
+// // ----------------------------------------------------------------
+// // OCC Rendering & Parsing
+// // ----------------------------------------------------------------
 // void display_frd_in_occ(const std::string& file, const Handle(AIS_InteractiveContext)& ctx) {
 //     std::ifstream in(file);
-//     if (!in.is_open()) {
-//         std::cerr << "Cannot open " << file << "\n";
-//         return;
-//     }
+//     if (!in) { std::cerr << "Cannot open FRD: " << file << "\n"; return; }
 
 //     std::map<int, gp_Pnt> nodes;
 //     std::map<int, Elem> elems;
 //     std::vector<Dataset> datasets;
-
-//     bool readingNodes = false;
-//     bool readingElems = false;
-//     Dataset* current_dataset = nullptr;
-//     int last_elem_id = -1;
+    
+//     bool readingNodes = false, readingElems = false;
+//     Dataset* cur = nullptr;
 //     int last_id = -1;
+
+//     // 1. Parser
+//     std::string line;
+//     while (std::getline(in, line)) {
+//         std::string t = ltrim(line);
+//         if (t.empty()) continue;
+
+//         if (t.find("2C") == 0)   { readingNodes=true; readingElems=false; cur=nullptr; continue; }
+//         if (t.find("3C") == 0)   { readingNodes=false; readingElems=true; cur=nullptr; continue; }
+//         if (t.find("100C") == 0) { readingNodes=false; readingElems=false; datasets.emplace_back(); cur = &datasets.back(); continue; }
+//         if (t.find("-3") == 0)   { readingNodes=false; readingElems=false; cur=nullptr; continue; }
+
+//         std::istringstream iss(t);
+//         std::string flag; iss >> flag;
+
+//         if (readingNodes && flag == "-1") {
+//             int id; double x, y, z; iss >> id >> x >> y >> z;
+//             nodes[id] = gp_Pnt(x, y, z);
+//         } else if (readingElems) {
+//             if (flag == "-1") { iss >> last_id; elems[last_id] = {last_id, {}}; }
+//             else if (flag == "-2") { int nid; while(iss >> nid) if (nid > 0) elems[last_id].nodes.push_back(nid); }
+//         } else if (cur) {
+//             if (flag == "-4") iss >> cur->name;
+//             else if (flag == "-5") { std::string nm; iss >> nm; cur->entityNames.push_back(nm); }
+//             else if (flag == "-1") {
+//                 iss >> last_id; double v;
+//                 while(iss >> v) cur->nodeValues[last_id].push_back(v);
+//             } else if (flag == "-2") {
+//                 double v; while(iss >> v) cur->nodeValues[last_id].push_back(v);
+//             }
+//         }
+//     }
+//     in.close();
+
+//     // 2. Material setup
+//     Material mat; mat.init();
+    
+//     // 3. Find Stress Dataset
+//     auto ds_it = std::find_if(datasets.rbegin(), datasets.rend(), [](const Dataset& d){
+//         std::string nm = d.name; std::transform(nm.begin(), nm.end(), nm.begin(), ::toupper);
+//         return d.entityNames.size() == 6 && (nm.find("STRESS") != std::string::npos || nm == "S");
+//     });
+    
+//     if (ds_it == datasets.rend()) { std::cerr << "No STRESS dataset found\n"; return; }
+//     Dataset& rds = *ds_it;
+
+//     // Detect scale (Pa to MPa)
+//     double mx_raw = 0.0;
+//     for (const auto& [id, vals] : rds.nodeValues) 
+//         for (double v : vals) mx_raw = std::max(mx_raw, std::fabs(v));
+    
+//     double unitScale = (mx_raw > 1e4) ? 1e-6 : 1.0;
+
+//     // 4. Robust Element-to-Node Averaging
+// 	// 4. Robust Element-to-Node Averaging (Bulletproof Initialization)
+//     std::map<int, std::vector<double>> nodalStress;
+//     bool isElem = elems.count(rds.nodeValues.begin()->first);
+
+//     if (!isElem) {
+//         nodalStress = rds.nodeValues;
+//     } else {
+//         // FIX: Explicitly enforce zero-initialization to stop random memory garbage
+//         struct Accumulator { double v[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}; };
+//         std::map<int, Accumulator> accum;
+//         std::map<int, int> count;
+
+//         for (const auto& [eid, comp] : rds.nodeValues) {
+//             if (comp.size() < 6 || !elems.count(eid)) continue;
+//             for (int nid : elems[eid].nodes) {
+//                 for (int k=0; k<6; ++k) accum[nid].v[k] += comp[k];
+//                 count[nid]++;
+//             }
+//         }
+        
+//         for (const auto& [nid, acc] : accum) {
+//             nodalStress[nid] = std::vector<double>(6);
+//             for (int k=0; k<6; ++k) nodalStress[nid][k] = acc.v[k] / count[nid];
+//         }
+//     }
+
+//     // 5. Usage Calculation & Diagnostics
+//     std::map<int, double> nodeScalar;
+//     for (const auto& [nid, pt] : nodes) nodeScalar[nid] = 0.0;
+
+//     int n_cracked = 0;
+//     int n_crushed = 0;
+//     const double fctd_eff = mat.fctd * mat.kfib;
+//     const double fcd_eff  = mat.fcd * mat.kconf;
+
+//     double max_pct = 0.0;
+//     int max_pct_node = -1;
+//     double max_tension = -1e100;
+//     double max_compression = 1e100;
+
+//     for (const auto& [nid, comp] : nodalStress) {
+//         if (comp.size() < 6) continue;
+        
+//         double s1, s2, s3;
+//         principal_stresses(comp[0]*unitScale, comp[1]*unitScale, comp[2]*unitScale, 
+//                            comp[3]*unitScale, comp[4]*unitScale, comp[5]*unitScale, s1, s2, s3);
+
+//         // Track maximum physical stresses
+//         if (s1 > max_tension) max_tension = s1;
+//         if (s3 < max_compression) max_compression = s3;
+
+//         double pct = calculate_exact_usage(mat, classify_state(s1, s2, s3), s1, s2, s3);
+        
+//         // Tension Check
+//         if (s1 > fctd_eff) {
+//             pct = std::max(pct, (s1 / fctd_eff) * 100.0);
+//             n_cracked++;
+//         }
+        
+//         // Compression Check
+//         if (std::abs(s3) > fcd_eff) {
+//             n_crushed++;
+//         }
+
+//         if (std::isnan(pct) || std::isinf(pct)) pct = 0.0;
+//         nodeScalar[nid] = pct;
+
+//         // Track maximum percentage
+//         if (pct > max_pct) {
+//             max_pct = pct;
+//             max_pct_node = nid;
+//         }
+//     }
+
+//     // ----------------------------------------------------------------
+//     // CONSOLE DIAGNOSTICS (CRITICAL FOR DEBUGGING PHYSICS)
+//     // ----------------------------------------------------------------
+//     std::cout << "\n=== SIMULATION RESULTS ===\n";
+//     std::cout << "Tension Limit (fctd_eff):  " << fctd_eff << " MPa\n";
+//     std::cout << "Compress Limit (fcd_eff):  " << fcd_eff << " MPa\n";
+//     std::cout << "--------------------------\n";
+//     std::cout << "Max Simulated Tension:     " << (max_tension > 0 ? max_tension : 0) << " MPa\n";
+//     std::cout << "Max Simulated Compression: " << std::abs(max_compression) << " MPa\n";
+//     std::cout << "--------------------------\n";
+//     std::cout << "MAX USAGE:                 " << max_pct << "% (at Node " << max_pct_node << ")\n";
+//     std::cout << "Nodes Cracked (Tension):   " << n_cracked << " / " << nodalStress.size() << "\n";
+//     std::cout << "Nodes Crushed (Compress):  " << n_crushed << " / " << nodalStress.size() << "\n";
+//     std::cout << "==========================\n\n";
+
+//     // 6. OCC Rendering Build
+//     std::map<int, AIS_FEM::Node> renderNodes;
+//     for (const auto& [nid, pt] : nodes) renderNodes[nid] = {pt, nodeScalar[nid]};
+
+//     std::vector<AIS_FEM::Face> renderFaces;
+//     for (const auto& [eid, el] : elems) {
+//         std::vector<std::vector<int>> faces;
+//         extract_faces(el, faces);
+//         for (const auto& f : faces) renderFaces.push_back({f});
+//     }
+
+//     Handle(AIS_FEM) ais = new AIS_FEM(renderNodes, renderFaces);
+//     ctx->Display(ais, Standard_False);
+//     ctx->SetDisplayMode(ais, 1, Standard_False);
+//     ctx->UpdateCurrentViewer();
+// }
+
+// void display_frd_in_occ1(const std::string& file,
+//                         const Handle(AIS_InteractiveContext)& ctx)
+// {
+//     std::ifstream in(file);
+//     if (!in.is_open()) { std::cerr << "Cannot open FRD: " << file << "\n"; return; }
+
+//     std::map<int, gp_Pnt> nodes;
+//     std::map<int, Elem>   elems;
+//     std::vector<Dataset>  datasets;
+
+//     bool readingNodes = false, readingElems = false;
+//     Dataset* cur  = nullptr;
+//     int last_elem = -1, last_id = -1;
 
 //     std::string line;
 //     while (std::getline(in, line)) {
 //         std::string t = ltrim(line);
 //         if (t.empty()) continue;
 
-//         if (t.find("2C") == 0) { readingNodes = true;  readingElems = false; current_dataset = nullptr; continue; }
-//         if (t.find("3C") == 0) { readingNodes = false; readingElems = true;  current_dataset = nullptr; continue; }
-//         if (t.find("100C") == 0) {
-//             readingNodes = false; readingElems = false;
-//             datasets.push_back(Dataset());
-//             current_dataset = &datasets.back();
-//             continue;
-//         }
-//         if (t.find("-3") == 0) {
-//             readingNodes = false; readingElems = false; current_dataset = nullptr;
-//             continue;
-//         }
+//         if (t.find("2C")   == 0) { readingNodes=true;  readingElems=false; cur=nullptr; continue; }
+//         if (t.find("3C")   == 0) { readingNodes=false; readingElems=true;  cur=nullptr; continue; }
+//         if (t.find("100C") == 0) { readingNodes=false; readingElems=false; datasets.push_back(Dataset()); cur=&datasets.back(); continue; }
+//         if (t.find("-3")   == 0) { readingNodes=false; readingElems=false; cur=nullptr; continue; }
 
-//         // NODE PARSING
-//         if (readingNodes && starts_with(t, "-1")) {
+//         if (readingNodes && starts_with(t,"-1")) {
 //             std::istringstream iss(t);
-//             std::string tmp; int id; double x, y, z;
-//             iss >> tmp >> id >> x >> y >> z;
-//             nodes[id] = gp_Pnt(x, y, z);
-//         }
-//         // ELEMENT PARSING
-//         else if (readingElems) {
-//             if (starts_with(t, "-1")) {
+//             std::string tmp; int id; double x,y,z;
+//             iss>>tmp>>id>>x>>y>>z;
+//             nodes[id] = gp_Pnt(x,y,z);
+//         } else if (readingElems) {
+//             if (starts_with(t,"-1")) {
 //                 std::istringstream iss(t);
-//                 std::string tmp; int eid;
-//                 iss >> tmp >> eid;
-//                 elems[eid] = {eid, {}};
-//                 last_elem_id = eid;
-//             } else if (starts_with(t, "-2")) {
+//                 std::string tmp; int id; iss>>tmp>>id;
+//                 elems[id]={id,{}}; last_elem=id;
+//             } else if (starts_with(t,"-2")) {
 //                 std::istringstream iss(t);
-//                 std::string tmp; int nid;
-//                 iss >> tmp;
-//                 while (iss >> nid) {
-//                     if (nid > 0) elems[last_elem_id].nodes.push_back(nid);
-//                 }
+//                 std::string tmp; int nid; iss>>tmp;
+//                 while(iss>>nid) if(nid>0) elems[last_elem].nodes.push_back(nid);
 //             }
-//         }
-//         // DATASET PARSING
-//         else if (current_dataset) {
-//             if (starts_with(t, "-4")) {
-//                 std::istringstream iss(t);
-//                 std::string tmp;
-//                 iss >> tmp >> current_dataset->name;
-//             } else if (starts_with(t, "-5")) {
-//                 std::istringstream iss(t);
-//                 std::string tmp, entName;
-//                 iss >> tmp >> entName;
-//                 current_dataset->entityNames.push_back(entName);
-//             } else if (starts_with(t, "-1")) {
-//                 std::istringstream iss(t);
-//                 std::string tmp; int id;
-//                 iss >> tmp >> id;
-//                 last_id = id;
-//                 double val;
-//                 if (isStressDataset(*current_dataset)) {
-//                     while (iss >> val) current_dataset->elemValues[id].push_back(val);
-//                 } else {
-//                     while (iss >> val) current_dataset->nodeValues[id].push_back(val);
-//                 }
-//             } else if (starts_with(t, "-2")) {
-//                 std::istringstream iss(t);
-//                 std::string tmp; double val;
-//                 iss >> tmp;
-//                 if (isStressDataset(*current_dataset)) {
-//                     while (iss >> val) current_dataset->elemValues[last_id].push_back(val);
-//                 } else {
-//                     while (iss >> val) current_dataset->nodeValues[last_id].push_back(val);
-//                 }
+//         } else if (cur) {
+//             if (starts_with(t,"-4")) {
+//                 std::istringstream iss(t); std::string tmp; iss>>tmp>>cur->name;
+//             } else if (starts_with(t,"-5")) {
+//                 std::istringstream iss(t); std::string tmp,nm; iss>>tmp>>nm;
+//                 cur->entityNames.push_back(nm);
+//             } else if (starts_with(t,"-1")) {
+//                 std::istringstream iss(t); std::string tmp; int id; double v;
+//                 iss>>tmp>>id; last_id=id;
+//                 while(iss>>v) cur->nodeValues[id].push_back(v);
+//             } else if (starts_with(t,"-2")) {
+//                 std::istringstream iss(t); std::string tmp; double v; iss>>tmp;
+//                 while(iss>>v) cur->nodeValues[last_id].push_back(v);
 //             }
 //         }
 //     }
 //     in.close();
 
-//     // Compute Derived Fields (Both Von Mises and Max Principal)
-//     for (auto& ds : datasets) {
-//         int orig_size = (int)ds.entityNames.size();
+//     // ========================================================================
+//     // Material — SCC C70 + Xypex + fibras de vidro  (EN 1992, unidades MPa)
+//     // ========================================================================
+//     Material mat;
+//     mat.fck    = 40.0;
+//     mat.fctk   = 3.0;
+//     mat.kconf  = 1.4;   // Xypex / confinamento
+//     mat.kfib   = 1.3;   // fibras de vidro
+//     mat.gamma_c = 1.5;  // coeficiente parcial betão EN 1992
+//     mat.a_uni   = 0.85; // EN 1992-1-1 §3.1.6 (αcc)
+//     mat.a_bi    = 1.10;
+//     mat.a_tri   = 1.20;
+//     mat.a_bend  = 1.00;
+//     mat.a_shear = 0.60; // τ_Rd,max / fcd
+//     mat.init();
 
-//         if (orig_size == 3) {
-//             ds.entityNames.push_back("ALL");
-//             for (auto& kv : ds.nodeValues) {
-//                 if (kv.second.size() >= 3) {
-//                     double d1 = kv.second[0], d2 = kv.second[1], d3 = kv.second[2];
-//                     kv.second.push_back(std::sqrt(d1*d1 + d2*d2 + d3*d3));
-//                 }
-//             }
-//         }
-//         else if (orig_size == 6) {
-//             // Keep Mises calculation for reference
-//             ds.entityNames.push_back("Mises");
-//             // Add Maximum Principal Stress calculation to explicitly visualize tension peaks
-//             ds.entityNames.push_back("MaxPrin"); 
+//     std::cout << "Material: fcd=" << mat.fcd << " MPa  fctd=" << mat.fctd
+//               << " MPa  (fck=" << mat.fck << " γc=" << mat.gamma_c << ")\n"
+//               << "  Uniaxial comp limit = " << mat.a_uni * mat.fcd * mat.kconf
+//               << " MPa   tract limit = " << mat.a_uni * mat.fctd * mat.kfib << " MPa\n";
 
-//             for (auto& kv : ds.elemValues) {
-//                 if (kv.second.size() >= 6) {
-//                     double sx  = kv.second[0], sy  = kv.second[1], sz  = kv.second[2];
-//                     double txy = kv.second[3], tyz = kv.second[4], tzx = kv.second[5];
+//     // ========================================================================
+//     // Seleccionar dataset STRESS
+//     // ========================================================================
+//     int ds_idx = find_stress_dataset(datasets);
+//     if (ds_idx < 0) { std::cerr << "No stress dataset found\n"; return; }
+//     std::cout << "Using dataset [" << ds_idx << "]: \""
+//               << datasets[ds_idx].name << "\" (" << datasets[ds_idx].nodeValues.size() << " nodes)\n";
 
-//                     double vm = von_mises(sx, sy, sz, txy, tyz, tzx);
-//                     double mp = max_principal(sx, sy, sz, txy, tyz, tzx);
-
-//                     kv.second.push_back(vm); // Index 6
-//                     kv.second.push_back(mp); // Index 7
-//                 }
-//             }
-//         }
-//     }
-
-//     // Locate the Last Stress Dataset
-//     int render_ds_idx = -1;
-//     int render_ent_idx = -1;
-
-//     for (int i = (int)datasets.size() - 1; i >= 0; --i) {
-//         if (isStressDataset(datasets[i])) {
-//             render_ds_idx = i;
-//             break;
-//         }
-//     }
-
-//     // Prioritize Rendering MaxPrin to find the structural cracking risks
-//     if (render_ds_idx != -1) {
-//         for (size_t j = 0; j < datasets[render_ds_idx].entityNames.size(); ++j) {
-//             if (datasets[render_ds_idx].entityNames[j] == "MaxPrin") {
-//                 render_ent_idx = (int)j;
-//                 break;
-//             }
-//         }
-//         // Fallback to Mises if MaxPrin wasn't built for some reason
-//         if (render_ent_idx == -1) {
-//             for (size_t j = 0; j < datasets[render_ds_idx].entityNames.size(); ++j) {
-//                 if (datasets[render_ds_idx].entityNames[j] == "Mises") {
-//                     render_ent_idx = (int)j;
-//                     break;
-//                 }
-//             }
-//         }
-//     }
-
-//     if (render_ds_idx == -1 || render_ent_idx == -1) {
-//         std::cerr << "No renderable dataset entity found.\n";
-//         return;
-//     }
-
-//     const Dataset& rds = datasets[render_ds_idx];
-//     std::cout << "Rendering Dataset: " << rds.name
-//               << " | Entity: " << rds.entityNames[render_ent_idx] << "\n";
-
-//     // Build element scalar field
-//     std::map<int, double> elemScalar;
-//     for (auto& kv : rds.elemValues) {
-//         if (kv.second.size() > (size_t)render_ent_idx) {
-//             elemScalar[kv.first] = kv.second[render_ent_idx];
-//         }
-//     }
-
-//     // Nodal Averaging Loop
-//     std::map<int, double> nodeStressSum;
-//     std::map<int, int> nodeStressCount;
-    
-//     for (auto& kv : nodes) {
-//         nodeStressSum[kv.first] = 0.0;
-//         nodeStressCount[kv.first] = 0;
-//     }
-    
-//     for (auto& kv : elems) {
-//         int eid = kv.first;
-//         if (elemScalar.find(eid) == elemScalar.end()) continue;
-    
-//         double val = elemScalar[eid];
-//         for (int nid : kv.second.nodes) {
-//             nodeStressSum[nid] += val;
-//             nodeStressCount[nid] += 1;
-//         }
-//     }
-    
+// 			  for (int i = 0; i < (int)datasets.size(); ++i) {
+// 				double mx = 0;
+// 				for (auto& kv : datasets[i].nodeValues)
+// 					for (double v : kv.second)
+// 						mx = std::max(mx, std::fabs(v));
+// 				std::cout << "Dataset[" << i << "] \"" << datasets[i].name
+// 						  << "\" ncomp=" << datasets[i].entityNames.size()
+// 						  << " max_raw=" << mx << "\n";
+// 			}
+//     // ========================================================================
+//     // ========================================================================
+//     // Calcular % de utilização por nó
+//     // A percentagem usa o limite relevante para o estado de tensão:
+//     //   - Se s1 > 0  (tracção dominante) → limite de tracção
+//     //   - Se s1 < 0  (compressão)        → limite de compressão
+//     //
+//     // FISSURA: betão fissura quando a tensão principal de tracção s1 excede
+//     //          fctd (resistência de cálculo à tracção).  Sem armadura de aço,
+//     //          a fissura é frágil — não há redistribuição plástica.
+//     //          Marcamos esses nós com pct >= 100% mesmo que o limite geral
+//     //          ainda não esteja atingido.
+//     // ========================================================================
+//     Dataset& rds = datasets[ds_idx];
 //     std::map<int, double> nodeScalar;
-//     for (auto& kv : nodeStressSum) {
-//         if (nodeStressCount[kv.first] > 0)
-//             nodeScalar[kv.first] = kv.second / nodeStressCount[kv.first];
+//     for (auto& kv : nodes) nodeScalar[kv.first] = 0.0;
+
+     
+//     int n_cracked = 0;  // nós com tracção acima de fctd_eff
+
+// 	// In the node scalar loop — replace the existing block
+// 	const double fctd_eff = mat.fctd * mat.kfib;   // tension with fibres
+// 	const double fcd_eff  = mat.fcd  * mat.kconf;   // compression with confinement
+	
+// 	for (auto& kv : rds.nodeValues) {
+// 		if (kv.second.size() < 6) continue;
+// 		double sx  = kv.second[0], sy  = kv.second[1], sz  = kv.second[2];
+// 		double txy = kv.second[3], tyz = kv.second[4], tzx = kv.second[5];
+	
+// 		double s1, s2, s3;
+// 		principal_stresses(sx, sy, sz, txy, tyz, tzx, s1, s2, s3);
+	
+// 		std::string st = classify_state(s1, s2, s3);
+	
+// 		// Pass s2 — now included in usage calculation
+// 		double pct = calculate_exact_usage(mat, st, s1, s2, s3);
+// 		if (std::isnan(pct) || std::isinf(pct)) pct = 0.0;
+	
+// 		// Crack check uses the same fctd_eff as calculate_exact_usage — consistent
+// 		if (s1 > fctd_eff) {
+// 			double crack_pct = (s1 / fctd_eff) * 100.0;
+// 			if (crack_pct > pct) pct = crack_pct;
+// 			++n_cracked;
+// 		}
+	
+// 		nodeScalar[kv.first] = pct;
+// 	}
+
+//     // Diagnóstico
+//     {
+//         double pmin=1e100, pmax=-1e100;
+//         int    nmax=-1;
+//         for (auto& kv : nodeScalar) {
+//             if (kv.second < pmin) pmin = kv.second;
+//             if (kv.second > pmax) { pmax = kv.second; nmax = kv.first; }
+//         }
+//         std::cout << "fctd_eff (tracção com fibras) = " << fctd_eff << " MPa\n";
+//         std::cout << "Percent usage -> min=" << pmin << "%  max=" << pmax
+//                   << "%  (node " << nmax << ")\n";
+//         std::cout << "Nodes with s1 > fctd_eff (CRACKED): " << n_cracked
+//                   << " / " << rds.nodeValues.size() << "\n";
+//         if (n_cracked > 0)
+//             std::cout << "  *** FISSURACAO DETECTADA ***  "
+//                       << "Betao sem ferro fissurou por traccao principal.\n";
 //         else
-//             nodeScalar[kv.first] = 0.0;
+//             std::cout << "  OK — sem fissuracao por traccao principal.\n";
+
+//         // Detalhe do nó mais carregado
+//         if (nmax >= 0 && rds.nodeValues.count(nmax)) {
+//             auto& v = rds.nodeValues[nmax];
+//             double s1,s2,s3;
+//             principal_stresses(v[0],v[1],v[2],v[3],v[4],v[5],s1,s2,s3);
+//             std::string st = classify_state(s1,s2,s3);
+//             double lim = 0;
+//             std::cout << "  node " << nmax
+//                       << " SXX=" << v[0] << " SYY=" << v[1] << " SZZ=" << v[2]
+//                       << " SXY=" << v[3] << " SYZ=" << v[4] << " SZX=" << v[5] << " MPa\n"
+//                       << "  s1=" << s1 << " s2=" << s2 << " s3=" << s3
+//                       << "  state=" << st << "  design_limit=" << lim
+//                       << " MPa  pct=" << pmax << "%\n";
+//         }
 //     }
 
-//     // Exterior face extraction
-//     struct FaceData {
-//         std::vector<int> nodes;
-//         int count = 0;
-//     };
-//     std::map<FaceKey, FaceData> faceMap;
+//     // ========================================================================
+//     // Construir geometria OCC
+//     // ========================================================================
+//     std::map<int, AIS_FEM::Node> renderNodes;
+//     for (auto& kv : nodes)
+//         renderNodes[kv.first] = { kv.second,
+//             nodeScalar.count(kv.first) ? nodeScalar[kv.first] : 0.0 };
 
+//     std::vector<AIS_FEM::Face> renderFaces;
 //     for (auto& kv : elems) {
 //         std::vector<std::vector<int>> faces;
 //         extract_faces(kv.second, faces);
-
-//         for (auto f : faces) {
-//             FaceKey k; k.nodes = f;
-//             std::sort(k.nodes.begin(), k.nodes.end());
-//             auto& fd = faceMap[k];
-//             fd.nodes = f;
-//             fd.count++;
-//         }
+//         for (auto& f : faces) { AIS_FEM::Face ff; ff.nodes=f; renderFaces.push_back(ff); }
 //     }
 
-//     // Build AIS nodes using the freshly averaged tensor scalar data
-//     std::map<int, AIS_FEM::Node> renderNodes;
-//     for (auto& kv : nodes) {
-//         double val = 0.0;
-//         if (nodeScalar.find(kv.first) != nodeScalar.end()) {
-//             val = nodeScalar[kv.first];
-//         }
-//         renderNodes[kv.first] = { kv.second, val };
-//     }
-
-//     // Build AIS faces (exterior shell only)
-//     std::vector<AIS_FEM::Face> renderFaces;
-//     for (auto& kv : faceMap) {
-//         if (kv.second.count == 1) { 
-//             AIS_FEM::Face f;
-//             f.nodes = kv.second.nodes;
-//             renderFaces.push_back(f);
-//         }
-//     }
-
-//     // OpenCASCADE Presentation Display
 //     Handle(AIS_FEM) ais = new AIS_FEM(renderNodes, renderFaces);
-//     ais->recomputeMinMax();
 //     ctx->Display(ais, Standard_False);
 //     ctx->SetDisplayMode(ais, 1, Standard_False);
 //     ctx->UpdateCurrentViewer();
-//     std::cout << "Smooth FEM displayed with isolated tension field.\n";
+
+//     std::cout << "Displayed FEM with percentage usage field.\n";
 // }
+
 
 #include <BRepTools.hxx>
 #include <TopoDS_Shape.hxx>
@@ -2228,6 +2174,480 @@ void display_frd_in_occ(const std::string& file, const Handle(AIS_InteractiveCon
 #include <set>
 #include <map>
 #include <fstream>
+// Parser minimo para arquivos .frd do CalculiX
+// Compila com: g++ -std=c++17 -o frd_parser frd_parser.cpp
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <array>
+#include <algorithm>
+#include <unordered_map>
+#include <cstdio>
+#include <cmath>
+
+// ============================================================
+// OCC headers (já incluídos no seu projecto)
+// ============================================================
+#include <gp_Pnt.hxx>
+#include <Quantity_Color.hxx>
+#include <Graphic3d_ArrayOfTriangles.hxx>
+#include <Graphic3d_AspectFillArea3d.hxx>
+#include <Graphic3d_Group.hxx>
+#include <Prs3d_Presentation.hxx>
+#include <PrsMgr_PresentationManager.hxx>
+#include <AIS_InteractiveObject.hxx>
+#include <SelectMgr_Selection.hxx>
+#include <Standard_Type.hxx>
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <array>
+#include <algorithm>
+#include <unordered_map>
+#include <cstdio>
+#include <cmath>
+
+// ============================================================
+// Material — resistências de cálculo do betão
+//
+//   fck      : resistência característica à compressão (MPa)
+//   fctk     : resistência característica à tracção   (MPa)
+//   kconf    : factor de confinamento (betão confinado)
+//   kfib     : factor de fibras (betão com fibras)
+//   gamma_c  : coeficiente de segurança do betão
+//
+//   Capacidades de cálculo por modo de tensão (MPa):
+//     fcd  = fck  * kconf * kfib / gamma_c   (compressão)
+//     fctd = fctk * kconf * kfib / gamma_c   (tracção)
+//
+//   Alphas — factores de modo de carregamento:
+//     a_uni   : compressão uniaxial    → fcd_uni   = a_uni   * fcd
+//     a_bi    : compressão biaxial     → fcd_bi    = a_bi    * fcd
+//     a_tri   : compressão triaxial    → fcd_tri   = a_tri   * fcd
+//     a_bend  : flexão                 → fcd_bend  = a_bend  * fcd
+//     a_shear : corte                  → fcd_shear = a_shear * fcd
+//                                        (e fctd_shear = a_shear * fctd)
+// ============================================================
+struct Material {
+    double fck    = 70.0,  fctk  = 5.0;
+    double kconf  = 1.4,   kfib  = 1.3,  gamma_c = 1.5;
+    double a_uni  = 0.85,  a_bi  = 1.10, a_tri   = 1.20,
+           a_bend = 1.00,  a_shear = 0.60;
+    double fcd = 0.0, fctd = 0.0;   // calculados em compute()
+
+    void compute() {
+        fcd  = fck  * kconf * kfib / gamma_c;
+        fctd = fctk * kconf * kfib / gamma_c;
+    }
+
+    // Capacidade efectiva por modo (MPa)
+    double cap_uni()   const { return a_uni   * fcd;  }
+    double cap_bi()    const { return a_bi    * fcd;  }
+    double cap_tri()   const { return a_tri   * fcd;  }
+    double cap_bend()  const { return a_bend  * fcd;  }
+    double cap_shear_c() const { return a_shear * fcd;  }
+    double cap_shear_t() const { return a_shear * fctd; }
+    double cap_trac()  const { return fctd; }   // tracção pura
+};
+
+// ============================================================
+// StressTensor — tensor de tensões num nó
+//   componentes conforme CalculiX: SXX SYY SZZ SXY SYZ SZX
+// ============================================================
+struct StressTensor {
+    double sxx, syy, szz, sxy, syz, szx;
+};
+
+// ------------------------------------------------------------
+// Tensões principais (eigenvalues do tensor simétrico 3x3)
+//   Usa o método de Cardano analítico (exacto, sem iteração)
+// ------------------------------------------------------------
+static std::array<double,3> principal_stresses(const StressTensor& s)
+{
+    // p1, p2, p3 — tensões principais em ordem decrescente
+    double I1 = s.sxx + s.syy + s.szz;
+    double I2 = s.sxx*s.syy + s.syy*s.szz + s.szz*s.sxx
+              - s.sxy*s.sxy - s.syz*s.syz - s.szx*s.szx;
+    double I3 = s.sxx*(s.syy*s.szz - s.syz*s.syz)
+              - s.sxy*(s.sxy*s.szz - s.syz*s.szx)
+              + s.szx*(s.sxy*s.syz - s.syy*s.szx);
+
+    double p  = I1*I1/3.0 - I2;
+    double q  = I1*I1*I1*(2.0/27.0) - I1*I2/3.0 + I3;
+    double disc = p*p*p/27.0 - q*q/4.0;
+
+    std::array<double,3> sp;
+    if (disc >= 0.0) {
+        double r   = std::sqrt(p/3.0);
+        double arg = std::max(-1.0, std::min(1.0, -q / (2.0*r*r*r)));
+        double phi = std::acos(arg);
+        sp[0] = I1/3.0 + 2.0*r*std::cos(phi/3.0);
+        sp[1] = I1/3.0 + 2.0*r*std::cos((phi + 2.0*M_PI)/3.0);
+        sp[2] = I1/3.0 + 2.0*r*std::cos((phi + 4.0*M_PI)/3.0);
+    } else {
+        // raízes reais quando disc < 0 (degenerate)
+        double A =  std::cbrt(-q/2.0 + std::sqrt(-disc));
+        double B = -std::cbrt( q/2.0 + std::sqrt(-disc));
+        sp[0] = I1/3.0 + A + B;
+        sp[1] = sp[2] = I1/3.0 - (A+B)/2.0;
+    }
+    std::sort(sp.begin(), sp.end(), std::greater<double>()); // s1 >= s2 >= s3
+    return sp;
+}
+
+// ------------------------------------------------------------
+// Von Mises
+// ------------------------------------------------------------
+static double von_mises(const StressTensor& s)
+{
+    return std::sqrt(0.5 * (
+        (s.sxx-s.syy)*(s.sxx-s.syy) +
+        (s.syy-s.szz)*(s.syy-s.szz) +
+        (s.szz-s.sxx)*(s.szz-s.sxx) +
+        6.0*(s.sxy*s.sxy + s.syz*s.syz + s.szx*s.szx)
+    ));
+}
+
+// ------------------------------------------------------------
+// Tensão de corte máxima (Tresca / max shear)
+// ------------------------------------------------------------
+static double max_shear(const std::array<double,3>& sp)
+{
+    return (sp[0] - sp[2]) / 2.0;
+}
+
+// ============================================================
+// node_utilization
+//   Calcula o maior rácio de utilização (%) para um nó,
+//   considerando todos os modos de tensão relevantes.
+//
+//   Modos verificados:
+//     1. Compressão uniaxial   : se só 1 principal negativa
+//     2. Compressão biaxial    : se 2 principais negativas
+//     3. Compressão triaxial   : se 3 principais negativas
+//     4. Tracção pura          : se principal positiva > 0
+//     5. Flexão (von Mises)    : vmises / (a_bend * fcd)
+//     6. Corte (Tresca)        : tau_max / cap_shear_c
+//                                tau_max / cap_shear_t  (tracção)
+//
+//   Retorna o MÁXIMO de todos os rácios × 100 (%).
+// ============================================================
+static double node_utilization(const StressTensor& st, const Material& mat)
+{
+    auto sp = principal_stresses(st);
+    double s1 = sp[0], s2 = sp[1], s3 = sp[2]; // s1 >= s2 >= s3
+
+    double util = 0.0;
+
+    // --- tracção (s1 positivo) ---
+    if (s1 > 0.0 && mat.cap_trac() > 0.0)
+        util = std::max(util, s1 / mat.cap_trac());
+
+    // --- compressão (s3 negativo) ---
+    if (s3 < 0.0) {
+        int neg = (s1 < 0.0 ? 3 : (s2 < 0.0 ? 2 : 1));
+        double cap_c = (neg == 3) ? mat.cap_tri()
+                     : (neg == 2) ? mat.cap_bi()
+                     :               mat.cap_uni();
+        if (cap_c > 0.0)
+            util = std::max(util, std::abs(s3) / cap_c);
+    }
+
+    // --- flexão (von Mises vs. fcd_bend) ---
+    double vm = von_mises(st);
+    if (mat.cap_bend() > 0.0)
+        util = std::max(util, vm / mat.cap_bend());
+
+    // --- corte (Tresca) ---
+    double tau = max_shear(sp);
+    if (mat.cap_shear_c() > 0.0)
+        util = std::max(util, tau / mat.cap_shear_c());
+    if (mat.cap_shear_t() > 0.0)
+        util = std::max(util, tau / mat.cap_shear_t());
+
+    return util * 100.0; // %
+}
+
+// ============================================================
+// FRD parser — estruturas internas
+// ============================================================
+struct FrdNode    { int id; double x, y, z; };
+struct FrdElement { int id; int type; std::vector<int> nodes; };
+struct FrdResult  {
+    std::string name;
+    int step = 0;
+    std::vector<std::pair<int, std::vector<double>>> values;
+};
+struct FrdData {
+    std::vector<FrdNode>    nodes;
+    std::vector<FrdElement> elements;
+    std::vector<FrdResult>  results;
+};
+
+static std::string frd_line_tag(const std::string& line) {
+    size_t s = line.find_first_not_of(" \t");
+    if (s == std::string::npos) return "";
+    size_t e = line.find_first_of(" \t", s);
+    if (e == std::string::npos) e = line.size();
+    return line.substr(s, e - s);
+}
+static std::string frd_after_tag(const std::string& line) {
+    size_t s = line.find_first_not_of(" \t");
+    if (s == std::string::npos) return "";
+    size_t e = line.find_first_of(" \t", s);
+    if (e == std::string::npos) return "";
+    s = line.find_first_not_of(" \t", e);
+    if (s == std::string::npos) return "";
+    return line.substr(s);
+}
+
+// ============================================================
+// parse_frd  — parser para ficheiros .frd do CalculiX
+//
+// Formato observado:
+//   1PSTEP ...           → abre bloco de resultado
+//   100CL ...            → linha de controlo (ignorar)
+//   -4  DISP  ncomp  1   → nome do resultado + nº de componentes
+//   -5  D1 ...           → nomes dos componentes (ignorar)
+//   -1  nid  v1 v2 ...   → valores por nó (espaço-separados)
+//   -3                   → fim de bloco
+// ============================================================
+static FrdData parse_frd(const std::string& filename)
+{
+    FrdData data;
+    std::ifstream f(filename);
+    if (!f) { std::cerr << "Erro ao abrir: " << filename << "\n"; return data; }
+
+    std::string line;
+    int        block   = 0; // 2=nós, 3=elementos, 1=resultado
+    FrdResult* cur_res = nullptr;
+
+    while (std::getline(f, line)) {
+        if (line.empty()) continue;
+
+        // Extrai o primeiro token (tag)
+        size_t ts = line.find_first_not_of(" \t");
+        if (ts == std::string::npos) continue;
+        size_t te = line.find_first_of(" \t", ts);
+        if (te == std::string::npos) te = line.size();
+        const std::string tag = line.substr(ts, te - ts);
+        if (tag.empty()) continue;
+
+        // ---- terminadores ----
+        if (tag == "-3")   { block = 0; cur_res = nullptr; continue; }
+        if (tag == "9999") break;
+
+        // ---- linhas de dados (tag começa com '-') ----
+        if (tag[0] == '-' && tag.size() >= 2) {
+
+            std::istringstream ss(line.substr(te));
+
+            // --- nós ---
+            if (tag == "-1" && block == 2) {
+                FrdNode n;
+                ss >> n.id >> n.x >> n.y >> n.z;
+                data.nodes.push_back(n);
+                continue;
+            }
+
+            // --- elementos: cabeçalho ---
+            if (tag == "-1" && block == 3) {
+                FrdElement e;
+                int g = 0, m = 0;
+                ss >> e.id >> e.type >> g >> m;
+                data.elements.push_back(e);
+                continue;
+            }
+
+            // --- elementos: conectividade (C3D10 usa 2 linhas -2) ---
+            if (tag == "-2" && block == 3 && !data.elements.empty()) {
+                int nid;
+                while (ss >> nid)
+                    data.elements.back().nodes.push_back(nid);
+                continue;
+            }
+
+            // --- resultado: nome do bloco (-4  DISP/STRESS  ncomp  1) ---
+            if (tag == "-4" && block == 1 && cur_res) {
+                std::string nm;
+                ss >> nm;
+                if (!nm.empty()) cur_res->name = nm;
+                continue;
+            }
+
+            // --- resultado: componentes (-5) — ignorar ---
+            if (tag == "-5") continue;
+
+            // --- resultado: valores por nó ---
+            if (tag == "-1" && block == 1 && cur_res) {
+                int nid;
+                ss >> nid;
+                std::vector<double> vals;
+                double v;
+                while (ss >> v) vals.push_back(v);
+                if (!vals.empty())
+                    cur_res->values.push_back({ nid, vals });
+                continue;
+            }
+
+            continue;
+        }
+
+        // ---- cabeçalhos de bloco ----
+        if (!std::isdigit((unsigned char)tag[0])) continue;
+
+        if (tag[0] == '2') { block = 2; continue; } // bloco de nós
+        if (tag[0] == '3') { block = 3; continue; } // bloco de elementos
+
+        // "1PSTEP" → abre bloco de resultado; nome será preenchido pelo -4
+        if (tag == "1PSTEP") {
+            block = 1;
+            data.results.push_back({});
+            cur_res = &data.results.back();
+            cur_res->name    = "UNKNOWN";
+            cur_res->step    = (int)data.results.size();
+            continue;
+        }
+
+        // "1U..." → metadados do cabeçalho, "1C" → comentário, "100CL" → controlo
+        // tudo ignorado
+    }
+
+    // --- diagnóstico ---
+    std::map<size_t, int> hist;
+    for (const auto& e : data.elements) hist[e.nodes.size()]++;
+    printf("[FRD] Nos: %zu  Elementos: %zu  Blocos resultado: %zu\n",
+           data.nodes.size(), data.elements.size(), data.results.size());
+    for (const auto& [nc, cnt] : hist)
+        printf("[FRD]   Elementos com %zu nos: %d\n", nc, cnt);
+    for (const auto& r : data.results)
+        printf("[FRD]   Result '%s'  step=%d  values=%zu\n",
+               r.name.c_str(), r.step, r.values.size());
+
+    return data;
+}
+
+// ============================================================
+// frd_to_aisfem
+// ============================================================
+static std::pair<std::map<int, AIS_FEM::Node>, std::vector<AIS_FEM::Face>>
+frd_to_aisfem(const FrdData& frd, const Material& mat)
+{
+    static constexpr int TET_FACES[4][3] = {
+        {0,2,1}, {0,1,3}, {1,2,3}, {0,3,2}
+    };
+
+    // --- tensores de tensão por nó (STRESS: SXX SYY SZZ SXY SYZ SZX) ---
+    std::map<int, StressTensor> tensors;
+    for (const auto& res : frd.results) {
+        if (res.name != "STRESS") continue;
+        for (const auto& [nid, v] : res.values) {
+            if (v.size() < 6) continue;
+            tensors[nid] = { v[0], v[1], v[2], v[3], v[4], v[5] };
+        }
+        break;
+    }
+
+    // --- utilização (%) por nó ---
+    std::map<int, double> node_pct;
+    for (const auto& [nid, st] : tensors)
+        node_pct[nid] = node_utilization(st, mat);
+
+    // --- nós AIS_FEM ---
+    std::map<int, AIS_FEM::Node> out_nodes;
+    for (const auto& n : frd.nodes) {
+        double pct = 0.0;
+        auto it = node_pct.find(n.id);
+        if (it != node_pct.end()) pct = it->second;
+        out_nodes[n.id] = AIS_FEM::Node{ gp_Pnt(n.x, n.y, n.z), pct };
+    }
+
+    // --- faces externas ---
+    struct FaceKey {
+        int a, b, c;
+        FaceKey(int n0, int n1, int n2) {
+            int arr[3] = {n0, n1, n2};
+            std::sort(arr, arr + 3);
+            a = arr[0]; b = arr[1]; c = arr[2];
+        }
+        bool operator==(const FaceKey& o) const {
+            return a == o.a && b == o.b && c == o.c;
+        }
+    };
+    struct FaceKeyHash {
+        size_t operator()(const FaceKey& k) const {
+            size_t h = std::hash<int>{}(k.a);
+            h ^= std::hash<int>{}(k.b) + 0x9e3779b9 + (h<<6) + (h>>2);
+            h ^= std::hash<int>{}(k.c) + 0x9e3779b9 + (h<<6) + (h>>2);
+            return h;
+        }
+    };
+    struct FaceEntry { std::array<int,3> ns; int count = 0; };
+    std::unordered_map<FaceKey, FaceEntry, FaceKeyHash> face_map;
+
+    for (const auto& elem : frd.elements) {
+        if (elem.nodes.size() < 4) continue;
+        const auto& ns = elem.nodes;
+        for (int f = 0; f < 4; ++f) {
+            int n0 = ns[TET_FACES[f][0]];
+            int n1 = ns[TET_FACES[f][1]];
+            int n2 = ns[TET_FACES[f][2]];
+            FaceKey key(n0, n1, n2);
+            auto& entry = face_map[key];
+            if (entry.count == 0) entry.ns = {n0, n1, n2};
+            entry.count++;
+        }
+    }
+
+    std::vector<AIS_FEM::Face> out_faces;
+    for (const auto& [key, entry] : face_map)
+        if (entry.count == 1) {
+            AIS_FEM::Face face;
+            face.nodes = { entry.ns[0], entry.ns[1], entry.ns[2] };
+            out_faces.push_back(std::move(face));
+        }
+
+    return { std::move(out_nodes), std::move(out_faces) };
+}
+
+// ============================================================
+// display_frd_in_occdbg — ponto de entrada
+// ============================================================
+void display_frd_in_occdbg(const std::string& filename)
+{
+    Material mat;
+    mat.compute(); // calcula fcd e fctd a partir dos parâmetros
+
+    FrdData frd = parse_frd(filename);
+
+    auto [nodes, faces] = frd_to_aisfem(frd, mat);
+
+    // log de diagnóstico
+    double vmin = 1e30, vmax = -1e30;
+    for (const auto& [id, n] : nodes) {
+        vmin = std::min(vmin, n.value);
+        vmax = std::max(vmax, n.value);
+    }
+    printf("fcd=%.2f MPa  fctd=%.2f MPa\n", mat.fcd, mat.fctd);
+    printf("Nos: %zu  Faces externas: %zu\n", nodes.size(), faces.size());
+    printf("Utilizacao: min=%.1f%%  max=%.1f%%\n", vmin, vmax);
+
+    Handle(AIS_FEM) aisfem = new AIS_FEM(nodes, faces);
+    ctx->Display(aisfem, Standard_True);
+}
 
 #include <iostream>
 #include <vector>
@@ -2236,674 +2656,599 @@ void display_frd_in_occ(const std::string& file, const Handle(AIS_InteractiveCon
 #include <map>
 #include <fstream>
 #include <cmath>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <map>
+#include <set>
+#include <algorithm>
+#include <cmath>
+#include <gmsh.h>
 
 struct CcxEntry {
-    std::string elset;
-    std::string materialName;
+    std::string elset;        
+    std::string materialName; 
     std::string materialBlock;
     int volTag;
 };
 
 std::vector<CcxEntry> ccx;
 
-void write_inp(const std::string &file)
-{
-    // ============================================================
-    // LER FICHEIRO ORIGINAL
-    // ============================================================
-
-    std::ifstream inFile(file);
-
-    if (!inFile.is_open()) {
-        std::cerr << "Erro ao abrir: " << file << "\n";
-        return;
+// ----------------------------------------------------------------
+// Helper: Extract NAME= value, simplified
+// ----------------------------------------------------------------
+static std::string extractMaterialName(const std::string &block) {
+    size_t pos = block.find("NAME=");
+    if (pos == std::string::npos) pos = block.find("name=");
+    if (pos != std::string::npos) {
+        size_t start = pos + 5;
+        size_t end = block.find_first_of(", \t\r\n", start);
+        return block.substr(start, end - start);
     }
+    return "UNKNOWN_MATERIAL";
+}
 
-    std::string content(
-        (std::istreambuf_iterator<char>(inFile)),
-        std::istreambuf_iterator<char>());
+// ----------------------------------------------------------------
+// Helper: Replace ALL
+// ----------------------------------------------------------------
+static void replaceAll(std::string &s, const std::string &from, const std::string &to) {
+    for (size_t pos = 0; (pos = s.find(from, pos)) != std::string::npos; pos += to.size()) {
+        s.replace(pos, from.size(), to);
+    }
+}
 
+void write_inp(const std::string &file) {
+    std::ifstream inFile(file);
+    if (!inFile) return;
+    std::string content((std::istreambuf_iterator<char>(inFile)), {});
     inFile.close();
 
-    // ============================================================
-    // SUBSTITUIR VolumeX -> ELSET REAL
-    // ============================================================
-
+    // 1. Replace VolumeX -> ELSET
     for (size_t i = 0; i < ccx.size(); ++i) {
+        replaceAll(content, "Volume" + std::to_string(i + 1), ccx[i].elset);
+    }
 
-        std::string from =
-            "ELSET=Volume" +
-            std::to_string(i + 1);
+    // 2. ROBUST Node Parsing
+    std::map<int, double> nodeY;
+    double minY = 1e100;
+    std::istringstream ss(content);
+    std::string line;
+    bool inNode = false;
 
-        std::string to =
-            "ELSET=" + ccx[i].elset;
+    while (std::getline(ss, line)) {
+        line.erase(0, line.find_first_not_of(" \t"));
+        line.erase(line.find_last_not_of(" \t\r\n") + 1);
 
-        size_t pos = 0;
+        if (line.find("*NODE") != std::string::npos) { 
+            inNode = true; continue; 
+        }
+        if (inNode && !line.empty() && line[0] == '*') {
+            inNode = false; continue;
+        }
 
-        while ((pos = content.find(from, pos))
-               != std::string::npos)
-        {
-            content.replace(pos, from.length(), to);
-            pos += to.length();
+        if (inNode && !line.empty() && isdigit(line[0])) {
+            int id;
+            double x, y, z;
+            std::string clean = line;
+            replaceAll(clean, ",", " ");
+
+            std::istringstream iss(clean);
+            if (iss >> id >> x >> y >> z) {
+                nodeY[id] = y;
+                if (y < minY) minY = y;
+            }
         }
     }
 
-    // ============================================================
-    // REESCREVER FICHEIRO BASE
-    // ============================================================
-
+    // 3. Rewrite File with robust base fixation
+    // 3. Automatic Bottom Detection
     std::ofstream outFile(file, std::ios::trunc);
-
-    if (!outFile.is_open()) {
-        std::cerr << "Erro ao escrever: " << file << "\n";
-        return;
-    }
-
     outFile << content;
 
-    // ============================================================
-    // DETETAR NÓS DO CHÃO
-    // ============================================================
-
-    std::vector<std::size_t> nodeTags;
-    std::vector<double> coords;
-    std::vector<double> parametric;
-
-    gmsh::model::mesh::getNodes(
-        nodeTags,
-        coords,
-        parametric);
-
-    double minY = 1e100;
-
-    for (size_t i = 0; i < nodeTags.size(); ++i) {
-
-        double y = coords[i * 3 + 1];
-
-        if (y < minY)
-            minY = y;
-    }
-
-    std::vector<std::size_t> groundNodes;
-
-    const double tol = 1e-4;
-
-    for (size_t i = 0; i < nodeTags.size(); ++i) {
-
-        double y = coords[i * 3 + 1];
-
-        if (std::abs(y - minY) < tol)
-            groundNodes.push_back(nodeTags[i]);
-    }
-
-    // ============================================================
-    // NSET CHÃO
-    // ============================================================
-
-    outFile << "\n";
-    outFile << "** ======================================\n";
-    outFile << "** GROUND FIXED NODES\n";
-    outFile << "** ======================================\n";
-
+    outFile << "\n** ================== GROUND FIXED NODES (AUTO) ==================\n";
     outFile << "*NSET, NSET=CHAO_FIXO\n";
 
-    for (size_t i = 0; i < groundNodes.size(); ++i) {
+    // Sort nodes by Y to find the bottom layer intelligently
+    std::vector<std::pair<double, int>> sortedNodes;
+    for (const auto& [id, y] : nodeY) {
+        sortedNodes.emplace_back(y, id);
+    }
+    std::sort(sortedNodes.begin(), sortedNodes.end());
 
-        outFile << groundNodes[i];
+    // Take all nodes in the bottom 15% or up to a natural gap
+    int count = 0;
+    double bottomY = sortedNodes[0].first;
+    double threshold = bottomY + 5000.0;  // fallback
 
-        if ((i + 1) % 10 == 0 ||
-            i == groundNodes.size() - 1)
-        {
-            outFile << "\n";
-        }
-        else {
-            outFile << ", ";
+    // Try to detect base thickness automatically by finding big gap in Y
+    for (size_t i = 1; i < sortedNodes.size() - 1; ++i) {
+        double gap = sortedNodes[i+1].first - sortedNodes[i].first;
+        if (gap > 2000.0 && sortedNodes[i].first < 20000) {  // big jump = end of base
+            threshold = sortedNodes[i].first;
+            break;
         }
     }
 
-    // ============================================================
-    // MATERIAIS
-    // ============================================================
+    for (const auto& [y, id] : sortedNodes) {
+        if (y <= threshold) {
+            outFile << id;
+            if (++count % 8 == 0) outFile << "\n";
+            else outFile << ", ";
+        }
+    }
+    if (count % 8 != 0) outFile << "\n";
 
-    outFile << "\n";
-    outFile << "** ======================================\n";
-    outFile << "** MATERIALS\n";
-    outFile << "** ======================================\n";
+    std::cout << "[INFO] Fixed " << count << " nodes on base (auto threshold Y <= " 
+              << threshold << ")\n";
 
+    // 4. Materials + Sections + Step (unchanged)
+    outFile << "\n** MATERIALS\n";
     std::set<std::string> done;
-
-    for (auto &e : ccx) {
-
-        if (done.find(e.materialName) != done.end())
-            continue;
-
-        // REMOVE *SPECIFIC_HEAT
-        std::stringstream ss(e.materialBlock);
-
-        std::string line;
+    for (const auto& e : ccx) {
+        if (!done.insert(e.materialName).second) continue;
+        std::istringstream ms(e.materialBlock);
+        std::string mline;
         bool skipNext = false;
-
-        while (std::getline(ss, line)) {
-
-            std::string upper = line;
-
-            std::transform(
-                upper.begin(),
-                upper.end(),
-                upper.begin(),
-                ::toupper);
-
-            if (upper.find("*SPECIFIC_HEAT")
-                != std::string::npos)
-            {
-                skipNext = true;
-                continue;
+        while (std::getline(ms, mline)) {
+            std::string upper = mline;
+            std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+            if (upper.find("*SPECIFIC_HEAT") != std::string::npos) { 
+                skipNext = true; continue; 
             }
-
-            if (skipNext) {
-                skipNext = false;
-                continue;
-            }
-
-            outFile << line << "\n";
+            if (skipNext) { skipNext = false; continue; }
+            outFile << mline << "\n";
         }
-
-        done.insert(e.materialName);
     }
 
-    // ============================================================
-    // SOLID SECTIONS
-    // ============================================================
-
-    outFile << "\n";
-    outFile << "** ======================================\n";
-    outFile << "** SECTIONS\n";
-    outFile << "** ======================================\n";
-
-    for (auto &e : ccx) {
-
-        outFile
-            << "*SOLID SECTION, ELSET="
-            << e.elset
-            << ", MATERIAL="
-            << e.materialName
-            << "\n";
+    outFile << "\n** SECTIONS\n";
+    for (const auto& e : ccx) {
+        outFile << "*SOLID SECTION, ELSET=" << e.elset << ", MATERIAL=" << e.materialName << "\n";
     }
 
-	outFile<<CcxStepParam;
-	outFile.close();return;
-    // ============================================================
-    // STEP
-    // ============================================================
-
-    outFile << "\n";
-    outFile << "*STEP\n";
-
-    outFile << "*STATIC\n";
-    outFile << "1., 1., 1e-05, 1.\n";
-
-    // ------------------------------------------------------------
-    // FIXAR CHÃO
-    // ------------------------------------------------------------
-
-    outFile << "\n";
-    outFile << "*BOUNDARY\n";
-    outFile << "CHAO_FIXO, 1, 3, 0.\n";
-
-    // ------------------------------------------------------------
-    // GRAVIDADE
-    // ------------------------------------------------------------
-
-    outFile << "\n";
-    outFile << "*DLOAD\n";
-
-    for (auto &e : ccx) {
-
-        outFile
-            << e.elset
-            << ", GRAV, 9806.65, 0., -1., 0.\n";
-			// << ", GRAV, 0., 0., -9.80665\n";//z
-			// << ", GRAV, 0., -9806.65, 0.\n";//y
-    }
-
-    // ------------------------------------------------------------
-    // OUTPUTS
-    // ------------------------------------------------------------
-
-    outFile << "\n";
-
-    outFile << "*NODE FILE\n";
-    outFile << "U\n";
-
-    outFile << "*EL FILE\n";
-    outFile << "S\n";
-
-    outFile << "*END STEP\n";
-
-    outFile.close();
+    outFile << CcxStepParam; 
 }
-void build_inp_quadratic()
-{
+
+// ----------------------------------------------------------------
+// BUILD INP: Streamlined setup loop
+// ----------------------------------------------------------------
+void build_inpprev() {
     AIS_ListOfInteractive list;
     ctx->DisplayedObjects(list);
 
     gmsh::initialize();
     gmsh::model::add("scene");
-
     ccx.clear();
+
     std::map<std::string, int> counters;
 
-    // ============================================================
-    // IMPORT SHAPES FROM OCC
-    // ============================================================
-    for (AIS_ListIteratorOfListOfInteractive it(list); it.More(); it.Next())
-    {
-        Handle(AIS_Shape) ashape = Handle(AIS_Shape)::DownCast(it.Value());
-        if (ashape.IsNull()) continue;
+    // PASS 1: Import independent shapes
+    for (AIS_ListIteratorOfListOfInteractive it(list); it.More(); it.Next()) {
+        auto ashape = Handle(AIS_Shape)::DownCast(it.Value());
+        if (ashape.IsNull() || !ashape->HasOwner()) continue;
 
-        // Consistent and safe Handle usage
-        Handle(ManagedPtrWrapper<luadraw>) w = 
-            Handle(ManagedPtrWrapper<luadraw>)::DownCast(ashape->GetOwner());
-
-        if (w.IsNull()) continue;
+        auto w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(ashape->GetOwner());
+        if (w.IsNull() || !w->ptr || w->ptr->ashape.IsNull() || !w->ptr->material || w->ptr->material->ccx.empty()) continue;
 
         luadraw *ld = w->ptr;
-        if (!ld || ld->ashape.IsNull() || !ld->material || ld->material->ccx.empty())
-            continue;
-
-        // Export BREP
         std::string brep = "/dev/shm/" + ld->name + ".brep";
         BRepTools::Write(ld->ashape->Shape(), brep.c_str());
 
-        // Import to Gmsh
         std::vector<std::pair<int,int>> ents;
         gmsh::model::occ::importShapes(brep, ents, true);
-        if (ents.empty()) continue;
 
-        // Heal geometry
-        std::vector<std::pair<int,int>> healed;
-        gmsh::model::occ::healShapes(healed, {}, 1e-5, true, true, true, true, true);
-
-        // Find volume
         int volTag = -1;
-        for (auto &e : ents) {
-            if (e.first == 3) {
-                volTag = e.second;
-                break;
-            }
+        for (const auto& e : ents) {
+            if (e.first == 3) { volTag = e.second; break; }
         }
         if (volTag == -1) continue;
 
-        // Unique elset
-        std::string base = ld->material->elset;
-        counters[base]++;
-        std::string unique = base + "_" + std::to_string(counters[base]);
+        std::string matName = extractMaterialName(ld->material->ccx);
+        std::string unique = matName + "_" + std::to_string(++counters[matName]);
 
-        ccx.push_back({unique, base, ld->material->ccx, volTag});
+        ccx.push_back({unique, matName, ld->material->ccx, volTag});
     }
 
+    if (ccx.empty()) { gmsh::finalize(); return; }
+	std::sort(ccx.begin(), ccx.end(), [](const CcxEntry& a, const CcxEntry& b) {
+		return a.volTag < b.volTag;
+	});
+    // PASS 2: Synchronize and group volumes independently 
     gmsh::model::occ::synchronize();
 
-    // Physical Groups
-    for (auto &e : ccx) {
+    for (const auto& e : ccx) {
         int pg = gmsh::model::addPhysicalGroup(3, {e.volTag});
         gmsh::model::setPhysicalName(3, pg, e.elset);
     }
 
+    // PASS 3: Mesh Options & Generate
+    gmsh::option::setNumber("Mesh.ElementOrder",          1);
+    gmsh::option::setNumber("Mesh.Algorithm3D",           4);
+    gmsh::option::setNumber("Mesh.Optimize",              1);
+    gmsh::option::setNumber("Mesh.OptimizeNetgen",        1);
+    gmsh::option::setNumber("Mesh.OptimizeThreshold",     0.3);
+    gmsh::option::setNumber("Mesh.QualityType",           2);
+    gmsh::option::setNumber("Mesh.SaveAll",               0);
+    gmsh::option::setNumber("Mesh.SaveGroupsOfNodes",     1);
+    gmsh::option::setNumber("Mesh.SaveGroupsOfElements",  1);
+    gmsh::option::setNumber("Mesh.CharacteristicLengthMin", 0);
+    gmsh::option::setNumber("Mesh.CharacteristicLengthMax", 1e22);
 
-	// ============================================================
-    // MESH SETTINGS - SAFE FOR C3D10
-    // ============================================================
-    gmsh::option::setNumber("Mesh.ElementOrder", 2);
-    gmsh::option::setNumber("Mesh.SecondOrderLinear", 0);
-    gmsh::option::setNumber("Mesh.SecondOrderIncomplete", 0);
-
-    gmsh::option::setNumber("Mesh.Algorithm3D", 1);        // Delaunay
-    gmsh::option::setNumber("Mesh.Algorithm", 5);
-
-    gmsh::option::setNumber("Mesh.Optimize", 1);
-    gmsh::option::setNumber("Mesh.OptimizeNetgen", 1);
-    gmsh::option::setNumber("Mesh.HighOrderOptimize", 2);   // 2 = Elastic + Optimization
-
-    gmsh::option::setNumber("Mesh.OptimizeThreshold", 0.6);
-    gmsh::option::setNumber("Mesh.QualityType", 2);
-
-    // CORRECTED OPTION NAMES:
-    gmsh::option::setNumber("Mesh.MeshSizeMin", 5.0);      
-    gmsh::option::setNumber("Mesh.MeshSizeMax", 80.0);
-    gmsh::option::setNumber("Mesh.MeshSizeFromCurvature", 1);
-
-    gmsh::option::setNumber("Mesh.SaveAll", 0);
-    gmsh::option::setNumber("Mesh.SaveGroupsOfNodes", 1);
-    gmsh::option::setNumber("Mesh.SaveGroupsOfElements", 1);
-    gmsh::option::setNumber("Mesh.SaveElementTagType", 1);
-
-    // ============================================================
-    // GENERATE MESH
-    // ============================================================
-    std::cout << "Generating quadratic mesh (C3D10)...\n";
     gmsh::model::mesh::generate(3);
-
-    // ============================================================
-    // HIGH-ORDER OPTIMIZATION
-    // ============================================================
-    std::cout << "Optimizing high-order mesh...\n";
-
-    gmsh::model::mesh::optimize("HighOrderElastic", 8);
-    gmsh::model::mesh::optimize("HighOrder", 4);
-    gmsh::model::mesh::optimize("Netgen");
-
-    // ============================================================
-    // EXPORT
-    // ============================================================
     gmsh::write("scene.inp");
-    std::cout << "Mesh exported to scene.inp\n";
 
     write_inp("scene.inp");
-
     gmsh::finalize();
 
-    // Run CalculiX
-    std::cout << "Running CalculiX...\n";
-    int result = std::system("ccx ./scene");
-
-    if (result == 0) {
-        std::cout << "CalculiX finished successfully.\n";
-        display_frd_in_occ("scene.frd", ctx);
-    } else {
-        std::cout << "CalculiX failed (code: " << result << ")\n";
-    }
+    std::system("libs/ccx ./scene");
+    // display_frd_in_occ("scene.frd", ctx);
+    display_frd_in_occdbg("scene.frd");
 }
-void build_inp()
+
+
+
+
+
+#include <gmsh.h>
+#include <map>
+#include <tuple>
+#include <algorithm>
+#include <iostream>
+
+// Assuming these are defined as in your previous code:
+#pragma once
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+
+// --- Mesh Data Structures ---
+#pragma once
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+
+// --- Mesh Data Structures ---
+
+struct TetNode     { double x, y, z; };
+struct TetElement  { int n[10]; };
+struct SurfaceFace { int elem_index; int face_id; };
+
+// =============================================================================
+// GenerateVolumeMesh  —  Gmsh/OCCT → C3D10 mesh
+// =============================================================================
+void GenerateVolumeMesh(const TopoDS_Shape&       shape,
+                        std::vector<TetNode>&     out_nodes,
+                        std::vector<TetElement>&  out_elems,
+                        std::vector<SurfaceFace>& out_surf_faces)
 {
-    AIS_ListOfInteractive list;
+    static bool gmsh_initialized = false;
+    if (!gmsh_initialized) {
+        gmsh::initialize();
+        gmsh_initialized = true;
+    }
+    gmsh::clear();
 
-    ctx->DisplayedObjects(list);
+    std::vector<std::pair<int,int>> dimTags;
+    try {
+        gmsh::model::occ::importShapesNativePointer((const void*)&shape, dimTags, true);
+        gmsh::model::occ::synchronize();
+    } catch (const std::exception& e) {
+        std::cerr << "Gmsh import failed: " << e.what() << "\n";
+        return;
+    }
 
-    gmsh::initialize();
+    gmsh::option::setNumber("Mesh.ElementOrder",      2);
+    gmsh::option::setNumber("Mesh.Optimize",          1);
+    gmsh::option::setNumber("Mesh.OptimizeNetgen",    1);
+    gmsh::option::setNumber("Mesh.HighOrderOptimize", 1);
+    // gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
+    // gmsh::option::setNumber("Mesh.CharacteristicLengthMax", 10.0);
 
-    gmsh::model::add("scene");
+    gmsh::model::mesh::generate(3);
 
-    ccx.clear();
+    // --- nodes ---
+    std::vector<std::size_t> nodeTags;
+    std::vector<double>      coord, parametricCoord;
+    gmsh::model::mesh::getNodes(nodeTags, coord, parametricCoord);
 
-    std::map<std::string, int> counters;
+    std::map<std::size_t, int> gmsh_to_local;
+    out_nodes.reserve(nodeTags.size());
+    for (size_t i = 0; i < nodeTags.size(); ++i) {
+        out_nodes.push_back({ coord[i*3], coord[i*3+1], coord[i*3+2] });
+        gmsh_to_local[nodeTags[i]] = (int)i;
+    }
 
-    // ============================================================
-    // IMPORTAR SHAPES OCC
-    // ============================================================
+    // --- C3D10 elements (Gmsh type 11) ---
+    std::vector<int>                      elemTypes;
+    std::vector<std::vector<std::size_t>> elemTags, elemNodes;
+    gmsh::model::mesh::getElements(elemTypes, elemTags, elemNodes, 3);
 
-    for (AIS_ListIteratorOfListOfInteractive it(list);
-         it.More();
-         it.Next())
-    {
-        Handle(AIS_Shape) ashape =
-            Handle(AIS_Shape)::DownCast(
-                it.Value());
+    for (size_t i = 0; i < elemTypes.size(); ++i) {
+        if (elemTypes[i] != 11) continue;
+        const auto& tags  = elemTags[i];
+        const auto& nlist = elemNodes[i];
+        out_elems.reserve(tags.size());
+        for (size_t e = 0; e < tags.size(); ++e) {
+            TetElement elem;
+            for (int k = 0; k < 8; ++k)
+                elem.n[k] = gmsh_to_local.at(nlist[e*10 + k]);
+            // Swap nodes 8/9: CalculiX vs Gmsh ordering
+            elem.n[8] = gmsh_to_local.at(nlist[e*10 + 9]);
+            elem.n[9] = gmsh_to_local.at(nlist[e*10 + 8]);
+            out_elems.push_back(elem);
+        }
+    }
 
-        if (ashape.IsNull())
-            continue;
+    // --- boundary faces (face-counting) ---
+    std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>> face_map;
+    for (size_t i = 0; i < out_elems.size(); ++i) {
+        const auto& e = out_elems[i];
+        const int faces[4][3] = {
+            {e.n[0], e.n[1], e.n[2]},
+            {e.n[0], e.n[3], e.n[1]},
+            {e.n[1], e.n[3], e.n[2]},
+            {e.n[2], e.n[3], e.n[0]}
+        };
+        for (int f = 0; f < 4; ++f) {
+            int arr[3] = { faces[f][0], faces[f][1], faces[f][2] };
+            std::sort(arr, arr + 3);
+            face_map[{arr[0], arr[1], arr[2]}].push_back({ (int)i, f + 1 });
+        }
+    }
+    for (const auto& [key, adj] : face_map)
+        if (adj.size() == 1)
+            out_surf_faces.push_back({ adj[0].first, adj[0].second });
+}
 
-        if (!ashape->HasOwner())
-            continue;
+// =============================================================================
+// CcxInpWriter  —  builds a CalculiX .inp from the active AIS context
+//
+// Unit system: N / mm / tonne / s
+//   E in MPa (N/mm²),  density in t/mm³,  gravity 9810 mm/s²
+// =============================================================================
+class CcxInpWriter {
+public:
+    explicit CcxInpWriter(Handle(AIS_InteractiveContext) ctx) : m_ctx(ctx) {}
 
-        Handle(ManagedPtrWrapper<luadraw>) w =
-            Handle(ManagedPtrWrapper<luadraw>)
-                ::DownCast(
-                    ashape->GetOwner());
-
-        if (w.IsNull())
-            continue;
-
-        luadraw *ld = w->ptr;
-
-        if (!ld)
-            continue;
-
-        if (ld->ashape.IsNull())
-            continue;
-
-        if (!ld->material)
-            continue;
-
-        if (ld->material->ccx.empty())
-            continue;
-
-        // ========================================================
-        // EXPORTAR BREP TEMP
-        // ========================================================
-
-        std::string brep =
-            "/dev/shm/" +
-            ld->name +
-            ".brep";
-
-        BRepTools::Write(
-            ld->ashape->Shape(),
-            brep.c_str());
-
-        // ========================================================
-        // IMPORTAR NO GMSH
-        // ========================================================
-
-        std::vector<std::pair<int,int>> ents;
-
-        gmsh::model::occ::importShapes(
-            brep,
-            ents,
-            true);
-
-        if (ents.empty())
-            continue;
-
-        // ========================================================
-        // CURAR TOPOLOGIA OCC
-        // ========================================================
-
-        std::vector<std::pair<int,int>> healed;
-
-		gmsh::model::occ::healShapes(
-			healed,     // output
-			{},         // input entities (vazio = todas)
-			1e-6,       // tolerance
-			true,       // fixDegenerated
-			true,       // fixSmallEdges
-			true,       // fixSmallFaces
-			true,       // sewFaces
-			true);      // makeSolids
-
-        // ========================================================
-        // ENCONTRAR VOLUME
-        // ========================================================
-
-        int volTag = -1;
-
-        for (auto &e : ents) {
-
-            if (e.first == 3) {
-
-                volTag = e.second;
-                break;
-            }
+    bool write(const std::string& filepath = "scene.inp") {
+        m_file.open(filepath);
+        if (!m_file) {
+            std::cerr << "Error: could not open " << filepath << "\n";
+            return false;
         }
 
-        if (volTag == -1)
-            continue;
+        writeHeading();
+        collectBodies();
+        writeMaterials();
+        writeContactDefinitions();
+        writeBoundaryConditions();
+        writeStep();
 
-        // ========================================================
-        // ELSET ÚNICO
-        // ========================================================
-
-        std::string base =
-            ld->material->elset;
-
-        counters[base]++;
-
-        std::string unique =
-            base + "_" +
-            std::to_string(
-                counters[base]);
-
-        // ========================================================
-        // GUARDAR
-        // ========================================================
-
-        ccx.push_back({
-            unique,
-            base,
-            ld->material->ccx,
-            volTag
-        });
+        m_file.close();
+        std::cout << "Exported to " << filepath << "\n";
+        return true;
     }
 
-    // ============================================================
-    // SYNCHRONIZE
-    // ============================================================
+private:
+    Handle(AIS_InteractiveContext) m_ctx;
+    std::ofstream                  m_file;
 
-    gmsh::model::occ::synchronize();
+    std::vector<std::string> m_elset_names;
+    std::string              m_material_block;
 
-    // ============================================================
-    // PHYSICAL GROUPS
-    // ============================================================
+    // Base nsets: written inline with nodes, referenced in *BOUNDARY
+    std::vector<std::string> m_base_nset_names;
 
-    for (auto &e : ccx) {
+    int m_node_offset = 1;
+    int m_elem_offset = 1;
 
-        int pg =
-            gmsh::model::addPhysicalGroup(
-                3,
-                {e.volTag});
-
-        gmsh::model::setPhysicalName(
-            3,
-            pg,
-            e.elset);
+    // -------------------------------------------------------------------------
+    // Rewrite *MATERIAL NAME= so it always matches <elset>_MAT
+    // -------------------------------------------------------------------------
+    static std::string normalizeMaterialName(const std::string& ccx,
+                                             const std::string& canonical_name)
+    {
+        std::string result = ccx;
+        auto pos = result.find("*MATERIAL");
+        if (pos == std::string::npos)
+            return "*MATERIAL, NAME=" + canonical_name + "\n" + ccx;
+        auto line_end = result.find('\n', pos);
+        result.replace(pos, line_end - pos, "*MATERIAL, NAME=" + canonical_name);
+        return result;
     }
 
-    // ============================================================
-    // MESH SETTINGS
-    // ============================================================
+    // -------------------------------------------------------------------------
+    void writeHeading() {
+        m_file << "*HEADING\n"
+               << "CalculiX Scene Exported from OCCT\n"
+               << "** Units: N / mm / tonne / s\n"
+               << "**   E in MPa,  density in t/mm3,  gravity 9810 mm/s2\n\n";
+    }
 
-    // LINEAR ELEMENTS
-    gmsh::option::setNumber(
-        "Mesh.ElementOrder",
-        1); 
+    // -------------------------------------------------------------------------
+    void collectBodies() {
+        AIS_ListOfInteractive list;
+        m_ctx->DisplayedObjects(list);
 
-    // NETGEN
-    gmsh::option::setNumber(
-        "Mesh.Algorithm3D",
-        4);
+        for (AIS_ListIteratorOfListOfInteractive it(list); it.More(); it.Next()) {
+            auto ashape = Handle(AIS_Shape)::DownCast(it.Value());
+            if (ashape.IsNull() || !ashape->HasOwner()) continue;
 
-    // OPTIMIZATION
-    gmsh::option::setNumber(
-        "Mesh.Optimize",
-        1);
+            auto w = Handle(ManagedPtrWrapper<luadraw>)::DownCast(ashape->GetOwner());
+            if (w.IsNull()) continue;
 
-    gmsh::option::setNumber(
-        "Mesh.OptimizeNetgen",
-        1);
+            luadraw* ld = w->ptr;
+            if (!ld || ld->ashape.IsNull() || !ld->material || ld->material->ccx.empty())
+                continue;
 
-    gmsh::option::setNumber(
-        "Mesh.OptimizeThreshold",
-        0.3);
+            const std::string elset    = ld->material->elset.empty()
+                                         ? "ELSET_" + ld->name
+                                         : ld->material->elset;
+            const std::string mat_name = elset + "_MAT";
 
-    // BETTER QUALITY
-    gmsh::option::setNumber(
-        "Mesh.QualityType",
-        2);
+            m_elset_names.push_back(elset);
+            m_material_block += normalizeMaterialName(ld->material->ccx, mat_name) + "\n";
 
-    // EXPORT APENAS PHYSICALS
-    gmsh::option::setNumber(
-        "Mesh.SaveAll",
-        0);
+            writeBody(ashape->Shape(), ld->name, elset);
+        }
+    }
 
-    gmsh::option::setNumber(
-        "Mesh.SaveGroupsOfNodes",
-        1);
+    // -------------------------------------------------------------------------
+    void writeBody(const TopoDS_Shape& shape,
+                   const std::string&  name,
+                   const std::string&  elset)
+    {
+        std::vector<TetNode>     nodes;
+        std::vector<TetElement>  elements;
+        std::vector<SurfaceFace> surf_faces;
+        GenerateVolumeMesh(shape, nodes, elements, surf_faces);
 
-    gmsh::option::setNumber(
-        "Mesh.SaveGroupsOfElements",
-        1);
+        m_file << "** Body: " << name << "\n";
+        writeNodes(nodes, elset);
+        writeElements(elements, elset);
+        writeSolidSection(elset);
+        writeSurface(surf_faces, elset);
 
-    // ============================================================
-    // GERAR MALHA 3D
-    // ============================================================
+        m_node_offset += (int)nodes.size();
+        m_elem_offset += (int)elements.size();
+    }
 
-    gmsh::model::mesh::generate(3);
+    // -------------------------------------------------------------------------
+    // Nodes — also emit a NSET for the base (min-Y nodes within 1mm tolerance)
+    // so we have a valid support without fixing everything.
+    // -------------------------------------------------------------------------
+    void writeNodes(const std::vector<TetNode>& nodes, const std::string& elset) {
+        m_file << "*NODE, NSET=NALL_" << elset << "\n";
+        for (size_t i = 0; i < nodes.size(); ++i)
+            m_file << (m_node_offset + i) << ", "
+                   << nodes[i].x << ", " << nodes[i].y << ", " << nodes[i].z << "\n";
 
-    // ============================================================
-    // EXPORTAR
-    // ============================================================
+        // --- find base nodes (minimum Y plane, tolerance 1 mm) ---
+        double ymin = nodes[0].y;
+        for (const auto& n : nodes) ymin = std::min(ymin, n.y);
 
-    gmsh::write("scene.inp");
+        const std::string base_nset = "NBASE_" + elset;
+        m_base_nset_names.push_back(base_nset);
 
-	// ============================================================
-    // MESH SETTINGS
-    // ============================================================
+        m_file << "*NSET, NSET=" << base_nset << "\n";
+        int col = 0;
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            if (std::abs(nodes[i].y - ymin) < 1.0) {
+                m_file << (m_node_offset + i);
+                col++;
+                // CalculiX allows up to 16 entries per line
+                if (col % 16 == 0) m_file << "\n";
+                else               m_file << ", ";
+            }
+        }
+        m_file << "\n\n";
+    }
 
-    // // ELEMENT ORDER DE SEGUNDA ORDEM (Gera o C3D10 no formato Abaqus)
-    // gmsh::option::setNumber("Mesh.ElementOrder", 2);
+    // -------------------------------------------------------------------------
+    void writeElements(const std::vector<TetElement>& elems, const std::string& elset) {
+        m_file << "*ELEMENT, TYPE=C3D10, ELSET=" << elset << "\n";
+        for (size_t i = 0; i < elems.size(); ++i) {
+            m_file << (m_elem_offset + i);
+            for (int j = 0; j < 10; ++j)
+                m_file << ", " << (elems[i].n[j] + m_node_offset);
+            m_file << "\n";
+        }
+    }
 
-    // // Garante que a distribuição dos nós de segunda ordem seja estrita e sem colapsos
-    // gmsh::option::setNumber("Mesh.SecondOrderLinear", 0); 
-    // gmsh::option::setNumber("Mesh.SecondOrderIncomplete", 0);
+    // -------------------------------------------------------------------------
+    void writeSolidSection(const std::string& elset) {
+        m_file << "*SOLID SECTION, ELSET=" << elset
+               << ", MATERIAL=" << elset << "_MAT\n\n";
+    }
 
-    // // ALGORITMO 3D: Delaunay (1) tenta manter o jacobiano positivo nativamente
-    // gmsh::option::setNumber("Mesh.Algorithm3D", 1); 
+    // -------------------------------------------------------------------------
+    void writeSurface(const std::vector<SurfaceFace>& faces, const std::string& elset) {
+        m_file << "*SURFACE, NAME=SURF_" << elset << ", TYPE=ELEMENT\n";
+        for (const auto& sf : faces)
+            m_file << (sf.elem_index + m_elem_offset) << ", S" << sf.face_id << "\n";
+        m_file << "\n";
+    }
 
-    // // OTIMIZAÇÃO AGRESSIVA PARA EVITAR JACOBIANO NEGATIVO/ZERO
-    // gmsh::option::setNumber("Mesh.Optimize", 1);
-    // gmsh::option::setNumber("Mesh.OptimizeNetgen", 1);
-    
-    // // Ativa a otimização elástica específica para nós de alta ordem (arestas curvas)
-    // gmsh::option::setNumber("Mesh.HighOrderOptimize", 2); 
-    // gmsh::option::setNumber("Mesh.OptimizeThreshold", 0.5); 
+    // -------------------------------------------------------------------------
+    void writeMaterials() {
+        m_file << "** --- MATERIALS ---\n" << m_material_block << "\n";
+    }
 
-    // // QUALITY TYPE
-    // gmsh::option::setNumber("Mesh.QualityType", 2);
+    // -------------------------------------------------------------------------
+    void writeContactDefinitions() {
+        // Only emit contact if there are at least 2 bodies
+        if (m_elset_names.size() < 2) return;
 
-    // // EXPORT APENAS PHYSICALS
-    // gmsh::option::setNumber("Mesh.SaveAll", 0);
-    // gmsh::option::setNumber("Mesh.SaveGroupsOfNodes", 1);
-    // gmsh::option::setNumber("Mesh.SaveGroupsOfElements", 1);
+        m_file << "** --- CONTACT DEFINITIONS ---\n"
+               << "*SURFACE INTERACTION, NAME=GENERAL_CONTACT\n"
+               << "*SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=LINEAR\n"
+               << "1e5, 0.0\n"               // K (N/mm³), clearance at zero pressure
+               << "*FRICTION, SLIP-TOLERANCE=0.005\n"
+               << "0.2, 5e4\n\n";            // mu, stick_slope
 
-    // // ============================================================
-    // // GERAR MALHA 3D
-    // // ============================================================
+        for (size_t i = 0; i < m_elset_names.size(); ++i)
+            for (size_t j = i + 1; j < m_elset_names.size(); ++j)
+                m_file << "*CONTACT PAIR, INTERACTION=GENERAL_CONTACT\n"
+                       << "SURF_" << m_elset_names[i] << ", "
+                       << "SURF_" << m_elset_names[j] << "\n";
+        m_file << "\n";
+    }
 
-	// // ============================================================
-	// // GERAR MALHA 3D
-	// // ============================================================
-	// gmsh::model::mesh::generate(3);
-	
-	// // 1. Corrigido: O nome correto do método nativo do Gmsh é "ReorientMesh"
-	// // gmsh::model::mesh::optimize("ReorientMesh");
-	
-	// // 2. Otimizações de alta ordem (essas já rodaram perfeitamente no seu log)
-	// gmsh::model::mesh::optimize("HighOrderElastic");
-	// gmsh::model::mesh::optimize("HighOrder");
-	
-	// // ============================================================
-	// // EXPORTAR
-	// // ============================================================
-	// gmsh::write("scene.inp");
+    // -------------------------------------------------------------------------
+    // Fix the base of each body (min-Y nodes), all DOFs.
+    // For a single free-standing structure this is the only BC needed.
+    // -------------------------------------------------------------------------
+    void writeBoundaryConditions() {
+        m_file << "** --- BOUNDARY CONDITIONS ---\n"
+               << "** Base nodes (min-Y plane) fully fixed — UX=UY=UZ=0\n";
+        for (const auto& nset : m_base_nset_names)
+            m_file << "*BOUNDARY\n"
+                   << nset << ", 1, 3, 0.0\n";
+        m_file << "\n";
+    }
 
-    // ============================================================
-    // PÓS PROCESSAMENTO
-    // ============================================================
+    // -------------------------------------------------------------------------
+    // Linear static step — stable starting point.
+    // Switch to NLGEOM=YES only after the linear run looks correct.
+    // -------------------------------------------------------------------------
+    void writeStep() {
+        m_file << "** --- STEP ---\n"
+               << "** Linear static (no NLGEOM). Switch to NLGEOM=YES once results look sane.\n"
+               << "*STEP\n"
+               << "*STATIC\n\n";
 
-    write_inp("scene.inp");
+        // Gravity: Y-up geometry → -Y direction, 9810 mm/s²
+        m_file << "** Gravity (-Y), 9810 mm/s2 (N/mm/t/s system)\n";
+        for (const auto& elset : m_elset_names)
+            m_file << "*DLOAD\n"
+                   << elset << ", GRAV, 9810.0, 0.0, -1.0, 0.0\n";
 
-    gmsh::finalize();
+        m_file << "\n*NODE FILE\nU\n"
+               << "*EL FILE\nS, E\n"
+               << "*END STEP\n";
+    }
+};
 
-    std::cout
-        << "Generated scene.inp successfully\n";
-
-		std::string cmd = "ccx ./scene";
-		int result = std::system(cmd.c_str());
-
-    // correr ccx externamente antes disto
-    display_frd_in_occ(
-        "scene.frd",
-        ctx);
+// =============================================================================
+// Entry point
+// =============================================================================
+inline void build_inp(
+                      const std::string& filepath = "scene.inp")
+{
+    CcxInpWriter writer(ctx);
+    if (writer.write(filepath)) {
+        // strip extension for ccx invocation ("scene.inp" → "scene")
+        std::string base = filepath;
+        auto dot = base.rfind('.');
+        if (dot != std::string::npos) base = base.substr(0, dot);
+        std::system(("libs/ccx ./" + base).c_str());
+        display_frd_in_occdbg(base + ".frd");
+    }
 }
 // struct CcxEntry {
 //     std::string elset;         // Nome do ELSET (extraído do CCX)
@@ -16419,6 +16764,15 @@ void fill_menu() {
 		// display_frd_in_occ(
 		// 	"scene.frd",
 		// 	ctx);
+      },
+      0, 0);
+
+  menu->add(
+      "Tools/FEM inp", FL_ALT + 'n',
+      [](Fl_Widget *mnu, void *ud) {
+        // build_inp();
+		std::system("libs/ccx ./scene");
+		display_frd_in_occdbg("scene.frd");
       },
       0, 0);
 
