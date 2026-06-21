@@ -111,6 +111,7 @@
 # !crbot/package.json
 crbot/crbot
 crbot/*6h_1000.json
+!crbot/cwin
 
 !docs
 !docs/**/**
@@ -118,6 +119,7 @@ crbot/*6h_1000.json
 !.github/workflows
 !.github/workflows/daily*.*
 !.github/workflows/botrecent.yaml
+!.github/workflows/cwin.yaml
 # !.github/workflows/crobot.js
 # !.github/workflows/crobot.js
 # !.github/**/**

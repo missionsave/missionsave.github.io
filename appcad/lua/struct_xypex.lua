@@ -15,8 +15,24 @@ container_midle=container_width/2
 crn_width=162
 crn_height=118
 crn_long=178
+
+
+winstdx=1150
+winstdy=850
+winstdx=1700
+winstdy=1100
+winstdx=1700
+winstdy=2300
+winstdx=2100
+winstdy=2200
+
+wall_width=55
+slab=35 
+baseboard=22
+
+tunel_height=tunel_height
   
-tunel_height=(container_height-120*2)/4 
+tunel_height=(container_height-190-slab)/4 -slab-0
  
 compartments=2
 floors=4
@@ -42,28 +58,29 @@ CreateMat("steel", "blue", [[
 CreateMat("scc","red", [[
 *MATERIAL, NAME=SCC_FIBRAS_COMPLETO
 *ELASTIC
-1.0E9, 0.3
+32000., 0.3
 *DENSITY
-2.1
+2.45e-9
 *SPECIFIC HEAT
 40.0
 
 ]])
 
-CreateMat("scc1","red", [[
-*MATERIAL, NAME=SCC_FIBRAS_COMPLETO
+CreateMat("biochar","blue", [[
+*MATERIAL, NAME=BIOCHAR_HUMIDO
 *ELASTIC
-32000., 0.2
+30., 0.25
 *DENSITY
-2.45e-9
-
+0.65e-9
 *EXPANSION
-1.1e-5
+2.5e-5
 *CONDUCTIVITY
-1.8
-*SPECIFIC_HEAT
-1.0e9
+0.35
+*SPECIFIC HEAT
+2.2e9
 ]])
+
+
 
 
 CreateMat("scct","red", [[
@@ -155,20 +172,6 @@ S, E
 
 end
 function struct_xypex()
-winstdx=1150
-winstdy=850
-winstdx=1700
-winstdy=1100
-winstdx=1700
-winstdy=2300
-winstdx=2100
-winstdy=2200
-
-wall_width=35
-slab=10
-lat_thick=50
-
-tunel_height=tunel_height-20
 Part "sketch_ext"
 Rec(container_width,container_height)
 
@@ -182,11 +185,11 @@ Rec(container_width/2-wall_width-0,tunel_height)
 --Subtract()
 
 --cunha rail
---Pl "0,0 30,-40 @20,0 @-20,40 0,0"
---Mirrorlx(90,1)
---Join(1)
---Movel(600,tunel_height)
---Subtract()
+Pl "0,0 30,-40 @20,0 @-20,40 0,0"
+Mirrorlx(90,1)
+Join(1)
+Movel(600,tunel_height)
+Subtract()
 
 --autorama
 --Mloc()
@@ -196,7 +199,7 @@ Rec(container_width/2-wall_width-0,tunel_height)
 
 --rodapé
 Mloc()
-Rec(8,200)
+Rec(baseboard,200)
 Subtract()
 
 Movel(wall_width,30+160)
@@ -206,9 +209,9 @@ Fuse() --
 Arrayl(3,0,tunel_height+slab)
 
 Part "sketch_dep"
-Rec(container_width/2-50-50/2,130)
+Rec(container_width-wall_width*2,130)
 Movel(wall_width,30)
-Mirrorlx(container_width/2-50,1)
+--Mirrorlx(container_width/2-50,1)
 
 
 
@@ -257,8 +260,22 @@ Movel(wall_width)
 --Part "copilot"
 --Pl("0,0 -10,-40 -30,-40 -20,0 0,0 150,0 160,-40 180,-40 170,0 150,0 ")
 
+--Part "
 
-Part "extrusion,scc1"
+Part "bioc,biochar"
+Rec(container_width-wall_width*2-baseboard*2,180)
+Extrude(-container_long)
+Movel(wall_width+baseboard,781.25)
+--Arrayl(2,0,tunel_height+slab)
+
+Part "bioc1,biochar"
+Clone(bioc)
+Movel(0,tunel_height+slab)
+Part "bioc11,biochar"
+Clone(bioc1)
+Movel(0,tunel_height+slab)
+
+Part "extrusion,scc"
 Clone(sketch_ext)
 Clone(sketch_ext1)
 --Common()
@@ -270,13 +287,13 @@ Extrude(-container_long)
 Rec(container_width-50*2,container_long-50*2)
 Rotatelx(-90)
 Movel(50,container_height,-50)
-Extrude(-35)
+Extrude(-10)
 Subtract()
 
 Clone(help_window)
 Rotately(90)
-Movel(0,300,-200)
-Arrayl(4,0,0,-winstdx-100)
+Movel(0,300,-300)
+Arrayl(4,0,0,-winstdx-280)
 --Clone(help_window)--
 --Rotately(90)
 --Movel(0,300,-container_long+1091.9)
@@ -287,30 +304,62 @@ Join(1)
 
 Subtract()
 
+
+
 Part "testc,scc"
 Rec(2000,100)
-Movel(43,767.75,0)
+Movel(43,800.25,0)
 Extrude(-1000)
 
 
-Part "test,scc1"
+Part "test,scc"
 Rec(300)
 Rotatelx(-90)
-Extrude(1000*2)
+Extrude(2000*2)
+Mirrorlz(-15000/2,1)
+--Join()
 Mloc(0,1000*2,0)
+Rec(400)
+Extrude(-15000)
+Mloc(0,2000*2,0)
 Rec(400)
 Extrude(-15000)
 Fuse()
 
-Part "test1,scc"
+Part "test1,biochar"
 --Mloc(0,2410,-300)
 Rec(300)
-Extrude(-10000)
+Extrude(-1000)
 Movel(0,2400,-3000)
+--Arrayl(4,0,0,-1500)
+Dup()
+Movel(0,0,-3000)
+--Dup()
+--Movel(0,2000,-3000)
+
+Part "test11,biochar"
+Rec(300)
+Extrude(-1000)
+Movel(0,2400,-3000)
+--Dup()
+--Movel(0,0,-3000)
+--Dup()
+--Movel(0,2000,-3000)
+
+Part "test11,biochar"
+Rec(300)
+Extrude(-1000)
+Movel(0,2400,-6000)
+
+Part "test111,biochar"
+Rec(300)
+Extrude(-1000)
+Movel(0,4400,-9000)
+
 
 width=20000
 height=6000
-Part "testb,scc1"
+Part "testb,biochar"
 Rec(width,10)
 Extrude(-width)
 Movel(0,height)
@@ -320,12 +369,20 @@ Extrude(-width)
 Mirrorlx(width/2,1)
 --Fuse()
 
---Part "tedtd,scc1"
-Mloc(width/2,height)
-Rec(2000-80*2,20000)
-Extrude(-20000)
---Movel(width/2,height)
+----Part "tedtd,scc1"
+--Mloc(width/2,height)
+--Rec(2000-80*2,20000)
+--Extrude(-20000)
+----Movel(width/2,height)
 Fuse()
+
+Part "t1,biochar"
+Rec(1000)
+Rotatelx(90)
+Extrude(1000)
+
+
+
 
 end
 globals()

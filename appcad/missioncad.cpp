@@ -2909,21 +2909,117 @@ void build_inpprev() {
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
 // --- Mesh Data Structures ---
+#pragma once
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <set>
+#include <string>
+#include <vector>
+
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <map>
+#include <tuple>
+#include <algorithm>
+#include <cmath>
+#include <cctype>
+
+// Gmsh API
+#include <gmsh.h>
+
+// OpenCascade Core & Geometry
+#include <TopoDS_Shape.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRep_Tool.hxx>
+#include <Geom_Surface.hxx>
+#include <Geom_Plane.hxx>
+#include <gp_Pln.hxx>
+
+// OpenCascade Bounding Boxes
+#include <Bnd_Box.hxx>
+#include <BRepBndLib.hxx>
+
+// OpenCascade Visualization
+#include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
+#include <AIS_ListOfInteractive.hxx>
+
+// =============================================================================
+// Mesh & Face Structures
+// =============================================================================
+// region fem input
 
 struct TetNode     { double x, y, z; };
 struct TetElement  { int n[10]; };
 struct SurfaceFace { int elem_index; int face_id; };
 
 // =============================================================================
-// GenerateVolumeMesh  —  Gmsh/OCCT → C3D10 mesh
+// Helper Functions: Coplanar & Intersection Detection
 // =============================================================================
-void GenerateVolumeMesh(const TopoDS_Shape&       shape,
-                        std::vector<TetNode>&     out_nodes,
-                        std::vector<TetElement>&  out_elems,
+inline bool AreFacesCoplanarAndTouching(const TopoDS_Face& f1, const TopoDS_Face& f2, 
+                                        double dist_tol = 1.0, double ang_tol = 1e-3) 
+{
+    TopLoc_Location loc1, loc2;
+    Handle(Geom_Surface) s1 = BRep_Tool::Surface(f1, loc1);
+    Handle(Geom_Surface) s2 = BRep_Tool::Surface(f2, loc2);
+    
+    Handle(Geom_Plane) p1 = Handle(Geom_Plane)::DownCast(s1);
+    Handle(Geom_Plane) p2 = Handle(Geom_Plane)::DownCast(s2);
+    
+    // Non-planar surfaces are skipped for linear tie generation
+    if (p1.IsNull() || p2.IsNull()) return false; 
+    
+    // Transform local plane evaluations to global 3D space coordinates
+    gp_Pln pln1 = p1->Pln().Transformed(loc1.Transformation());
+    gp_Pln pln2 = p2->Pln().Transformed(loc2.Transformation());
+    
+    // 1. Verify surface normals are parallel
+    if (!pln1.Axis().Direction().IsParallel(pln2.Axis().Direction(), ang_tol)) 
+        return false;
+        
+    // 2. Verify planes share the exact same structural depth coordinate
+    if (pln2.Distance(pln1.Location()) > dist_tol) 
+        return false;
+        
+    // 3. Verify real boundary overlaps exist (prevents matches on detached infinite horizons)
+    Bnd_Box b1, b2;
+    BRepBndLib::Add(f1, b1);
+    BRepBndLib::Add(f2, b2);
+    b1.Enlarge(dist_tol); 
+    
+    return !b1.IsOut(b2);
+}
+
+inline bool ShapesShareCoplanarInterface(const TopoDS_Shape& s1, const TopoDS_Shape& s2) {
+    for (TopExp_Explorer exp1(s1, TopAbs_FACE); exp1.More(); exp1.Next()) {
+        TopoDS_Face f1 = TopoDS::Face(exp1.Current());
+        for (TopExp_Explorer exp2(s2, TopAbs_FACE); exp2.More(); exp2.Next()) {
+            TopoDS_Face f2 = TopoDS::Face(exp2.Current());
+            if (AreFacesCoplanarAndTouching(f1, f2)) {
+                return true; 
+            }
+        }
+    }
+    return false;
+}
+
+// =============================================================================
+// GenerateVolumeMesh
+// =============================================================================
+void GenerateVolumeMesh1(const TopoDS_Shape& shape,
+                        std::vector<TetNode>& out_nodes,
+                        std::vector<TetElement>& out_elems,
                         std::vector<SurfaceFace>& out_surf_faces)
 {
     static bool gmsh_initialized = false;
@@ -2931,6 +3027,175 @@ void GenerateVolumeMesh(const TopoDS_Shape&       shape,
         gmsh::initialize();
         gmsh_initialized = true;
     }
+
+    gmsh::clear();
+
+    std::vector<std::pair<int,int>> imported;
+
+    try {
+        gmsh::model::occ::importShapesNativePointer(
+            (const void*)&shape,
+            imported,
+            true);
+
+        gmsh::model::occ::synchronize();
+
+        // --------------------------------------------------
+        // FORCE SHARED TOPOLOGY BETWEEN TOUCHING SOLIDS
+        // --------------------------------------------------
+
+        std::vector<std::pair<int,int>> vols;
+
+        for(const auto& dt : imported)
+        {
+            if(dt.first == 3)
+                vols.push_back(dt);
+        }
+
+        if(vols.size() > 1)
+        {
+            std::vector<std::pair<int,int>> outDimTags;
+            std::vector<std::vector<std::pair<int,int>>> outMap;
+
+            gmsh::model::occ::fragment(
+                vols,
+                {},
+                outDimTags,
+                outMap);
+
+            gmsh::model::occ::synchronize();
+        }
+
+        // --------------------------------------------------
+
+        gmsh::option::setNumber("Mesh.ElementOrder",2);
+
+        gmsh::option::setNumber("Mesh.Optimize",1);
+        gmsh::option::setNumber("Mesh.OptimizeNetgen",1);
+        gmsh::option::setNumber("Mesh.HighOrderOptimize",1);
+
+        gmsh::model::mesh::generate(3);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << "Gmsh error: " << e.what() << std::endl;
+        return;
+    }
+
+    std::vector<std::size_t> nodeTags;
+    std::vector<double> coords;
+    std::vector<double> params;
+
+    gmsh::model::mesh::getNodes(
+        nodeTags,
+        coords,
+        params);
+
+    std::map<std::size_t,int> nodeMap;
+
+    out_nodes.reserve(nodeTags.size());
+
+    for(size_t i=0;i<nodeTags.size();i++)
+    {
+        TetNode n;
+
+        n.x = coords[i*3+0];
+        n.y = coords[i*3+1];
+        n.z = coords[i*3+2];
+
+        nodeMap[nodeTags[i]] = (int)out_nodes.size();
+
+        out_nodes.push_back(n);
+    }
+
+    std::vector<int> elemTypes;
+    std::vector<std::vector<std::size_t>> elemTags;
+    std::vector<std::vector<std::size_t>> elemNodes;
+
+    gmsh::model::mesh::getElements(
+        elemTypes,
+        elemTags,
+        elemNodes,
+        3);
+
+    for(size_t t=0;t<elemTypes.size();t++)
+    {
+        if(elemTypes[t] != 11)
+            continue;
+
+        const auto& nodes = elemNodes[t];
+
+        size_t nelems = nodes.size()/10;
+
+        for(size_t e=0;e<nelems;e++)
+        {
+            TetElement tet;
+
+            for(int k=0;k<8;k++)
+                tet.n[k] = nodeMap[nodes[e*10+k]];
+
+            tet.n[8] = nodeMap[nodes[e*10+9]];
+            tet.n[9] = nodeMap[nodes[e*10+8]];
+
+            out_elems.push_back(tet);
+        }
+    }
+
+    std::map<
+        std::tuple<int,int,int>,
+        std::vector<std::pair<int,int>>
+    > faceMap;
+
+    for(size_t i=0;i<out_elems.size();i++)
+    {
+        const auto& e = out_elems[i];
+
+        const int faces[4][3] =
+        {
+            {e.n[0],e.n[1],e.n[2]},
+            {e.n[0],e.n[3],e.n[1]},
+            {e.n[1],e.n[3],e.n[2]},
+            {e.n[2],e.n[3],e.n[0]}
+        };
+
+        for(int f=0;f<4;f++)
+        {
+            int a[3] =
+            {
+                faces[f][0],
+                faces[f][1],
+                faces[f][2]
+            };
+
+            std::sort(a,a+3);
+
+            faceMap[
+                {a[0],a[1],a[2]}
+            ].push_back(
+                {(int)i,f+1}
+            );
+        }
+    }
+
+    for(const auto& it : faceMap)
+    {
+        if(it.second.size()==1)
+        {
+            out_surf_faces.push_back(
+            {
+                it.second[0].first,
+                it.second[0].second
+            });
+        }
+    }
+}
+void GenerateVolumeMesh(const TopoDS_Shape&       shape,
+                        std::vector<TetNode>&     out_nodes,
+                        std::vector<TetElement>&  out_elems,
+                        std::vector<SurfaceFace>& out_surf_faces)
+{
+    static bool gmsh_initialized = false;
+    if (!gmsh_initialized) { gmsh::initialize(); gmsh_initialized = true; }
     gmsh::clear();
 
     std::vector<std::pair<int,int>> dimTags;
@@ -2938,20 +3203,31 @@ void GenerateVolumeMesh(const TopoDS_Shape&       shape,
         gmsh::model::occ::importShapesNativePointer((const void*)&shape, dimTags, true);
         gmsh::model::occ::synchronize();
     } catch (const std::exception& e) {
-        std::cerr << "Gmsh import failed: " << e.what() << "\n";
-        return;
+        std::cerr << "Gmsh import failed: " << e.what() << "\n"; return;
     }
-
+	gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::option::setNumber("Mesh.ElementOrder",      2);
     gmsh::option::setNumber("Mesh.Optimize",          1);
     gmsh::option::setNumber("Mesh.OptimizeNetgen",    1);
     gmsh::option::setNumber("Mesh.HighOrderOptimize", 1);
-    // gmsh::option::setNumber("Mesh.SecondOrderLinear", 1);
-    // gmsh::option::setNumber("Mesh.CharacteristicLengthMax", 10.0);
+
+	int num_threads = 4; 
+    gmsh::option::setNumber("General.NumThreads", num_threads);
+
+    // Or fine-tune per-dimension if needed:
+    // gmsh::option::setNumber("Mesh.MaxNumThreads1D", num_threads);
+    // gmsh::option::setNumber("Mesh.MaxNumThreads2D", num_threads);
+    // gmsh::option::setNumber("Mesh.MaxNumThreads3D", num_threads);
+
+    // CRITICAL: Choose a 2D/3D algorithm that supports parallel execution
+    // 2D Algorithm 8: Frontal-Delaunay for quads (Parallelized)
+    // gmsh::option::setNumber("Mesh.Algorithm", 8); 
+    
+    // // 3D Algorithm 10: HXT (Highly parallelized Delaunay code)
+    // gmsh::option::setNumber("Mesh.Algorithm3D", 10);
 
     gmsh::model::mesh::generate(3);
 
-    // --- nodes ---
     std::vector<std::size_t> nodeTags;
     std::vector<double>      coord, parametricCoord;
     gmsh::model::mesh::getNodes(nodeTags, coord, parametricCoord);
@@ -2963,7 +3239,6 @@ void GenerateVolumeMesh(const TopoDS_Shape&       shape,
         gmsh_to_local[nodeTags[i]] = (int)i;
     }
 
-    // --- C3D10 elements (Gmsh type 11) ---
     std::vector<int>                      elemTypes;
     std::vector<std::vector<std::size_t>> elemTags, elemNodes;
     gmsh::model::mesh::getElements(elemTypes, elemTags, elemNodes, 3);
@@ -2977,22 +3252,18 @@ void GenerateVolumeMesh(const TopoDS_Shape&       shape,
             TetElement elem;
             for (int k = 0; k < 8; ++k)
                 elem.n[k] = gmsh_to_local.at(nlist[e*10 + k]);
-            // Swap nodes 8/9: CalculiX vs Gmsh ordering
             elem.n[8] = gmsh_to_local.at(nlist[e*10 + 9]);
             elem.n[9] = gmsh_to_local.at(nlist[e*10 + 8]);
             out_elems.push_back(elem);
         }
     }
 
-    // --- boundary faces (face-counting) ---
     std::map<std::tuple<int,int,int>, std::vector<std::pair<int,int>>> face_map;
     for (size_t i = 0; i < out_elems.size(); ++i) {
         const auto& e = out_elems[i];
         const int faces[4][3] = {
-            {e.n[0], e.n[1], e.n[2]},
-            {e.n[0], e.n[3], e.n[1]},
-            {e.n[1], e.n[3], e.n[2]},
-            {e.n[2], e.n[3], e.n[0]}
+            {e.n[0], e.n[1], e.n[2]}, {e.n[0], e.n[3], e.n[1]},
+            {e.n[1], e.n[3], e.n[2]}, {e.n[2], e.n[3], e.n[0]}
         };
         for (int f = 0; f < 4; ++f) {
             int arr[3] = { faces[f][0], faces[f][1], faces[f][2] };
@@ -3006,10 +3277,8 @@ void GenerateVolumeMesh(const TopoDS_Shape&       shape,
 }
 
 // =============================================================================
-// CcxInpWriter  —  builds a CalculiX .inp from the active AIS context
-//
-// Unit system: N / mm / tonne / s
-//   E in MPa (N/mm²),  density in t/mm³,  gravity 9810 mm/s²
+// CcxInpWriter Class
+// Units: N / mm / tonne / s  →  E in MPa, density in t/mm³, g = 9810 mm/s²
 // =============================================================================
 class CcxInpWriter {
 public:
@@ -3017,15 +3286,12 @@ public:
 
     bool write(const std::string& filepath = "scene.inp") {
         m_file.open(filepath);
-        if (!m_file) {
-            std::cerr << "Error: could not open " << filepath << "\n";
-            return false;
-        }
+        if (!m_file) { std::cerr << "Error: could not open " << filepath << "\n"; return false; }
 
         writeHeading();
         collectBodies();
         writeMaterials();
-        writeContactDefinitions();
+        writeTieConstraints();
         writeBoundaryConditions();
         writeStep();
 
@@ -3038,21 +3304,23 @@ private:
     Handle(AIS_InteractiveContext) m_ctx;
     std::ofstream                  m_file;
 
-    std::vector<std::string> m_elset_names;
-    std::string              m_material_block;
+    struct BodyRecord {
+        std::string  elset;
+        std::string  mat_name;
+        std::string  base_nset;
+        std::string  surf_name;
+        double       min_y = 0.0;
+        TopoDS_Shape shape; 
+    };
 
-    // Base nsets: written inline with nodes, referenced in *BOUNDARY
-    std::vector<std::string> m_base_nset_names;
+    std::vector<BodyRecord>            m_bodies;
+    std::map<std::string, std::string> m_materials; 
 
     int m_node_offset = 1;
     int m_elem_offset = 1;
+    int m_body_index  = 0;
 
-    // -------------------------------------------------------------------------
-    // Rewrite *MATERIAL NAME= so it always matches <elset>_MAT
-    // -------------------------------------------------------------------------
-    static std::string normalizeMaterialName(const std::string& ccx,
-                                             const std::string& canonical_name)
-    {
+    static std::string normalizeMaterialName(const std::string& ccx, const std::string& canonical_name) {
         std::string result = ccx;
         auto pos = result.find("*MATERIAL");
         if (pos == std::string::npos)
@@ -3062,15 +3330,13 @@ private:
         return result;
     }
 
-    // -------------------------------------------------------------------------
     void writeHeading() {
         m_file << "*HEADING\n"
                << "CalculiX Scene Exported from OCCT\n"
                << "** Units: N / mm / tonne / s\n"
-               << "**   E in MPa,  density in t/mm3,  gravity 9810 mm/s2\n\n";
+               << "** E in MPa,  density in t/mm3,  gravity 9810 mm/s2\n\n";
     }
 
-    // -------------------------------------------------------------------------
     void collectBodies() {
         AIS_ListOfInteractive list;
         m_ctx->DisplayedObjects(list);
@@ -3086,72 +3352,84 @@ private:
             if (!ld || ld->ashape.IsNull() || !ld->material || ld->material->ccx.empty())
                 continue;
 
-            const std::string elset    = ld->material->elset.empty()
-                                         ? "ELSET_" + ld->name
-                                         : ld->material->elset;
-            const std::string mat_name = elset + "_MAT";
+            // Clean whitespaces and carriage returns from material labels
+            std::string raw_elset = ld->material->elset.empty() ? "ELSET_" + ld->name : ld->material->elset;
+            raw_elset.erase(std::remove_if(raw_elset.begin(), raw_elset.end(), [](unsigned char c) {
+                return std::isspace(c);
+            }), raw_elset.end());
 
-            m_elset_names.push_back(elset);
-            m_material_block += normalizeMaterialName(ld->material->ccx, mat_name) + "\n";
+            // Pre-generate mesh configuration to filter hollow/invalid items early
+            std::vector<TetNode>     nodes;
+            std::vector<TetElement>  elements;
+            std::vector<SurfaceFace> surf_faces;
+            GenerateVolumeMesh(ashape->Shape(), nodes, elements, surf_faces);
 
-            writeBody(ashape->Shape(), ld->name, elset);
+            if (elements.empty()) {
+                std::cerr << "Warning: Solid wrapper " << ld->name << " yielded 0 elements. Skipping.\n";
+                continue; 
+            }
+
+            ++m_body_index;
+            const std::string elset    = raw_elset + "_B" + std::to_string(m_body_index);
+            const std::string mat_name = raw_elset + "_MAT";
+
+            if (m_materials.find(mat_name) == m_materials.end())
+                m_materials[mat_name] = normalizeMaterialName(ld->material->ccx, mat_name);
+
+            BodyRecord rec;
+            rec.elset     = elset;
+            rec.mat_name  = mat_name;
+            rec.base_nset = "NBASE_" + elset;
+            rec.surf_name = "SURF_"  + elset;
+            rec.shape     = ashape->Shape(); 
+            
+            m_bodies.push_back(rec);
+            writeBody(ld->name, m_bodies.back(), nodes, elements, surf_faces);
         }
     }
 
-    // -------------------------------------------------------------------------
-    void writeBody(const TopoDS_Shape& shape,
-                   const std::string&  name,
-                   const std::string&  elset)
+    void writeBody(const std::string&              name,
+                   BodyRecord&                     rec,
+                   const std::vector<TetNode>&     nodes,
+                   const std::vector<TetElement>&  elements,
+                   const std::vector<SurfaceFace>& surf_faces)
     {
-        std::vector<TetNode>     nodes;
-        std::vector<TetElement>  elements;
-        std::vector<SurfaceFace> surf_faces;
-        GenerateVolumeMesh(shape, nodes, elements, surf_faces);
-
-        m_file << "** Body: " << name << "\n";
-        writeNodes(nodes, elset);
-        writeElements(elements, elset);
-        writeSolidSection(elset);
-        writeSurface(surf_faces, elset);
+        m_file << "** Body: " << name << "  (elset=" << rec.elset << ")\n";
+        writeNodes(nodes, rec);
+        writeElements(elements, rec);
+        writeSolidSection(rec);
+        writeSurface(surf_faces, rec);
 
         m_node_offset += (int)nodes.size();
         m_elem_offset += (int)elements.size();
     }
 
-    // -------------------------------------------------------------------------
-    // Nodes — also emit a NSET for the base (min-Y nodes within 1mm tolerance)
-    // so we have a valid support without fixing everything.
-    // -------------------------------------------------------------------------
-    void writeNodes(const std::vector<TetNode>& nodes, const std::string& elset) {
-        m_file << "*NODE, NSET=NALL_" << elset << "\n";
+    void writeNodes(const std::vector<TetNode>& nodes, BodyRecord& rec) {
+        m_file << "*NODE, NSET=NALL_" << rec.elset << "\n";
         for (size_t i = 0; i < nodes.size(); ++i)
             m_file << (m_node_offset + i) << ", "
                    << nodes[i].x << ", " << nodes[i].y << ", " << nodes[i].z << "\n";
 
-        // --- find base nodes (minimum Y plane, tolerance 1 mm) ---
         double ymin = nodes[0].y;
         for (const auto& n : nodes) ymin = std::min(ymin, n.y);
+        
+        rec.min_y = ymin; 
 
-        const std::string base_nset = "NBASE_" + elset;
-        m_base_nset_names.push_back(base_nset);
-
-        m_file << "*NSET, NSET=" << base_nset << "\n";
+        m_file << "*NSET, NSET=" << rec.base_nset << "\n";
         int col = 0;
         for (size_t i = 0; i < nodes.size(); ++i) {
             if (std::abs(nodes[i].y - ymin) < 1.0) {
                 m_file << (m_node_offset + i);
-                col++;
-                // CalculiX allows up to 16 entries per line
-                if (col % 16 == 0) m_file << "\n";
-                else               m_file << ", ";
+                if (++col % 16 == 0) m_file << "\n";
+                else                 m_file << ", ";
             }
         }
         m_file << "\n\n";
     }
 
-    // -------------------------------------------------------------------------
-    void writeElements(const std::vector<TetElement>& elems, const std::string& elset) {
-        m_file << "*ELEMENT, TYPE=C3D10, ELSET=" << elset << "\n";
+    void writeElements(const std::vector<TetElement>& elems, const BodyRecord& rec) {
+        // m_file << "*ELEMENT, TYPE=C3D4, ELSET=" << rec.elset << "\n";
+        m_file << "*ELEMENT, TYPE=C3D10, ELSET=" << rec.elset << "\n";
         for (size_t i = 0; i < elems.size(); ++i) {
             m_file << (m_elem_offset + i);
             for (int j = 0; j < 10; ++j)
@@ -3160,73 +3438,79 @@ private:
         }
     }
 
-    // -------------------------------------------------------------------------
-    void writeSolidSection(const std::string& elset) {
-        m_file << "*SOLID SECTION, ELSET=" << elset
-               << ", MATERIAL=" << elset << "_MAT\n\n";
+    void writeSolidSection(const BodyRecord& rec) {
+        m_file << "*SOLID SECTION, ELSET=" << rec.elset
+               << ", MATERIAL=" << rec.mat_name << "\n\n";
     }
 
-    // -------------------------------------------------------------------------
-    void writeSurface(const std::vector<SurfaceFace>& faces, const std::string& elset) {
-        m_file << "*SURFACE, NAME=SURF_" << elset << ", TYPE=ELEMENT\n";
+    void writeSurface(const std::vector<SurfaceFace>& faces, const BodyRecord& rec) {
+        m_file << "*SURFACE, NAME=" << rec.surf_name << ", TYPE=ELEMENT\n";
         for (const auto& sf : faces)
             m_file << (sf.elem_index + m_elem_offset) << ", S" << sf.face_id << "\n";
         m_file << "\n";
     }
 
-    // -------------------------------------------------------------------------
     void writeMaterials() {
-        m_file << "** --- MATERIALS ---\n" << m_material_block << "\n";
-    }
-
-    // -------------------------------------------------------------------------
-    void writeContactDefinitions() {
-        // Only emit contact if there are at least 2 bodies
-        if (m_elset_names.size() < 2) return;
-
-        m_file << "** --- CONTACT DEFINITIONS ---\n"
-               << "*SURFACE INTERACTION, NAME=GENERAL_CONTACT\n"
-               << "*SURFACE BEHAVIOR, PRESSURE-OVERCLOSURE=LINEAR\n"
-               << "1e5, 0.0\n"               // K (N/mm³), clearance at zero pressure
-               << "*FRICTION, SLIP-TOLERANCE=0.005\n"
-               << "0.2, 5e4\n\n";            // mu, stick_slope
-
-        for (size_t i = 0; i < m_elset_names.size(); ++i)
-            for (size_t j = i + 1; j < m_elset_names.size(); ++j)
-                m_file << "*CONTACT PAIR, INTERACTION=GENERAL_CONTACT\n"
-                       << "SURF_" << m_elset_names[i] << ", "
-                       << "SURF_" << m_elset_names[j] << "\n";
+        m_file << "** --- MATERIALS ---\n";
+        for (const auto& [name, block] : m_materials)
+            m_file << block << "\n";
         m_file << "\n";
     }
 
-    // -------------------------------------------------------------------------
-    // Fix the base of each body (min-Y nodes), all DOFs.
-    // For a single free-standing structure this is the only BC needed.
-    // -------------------------------------------------------------------------
+	void writeTieConstraints() {
+        if (m_bodies.size() < 2) return;
+
+        m_file << "** --- TIE CONSTRAINTS (bonded interfaces) ---\n"
+               << "** Only generated for solids sharing validated coplanar face contacts.\n\n";
+
+        for (size_t i = 0; i < m_bodies.size(); ++i) {
+            for (size_t j = i + 1; j < m_bodies.size(); ++j) {
+                
+                if (!ShapesShareCoplanarInterface(m_bodies[i].shape, m_bodies[j].shape)) {
+                    continue; 
+                }
+
+                // Dropped tolerance to 0.5 to prevent edge nodes from warping/collapsing
+                m_file << "*TIE, NAME=TIE_" << (i+1) << "_" << (j+1)
+                       << ", POSITION TOLERANCE=0.5\n"
+                       << m_bodies[i].surf_name << ", "
+                       << m_bodies[j].surf_name << "\n";
+            }
+        }
+        m_file << "\n";
+    }
+
     void writeBoundaryConditions() {
+        if (m_bodies.empty()) return;
+
+        double global_min_y = m_bodies[0].min_y;
+        for (const auto& rec : m_bodies) {
+            global_min_y = std::min(global_min_y, rec.min_y);
+        }
+
         m_file << "** --- BOUNDARY CONDITIONS ---\n"
-               << "** Base nodes (min-Y plane) fully fixed — UX=UY=UZ=0\n";
-        for (const auto& nset : m_base_nset_names)
-            m_file << "*BOUNDARY\n"
-                   << nset << ", 1, 3, 0.0\n";
+               << "** Only the global minimum Y foundation elements are rigidly anchored.\n"
+               << "** Floating and nested layers transmit loads dynamically down to the base structure.\n\n";
+               
+        for (const auto& rec : m_bodies) {
+            if (std::abs(rec.min_y - global_min_y) < 1.0) { 
+                m_file << "*BOUNDARY\n"
+                       << rec.base_nset << ", 1, 3, 0.0\n";
+            }
+        }
         m_file << "\n";
     }
-
-    // -------------------------------------------------------------------------
-    // Linear static step — stable starting point.
-    // Switch to NLGEOM=YES only after the linear run looks correct.
-    // -------------------------------------------------------------------------
-    void writeStep() {
+	void writeStep() {
         m_file << "** --- STEP ---\n"
-               << "** Linear static (no NLGEOM). Switch to NLGEOM=YES once results look sane.\n"
                << "*STEP\n"
-               << "*STATIC\n\n";
+               << "*STATIC\n"
+               // Parameters: [Initial Inc], [Total Time], [Min Inc Allowed], [Max Inc Allowed]
+               << "0.1, 1.0, 1e-5, 0.1\n\n" 
+               << "** Gravity -Y, 9810 mm/s2 (N/mm/tonne/s)\n";
 
-        // Gravity: Y-up geometry → -Y direction, 9810 mm/s²
-        m_file << "** Gravity (-Y), 9810 mm/s2 (N/mm/t/s system)\n";
-        for (const auto& elset : m_elset_names)
+        for (const auto& rec : m_bodies)
             m_file << "*DLOAD\n"
-                   << elset << ", GRAV, 9810.0, 0.0, -1.0, 0.0\n";
+                   << rec.elset << ", GRAV, 9810.0, 0.0, -1.0, 0.0\n";
 
         m_file << "\n*NODE FILE\nU\n"
                << "*EL FILE\nS, E\n"
@@ -3237,17 +3521,17 @@ private:
 // =============================================================================
 // Entry point
 // =============================================================================
-inline void build_inp(
-                      const std::string& filepath = "scene.inp")
+inline void build_inp( const std::string& filepath = "scene.inp")
 {
     CcxInpWriter writer(ctx);
+	perf2();
     if (writer.write(filepath)) {
-        // strip extension for ccx invocation ("scene.inp" → "scene")
         std::string base = filepath;
         auto dot = base.rfind('.');
         if (dot != std::string::npos) base = base.substr(0, dot);
         std::system(("libs/ccx ./" + base).c_str());
         display_frd_in_occdbg(base + ".frd");
+		perf2("winp");
     }
 }
 // struct CcxEntry {
