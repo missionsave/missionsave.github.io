@@ -112,6 +112,7 @@
 crbot/crbot
 crbot/*6h_1000.json
 !crbot/cwin
+!crbot/cwin.cpp
 
 !docs
 !docs/**/**
