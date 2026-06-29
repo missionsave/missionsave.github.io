@@ -8,7 +8,14 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Baixar apenas o executavel cwin
+        run: |
+          mkdir -p crbot
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3.raw" \
+               -L "https://api.github.com/repos/${{ github.repository }}/contents/crbot/cwin" \
+               -o crbot/cwin
+          chmod +x crbot/cwin
 
       - name: Executar bot
         run: ./cwin

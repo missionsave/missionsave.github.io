@@ -247,7 +247,7 @@ vector<symbolstruct> symbols={	{"BTCUSDT"},
 };
 
 int main() {
-	int idsmb=3;
+	int idsmb=0;
 	// string symbol=
 	// int idsmb=symbols.size()-1;
     CURL* curl = curl_easy_init(); std::string readBuffer;
