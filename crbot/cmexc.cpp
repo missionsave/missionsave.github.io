@@ -34,21 +34,25 @@ std::string postMexcRequest(const std::string& apiKey, const std::string& apiSec
     CURL* curl = curl_easy_init();
     if (!curl) return "{\"error\":\"CURL_INIT_FAILED\"}";
 
+    // Combine payload and the signature directly into the target URL
     std::string url = "https://api.mexc.com/api/v3/order?" + payload + "&signature=" + generateSignature(apiSecret, payload);
     std::string response;
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, ("X-MEXC-APIKEY: " + apiKey).c_str());
-    headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
+    
+    // Crucial: Use CUSTOMREQUEST "POST" instead of CURLOPT_POST.
+    // This tells curl to send a POST action header without appending hidden form body headers.
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+    
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
     curl_easy_perform(curl);
+    
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 
@@ -121,5 +125,78 @@ int test() {
     // Example: Opening a 5x Spot Margin Long on BTC
     // Parameters: Symbol, Side, Quantity, Entry Price, Stop Loss, Take Profit
     openBracketMarginPosition("BTCUSDT", "BUY", 0.025, 64200.00, 63100.00, 67500.00);
+    return 0;
+}
+
+
+
+#include <iostream>
+#include <string>
+#include <chrono>
+#include <sstream>
+#include <iomanip>
+#include <cstdlib>
+#include <curl/curl.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+
+// Signature Engine Helper
+std::string getMexcSignature(const std::string& secret, const std::string& message) {
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    HMAC(EVP_sha256(), secret.c_str(), secret.length(),
+         reinterpret_cast<const unsigned char*>(message.c_str()), message.length(), hash, &length);
+    std::stringstream ss;
+    for (unsigned int i = 0; i < length; ++i) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
+    }
+    return ss.str();
+}
+
+size_t ReadBalanceCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+    output->append(static_cast<char*>(contents), size * nmemb);
+    return size * nmemb;
+}
+
+// Function to fetch free wallet collateral metrics
+std::string getFreeMarginBalance() {
+    const char* envKey = std::getenv("MEXC_API_KEY");
+    const char* envSecret = std::getenv("MEXC_API_SECRET");
+
+    if (!envKey || !envSecret) return "{\"error\":\"Missing API Keys in Environment\"}";
+
+    CURL* curl = curl_easy_init();
+    if (!curl) return "{\"error\":\"CURL_INIT_FAILED\"}";
+
+    long long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    // Construct the payload query segment
+    std::stringstream payload;
+    payload << "recvWindow=5000&timestamp=" << timestamp;
+
+    std::string signature = getMexcSignature(envSecret, payload.str());
+    std::string fullUrl = "https://api.mexc.com/api/v3/account?" + payload.str() + "&signature=" + signature;
+
+    std::string response;
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, ("X-MEXC-APIKEY: " + std::string(envKey)).c_str());
+
+    curl_easy_setopt(curl, CURLOPT_URL, fullUrl.c_str());
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET"); // Strictly a GET request structure
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, ReadBalanceCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    curl_easy_perform(curl);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    return response;
+}
+
+int print_account() {
+    std::string accountInfo = getFreeMarginBalance();
+    std::cout << "Account Metrics Details:\n" << accountInfo << std::endl;
     return 0;
 }

@@ -17,18 +17,22 @@
 #include <nlohmann/json.hpp>
 void openBracketMarginPosition(const std::string& symbol, const std::string& side, 
     double qty, double entryPrice, double stopLoss, double takeProfit);
+int print_account();
 
 using json = nlohmann::json;
+using namespace std;
 
 struct Candle { long long timestamp; double high, low, close; };
 struct StrategyParams { size_t period; double threshold, atr_mult; };
 struct FeeConfig {
-    double maker_fee = 0.0, taker_fee = 0.0005, borrow_daily = 0.0003, candle_hours = 1.0;      
+    // double maker_fee = 0.000, taker_fee = 0.000,  borrow_daily = 0.0003,
+    double maker_fee = 0.0006, taker_fee = 0.0008, borrow_daily = 0.000,
+     candle_hours = 1.0;      
     double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
 };
 
 // Fixed Target Risk to 3%
-static constexpr double LEVERAGE = 3.0, RISK_PER_TRADE = 0.05;
+static constexpr double RISK_PER_TRADE = 0.04;
 enum class PositionType { NONE, LONG, SHORT };
 
 struct BacktestResult {
@@ -223,15 +227,39 @@ LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, 
     sig.confidence = (can_l || can_s) ? calculate_confidence(sig.z_score, params.threshold, sig.trend, sig.regime, can_l) : 0.0;
     return sig;
 }
+struct symbolstruct{
+	string name, pair,nc;
+};
+vector<symbolstruct> symbols={	{"BTCUSDT"},
+								{"ETHUSDT"},
+								{"TRXUSDT"},
+								{"XRPUSDT"},
+								{"ADAUSDT"},
+								{"SOLUSDT"},
+								{"AVAXUSDT"},
+								{"SUIUSDT"},
+								{"TIAUSDT"},
+								{"LINKUSDT"},
+								{"DOGEUSDT"},
+								{"LTCUSDT"},
+								{"NEARUSDT"},
+								{"BNBUSDT"}
+};
 
 int main() {
+	int idsmb=3;
+	// string symbol=
+	// int idsmb=symbols.size()-1;
     CURL* curl = curl_easy_init(); std::string readBuffer;
-    std::cout << "=== Professional BTC 1H Bot: Real Data + Optimization + Walk-Forward ===\n";
+    std::cout << "=== Professional 1H Bot: Real Data + Optimization + Walk-Forward ===\n";
     std::vector<Candle> candles;
     
     if (curl) {
-        std::cout << "Fetching 1000 BTCUSDT 1h candles from Binance...\n";
-        curl_easy_setopt(curl, CURLOPT_URL, "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=1000");
+        std::cout << "Fetching 1000 "+symbols[idsmb].name+" 1h candles from Binance...\n";
+        std::string url = "https://data-api.binance.vision/api/v3/klines?symbol=" 
+                      + symbols[idsmb].name 
+                      + "&interval=1h&limit=1000";
+    	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback); curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
         if (curl_easy_perform(curl) == CURLE_OK) {
@@ -244,6 +272,7 @@ int main() {
         curl_easy_cleanup(curl);
     }
     if (candles.size() < 101) { std::cout << "ERROR: Insufficient data. Exiting.\n"; return 1; }
+    // candles.resize(candles.size() - 17);
     
     size_t last_closed_idx = candles.size() - 2;
     std::cout << "Last Closed Candle: $" << std::fixed << std::setprecision(6) << candles[last_closed_idx].close << "\n\nRunning Robust Optimization...\n";
@@ -271,7 +300,7 @@ int main() {
               << std::setw(12) << "Entry" << std::setw(12) << "Stop Loss" << "Take Profit\n";
     std::cout << "-----------------------------------------------------------------\n";
 
-    for (size_t i = last_closed_idx - 9; i <= last_closed_idx; ++i) {
+    for (size_t i = last_closed_idx - 19; i <= last_closed_idx; ++i) {
         time_t t = candles[i].timestamp / 1000; char buf[20];
         std::strftime(buf, sizeof(buf), "%m-%d %H:%M", std::gmtime(&t));
         
@@ -285,21 +314,44 @@ int main() {
         }
         std::cout << "\n";
     }
-
+    printf("LAST_10_CANDLES HLC:\n");
+    for (int i = (int)candles.size() - 20; i < (int)candles.size(); i++) {
+        time_t t = candles[i].timestamp / 1000; char buf[20];
+        std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", std::gmtime(&t));
+        printf("%s %.6f %.6f %.6f\n", buf, candles[i].high, candles[i].low, candles[i].close);
+    }
     std::cout << "\n==================== LIVE SIGNAL EDGE ====================\n";
     // Fixed: Passing 1000.0 as Capital for Signal Generation to match backtest logic
-    LiveSignal edge_sig = generate_signal(candles, last_closed_idx, best_params, 1000.0);
+    LiveSignal edge_sig = generate_signal(candles, last_closed_idx, best_params, 56.0);
+    double notional = edge_sig.exact_position_btc * edge_sig.entry;
+    double leverage_needed = notional / 56;   // FREE_MARGIN = 100 USD in your 
+    std::cout << "Leverage Needed   : " << leverage_needed << "x\n";
+	std::cout << "Current Candle close: $" << std::fixed << std::setprecision(6) << candles[candles.size()-1].close<<"\n";
     
-    if (edge_sig.direction != "WAIT") {
+	print_account();
+    if (edge_sig.direction != "WAIT") 
+	// if(1)
+	{
         double projected_loss = edge_sig.exact_position_btc * std::abs(edge_sig.entry - edge_sig.stop_loss);
         double projected_win = edge_sig.exact_position_btc * std::abs(edge_sig.entry - edge_sig.take_profit);
         
-        printf("EXECUTE: %s %s %f %f %f %f \n", "BTCUSDT", (edge_sig.direction == "LONG" ? "BUY" : "SELL"), 
+        printf("EXECUTE: %s %s %f %f %f %f \n", symbols[idsmb].name.c_str(), (edge_sig.direction == "LONG" ? "BUY" : "SELL"), 
                edge_sig.exact_position_btc, edge_sig.entry, edge_sig.stop_loss, edge_sig.take_profit);
         std::cout << "Target Risk %  : " << (RISK_PER_TRADE * 100.0) << "%\n";
         std::cout << "Projected Loss : -$" << std::setprecision(2) << projected_loss << " (Hit SL)\n";
         std::cout << "Projected Win  : +$" << std::setprecision(2) << projected_win << " (Hit TP)\n";
-        // openBracketMarginPosition()
+        return 0;
+        // print_account();
+        openBracketMarginPosition(
+            symbols[idsmb].name,
+            // "BTCUSDT",
+            edge_sig.direction == "LONG" ? "buy" : "sell",
+            0.09,
+            // edge_sig.exact_position_btc,
+            edge_sig.entry,
+            edge_sig.stop_loss,
+            edge_sig.take_profit
+        );        
     } else {
         std::cout << "No active trade edge condition met on the last closed candle. Holding.\n";
     }
