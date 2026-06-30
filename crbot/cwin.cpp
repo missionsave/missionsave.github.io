@@ -15,7 +15,8 @@
 #include <random>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
-void openBracketMarginPosition(const std::string& symbol, const std::string& side, 
+// region mexc
+void openBracketFuturesPosition(const std::string& symbol, const std::string& side, 
     double qty, double entryPrice, double stopLoss, double takeProfit);
 int print_account();
 
@@ -31,7 +32,7 @@ struct FeeConfig {
     double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
 };
 
-// Fixed Target Risk to 3%
+// Fixed Target Risk to 5%
 static constexpr double RISK_PER_TRADE = 0.04;
 enum class PositionType { NONE, LONG, SHORT };
 
@@ -40,7 +41,7 @@ struct BacktestResult {
     int total_trades, long_trades, short_trades, winning_longs, winning_shorts;
     double win_rate, fitness_score, max_drawdown;
     std::map<std::string, double> daily_profit; std::vector<double> daily_returns;
-    std::vector<double> trade_pnls; 
+    std::vector<double> trade_pcts;
 };
 
 struct TrendReading { double ema_short, ema_medium, ema_long; int bullish_votes; bool is_bullish, is_trending; double trend_strength; };
@@ -111,9 +112,10 @@ double calculate_confidence(double z_score, double threshold, const TrendReading
 BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyParams& params, const FeeConfig& fees = FeeConfig{}) {
     double capital = 1000.0, initial_capital = capital, position = 0.0, total_fees = 0.0, gross_wins = 0.0, gross_losses = 0.0;
     double entry_price = 0.0, trailing_sl = 0.0, dynamic_tp = 0.0, peak_capital = capital, current_trade_fee = 0.0;
+    double current_trade_start_cap = capital; // FIXED: Tracks capital at start of specific trade
     int long_trades = 0, short_trades = 0, winning_longs = 0, winning_shorts = 0;
     PositionType pos_type = PositionType::NONE;
-    std::map<std::string, double> daily_profit; std::vector<double> daily_returns; std::vector<double> trade_pnls;
+    std::map<std::string, double> daily_profit; std::vector<double> daily_returns; std::vector<double> trade_pcts;
 
     auto log_daily = [&](long long ts, double pnl) {
         time_t t = ts / 1000; char buf[11]; std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::gmtime(&t));
@@ -130,11 +132,12 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
         if (pos_type == PositionType::NONE) {
             double z = calculate_z_score(candles, i, params.period), stop_dist = atr * params.atr_mult;
             if (z < -params.threshold && trend.is_bullish && trend.is_trending && trend.bullish_votes >= 2) {
-                // Math Correction: Removed LEVERAGE multiplier from position sizing calculation
+                current_trade_start_cap = capital; // FIXED: Snapshot capital here
                 position = (capital * RISK_PER_TRADE) / stop_dist; entry_price = price;
                 pos_type = PositionType::LONG; trailing_sl = price - stop_dist; dynamic_tp = price + stop_dist * 2.0;
                 apply_fee(fees.maker_fee, position * price);
             } else if (z > params.threshold && !trend.is_bullish && trend.is_trending && trend.bullish_votes <= 1) {
+                current_trade_start_cap = capital; // FIXED: Snapshot capital here
                 position = (capital * RISK_PER_TRADE) / stop_dist; entry_price = price;
                 pos_type = PositionType::SHORT; trailing_sl = price + stop_dist; dynamic_tp = price - stop_dist * 2.0;
                 apply_fee(fees.maker_fee, position * price);
@@ -156,7 +159,10 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
                 double net_pnl = pnl - current_trade_fee;
                 capital += pnl; *(pnl >= 0 ? &gross_wins : &gross_losses) += std::abs(pnl);
                 apply_fee(fees.taker_fee, std::abs(position) * exit_price); log_daily(candles[i].timestamp, pnl);
-                trade_pnls.push_back(net_pnl);
+                
+                // FIXED: Store the percentage return of the trade based on capital at entry
+                trade_pcts.push_back(net_pnl / current_trade_start_cap); 
+                
                 if (capital <= 0) capital = 0.01; pos_type = PositionType::NONE;
                 (is_l ? long_trades : short_trades)++; if (pnl > 0) (is_l ? winning_longs : winning_shorts)++;
             }
@@ -168,26 +174,33 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
     double max_dd = peak_capital > 0 ? (peak_capital - capital) / peak_capital * 100.0 : 0.0;
     return {params, ret, capital - initial_capital, total_fees, gross_losses > 0 ? gross_wins / gross_losses : (gross_wins > 0 ? 99.0 : 0.0),
             total_trades, long_trades, short_trades, winning_longs, winning_shorts, win_rate,
-            ret * (win_rate / 100.0) * std::log(total_trades + 1) * (1.0 - max_dd / 100.0 * 0.5), max_dd, daily_profit, daily_returns, trade_pnls};
+            ret * (win_rate / 100.0) * std::log(total_trades + 1) * (1.0 - max_dd / 100.0 * 0.5), max_dd, daily_profit, daily_returns, trade_pcts};
 }
 
-MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trades, double start_capital, int iterations = 2000) {
-    if (actual_trades.empty()) return {0.0, 0.0, start_capital};
+MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trade_pcts, double start_capital, int iterations = 2000) {
+    if (actual_trade_pcts.empty()) return {0.0, 0.0, start_capital};
     std::vector<double> final_equities; std::vector<double> max_drawdowns;
-    int ruin_count = 0; std::random_device rd; std::mt19937 g(rd());
+    int ruin_count = 0; 
+    
+    // FIXED: Made random generator static to prevent OS entropy pool exhaustion
+    static std::random_device rd; 
+    static std::mt19937 g(rd());
     
     for (int sim = 0; sim < iterations; ++sim) {
-        std::vector<double> shuffled_trades = actual_trades;
-        std::shuffle(shuffled_trades.begin(), shuffled_trades.end(), g);
+        std::vector<double> shuffled_pcts = actual_trade_pcts;
+        std::shuffle(shuffled_pcts.begin(), shuffled_pcts.end(), g);
         double sim_capital = start_capital, sim_peak = start_capital, sim_max_dd = 0.0;
         bool ruined = false;
         
-        for (double pnl : shuffled_trades) {
-            sim_capital += pnl; if (sim_capital <= 0.01) sim_capital = 0.01;
+        for (double pct : shuffled_pcts) {
+            // FIXED: Apply compounding percentage instead of absolute dollar values
+            sim_capital += (sim_capital * pct); 
+            if (sim_capital <= 0.01) sim_capital = 0.01;
+            
             if (sim_capital > sim_peak) sim_peak = sim_capital;
             double current_dd = (sim_peak - sim_capital) / sim_peak * 100.0;
             if (current_dd > sim_max_dd) sim_max_dd = current_dd;
-            if (sim_capital <= (start_capital * 0.50)) ruined = true;
+            if (sim_capital <= (start_capital * 0.70)) ruined = true;
         }
         if (ruined) ruin_count++;
         final_equities.push_back(sim_capital); max_drawdowns.push_back(sim_max_dd);
@@ -227,35 +240,42 @@ LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, 
     sig.confidence = (can_l || can_s) ? calculate_confidence(sig.z_score, params.threshold, sig.trend, sig.regime, can_l) : 0.0;
     return sig;
 }
-struct symbolstruct{
-	string name, pair,nc;
-};
-vector<symbolstruct> symbols={	{"BTCUSDT"},
-								{"ETHUSDT"},
-								{"TRXUSDT"},
-								{"XRPUSDT"},
-								{"ADAUSDT"},
-								{"SOLUSDT"},
-								{"AVAXUSDT"},
-								{"SUIUSDT"},
-								{"TIAUSDT"},
-								{"LINKUSDT"},
-								{"DOGEUSDT"},
-								{"LTCUSDT"},
-								{"NEARUSDT"},
-								{"BNBUSDT"}
+struct symbolstruct {
+    string name;
+    float stepsize;
+    string mexc;
 };
 
-int main() {
-	int idsmb=0;
+vector<symbolstruct> symbols = {
+    {"BTCUSDT", 0.001f,   "BTC_USDT"},
+    {"ETHUSDT", 0.001f,   "ETH_USDT"},
+    {"TRXUSDT", 0.00001f, "TRX_USDT"},
+    {"XRPUSDT", 0.0001f,  "XRP_USDT"},
+    {"ADAUSDT", 0.0001f,  "ADA_USDT"},
+    {"SOLUSDT", 0.001f,   "SOL_USDT"},
+    {"AVAXUSDT",0.001f,   "AVAX_USDT"},
+    {"SUIUSDT", 0.0001f,  "SUI_USDT"},
+    {"TIAUSDT", 0.0001f,  "TIA_USDT"},
+    {"LINKUSDT",0.001f,   "LINK_USDT"},
+    {"DOGEUSDT",0.00001f, "DOGE_USDT"},
+    {"LTCUSDT", 0.001f,   "LTC_USDT"},
+    {"NEARUSDT",0.001f,   "NEAR_USDT"},
+    {"BNBUSDT", 0.001f,   "BNB_USDT"}
+};
+
+
+int seek(int idsmb) {
+	bool dbg=0;
+	// int idsmb=1;
+	float stepsize=symbols[idsmb].stepsize;
 	// string symbol=
 	// int idsmb=symbols.size()-1;
     CURL* curl = curl_easy_init(); std::string readBuffer;
-    std::cout << "=== Professional 1H Bot: Real Data + Optimization + Walk-Forward ===\n";
+    if(dbg)std::cout << "=== Professional 1H Bot: Real Data + Optimization + Walk-Forward ===\n";
     std::vector<Candle> candles;
     
     if (curl) {
-        std::cout << "Fetching 1000 "+symbols[idsmb].name+" 1h candles from Binance...\n";
+        if(dbg)std::cout << "Fetching 1000 "+symbols[idsmb].name+" 1h candles from Binance...\n";
         std::string url = "https://data-api.binance.vision/api/v3/klines?symbol=" 
                       + symbols[idsmb].name 
                       + "&interval=1h&limit=1000";
@@ -272,35 +292,57 @@ int main() {
         curl_easy_cleanup(curl);
     }
     if (candles.size() < 101) { std::cout << "ERROR: Insufficient data. Exiting.\n"; return 1; }
-    // candles.resize(candles.size() - 17);
+    // candles.resize(candles.size() - 1);
     
     size_t last_closed_idx = candles.size() - 2;
-    std::cout << "Last Closed Candle: $" << std::fixed << std::setprecision(6) << candles[last_closed_idx].close << "\n\nRunning Robust Optimization...\n";
+    if(dbg)std::cout << "Last Closed Candle: $" << std::fixed << std::setprecision(6) << candles[last_closed_idx].close << "\n\nRunning Robust Optimization...\n";
 
-    StrategyParams best_params = {10, 1.0, 1.5}; double best_fitness = -9999.0; BacktestResult best_metrics{};
-    for (size_t p : {5,8,10,13,20}) for (auto t : {0.8,1.0,1.2,1.5}) for (auto a : {1.2,1.5,1.8,2.2}) {
-        BacktestResult res = run_backtest(candles, {p, t, a});
-        if (res.fitness_score > best_fitness && res.total_trades >= 20 && res.max_drawdown < 35.0) {
-            best_fitness = res.fitness_score; best_params = {p, t, a}; best_metrics = res;
+	StrategyParams best_params = {10, 1.0, 1.5}; 
+    double best_robust_fitness = -9999.0; 
+    BacktestResult best_metrics{};
+    MonteCarloResult best_mc{};
+
+    for (size_t p : {5, 8, 10, 13, 20}) {
+        for (auto t : {0.8, 1.0, 1.2, 1.5}) {
+            for (auto a : {1.2, 1.5, 1.8, 2.2}) {
+                
+                BacktestResult res = run_backtest(candles, {p, t, a});
+                
+                if (res.total_trades >= 20 && res.max_drawdown < 35.0) {
+                    MonteCarloResult mc_test = run_monte_carlo(res.trade_pcts, 1000.0, 500);
+                    
+                    if (mc_test.prob_of_ruin <= 0.05 && mc_test.worst_case_drawdown < 40.0) {
+                        double robust_fitness = res.total_return * (1.0 - (mc_test.worst_case_drawdown / 100.0));
+                        if (robust_fitness > best_robust_fitness) {
+                            best_robust_fitness = robust_fitness;
+                            best_params = {p, t, a};
+                            best_metrics = res;
+                            best_mc = mc_test; 
+                        }
+                    }
+                }
+            }
         }
     }
     
-    std::cout << "Best Params: Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
+    if(dbg)std::cout << "Best Params: Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
               << "Standard Return: " << best_metrics.total_return << "% | Historical DD: " << best_metrics.max_drawdown << "% | Trades: " << best_metrics.total_trades << "\n";
 
-    MonteCarloResult mc = run_monte_carlo(best_metrics.trade_pnls, 1000.0, 2000);
-    std::cout << "\n================= MONTE CARLO STRESS TEST =================\n"
+    MonteCarloResult mc = run_monte_carlo(best_metrics.trade_pcts, 1000.0, 2000);
+    if(dbg)std::cout << "\n================= MONTE CARLO STRESS TEST =================\n"
               << "Simulations Run        : 2,000 Shuffled Iterations\n"
-              << "Risk of Ruin (50% DD)  : " << std::setprecision(2) << mc.prob_of_ruin << "%\n"
+              << "Risk of Ruin (30% DD)  : " << std::setprecision(6) << mc.prob_of_ruin << "%\n"
               << "95% Conf. Max Drawdown : " << mc.worst_case_drawdown << "%\n"
               << "Median Final Equity    : $" << mc.median_final_equity << "\n";
 
-    std::cout << "\n================ 10-CANDLE WALK-FORWARD ANALYSIS ================\n";
-    std::cout << std::left << std::setw(18) << "Time" << std::setw(8) << "Action" 
+			  if(dbg)std::cout << "\n================ 10-CANDLE WALK-FORWARD ANALYSIS ================\n";
+			  if(dbg)std::cout << std::left << std::setw(18) << "Time" << std::setw(8) << "Action" 
               << std::setw(12) << "Entry" << std::setw(12) << "Stop Loss" << "Take Profit\n";
-    std::cout << "-----------------------------------------------------------------\n";
+			  if(dbg)std::cout << "-----------------------------------------------------------------\n";
 
-    for (size_t i = last_closed_idx - 19; i <= last_closed_idx; ++i) {
+	int count=0;
+    // for (size_t i = 101; i <= last_closed_idx; ++i) {
+	if(dbg)for (size_t i = last_closed_idx - 19; i <= last_closed_idx; ++i) {
         time_t t = candles[i].timestamp / 1000; char buf[20];
         std::strftime(buf, sizeof(buf), "%m-%d %H:%M", std::gmtime(&t));
         
@@ -308,54 +350,63 @@ int main() {
         
         std::cout << std::left << std::setw(18) << buf << std::setw(8) << sig.direction;
         if (sig.direction != "WAIT") {
+			count++;
             std::cout << std::setw(12) << sig.entry << std::setw(12) << sig.stop_loss << sig.take_profit;
         } else {
             std::cout << std::setw(12) << "-" << std::setw(12) << "-" << "-";
         }
         std::cout << "\n";
     }
-    printf("LAST_10_CANDLES HLC:\n");
-    for (int i = (int)candles.size() - 20; i < (int)candles.size(); i++) {
+	if(dbg)cout<<"count "<<count<<"\n";
+    if(dbg)printf("LAST_10_CANDLES HLC:\n");
+    if(dbg)for (int i = (int)candles.size() - 20; i < (int)candles.size(); i++) {
         time_t t = candles[i].timestamp / 1000; char buf[20];
         std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", std::gmtime(&t));
         printf("%s %.6f %.6f %.6f\n", buf, candles[i].high, candles[i].low, candles[i].close);
     }
-    std::cout << "\n==================== LIVE SIGNAL EDGE ====================\n";
+    if(dbg)std::cout << "\n==================== LIVE SIGNAL EDGE ====================\n";
     // Fixed: Passing 1000.0 as Capital for Signal Generation to match backtest logic
     LiveSignal edge_sig = generate_signal(candles, last_closed_idx, best_params, 56.0);
     double notional = edge_sig.exact_position_btc * edge_sig.entry;
     double leverage_needed = notional / 56;   // FREE_MARGIN = 100 USD in your 
-    std::cout << "Leverage Needed   : " << leverage_needed << "x\n";
-	std::cout << "Current Candle close: $" << std::fixed << std::setprecision(6) << candles[candles.size()-1].close<<"\n";
+    if(dbg)std::cout << "Leverage Needed   : " << leverage_needed << "x\n";
+	if(dbg)std::cout << "Current Candle close: $" << std::fixed << std::setprecision(6) << candles[candles.size()-1].close<<"\n";
     
-	print_account();
+	if(dbg)print_account();
     if (edge_sig.direction != "WAIT") 
 	// if(1)
 	{
         double projected_loss = edge_sig.exact_position_btc * std::abs(edge_sig.entry - edge_sig.stop_loss);
         double projected_win = edge_sig.exact_position_btc * std::abs(edge_sig.entry - edge_sig.take_profit);
+		double qty = std::floor(edge_sig.exact_position_btc / stepsize) * stepsize;
         
         printf("EXECUTE: %s %s %f %f %f %f \n", symbols[idsmb].name.c_str(), (edge_sig.direction == "LONG" ? "BUY" : "SELL"), 
                edge_sig.exact_position_btc, edge_sig.entry, edge_sig.stop_loss, edge_sig.take_profit);
         std::cout << "Target Risk %  : " << (RISK_PER_TRADE * 100.0) << "%\n";
         std::cout << "Projected Loss : -$" << std::setprecision(2) << projected_loss << " (Hit SL)\n";
         std::cout << "Projected Win  : +$" << std::setprecision(2) << projected_win << " (Hit TP)\n";
-        return 0;
+
+		cout<<"qty: "<<qty<<"\n";
+        // return 0;
         // print_account();
-        openBracketMarginPosition(
-            symbols[idsmb].name,
-            // "BTCUSDT",
-            edge_sig.direction == "LONG" ? "buy" : "sell",
-            0.09,
-            // edge_sig.exact_position_btc,
+        openBracketFuturesPosition(
+            symbols[idsmb].mexc,
+            edge_sig.direction == "LONG" ? "BUY" : "SELL",
+            qty,
             edge_sig.entry,
             edge_sig.stop_loss,
             edge_sig.take_profit
         );        
     } else {
-        std::cout << "No active trade edge condition met on the last closed candle. Holding.\n";
+        if(dbg)std::cout << "No active trade edge condition met on the last closed candle. Holding.\n";
     }
 
-    if (!edge_sig.warnings.empty()) std::cout << "\n--- Edge Warnings -------------\n" << edge_sig.warnings << "\n";
+    if(dbg)if (!edge_sig.warnings.empty()) std::cout << "\n--- Edge Warnings -------------\n" << edge_sig.warnings << "\n";
     return 0;
+}
+int main(){
+	for(int i=0;i<symbols.size();i++){
+		seek(i);
+	}
+	return 0;
 }
