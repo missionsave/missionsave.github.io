@@ -1,6 +1,7 @@
 // sudo apt update && sudo apt install libcurl4-openssl-dev pkg-config
 // mkdir -p include/nlohmann && wget -O include/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
 // g++ -Os cwin.cpp -o cwin -I./include -Wl,-Bstatic $(pkg-config --static --libs libcurl) -Wl,-Bdynamic -lpthread -ldl
+// g++ -std=c++20 cwin.cpp cmexc.cpp -o cwin -I./include  $(pkg-config  --libs libcurl) -lcrypto -lssl  -lpthread -ldl -Os -s && ./cwin
 
 
 #include <iostream>
@@ -32,7 +33,7 @@ struct FeeConfig {
     double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
 };
 
-// Fixed Target Risk to 5%
+// Fixed Target Risk to 4%
 static constexpr double RISK_PER_TRADE = 0.04;
 enum class PositionType { NONE, LONG, SHORT };
 
@@ -243,25 +244,30 @@ LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, 
 struct symbolstruct {
     string name;
     float stepsize;
+    float digits;
     string mexc;
 };
 
 vector<symbolstruct> symbols = {
-    {"BTCUSDT", 0.001f,   "BTC_USDT"},
-    {"ETHUSDT", 0.001f,   "ETH_USDT"},
-    {"TRXUSDT", 0.00001f, "TRX_USDT"},
-    {"XRPUSDT", 0.0001f,  "XRP_USDT"},
-    {"ADAUSDT", 0.0001f,  "ADA_USDT"},
-    {"SOLUSDT", 0.001f,   "SOL_USDT"},
-    {"AVAXUSDT",0.001f,   "AVAX_USDT"},
-    {"SUIUSDT", 0.0001f,  "SUI_USDT"},
-    {"TIAUSDT", 0.0001f,  "TIA_USDT"},
-    {"LINKUSDT",0.001f,   "LINK_USDT"},
-    {"DOGEUSDT",0.00001f, "DOGE_USDT"},
-    {"LTCUSDT", 0.001f,   "LTC_USDT"},
-    {"NEARUSDT",0.001f,   "NEAR_USDT"},
-    {"BNBUSDT", 0.001f,   "BNB_USDT"}
+    {"BTCUSDT", 0.001f,   2, "BTC_USDT"},
+    {"ETHUSDT", 0.001f,   2, "ETH_USDT"},
+    {"TRXUSDT", 0.00001f, 5, "TRX_USDT"},
+    {"XRPUSDT", 0.0001f,  4, "XRP_USDT"},
+    {"ADAUSDT", 0.0001f,  4, "ADA_USDT"},
+    {"SOLUSDT", 0.001f,   3, "SOL_USDT"},
+    {"AVAXUSDT",0.001f,   3, "AVAX_USDT"},
+    {"SUIUSDT", 0.0001f,  4, "SUI_USDT"},
+    {"TIAUSDT", 0.0001f,  4, "TIA_USDT"},
+    {"LINKUSDT",0.001f,   3, "LINK_USDT"},
+    {"DOGEUSDT",0.00001f, 5, "DOGE_USDT"},
+    {"LTCUSDT", 0.001f,   3, "LTC_USDT"},
+    {"NEARUSDT",0.001f,   3, "NEAR_USDT"},
+    {"BNBUSDT", 0.001f,   3, "BNB_USDT"}
 };
+inline double roundPrice(double price, int digits){
+    const double factor = std::pow(10.0, digits);
+    return std::floor(price * factor) / factor;
+}
 
 
 int seek(int idsmb) {
@@ -292,7 +298,7 @@ int seek(int idsmb) {
         curl_easy_cleanup(curl);
     }
     if (candles.size() < 101) { std::cout << "ERROR: Insufficient data. Exiting.\n"; return 1; }
-    // candles.resize(candles.size() - 1);
+    // candles.resize(candles.size() - 2); //////////////////////////
     
     size_t last_closed_idx = candles.size() - 2;
     if(dbg)std::cout << "Last Closed Candle: $" << std::fixed << std::setprecision(6) << candles[last_closed_idx].close << "\n\nRunning Robust Optimization...\n";
@@ -389,14 +395,16 @@ int seek(int idsmb) {
 		cout<<"qty: "<<qty<<"\n";
         // return 0;
         // print_account();
-        openBracketFuturesPosition(
-            symbols[idsmb].mexc,
-            edge_sig.direction == "LONG" ? "BUY" : "SELL",
-            qty,
-            edge_sig.entry,
-            edge_sig.stop_loss,
-            edge_sig.take_profit
-        );        
+		int d = symbols[idsmb].digits;
+		openBracketFuturesPosition(
+			symbols[idsmb].mexc,
+			edge_sig.direction == "LONG" ? "BUY" : "SELL",
+			qty,
+			roundPrice(edge_sig.entry, d),
+			roundPrice(edge_sig.stop_loss, d),
+			roundPrice(edge_sig.take_profit, d)
+		);
+			   
     } else {
         if(dbg)std::cout << "No active trade edge condition met on the last closed candle. Holding.\n";
     }
@@ -405,6 +413,7 @@ int seek(int idsmb) {
     return 0;
 }
 int main(){
+	// seek(14);return 0;
 	for(int i=0;i<symbols.size();i++){
 		seek(i);
 	}
