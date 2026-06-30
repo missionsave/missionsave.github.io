@@ -124,8 +124,10 @@ void openBracketFuturesPosition(const std::string& symbol, const std::string& si
     std::stringstream pOrder;
     pOrder << "{"
            << "\"symbol\":\"" << symbol << "\","
-           << "\"price\":" << std::fixed << std::setprecision(2) << entryPrice << ","
-           << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
+           << "\"price\":" << entryPrice << ","
+        //    << "\"price\":" << std::fixed << std::setprecision(2) << entryPrice << ","
+           << "\"vol\":" << qty << ","
+        //    << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
            << "\"side\":" << entrySideInt << ","
            << "\"type\":1,"       // 1 = Limit Order
            << "\"openType\":1,"   // 1 = Isolated Margin
@@ -140,13 +142,22 @@ void openBracketFuturesPosition(const std::string& symbol, const std::string& si
     std::stringstream slOrder;
     slOrder << "{"
             << "\"symbol\":\"" << symbol << "\","
-            << "\"triggerPrice\":" << std::fixed << std::setprecision(2) << stopLoss << ","
-            << "\"price\":" << std::fixed << std::setprecision(2) << (side == "BUY" ? stopLoss * 0.995 : stopLoss * 1.005) << ","
-            << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
+            << "\"triggerPrice\":" << stopLoss << ","
+            << "\"price\":" <<  (side == "BUY" ? stopLoss * 0.995 : stopLoss * 1.005) << ","
+            << "\"vol\":"  << qty << ","
             << "\"side\":" << exitSideInt << ","
             << "\"type\":1,"       // 1 = Limit trigger
             << "\"executeCycle\":1"// GTC
             << "}";
+    // slOrder << "{"
+    //         << "\"symbol\":\"" << symbol << "\","
+    //         << "\"triggerPrice\":" << std::fixed << std::setprecision(2) << stopLoss << ","
+    //         << "\"price\":" << std::fixed << std::setprecision(2) << (side == "BUY" ? stopLoss * 0.995 : stopLoss * 1.005) << ","
+    //         << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
+    //         << "\"side\":" << exitSideInt << ","
+    //         << "\"type\":1,"       // 1 = Limit trigger
+    //         << "\"executeCycle\":1"// GTC
+    //         << "}";
 
     std::cout << "Deploying Stop Loss Guard..." << std::endl;
     std::string slRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/place", slOrder.str());
@@ -156,13 +167,22 @@ void openBracketFuturesPosition(const std::string& symbol, const std::string& si
     std::stringstream tpOrder;
     tpOrder << "{"
             << "\"symbol\":\"" << symbol << "\","
-            << "\"triggerPrice\":" << std::fixed << std::setprecision(2) << takeProfit << ","
-            << "\"price\":" << std::fixed << std::setprecision(2) << takeProfit << ","
-            << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
+            << "\"triggerPrice\":" << takeProfit << ","
+            << "\"price\":"  << takeProfit << ","
+            << "\"vol\":" << qty << ","
             << "\"side\":" << exitSideInt << ","
             << "\"type\":1,"
             << "\"executeCycle\":1"
             << "}";
+    // tpOrder << "{"
+    //         << "\"symbol\":\"" << symbol << "\","
+    //         << "\"triggerPrice\":" << std::fixed << std::setprecision(2) << takeProfit << ","
+    //         << "\"price\":" << std::fixed << std::setprecision(2) << takeProfit << ","
+    //         << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
+    //         << "\"side\":" << exitSideInt << ","
+    //         << "\"type\":1,"
+    //         << "\"executeCycle\":1"
+    //         << "}";
 
     std::cout << "Deploying Take Profit Order..." << std::endl;
     std::string tpRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/place", tpOrder.str());
