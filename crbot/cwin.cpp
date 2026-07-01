@@ -1,7 +1,8 @@
 // sudo apt update && sudo apt install libcurl4-openssl-dev pkg-config
 // mkdir -p include/nlohmann && wget -O include/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
 // g++ -Os cwin.cpp -o cwin -I./include -Wl,-Bstatic $(pkg-config --static --libs libcurl) -Wl,-Bdynamic -lpthread -ldl
-// g++ -std=c++20 cwin.cpp cmexc.cpp -o cwin -I./include  $(pkg-config  --libs libcurl) -lcrypto -lssl  -lpthread -ldl -Os -s && ./cwin
+// g++ -std=c++20 cwin.cpp  -o cwin -I./include  $(pkg-config  --libs libcurl) -lcrypto -lssl  -lpthread -ldl -Os -s  -ffunction-sections -fdata-sections -Wl,--gc-sections  -fno-rtti -flto&& ./cwin
+
 
 
 #include <iostream>
@@ -15,12 +16,13 @@
 #include <ctime>
 #include <random>
 #include <curl/curl.h>
-#include <nlohmann/json.hpp>
+// #include <nlohmann/json.hpp>
 // region mexc
-void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int leverage = 20);
-int print_account();
+#include "cmexc.cpp"
+// void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int leverage = 20);
+// int print_account();
 
-using json = nlohmann::json;
+// using json = nlohmann::json;
 using namespace std;
 
 struct Candle { long long timestamp; double high, low, close; };
@@ -271,34 +273,112 @@ inline double roundPrice(double price, int digits)
 
 
 
+std::vector<double> extractArray(const std::string& src, const std::string& key) {
+    std::vector<double> out;
+
+    std::string tag = "\"" + key + "\":[";
+    size_t start = src.find(tag);
+    if (start == std::string::npos) return out;
+
+    start += tag.size();
+    size_t end = src.find("]", start);
+    if (end == std::string::npos) return out;
+
+    std::string arr = src.substr(start, end - start);
+
+    // split by comma
+    size_t pos = 0;
+    while (true) {
+        size_t comma = arr.find(",", pos);
+        std::string num = (comma == std::string::npos)
+            ? arr.substr(pos)
+            : arr.substr(pos, comma - pos);
+
+        if (!num.empty()) out.push_back(std::stod(num));
+        if (comma == std::string::npos) break;
+        pos = comma + 1;
+    }
+
+    return out;
+}
 
 int seek(int idsmb) {
 	bool dbg=0;
 	// int idsmb=1;
 	float stepsize=symbols[idsmb].stepsize;
+
+CURL* curl = curl_easy_init();
+std::string readBuffer;
+
+std::vector<Candle> candles;
+
+if (curl) {
+    std::string url =
+        "https://contract.mexc.com/api/v1/contract/kline/" +
+        symbols[idsmb].mexc +
+        "?interval=Min60&limit=1000";
+	// url="https://contract.mexc.com/api/v1/contract/kline/BTC_USDT?interval=Min60&limit=1000";
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
+
+    if (curl_easy_perform(curl) == CURLE_OK) {
+
+        // --- parse manual ---
+        std::vector<double> t = extractArray(readBuffer, "time");
+        std::vector<double> o = extractArray(readBuffer, "open");
+        std::vector<double> h = extractArray(readBuffer, "high");
+        std::vector<double> l = extractArray(readBuffer, "low");
+        std::vector<double> c = extractArray(readBuffer, "close");
+
+        size_t n = t.size();
+        candles.reserve(n);
+
+        for (size_t i = 0; i < n; ++i) {
+            candles.push_back({
+                (long long)t[i] * 1000LL,   // mexc time is seconds
+                h[i],
+                l[i],
+                c[i]
+            });
+        }
+
+        std::cout << "Loaded " << candles.size() << " MEXC futures candles.\n";
+    }
+    else {
+        std::cout << "Fetch failed.\n";
+    }
+
+    curl_easy_cleanup(curl);
+}
+
 	// string symbol=
 	// int idsmb=symbols.size()-1;
-    CURL* curl = curl_easy_init(); std::string readBuffer;
-    if(dbg)std::cout << "=== Professional 1H Bot: Real Data + Optimization + Walk-Forward ===\n";
-    std::vector<Candle> candles;
+
+
+    // CURL* curl = curl_easy_init(); std::string readBuffer;
+    // if(dbg)std::cout << "=== Professional 1H Bot: Real Data + Optimization + Walk-Forward ===\n";
+    // std::vector<Candle> candles;
     
-    if (curl) {
-        if(dbg)std::cout << "Fetching 1000 "+symbols[idsmb].name+" 1h candles from Binance...\n";
-        std::string url = "https://data-api.binance.vision/api/v3/klines?symbol=" 
-                      + symbols[idsmb].name 
-                      + "&interval=1h&limit=1000";
-    	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback); curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
-        if (curl_easy_perform(curl) == CURLE_OK) {
-            try {
-                auto data = json::parse(readBuffer);
-                for (const auto& item : data) candles.push_back({item[0].get<long long>(), std::stod(item[2].get<std::string>()), std::stod(item[3].get<std::string>()), std::stod(item[4].get<std::string>())});
-                std::cout << "Loaded " << candles.size() << " real candles.\n";
-            } catch (...) { std::cout << "JSON parse failed.\n"; }
-        } else { std::cout << "Fetch failed.\n"; }
-        curl_easy_cleanup(curl);
-    }
+    // if (curl) {
+    //     if(dbg)std::cout << "Fetching 1000 "+symbols[idsmb].name+" 1h candles from Binance...\n";
+    //     std::string url = "https://data-api.binance.vision/api/v3/klines?symbol=" 
+    //                   + symbols[idsmb].name 
+    //                   + "&interval=1h&limit=1000";
+    // 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    //     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback); curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    //     curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
+    //     if (curl_easy_perform(curl) == CURLE_OK) {
+    //         try {
+    //             auto data = json::parse(readBuffer);
+    //             for (const auto& item : data) candles.push_back({item[0].get<long long>(), std::stod(item[2].get<std::string>()), std::stod(item[3].get<std::string>()), std::stod(item[4].get<std::string>())});
+    //             std::cout << "Loaded " << candles.size() << " real candles.\n";
+    //         } catch (...) { std::cout << "JSON parse failed.\n"; }
+    //     } else { std::cout << "Fetch failed.\n"; }
+    //     curl_easy_cleanup(curl);
+    // }
     if (candles.size() < 101) { std::cout << "ERROR: Insufficient data. Exiting.\n"; return 1; }
     candles.resize(candles.size() - 1); //////////////////////////
     
@@ -380,7 +460,7 @@ int seek(int idsmb) {
     if(dbg)std::cout << "Leverage Needed   : " << leverage_needed << "x\n";
 	if(dbg)std::cout << "Current Candle close: $" << std::fixed << std::setprecision(6) << candles[candles.size()-1].close<<"\n";
     
-	if(dbg)print_account();
+	// if(dbg)print_account();
     if (edge_sig.direction != "WAIT") 
 	// if(1)
 	{
@@ -421,7 +501,16 @@ int seek(int idsmb) {
 }
 int main(){
 	// print_account();
-	// seek(14);return 0;
+	// return 0;
+	// seek(0);
+	std::string openPositions = getOpenedFuturesPositions();
+    std::cout << "Open Positions Data:\n" << openPositions << "\n" << std::endl;
+	vector<std::string> gops=getOpenPositionSymbols();
+	cout<<"gopsize: "<<gops.size()<<"\n";
+	for(int i=0;i<gops.size();i++){
+		cout<<"gops: "<<gops[i]<<"\n";
+	}
+	// return 0;
 	// seek(1);return 0;
 	for(int i=0;i<symbols.size();i++){
 		seek(i);

@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <curl/curl.h>
-#include <nlohmann/json.hpp>
+// #include <nlohmann/json.hpp>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 using namespace std;
@@ -90,6 +90,63 @@ std::string sendFuturesRequest(const std::string& apiKey, const std::string& api
 
     return response;
 }
+bool getOpenPositionSymbolsfetched=0;
+std::vector<std::string> getOpenPositionSymbols(){
+
+	static std::vector<std::string> symbols;
+	if(symbols.size()>0)return symbols;
+	if(getOpenPositionSymbolsfetched==1)return symbols;
+	getOpenPositionSymbolsfetched=1;
+	
+	const char* envKey = std::getenv("MEXC_API_KEY");
+    const char* envSecret = std::getenv("MEXC_API_SECRET");
+
+	// Endpoint MEXC Futures
+	std::string endpoint = "/api/v1/private/position/open_positions";
+
+	// GET request sem payload
+	std::string response = sendFuturesRequest(envKey, envSecret, "GET", endpoint, "");
+	// cout<<response<<"\n";
+
+
+	size_t pos = 0;
+
+	while (true) {
+	// Encontrar "symbol":"XYZ_USDT"
+	size_t s = response.find("\"symbol\":\"", pos);
+	if (s == std::string::npos) break;
+
+	s += 10; // avança depois de "symbol":" 
+	size_t e = response.find("\"", s);
+	if (e == std::string::npos) break;
+
+	std::string sym = response.substr(s, e - s);
+
+	// Encontrar holdVol
+	size_t hv = response.find("\"holdVol\":", e);
+	if (hv == std::string::npos) break;
+
+	hv += 10; // depois de "holdVol":
+	size_t hvEnd = response.find(",", hv);
+	if (hvEnd == std::string::npos) break;
+
+	double holdVol = std::stod(response.substr(hv, hvEnd - hv));
+
+	if (holdVol > 0.0)
+	symbols.push_back(sym);
+
+	pos = e + 1;
+	}
+
+	return symbols;
+}
+bool symbol_opened(string symbol){
+	vector<std::string> gops=getOpenPositionSymbols();
+	for(int i=0;i<gops.size();i++){
+		if(gops[i]==symbol)return 1;
+	}
+	return 0;
+}
 
 // --- Get All Opened Futures Positions ---
 // GET /api/v1/private/position/open_positions
@@ -120,43 +177,59 @@ int formatVol(double qty, int stepsize)
 
     return result;
 }
-struct digits_contractsize{
-	double priceScale=0;
-	double contractSize=0;
+struct digits_contractsize {
+    double priceScale = 0;
+    double contractSize = 0;
 };
-digits_contractsize getContractSize(const std::string& apiKey,
-	const std::string& apiSecret,
-	const std::string& mexcSymbol)
-{
-// Example: mexcSymbol = "ETH_USDT"
 
-std::string endpoint = "/api/v1/contract/detail?symbol=" + mexcSymbol;
+double extractNumber(const std::string& src, const std::string& key) {
+    std::string tag = "\"" + key + "\":";
+    size_t start = src.find(tag);
+    if (start == std::string::npos) return 0.0;
 
-std::string res = sendFuturesRequest(
-apiKey,
-apiSecret,
-"GET",
-endpoint,
-""
-);
+    start += tag.size();
+    size_t end = src.find_first_of(",}", start);
+    if (end == std::string::npos) return 0.0;
 
-// Parse JSON
-auto j = nlohmann::json::parse(res);
-
-// MEXC returns: { "success":true, "code":0, "data":{ ... } }
-if (!j.contains("data"))
-throw std::runtime_error("Invalid MEXC response: no data");
-
-const auto& d = j["data"];
-// cout<<"mexc: "<<d<<"\n";
-if (!d.contains("contractSize"))
-throw std::runtime_error("Invalid MEXC response: no contractSize");
-
-return {d["priceScale"].get<double>(),d["contractSize"].get<double>()};
+    std::string num = src.substr(start, end - start);
+    return std::stod(num);
 }
+
+digits_contractsize getContractSize(const std::string& apiKey,
+                                    const std::string& apiSecret,
+                                    const std::string& mexcSymbol)
+{
+    std::string endpoint = "/api/v1/contract/detail?symbol=" + mexcSymbol;
+
+    std::string res = sendFuturesRequest(
+        apiKey,
+        apiSecret,
+        "GET",
+        endpoint,
+        ""
+    );
+
+    // Verificar se existe "data"
+    size_t dpos = res.find("\"data\":");
+    if (dpos == std::string::npos)
+        throw std::runtime_error("Invalid MEXC response: no data");
+
+    // Extrair priceScale e contractSize
+    double priceScale = extractNumber(res, "priceScale");
+    double contractSize = extractNumber(res, "contractSize");
+
+    if (contractSize == 0.0)
+        throw std::runtime_error("Invalid MEXC response: no contractSize");
+
+    return { priceScale, contractSize };
+}
+
 // --- Optimized & Atomic Orchestrator ---
 // Unified Execution (Entry + OCO TP/SL): POST /api/v1/private/order/create
-void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int leverage = 20) {
+void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int leverage = 30) {
+
+	if(symbol_opened(symbol))return;
+
     const char* envKey = std::getenv("MEXC_API_KEY");
     const char* envSecret = std::getenv("MEXC_API_SECRET");
 
@@ -195,6 +268,7 @@ void openAtomicBracketFuturesPosition(const std::string& symbol, const std::stri
            << "\"takeProfitPrice\":" <<   takeProfit
            << "}";
 	std::cout << pOrder.str() << "\n";
+	// return;
     std::cout << "Sending Unified Entry and TP/SL Order Payload...\n";
     std::string orderRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/create", pOrder.str());
     std::cout << "Exchange Response: " << orderRes << "\n";
@@ -339,13 +413,15 @@ double getUsdtFuturesBalance() {
     return extractUsdtBalance(rawJson, "availableBalance");
 }
 
+
+
 // --- Wrapper to Print Metrics ---
 int print_account() {
     std::cout << "Fetching Futures Account Balances..." << std::endl;
     double accountInfo = getUsdtFuturesBalance();
 
     std::cout << "Account Metrics Details:\n" << accountInfo << std::endl;
-
+return 0;
     // 1. Fetching all currently open futures positions
     std::string openPositions = getOpenedFuturesPositions();
     std::cout << "Open Positions Data:\n" << openPositions << "\n" << std::endl;
