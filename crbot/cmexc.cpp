@@ -1,13 +1,15 @@
-
 #include <iostream>
 #include <string>
 #include <chrono>
 #include <sstream>
 #include <iomanip>
 #include <cstdlib>
+#include <cmath>
 #include <curl/curl.h>
+#include <nlohmann/json.hpp>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
+using namespace std;
 
 // --- Helper: cURL Write Callback ---
 size_t HttpCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
@@ -17,7 +19,11 @@ size_t HttpCallback(void* contents, size_t size, size_t nmemb, std::string* outp
 
 // --- Futures Signature Engine ---
 // MEXC Futures uses: ApiKey + RequestTime + RequestBody
-std::string getFuturesSignature(const std::string& apiKey, const std::string& secret, 
+// (For POST, RequestBody is the raw JSON string, no sorting needed.
+//  For GET/DELETE with params, MEXC requires params sorted in dictionary
+//  order and joined with '&' BEFORE signing — this helper assumes the
+//  caller already built that string correctly; see note in sendFuturesRequest.)
+std::string getFuturesSignature(const std::string& apiKey, const std::string& secret,
                                 const std::string& timestamp, const std::string& requestBody) {
     std::string message = apiKey + timestamp + requestBody;
     unsigned char hash[EVP_MAX_MD_SIZE];
@@ -35,8 +41,8 @@ std::string getFuturesSignature(const std::string& apiKey, const std::string& se
 }
 
 // --- Futures HTTP Engine ---
-std::string sendFuturesRequest(const std::string& apiKey, const std::string& apiSecret, 
-                               const std::string& method, const std::string& endpoint, 
+std::string sendFuturesRequest(const std::string& apiKey, const std::string& apiSecret,
+                               const std::string& method, const std::string& endpoint,
                                const std::string& payload = "") {
     CURL* curl = curl_easy_init();
     if (!curl) return "{\"error\":\"CURL_INIT_FAILED\"}";
@@ -47,9 +53,13 @@ std::string sendFuturesRequest(const std::string& apiKey, const std::string& api
     std::string timestamp = std::to_string(msTimestamp);
 
     // Generate HMAC signature
+    // NOTE: for GET requests with query params, MEXC requires the params to be
+    // sorted alphabetically and joined with '&' before they're used here. This
+    // function signs whatever raw string is in `payload`, so callers issuing
+    // GET requests with parameters must pre-sort them before calling.
     std::string signature = getFuturesSignature(apiKey, apiSecret, timestamp, payload);
     std::string url = "https://contract.mexc.com" + endpoint;
-    
+
     // For GET requests, append payload to URL if it exists (query string)
     if (method == "GET" && !payload.empty()) {
         url += "?" + payload;
@@ -64,24 +74,25 @@ std::string sendFuturesRequest(const std::string& apiKey, const std::string& api
     std::string response;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
-    
+
     if (method == "POST" && !payload.empty()) {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
     }
-    
+
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HttpCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
     curl_easy_perform(curl);
-    
+
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 
     return response;
 }
 
-// --- NEW FUNCTION: Get All Opened Futures Positions ---
+// --- Get All Opened Futures Positions ---
+// GET /api/v1/private/position/open_positions
 std::string getOpenedFuturesPositions() {
     const char* envKey = std::getenv("MEXC_API_KEY");
     const char* envSecret = std::getenv("MEXC_API_SECRET");
@@ -93,17 +104,59 @@ std::string getOpenedFuturesPositions() {
     std::string apiKey(envKey);
     std::string apiSecret(envSecret);
 
-    // Endpoint for checking open futures positions
     std::string endpoint = "/api/v1/private/position/open_positions";
-    
+
     std::cout << "Fetching all opened futures positions..." << std::endl;
     return sendFuturesRequest(apiKey, apiSecret, "GET", endpoint);
 }
+int formatVol(double qty, int stepsize)
+{
+    // 1) Round qty to the desired number of decimals
+    double factor = std::pow(10.0, stepsize);
+    double rounded = std::floor(qty * factor + 1e-12) / factor;
 
-// --- Orchestrator: Bracket Futures Position (JSON Adapted) ---
-void openBracketFuturesPosition(const std::string& symbol, const std::string& side, 
-                                double qty, double entryPrice, double stopLoss, double takeProfit) {
-    
+    // 2) Convert to integer by removing the decimal point
+    int result = static_cast<int>(rounded * factor);
+
+    return result;
+}
+struct digits_contractsize{
+	double priceScale=0;
+	double contractSize=0;
+};
+digits_contractsize getContractSize(const std::string& apiKey,
+	const std::string& apiSecret,
+	const std::string& mexcSymbol)
+{
+// Example: mexcSymbol = "ETH_USDT"
+
+std::string endpoint = "/api/v1/contract/detail?symbol=" + mexcSymbol;
+
+std::string res = sendFuturesRequest(
+apiKey,
+apiSecret,
+"GET",
+endpoint,
+""
+);
+
+// Parse JSON
+auto j = nlohmann::json::parse(res);
+
+// MEXC returns: { "success":true, "code":0, "data":{ ... } }
+if (!j.contains("data"))
+throw std::runtime_error("Invalid MEXC response: no data");
+
+const auto& d = j["data"];
+// cout<<"mexc: "<<d<<"\n";
+if (!d.contains("contractSize"))
+throw std::runtime_error("Invalid MEXC response: no contractSize");
+
+return {d["priceScale"].get<double>(),d["contractSize"].get<double>()};
+}
+// --- Optimized & Atomic Orchestrator ---
+// Unified Execution (Entry + OCO TP/SL): POST /api/v1/private/order/create
+void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int leverage = 20) {
     const char* envKey = std::getenv("MEXC_API_KEY");
     const char* envSecret = std::getenv("MEXC_API_SECRET");
 
@@ -114,99 +167,150 @@ void openBracketFuturesPosition(const std::string& symbol, const std::string& si
 
     std::string apiKey(envKey);
     std::string apiSecret(envSecret);
-    
+
+    digits_contractsize csize = getContractSize(apiKey, apiSecret, symbol);
+    int contracts = static_cast<int>(std::floor(qty / csize.contractSize));
+
+    if (contracts <= 0) {
+        std::cerr << "Execution Blocked: Calculated volume rounds to 0 contracts." << std::endl;
+        return;
+    }
+
+    // MEXC Futures Side Ints: 1 = Open Long, 3 = Open Short
+    int entrySideInt = (side == "BUY") ? 1 : 3;
+
+    // --- STEP 1: Pack All Data Into One Single Payload ---
+    std::stringstream pOrder;
+    pOrder << "{"
+           << "\"symbol\":\"" << symbol << "\","
+           << "\"price\":" <<   entryPrice << ","
+           << "\"vol\":" << contracts << ","
+           << "\"side\":" << entrySideInt << ","
+           << "\"type\":1,"         // 1 = Limit Order (Allows for Maker fee potential)
+           << "\"openType\":1,"     // 1 = Isolated Margin
+           << "\"leverage\":" << leverage << ","
+           
+           // Direct, built-in protection parameters checked in documentation
+           << "\"stopLossPrice\":" <<   stopLoss << ","
+           << "\"takeProfitPrice\":" <<   takeProfit
+           << "}";
+	std::cout << pOrder.str() << "\n";
+    std::cout << "Sending Unified Entry and TP/SL Order Payload...\n";
+    std::string orderRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/create", pOrder.str());
+    std::cout << "Exchange Response: " << orderRes << "\n";
+}
+// --- Orchestrator: Bracket Futures Position (JSON Adapted) ---
+// Entry order:      POST /api/v1/private/order/create
+// SL / TP orders:   POST /api/v1/private/planorder/place/v2   (CORRECTED — was /planorder/place)
+void openBracketFuturesPosition1(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int pricePrecision, float volPrecision,int leverage = 20 ) {
+    // NOTE on precision: MEXC enforces a per-contract tick size / lot size
+    // (priceUnit / volUnit, available from the contract detail endpoint).
+    // The fixed precision below is a placeholder — for symbols where the
+    // real tick size differs from what's hardcoded here, the order will be
+    // rejected ("price/vol precision error"). Fetch contract details per
+    // symbol and pass the correct precision in for production use.
+
+    const char* envKey = std::getenv("MEXC_API_KEY");
+    const char* envSecret = std::getenv("MEXC_API_SECRET");
+
+    if (!envKey || !envSecret) {
+        std::cerr << "Execution Blocked: Missing API credentials." << std::endl;
+        return;
+    }
+
+    std::string apiKey(envKey);
+    std::string apiSecret(envSecret);
+
+	digits_contractsize csize=getContractSize(apiKey,apiSecret,symbol);
+	int contracts = static_cast<int>(std::floor(qty / csize.contractSize));
+
+	cout<<"csize: "<<csize.contractSize<<" "<<contracts<<"\n";
+
     // MEXC Futures Side Ints: 1 = Open Long, 2 = Close Short, 3 = Open Short, 4 = Close Long
     int entrySideInt = (side == "BUY") ? 1 : 3;
     int exitSideInt  = (side == "BUY") ? 4 : 2;
 
     // --- STEP 1: Post Core Margin Position Entry ---
-    // Note: MEXC Futures uses JSON payloads, not query parameters
+    // Place Order fields (per docs): symbol, price, vol, leverage, side, type, openType
     std::stringstream pOrder;
     pOrder << "{"
            << "\"symbol\":\"" << symbol << "\","
-           << "\"price\":" << entryPrice << ","
-        //    << "\"price\":" << std::fixed << std::setprecision(2) << entryPrice << ","
-           << "\"vol\":" << qty << ","
-        //    << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
+           << "\"price\":" <<  entryPrice << ","
+        //    << "\"price\":" << std::fixed << std::setprecision(pricePrecision) << entryPrice << ","
+           << "\"vol\":" << contracts << ","
            << "\"side\":" << entrySideInt << ","
-           << "\"type\":1,"       // 1 = Limit Order
-           << "\"openType\":1,"   // 1 = Isolated Margin
-           << "\"leverage\":5"    // Specify Default Leverage
+           << "\"type\":1,"        // 1 = Limit Order
+           << "\"openType\":1,"    // 1 = Isolated Margin
+           << "\"leverage\":" << leverage
            << "}";
-
+    std::cout << pOrder.str() << "\n";
+	// return;
     std::cout << "Sending Futures Entry Order..." << std::endl;
-    std::string entryRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/submit", pOrder.str());
+    std::string entryRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/create", pOrder.str());
     std::cout << "Entry Response: " << entryRes << "\n\n";
 
     // --- STEP 2: Deploy Stop Loss Guard ---
+    // Place Plan Order required fields (per docs): symbol, vol, leverage, side,
+    // openType, triggerPrice, triggerType, executeCycle, orderType, trend
     std::stringstream slOrder;
     slOrder << "{"
             << "\"symbol\":\"" << symbol << "\","
-            << "\"triggerPrice\":" << stopLoss << ","
-            << "\"price\":" <<  (side == "BUY" ? stopLoss * 0.995 : stopLoss * 1.005) << ","
-            << "\"vol\":"  << qty << ","
+            << "\"leverage\":" << leverage << ","
+            << "\"openType\":1,"                          // 1 = isolated
+            << "\"triggerPrice\":" << std::fixed << std::setprecision(pricePrecision) << stopLoss << ","
+            // triggerType: for a long stop-loss, trigger when price <= stopLoss (2);
+            // for a short stop-loss, trigger when price >= stopLoss (1).
+            << "\"triggerType\":" << (side == "BUY" ? 2 : 1) << ","
+            << "\"price\":" << (side == "BUY" ? stopLoss * 0.995 : stopLoss * 1.005) << ","
+            << "\"vol\":" << contracts << ","
             << "\"side\":" << exitSideInt << ","
-            << "\"type\":1,"       // 1 = Limit trigger
-            << "\"executeCycle\":1"// GTC
+            << "\"orderType\":1,"     // 1 = Limit
+            << "\"executeCycle\":1,"  // 1 = 24 hours (2 = 7 days) — there is no GTC option
+            << "\"trend\":1"          // 1 = trigger off latest price
             << "}";
-    // slOrder << "{"
-    //         << "\"symbol\":\"" << symbol << "\","
-    //         << "\"triggerPrice\":" << std::fixed << std::setprecision(2) << stopLoss << ","
-    //         << "\"price\":" << std::fixed << std::setprecision(2) << (side == "BUY" ? stopLoss * 0.995 : stopLoss * 1.005) << ","
-    //         << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
-    //         << "\"side\":" << exitSideInt << ","
-    //         << "\"type\":1,"       // 1 = Limit trigger
-    //         << "\"executeCycle\":1"// GTC
-    //         << "}";
 
     std::cout << "Deploying Stop Loss Guard..." << std::endl;
-    std::string slRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/place", slOrder.str());
+    std::string slRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/place/v2", slOrder.str());
     std::cout << "Stop Loss Response: " << slRes << "\n\n";
 
     // --- STEP 3: Deploy Take Profit Order ---
     std::stringstream tpOrder;
     tpOrder << "{"
             << "\"symbol\":\"" << symbol << "\","
-            << "\"triggerPrice\":" << takeProfit << ","
-            << "\"price\":"  << takeProfit << ","
-            << "\"vol\":" << qty << ","
+            << "\"leverage\":" << leverage << ","
+            << "\"openType\":1,"
+            << "\"triggerPrice\":" << std::fixed << std::setprecision(pricePrecision) << takeProfit << ","
+            // triggerType: for a long take-profit, trigger when price >= takeProfit (1);
+            // for a short take-profit, trigger when price <= takeProfit (2).
+            << "\"triggerType\":" << (side == "BUY" ? 1 : 2) << ","
+            << "\"price\":" << takeProfit << ","
+            << "\"vol\":" << contracts << ","
             << "\"side\":" << exitSideInt << ","
-            << "\"type\":1,"
-            << "\"executeCycle\":1"
+            << "\"orderType\":1,"
+            << "\"executeCycle\":1,"
+            << "\"trend\":1"
             << "}";
-    // tpOrder << "{"
-    //         << "\"symbol\":\"" << symbol << "\","
-    //         << "\"triggerPrice\":" << std::fixed << std::setprecision(2) << takeProfit << ","
-    //         << "\"price\":" << std::fixed << std::setprecision(2) << takeProfit << ","
-    //         << "\"vol\":" << std::fixed << std::setprecision(4) << qty << ","
-    //         << "\"side\":" << exitSideInt << ","
-    //         << "\"type\":1,"
-    //         << "\"executeCycle\":1"
-    //         << "}";
 
     std::cout << "Deploying Take Profit Order..." << std::endl;
-    std::string tpRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/place", tpOrder.str());
+    std::string tpRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/place/v2", tpOrder.str());
     std::cout << "Take Profit Response: " << tpRes << "\n";
 }
+
 // --- Light Extraction Helper ---
 // Searches for the USDT block and extracts the designated balance field
 double extractUsdtBalance(const std::string& jsonResponse, const std::string& balanceField = "availableBalance") {
-    // 1. Locate the USDT asset block
     size_t usdtPos = jsonResponse.find("\"currency\":\"USDT\"");
     if (usdtPos == std::string::npos) {
         return 0.0; // USDT block not found
     }
 
-    // 2. Look for the target balance field within or near this block
     size_t fieldPos = jsonResponse.find("\"" + balanceField + "\":", usdtPos);
     if (fieldPos == std::string::npos) {
         return 0.0;
     }
 
-    // 3. Jump past the field name and the colon (e.g., "availableBalance":)
     size_t valueStart = fieldPos + balanceField.length() + 3;
-    
-    // 4. Find where the number ends (usually a comma or closing bracket)
+
     size_t valueEnd = jsonResponse.find_first_of(",}", valueStart);
     if (valueEnd == std::string::npos) {
         return 0.0;
@@ -216,7 +320,7 @@ double extractUsdtBalance(const std::string& jsonResponse, const std::string& ba
     try {
         return std::stod(valueStr);
     } catch (...) {
-        return 0.0; 
+        return 0.0;
     }
 }
 
@@ -231,8 +335,7 @@ double getUsdtFuturesBalance() {
     }
 
     std::string rawJson = sendFuturesRequest(envKey, envSecret, "GET", "/api/v1/private/account/assets");
-    
-    // Extract "availableBalance" specifically for the USDT object
+	cout<<"rawJson: "<<rawJson<<"\n";
     return extractUsdtBalance(rawJson, "availableBalance");
 }
 
@@ -240,15 +343,14 @@ double getUsdtFuturesBalance() {
 int print_account() {
     std::cout << "Fetching Futures Account Balances..." << std::endl;
     double accountInfo = getUsdtFuturesBalance();
-    
+
     std::cout << "Account Metrics Details:\n" << accountInfo << std::endl;
-	
+
     // 1. Fetching all currently open futures positions
     std::string openPositions = getOpenedFuturesPositions();
     std::cout << "Open Positions Data:\n" << openPositions << "\n" << std::endl;
 
     // 2. Example: Opening a 5x Futures Long on BTC_USDT (Notice MEXC futures uses the underscore)
-    // openBracketFuturesPosition("BTC_USDT", "BUY", 0.025, 64200.00, 63100.00, 67500.00);
+    // openBracketFuturesPosition("BTC_USDT", "BUY", 0.025, 64200.00, 63100.00, 67500.00, 5);
     return 0;
 }
-

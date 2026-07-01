@@ -17,8 +17,7 @@
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 // region mexc
-void openBracketFuturesPosition(const std::string& symbol, const std::string& side, 
-    double qty, double entryPrice, double stopLoss, double takeProfit);
+void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int leverage = 20);
 int print_account();
 
 using json = nlohmann::json;
@@ -34,7 +33,7 @@ struct FeeConfig {
 };
 
 // Fixed Target Risk to 4%
-static constexpr double RISK_PER_TRADE = 0.04;
+static constexpr double RISK_PER_TRADE = 0.03;
 enum class PositionType { NONE, LONG, SHORT };
 
 struct BacktestResult {
@@ -244,13 +243,13 @@ LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, 
 struct symbolstruct {
     string name;
     float stepsize;
-    float digits;
+    int digits;
     string mexc;
 };
 
 vector<symbolstruct> symbols = {
     {"BTCUSDT", 0.001f,   2, "BTC_USDT"},
-    {"ETHUSDT", 0.001f,   2, "ETH_USDT"},
+    {"ETHUSDT", 0.01f,   2, "ETH_USDT"},
     {"TRXUSDT", 0.00001f, 5, "TRX_USDT"},
     {"XRPUSDT", 0.0001f,  4, "XRP_USDT"},
     {"ADAUSDT", 0.0001f,  4, "ADA_USDT"},
@@ -264,10 +263,13 @@ vector<symbolstruct> symbols = {
     {"NEARUSDT",0.001f,   3, "NEAR_USDT"},
     {"BNBUSDT", 0.001f,   3, "BNB_USDT"}
 };
-inline double roundPrice(double price, int digits){
+inline double roundPrice(double price, int digits)
+{
     const double factor = std::pow(10.0, digits);
     return std::floor(price * factor) / factor;
 }
+
+
 
 
 int seek(int idsmb) {
@@ -298,7 +300,7 @@ int seek(int idsmb) {
         curl_easy_cleanup(curl);
     }
     if (candles.size() < 101) { std::cout << "ERROR: Insufficient data. Exiting.\n"; return 1; }
-    // candles.resize(candles.size() - 2); //////////////////////////
+    candles.resize(candles.size() - 1); //////////////////////////
     
     size_t last_closed_idx = candles.size() - 2;
     if(dbg)std::cout << "Last Closed Candle: $" << std::fixed << std::setprecision(6) << candles[last_closed_idx].close << "\n\nRunning Robust Optimization...\n";
@@ -385,24 +387,29 @@ int seek(int idsmb) {
         double projected_loss = edge_sig.exact_position_btc * std::abs(edge_sig.entry - edge_sig.stop_loss);
         double projected_win = edge_sig.exact_position_btc * std::abs(edge_sig.entry - edge_sig.take_profit);
 		double qty = std::floor(edge_sig.exact_position_btc / stepsize) * stepsize;
+		int d = symbols[idsmb].digits;
         
         printf("EXECUTE: %s %s %f %f %f %f \n", symbols[idsmb].name.c_str(), (edge_sig.direction == "LONG" ? "BUY" : "SELL"), 
                edge_sig.exact_position_btc, edge_sig.entry, edge_sig.stop_loss, edge_sig.take_profit);
         std::cout << "Target Risk %  : " << (RISK_PER_TRADE * 100.0) << "%\n";
-        std::cout << "Projected Loss : -$" << std::setprecision(2) << projected_loss << " (Hit SL)\n";
-        std::cout << "Projected Win  : +$" << std::setprecision(2) << projected_win << " (Hit TP)\n";
-
+        std::cout << "Projected Loss : -$"  << projected_loss << " (Hit SL)\n";
+        std::cout << "Projected Win  : +$"   << projected_win << " (Hit TP)\n";
+		cout<<"entry: "<<edge_sig.entry<<" "<<roundPrice(edge_sig.entry, d)<<"\n";
 		cout<<"qty: "<<qty<<"\n";
         // return 0;
         // print_account();
-		int d = symbols[idsmb].digits;
-		openBracketFuturesPosition(
+		openAtomicBracketFuturesPosition(
 			symbols[idsmb].mexc,
 			edge_sig.direction == "LONG" ? "BUY" : "SELL",
-			qty,
-			roundPrice(edge_sig.entry, d),
-			roundPrice(edge_sig.stop_loss, d),
-			roundPrice(edge_sig.take_profit, d)
+			edge_sig.exact_position_btc,
+			edge_sig.entry,
+			edge_sig.stop_loss,
+			edge_sig.take_profit 
+			// roundPrice(edge_sig.entry, d),
+			// roundPrice(edge_sig.stop_loss, d),
+			// roundPrice(edge_sig.take_profit, d),
+			// d,
+			// stepsize
 		);
 			   
     } else {
@@ -413,7 +420,9 @@ int seek(int idsmb) {
     return 0;
 }
 int main(){
+	// print_account();
 	// seek(14);return 0;
+	// seek(1);return 0;
 	for(int i=0;i<symbols.size();i++){
 		seek(i);
 	}
