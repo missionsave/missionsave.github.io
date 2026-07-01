@@ -226,53 +226,101 @@ digits_contractsize getContractSize(const std::string& apiKey,
 
 // --- Optimized & Atomic Orchestrator ---
 // Unified Execution (Entry + OCO TP/SL): POST /api/v1/private/order/create
-void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side, double qty, double entryPrice, double stopLoss, double takeProfit, int leverage = 30) {
+void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side,
+	double qty, double entryPrice, double stopLoss,
+	double takeProfit, int leverage = 30) {
 
-	if(symbol_opened(symbol))return;
+	if(symbol_opened(symbol)) return;
 
-    const char* envKey = std::getenv("MEXC_API_KEY");
-    const char* envSecret = std::getenv("MEXC_API_SECRET");
+	const char* envKey = std::getenv("MEXC_API_KEY");
+	const char* envSecret = std::getenv("MEXC_API_SECRET");
 
-    if (!envKey || !envSecret) {
-        std::cerr << "Execution Blocked: Missing API credentials." << std::endl;
-        return;
-    }
+	if (!envKey || !envSecret) {
+	std::cerr << "Execution Blocked: Missing API credentials." << std::endl;
+	return;
+	}
 
-    std::string apiKey(envKey);
-    std::string apiSecret(envSecret);
+	std::string apiKey(envKey);
+	std::string apiSecret(envSecret);
 
-    digits_contractsize csize = getContractSize(apiKey, apiSecret, symbol);
-    int contracts = static_cast<int>(std::floor(qty / csize.contractSize));
+	digits_contractsize csize = getContractSize(apiKey, apiSecret, symbol);
+	int contracts = static_cast<int>(std::floor(qty / csize.contractSize));
 
-    if (contracts <= 0) {
-        std::cerr << "Execution Blocked: Calculated volume rounds to 0 contracts." << std::endl;
-        return;
-    }
+	if (contracts <= 0) {
+	std::cerr << "Execution Blocked: Calculated volume rounds to 0 contracts." << std::endl;
+	return;
+	}
 
-    // MEXC Futures Side Ints: 1 = Open Long, 3 = Open Short
-    int entrySideInt = (side == "BUY") ? 1 : 3;
+	int entrySideInt = (side == "BUY") ? 1 : 3;
 
-    // --- STEP 1: Pack All Data Into One Single Payload ---
-    std::stringstream pOrder;
-    pOrder << "{"
-           << "\"symbol\":\"" << symbol << "\","
-           << "\"price\":" <<   entryPrice << ","
-           << "\"vol\":" << contracts << ","
-           << "\"side\":" << entrySideInt << ","
-           << "\"type\":1,"         // 1 = Limit Order (Allows for Maker fee potential)
-           << "\"openType\":1,"     // 1 = Isolated Margin
-           << "\"leverage\":" << leverage << ","
-           
-           // Direct, built-in protection parameters checked in documentation
-           << "\"stopLossPrice\":" <<   stopLoss << ","
-           << "\"takeProfitPrice\":" <<   takeProfit
-           << "}";
+	// --- AUTO‑LEVERAGE (Corrected Direct Calculation) ---
+
+	// --- AUTO‑LEVERAGE (Liquidation == Stop-Loss) ---
+
+	int bestLev = 1; 
+	double maxLevExact = 1.0;
+	const double MMR = 0.004; // 0.4% Maintenance Margin Rate
+	
+	if (side == "BUY") {
+		if (stopLoss < entryPrice) {
+			maxLevExact = entryPrice / (entryPrice - stopLoss + (entryPrice * MMR));
+		}
+	} else { // "SELL" (Short)
+		if (stopLoss > entryPrice) {
+			maxLevExact = entryPrice / (stopLoss - entryPrice + (entryPrice * MMR));
+		}
+	}
+	
+	bestLev = (int)maxLevExact; 
+	
+	// Clamp to exchange rules (e.g., max 50x)
+	if (bestLev > 50) bestLev = 50; 
+	if (bestLev < 1)  bestLev = 1;
+	
+	// --- CALCULATE ACTUAL LIQUIDATION PRICE FROM CHOSEN LEVERAGE ---
+	double liquidationPrice = 0.0;
+	if (side == "BUY") {
+		liquidationPrice = entryPrice * (1.0 - (1.0 / bestLev) + MMR);
+	} else { // "SELL"
+		liquidationPrice = entryPrice * (1.0 + (1.0 / bestLev) - MMR);
+	}
+	
+	// --- PRINT OUTCOME ---
+	std::cout << std::fixed << std::setprecision(6);
+	std::cout << "--- Order Analysis ---" << std::endl;
+	std::cout << "Side:              " << side << std::endl;
+	std::cout << "Entry Price:       " << entryPrice << std::endl;
+	std::cout << "Target Stop-Loss:  " << stopLoss << std::endl;
+	std::cout << "Selected Leverage: " << bestLev << "x" << (bestLev == 50 ? " (Capped at Max)" : "") << std::endl;
+	std::cout << "Liquidation Price: " << liquidationPrice << std::endl;
+	std::cout << "----------------------" << std::endl;
+	
+	
+
+	// --- ORDER PAYLOAD ---
+	std::stringstream pOrder;
+	pOrder << "{"
+	<< "\"symbol\":\"" << symbol << "\","
+	<< "\"price\":" << entryPrice << ","
+	<< "\"vol\":" << contracts << ","
+	<< "\"side\":" << entrySideInt << ","
+	<< "\"type\":1,"
+	<< "\"openType\":1,"
+	<< "\"leverage\":" << bestLev << ","
+	<< "\"stopLossPrice\":" << stopLoss << ","
+	<< "\"takeProfitPrice\":" << takeProfit
+	<< "}";
+
 	std::cout << pOrder.str() << "\n";
 	// return;
-    std::cout << "Sending Unified Entry and TP/SL Order Payload...\n";
-    std::string orderRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/create", pOrder.str());
-    std::cout << "Exchange Response: " << orderRes << "\n";
+	std::cout << "Sending Unified Entry and TP/SL Order Payload...\n";
+
+	std::string orderRes = sendFuturesRequest(apiKey, apiSecret, "POST",
+				"/api/v1/private/order/create",
+				pOrder.str());
+	std::cout << "Exchange Response: " << orderRes << "\n";
 }
+
 // --- Orchestrator: Bracket Futures Position (JSON Adapted) ---
 // Entry order:      POST /api/v1/private/order/create
 // SL / TP orders:   POST /api/v1/private/planorder/place/v2   (CORRECTED — was /planorder/place)
@@ -408,7 +456,7 @@ double getUsdtFuturesBalance() {
         return 0.0;
     }
 
-    std::string rawJson = sendFuturesRequest(envKey, envSecret, "GET", "/api/v1/private/account/assets");
+    std::string rawJson = sendFuturesRequest(envKey, envSecret, "GET", "/api/v1/private/account/asset/USDT");
 	cout<<"rawJson: "<<rawJson<<"\n";
     return extractUsdtBalance(rawJson, "availableBalance");
 }

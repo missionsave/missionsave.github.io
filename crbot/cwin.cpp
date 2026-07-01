@@ -263,7 +263,8 @@ vector<symbolstruct> symbols = {
     {"DOGEUSDT",0.00001f, 5, "DOGE_USDT"},
     {"LTCUSDT", 0.001f,   3, "LTC_USDT"},
     {"NEARUSDT",0.001f,   3, "NEAR_USDT"},
-    {"BNBUSDT", 0.001f,   3, "BNB_USDT"}
+    {"BNBUSDT", 0.001f,   3, "BNB_USDT"},
+    {"OILUSDT", 0.001f,   3, "USOIL_USDT"}
 };
 inline double roundPrice(double price, int digits)
 {
@@ -301,7 +302,7 @@ std::vector<double> extractArray(const std::string& src, const std::string& key)
 
     return out;
 }
-
+float stdmedian=0;
 int seek(int idsmb) {
 	bool dbg=0;
 	string symbol=symbols[idsmb].mexc;
@@ -382,7 +383,7 @@ if (curl) {
     //     curl_easy_cleanup(curl);
     // }
     if (candles.size() < 101) { std::cout << "ERROR: Insufficient data. Exiting.\n"; return 1; }
-    candles.resize(candles.size() - 1); //////////////////////////
+    // candles.resize(candles.size() - 30); //////////////////////////
     
     size_t last_closed_idx = candles.size() - 2;
     if(dbg)std::cout << "Last Closed Candle: $" << std::fixed << std::setprecision(6) << candles[last_closed_idx].close << "\n\nRunning Robust Optimization...\n";
@@ -414,7 +415,7 @@ if (curl) {
             }
         }
     }
-    
+    stdmedian+=best_metrics.total_return;
     // if(dbg)
 	std::cout << "Best Params "<<symbol<<": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
               << "Standard Return: " << best_metrics.total_return << "% | Historical DD: " << best_metrics.max_drawdown << "% | Trades: " << best_metrics.total_trades << "\n";
@@ -460,7 +461,8 @@ if (curl) {
     LiveSignal edge_sig = generate_signal(candles, last_closed_idx, best_params, 56.0);
     double notional = edge_sig.exact_position_btc * edge_sig.entry;
     double leverage_needed = notional / 56;   // FREE_MARGIN = 100 USD in your 
-    if(dbg)std::cout << "Leverage Needed   : " << leverage_needed << "x\n";
+    // if(dbg)
+		std::cout << "Leverage Needed   : " << leverage_needed << "x\n";
 	if(dbg)std::cout << "Current Candle close: $" << std::fixed << std::setprecision(6) << candles[candles.size()-1].close<<"\n";
     
 	// if(dbg)print_account();
@@ -506,6 +508,7 @@ int main(){
 	// print_account();
 	// return 0;
 	// seek(0);
+	getUsdtFuturesBalance();
 	std::string openPositions = getOpenedFuturesPositions();
     std::cout << "Open Positions Data:\n" << openPositions << "\n" << std::endl;
 	vector<std::string> gops=getOpenPositionSymbols();
@@ -518,5 +521,6 @@ int main(){
 	for(int i=0;i<symbols.size();i++){
 		seek(i);
 	}
+	cout<<"stdmedian: "<<stdmedian<<" "<<stdmedian/symbols.size()<<"%\n";
 	return 0;
 }
