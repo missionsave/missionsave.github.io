@@ -29,7 +29,7 @@ struct Candle { long long timestamp; double high, low, close; };
 struct StrategyParams { size_t period; double threshold, atr_mult; };
 struct FeeConfig {
     // double maker_fee = 0.000, taker_fee = 0.000,  borrow_daily = 0.0003,
-    double maker_fee = 0.0006, taker_fee = 0.0008, borrow_daily = 0.000,
+    double maker_fee = 0.0008, taker_fee = 0.0008, borrow_daily = 0.000,
      candle_hours = 1.0;      
     double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
 };
@@ -304,7 +304,9 @@ std::vector<double> extractArray(const std::string& src, const std::string& key)
 
 int seek(int idsmb) {
 	bool dbg=0;
+	string symbol=symbols[idsmb].mexc;
 	// int idsmb=1;
+
 	float stepsize=symbols[idsmb].stepsize;
 
 CURL* curl = curl_easy_init();
@@ -328,7 +330,7 @@ if (curl) {
 
         // --- parse manual ---
         std::vector<double> t = extractArray(readBuffer, "time");
-        std::vector<double> o = extractArray(readBuffer, "open");
+        // std::vector<double> o = extractArray(readBuffer, "open");
         std::vector<double> h = extractArray(readBuffer, "high");
         std::vector<double> l = extractArray(readBuffer, "low");
         std::vector<double> c = extractArray(readBuffer, "close");
@@ -345,7 +347,7 @@ if (curl) {
             });
         }
 
-        std::cout << "Loaded " << candles.size() << " MEXC futures candles.\n";
+        if(dbg)std::cout << "Loaded " << candles.size() << " MEXC futures candles.\n";
     }
     else {
         std::cout << "Fetch failed.\n";
@@ -413,7 +415,8 @@ if (curl) {
         }
     }
     
-    if(dbg)std::cout << "Best Params: Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
+    // if(dbg)
+	std::cout << "Best Params "<<symbol<<": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
               << "Standard Return: " << best_metrics.total_return << "% | Historical DD: " << best_metrics.max_drawdown << "% | Trades: " << best_metrics.total_trades << "\n";
 
     MonteCarloResult mc = run_monte_carlo(best_metrics.trade_pcts, 1000.0, 2000);
