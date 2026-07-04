@@ -26,6 +26,8 @@ using namespace std;
 struct Candle { long long timestamp; double high, low, close; };
 struct StrategyParams { size_t period; double threshold, atr_mult; };
 struct FeeConfig {
+    // double maker_fee = 0.000, taker_fee = 0.000, borrow_daily = 0.000, candle_hours = 1.0;      
+    // double maker_fee = 0.0001, taker_fee = 0.00055, borrow_daily = 0.000, candle_hours = 1.0;      
     double maker_fee = 0.0008, taker_fee = 0.0008, borrow_daily = 0.000, candle_hours = 1.0;      
     double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
 };
@@ -292,7 +294,7 @@ std::vector<double> extractArray(const std::string& src, const std::string& key)
 }
 
 float stdmedian=0;
-int seek(int idsmb) {
+int seek(int idsmb,float equity) {
     bool dbg=0;
     string symbol=symbols[idsmb].mexc;
     float stepsize=symbols[idsmb].stepsize;
@@ -304,6 +306,10 @@ int seek(int idsmb) {
     if (curl) {
         std::string url = "https://contract.mexc.com/api/v1/contract/kline/" + symbols[idsmb].mexc + "?interval=Min60&limit=1000";
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+		// Limita a fase de ligação a um máximo de 10 segundos
+		curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);	
+		// Limita a transferência total a um máximo de 30 segundos
+		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
@@ -358,7 +364,7 @@ int seek(int idsmb) {
     stdmedian+=best_metrics.total_return;
     std::cout << "Best Params "<<symbol<<": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
               << "Standard Return: " << best_metrics.total_return << "% | Historical DD: " << best_metrics.max_drawdown << "% | Trades: " << best_metrics.total_trades << "\n";
-    // return 0;
+// return 0;
 	
     MonteCarloResult mc = run_monte_carlo(best_metrics.trade_pcts, 1000.0, 2000);
     if(dbg)std::cout << "\n================= MONTE CARLO STRESS TEST =================\n"
@@ -398,9 +404,9 @@ int seek(int idsmb) {
     }
     if(dbg)std::cout << "\n==================== LIVE SIGNAL EDGE ====================\n";
     // Fixed: Passing 1000.0 as Capital for Signal Generation to match backtest logic
-    LiveSignal edge_sig = generate_signal(candles, last_closed_idx, best_params, 56.0);
+    LiveSignal edge_sig = generate_signal(candles, last_closed_idx, best_params, equity);
     double notional = edge_sig.exact_position_btc * edge_sig.entry;
-    double leverage_needed = notional / 56;   // FREE_MARGIN = 100 USD in your 
+    double leverage_needed = notional / equity;   // FREE_MARGIN = 100 USD in your 
     // if(dbg)
 		std::cout << "Leverage Needed   : " << leverage_needed << "x\n";
 	if(dbg)std::cout << "Current Candle close: $" << std::fixed << std::setprecision(6) << candles[candles.size()-1].close<<"\n";
@@ -447,7 +453,7 @@ int seek(int idsmb) {
 
 int main(){
     // seek(0); return 0;
-    getUsdtFuturesBalance();
+    money moneyei=getUsdtFuturesBalance();
     std::string openPositions = getOpenedFuturesPositions();
     std::cout << "Open Positions Data:\n" << openPositions << "\n" << std::endl;
     vector<std::string> gops=getOpenPositionSymbols();
@@ -456,7 +462,7 @@ int main(){
         cout<<"gops: "<<gops[i]<<"\n";
     }
     for(int i=0;i<symbols.size();i++){
-        seek(i);
+        seek(i,moneyei.equity);
     }
     cout<<"stdmedian: "<<stdmedian<<" "<<stdmedian/symbols.size()<<"%\n";
     return 0;

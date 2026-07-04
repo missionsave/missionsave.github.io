@@ -72,7 +72,11 @@ std::string sendFuturesRequest(const std::string& apiKey, const std::string& api
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
     std::string response;
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());    
+	// Limita a fase de ligação a um máximo de 10 segundos
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    // Limita a transferência total a um máximo de 30 segundos
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
 
     if (method == "POST" && !payload.empty()) {
@@ -420,7 +424,7 @@ void openBracketFuturesPosition1(const std::string& symbol, const std::string& s
 
 // --- Light Extraction Helper ---
 // Searches for the USDT block and extracts the designated balance field
-double extractUsdtBalance(const std::string& jsonResponse, const std::string& balanceField = "availableBalance") {
+float extractUsdtBalance(const std::string& jsonResponse, const std::string& balanceField = "availableBalance") {
     size_t usdtPos = jsonResponse.find("\"currency\":\"USDT\"");
     if (usdtPos == std::string::npos) {
         return 0.0; // USDT block not found
@@ -447,18 +451,22 @@ double extractUsdtBalance(const std::string& jsonResponse, const std::string& ba
 }
 
 // --- Fetch Only USDT Available Balance ---
-double getUsdtFuturesBalance() {
+struct money{
+	float availableBalance;
+	float equity;
+};
+money getUsdtFuturesBalance() {
     const char* envKey = std::getenv("MEXC_API_KEY");
     const char* envSecret = std::getenv("MEXC_API_SECRET");
 
     if (!envKey || !envSecret) {
         std::cerr << "Missing API credentials." << std::endl;
-        return 0.0;
+        return {0.0,0};
     }
 
     std::string rawJson = sendFuturesRequest(envKey, envSecret, "GET", "/api/v1/private/account/asset/USDT");
 	cout<<"rawJson: "<<rawJson<<"\n";
-    return extractUsdtBalance(rawJson, "availableBalance");
+    return {extractUsdtBalance(rawJson, "availableBalance"),extractUsdtBalance(rawJson, "equity")};
 }
 
 
@@ -466,9 +474,9 @@ double getUsdtFuturesBalance() {
 // --- Wrapper to Print Metrics ---
 int print_account() {
     std::cout << "Fetching Futures Account Balances..." << std::endl;
-    double accountInfo = getUsdtFuturesBalance();
+    money accountInfo = getUsdtFuturesBalance();
 
-    std::cout << "Account Metrics Details:\n" << accountInfo << std::endl;
+    std::cout << "Account Metrics Details:\n" << accountInfo.equity << std::endl;
 return 0;
     // 1. Fetching all currently open futures positions
     std::string openPositions = getOpenedFuturesPositions();
