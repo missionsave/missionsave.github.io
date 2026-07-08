@@ -518,7 +518,7 @@ int main() {
                        qty, report.signal.entry, report.signal.stop_loss, report.signal.take_profit);
                 std::cout << "    -> Required Leverage: " << (notional / moneyei.equity) << "x\n";
 
-                if(0)openAtomicBracketFuturesPosition(
+                openAtomicBracketFuturesPosition(
                     symbols[idx].mexc,
                     report.signal.direction == "LONG" ? "BUY" : "SELL",
                     qty,
