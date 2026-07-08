@@ -28,7 +28,7 @@ struct FeeConfig {
 static constexpr double RISK_PER_TRADE = 0.03; 
 static constexpr double SLIPPAGE_PCT = 0.0005;  
 static constexpr double tp_factor = 2;
-static constexpr double MIN_SL_PCT = 0.02; 
+static constexpr double MIN_SL_PCT = 0.03; 
 enum class PositionType { NONE, LONG, SHORT };
 
 struct BacktestResult {
@@ -74,6 +74,16 @@ struct symbolstruct {
     string mexc;
 };
 
+vector<symbolstruct> symbols0 = {
+    {"SPX500_USDT"},
+    {"EUR_USDT"},
+    {"JPY_USDT"},
+    {"GBP_USDT"},
+    {"TLM_USDT"},
+    {"CHF_USDT"},
+    {"SHIB_USDT"},
+    {"HOT_USDT"}
+};
 vector<symbolstruct> symbols = {
     {"BTC_USDT"},
     {"ETH_USDT"},
@@ -383,7 +393,7 @@ AnalysisResult seek(int idsmb, double equity) {
         for (auto t : {0.5, 0.7, 1.0, 1.2}) {
             for (auto a : {1.2, 1.5, 1.8, 2.2}) {
                 BacktestResult is_res = run_backtest(candles, {p, t, a}, ind, z_scores, 0, split_idx);
-                if (is_res.total_trades >= 5 && is_res.max_drawdown < 15.0) {
+                if (is_res.total_trades >= 15 && is_res.max_drawdown < 15.0) {
                     double robust_fitness = is_res.total_return * (1.0 - (is_res.max_drawdown / 100.0));
                     if (robust_fitness > best_robust_fitness) {
                         best_robust_fitness = robust_fitness; best_params = {p, t, a};
@@ -508,7 +518,7 @@ int main() {
                        qty, report.signal.entry, report.signal.stop_loss, report.signal.take_profit);
                 std::cout << "    -> Required Leverage: " << (notional / moneyei.equity) << "x\n";
 
-                openAtomicBracketFuturesPosition(
+                if(0)openAtomicBracketFuturesPosition(
                     symbols[idx].mexc,
                     report.signal.direction == "LONG" ? "BUY" : "SELL",
                     qty,
