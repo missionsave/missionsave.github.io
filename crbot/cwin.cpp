@@ -84,7 +84,7 @@ vector<symbolstruct> symbols0 = {
     {"SHIB_USDT"},
     {"HOT_USDT"}
 };
-vector<symbolstruct> symbols = {
+vector<symbolstruct> symbols1 = {
     {"BTC_USDT"},
     {"ETH_USDT"},
     {"TRX_USDT"},
@@ -102,6 +102,28 @@ vector<symbolstruct> symbols = {
     {"USOIL_USDT"},
     {"XAU_USDT"},
     {"PEPE_USDT"}
+};
+vector<symbolstruct> symbols = {
+    {"BTC_USDT"},
+    {"ETH_USDT"},
+    {"SOL_USDT"},
+    {"BNB_USDT"},
+    {"XRP_USDT"},
+    {"DOGE_USDT"},
+    {"AVAX_USDT"},
+    {"SUI_USDT"},
+    {"NEAR_USDT"},
+    {"ADA_USDT"},
+    {"TRX_USDT"},
+    {"LINK_USDT"},
+    {"PEPE_USDT"},
+    {"SHIB_USDT"},
+    {"WLD_USDT"},
+    {"OP_USDT"},
+    {"ARB_USDT"},
+    {"FET_USDT"},
+    {"HYPE_USDT"},
+    {"ORDI_USDT"}
 };
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
