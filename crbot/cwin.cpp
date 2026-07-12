@@ -1,6 +1,5 @@
-// sudo apt update && sudo apt install libcurl4-openssl-dev pkg-config
-// mkdir -p include/nlohmann && wget -O include/nlohmann/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
-// g++ -std=c++20 cwin.cpp  -o cwin -I./include  $(pkg-config  --libs libcurl) -lcrypto -lssl  -lpthread -ldl -Os -s  -ffunction-sections -fdata-sections -Wl,--gc-sections  -fno-rtti -flto && ./cwin
+// sudo apt update && sudo apt install libcurl4-openssl-dev pkg-config libcjson-dev
+// g++ -std=c++20 cwin.cpp  -o cwin  ../common/cJSON.c -I../common  $(pkg-config  --libs libcurl) -lcrypto -lssl  -lpthread -ldl -Os -s  -ffunction-sections -fdata-sections -Wl,--gc-sections  -fno-rtti -flto && ./cwin
 
 #include <iostream>
 #include <string>
@@ -13,6 +12,7 @@
 #include <ctime>
 #include <random>
 #include <curl/curl.h>
+#include <cJSON.h>
 
 #include "cmexc.cpp"
 
@@ -37,7 +37,7 @@ struct BacktestResult {
     double win_rate, fitness_score, max_drawdown;
     std::map<std::string, double> daily_profit; std::vector<double> daily_returns;
     std::vector<double> trade_pcts;
-	std::vector<std::string> trade_dirs;  // New: Parallel vector for directions
+    std::vector<std::string> trade_dirs;  
 };
 
 struct TrendReading { double ema_short, ema_medium, ema_long; int bullish_votes; bool is_bullish, is_trending; double trend_strength; };
@@ -55,7 +55,6 @@ struct Indicators {
     std::vector<std::string> regime;
 };
 
-// Decoupled structural report containing analysis and risk stress-test results
 struct AnalysisResult {
     double oos_return = 0.0;
     double oos_drawdown = 0.0;
@@ -63,71 +62,110 @@ struct AnalysisResult {
     LiveSignal signal;
     MonteCarloResult mc;
     bool success = false;
-    std::vector<double> oos_trade_pcts; // Added this line
-	std::vector<std::string> oos_trade_dirs; // New: Parallel vector
+    std::vector<double> oos_trade_pcts; 
+    std::vector<std::string> oos_trade_dirs; 
 };
 
 struct symbolstruct {
-    // string name;
-    // float stepsize;
-    // int digits;
     string mexc;
 };
 
-vector<symbolstruct> symbols0 = {
-    {"SPX500_USDT"},
-    {"EUR_USDT"},
-    {"JPY_USDT"},
-    {"GBP_USDT"},
-    {"TLM_USDT"},
-    {"CHF_USDT"},
-    {"SHIB_USDT"},
-    {"HOT_USDT"}
-};
-vector<symbolstruct> symbols1 = {
-    {"BTC_USDT"},
-    {"ETH_USDT"},
-    {"TRX_USDT"},
-    {"XRP_USDT"},
-    {"ADA_USDT"},
-    {"SOL_USDT"},
-    { "AVAX_USDT"},
-    {"SUI_USDT"},
-    {"TIA_USDT"},
-    {"LINK_USDT"},
-    {"DOGE_USDT"},
-    {"LTC_USDT"},
-    {"NEAR_USDT"},
-    {"BNB_USDT"},
-    {"USOIL_USDT"},
-    {"XAU_USDT"},
-    {"PEPE_USDT"}
-};
-vector<symbolstruct> symbols = {
-    {"BTC_USDT"},
-    {"ETH_USDT"},
-    {"SOL_USDT"},
-    {"BNB_USDT"},
-    {"XRP_USDT"},
-    {"DOGE_USDT"},
-    {"AVAX_USDT"},
-    {"SUI_USDT"},
-    {"NEAR_USDT"},
-    {"ADA_USDT"},
-    {"TRX_USDT"},
-    {"LINK_USDT"},
-    {"PEPE_USDT"},
-    {"SHIB_USDT"},
-    {"WLD_USDT"},
-    {"OP_USDT"},
-    {"ARB_USDT"},
-    {"FET_USDT"},
-    {"HYPE_USDT"},
-    {"ORDI_USDT"}
-};
+std::vector<symbolstruct> symbols; 
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
     userp->append((char*)contents, size * nmemb); return size * nmemb;
+}
+
+std::vector<symbolstruct> get_hyperliquid_top_symbols(int top_n) {
+    std::vector<symbolstruct> top_symbols;
+    CURL* curl = curl_easy_init();
+    std::string readBuffer;
+    
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, "https://api.hyperliquid.xyz/info");
+        struct curl_slist* headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "{\"type\":\"metaAndAssetCtxs\"}");
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
+        
+        if (curl_easy_perform(curl) == CURLE_OK) {
+            cJSON* root = cJSON_Parse(readBuffer.c_str());
+            if (root != NULL) {
+                cJSON* meta = cJSON_GetArrayItem(root, 0);
+                cJSON* ctxs = cJSON_GetArrayItem(root, 1);
+                
+                if (meta != NULL && ctxs != NULL) {
+                    cJSON* universe = cJSON_GetObjectItem(meta, "universe");
+                    if (universe != NULL && cJSON_IsArray(universe) && cJSON_IsArray(ctxs)) {
+                        struct AssetInfo { std::string name; double volume; };
+                        std::vector<AssetInfo> assets;
+                        
+                        int num_assets = std::min(cJSON_GetArraySize(universe), cJSON_GetArraySize(ctxs));
+                        for (int i = 0; i < num_assets; ++i) {
+                            cJSON* asset = cJSON_GetArrayItem(universe, i);
+                            cJSON* ctx = cJSON_GetArrayItem(ctxs, i);
+                            
+                            cJSON* name_item = cJSON_GetObjectItem(asset, "name");
+                            cJSON* vol_item = cJSON_GetObjectItem(ctx, "dayNtlVlm");
+                            
+                            if (cJSON_IsString(name_item) && (cJSON_IsString(vol_item) || cJSON_IsNumber(vol_item))) {
+                                std::string name = name_item->valuestring;
+                                double volume = 0.0;
+                                if (cJSON_IsString(vol_item)) {
+                                    volume = std::stod(vol_item->valuestring);
+                                } else if (cJSON_IsNumber(vol_item)) {
+                                    volume = vol_item->valuedouble;
+                                }
+                                assets.push_back({name, volume});
+                            }
+                        }
+                        
+                        std::sort(assets.begin(), assets.end(), [](const AssetInfo& a, const AssetInfo& b) {
+                            return a.volume > b.volume;
+                        });
+                        
+                        for (int i = 0; i < std::min((int)assets.size(), top_n); ++i) {
+                            top_symbols.push_back({assets[i].name + "_USDT"});
+                        }
+                    }
+                }
+                cJSON_Delete(root);
+            } else {
+                std::cerr << "Error parsing Hyperliquid API JSON.\n";
+            }
+        }
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+    }
+    
+    if (top_symbols.empty()) {
+        top_symbols = {
+		{"BTC_USDT"},
+		{"ETH_USDT"},
+		{"SOL_USDT"},
+		{"BNB_USDT"},
+		{"XRP_USDT"},
+		{"DOGE_USDT"},
+		{"AVAX_USDT"},
+		{"SUI_USDT"},
+		{"NEAR_USDT"},
+		{"ADA_USDT"},
+		{"TRX_USDT"},
+		{"LINK_USDT"},
+		{"PEPE_USDT"},
+		{"SHIB_USDT"},
+		{"WLD_USDT"},
+		{"OP_USDT"},
+		{"ARB_USDT"},
+		{"FET_USDT"},
+		{"HYPE_USDT"},
+		{"ORDI_USDT"}
+		};
+    }
+    return top_symbols;
 }
 
 double calculate_atr(const std::vector<Candle>& candles, size_t index, size_t period = 14) {
@@ -196,6 +234,7 @@ std::vector<double> precompute_zscore(const std::vector<Candle>& candles, size_t
     for (size_t i = 0; i < n; ++i) z[i] = calculate_z_score(candles, i, period);
     return z;
 }
+
 BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyParams& params, const Indicators& ind, const std::vector<double>& z_scores, size_t start_idx, size_t end_idx, const FeeConfig& fees = FeeConfig{}) {
     double capital = 1000.0, initial_capital = capital, position = 0.0, total_fees = 0.0, gross_wins = 0.0, gross_losses = 0.0;
     double entry_price = 0.0, fixed_sl = 0.0, dynamic_tp = 0.0, peak_capital = capital, current_trade_fee = 0.0;
@@ -225,7 +264,6 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
         } else {
             bool is_l = (pos_type == PositionType::LONG), exit = false; double pnl = 0.0, exit_price = 0.0;
             
-            // --- STRICT BRACKET CAPPING ---
             if (is_l) {
                 if (candles[i].low <= fixed_sl) {
                     exit_price = fixed_sl * (1.0 - SLIPPAGE_PCT); exit = true;
@@ -258,11 +296,12 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
             total_trades, long_trades, short_trades, winning_longs, winning_shorts, win_rate,
             ret * (win_rate / 100.0) * std::log(total_trades + 1) * (1.0 - max_dd / 100.0 * 0.5), max_dd, daily_profit, daily_returns, trade_pcts, trade_dirs};
 }
+
 BacktestResult run_backtest1(const std::vector<Candle>& candles, const StrategyParams& params, const Indicators& ind, const std::vector<double>& z_scores, size_t start_idx, size_t end_idx, const FeeConfig& fees = FeeConfig{}) {
     double capital = 1000.0, initial_capital = capital, position = 0.0, total_fees = 0.0, gross_wins = 0.0, gross_losses = 0.0;
     double entry_price = 0.0, fixed_sl = 0.0, dynamic_tp = 0.0, peak_capital = capital, current_trade_fee = 0.0;
     double current_trade_start_cap = capital; int long_trades = 0, short_trades = 0, winning_longs = 0, winning_shorts = 0;
-    PositionType pos_type = PositionType::NONE; std::map<std::string, double> daily_profit; std::vector<double> daily_returns; std::vector<double> trade_pcts;
+    PositionType pos_type = PositionType::NONE; std::map<std::string, double> daily_profit; std::vector<double> daily_returns; std::vector<double> trade_pcts; std::vector<std::string> trade_dirs;
 
     auto log_daily = [&](long long ts, double pnl) {
         time_t t = ts / 1000; char buf[11]; std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::gmtime(&t));
@@ -294,7 +333,9 @@ BacktestResult run_backtest1(const std::vector<Candle>& candles, const StrategyP
             } 
             if (exit) {
                 double net_pnl = pnl - current_trade_fee; capital += pnl; *(pnl >= 0 ? &gross_wins : &gross_losses) += std::abs(pnl);
-                apply_fee(fees.taker_fee, std::abs(position) * exit_price); log_daily(candles[i].timestamp, pnl); trade_pcts.push_back(net_pnl / current_trade_start_cap); 
+                apply_fee(fees.taker_fee, std::abs(position) * exit_price); log_daily(candles[i].timestamp, pnl); 
+                trade_pcts.push_back(net_pnl / current_trade_start_cap); 
+                trade_dirs.push_back(is_l ? "LONG" : "SHORT");
                 if (capital <= 0) capital = 0.01; pos_type = PositionType::NONE; (is_l ? long_trades : short_trades)++; if (pnl > 0) (is_l ? winning_longs : winning_shorts)++;
             }
         }
@@ -305,7 +346,7 @@ BacktestResult run_backtest1(const std::vector<Candle>& candles, const StrategyP
     double max_dd = peak_capital > 0 ? (peak_capital - capital) / peak_capital * 100.0 : 0.0;
     return {params, ret, capital - initial_capital, total_fees, gross_losses > 0 ? gross_wins / gross_losses : (gross_wins > 0 ? 99.0 : 0.0),
             total_trades, long_trades, short_trades, winning_longs, winning_shorts, win_rate,
-            ret * (win_rate / 100.0) * std::log(total_trades + 1) * (1.0 - max_dd / 100.0 * 0.5), max_dd, daily_profit, daily_returns, trade_pcts};
+            ret * (win_rate / 100.0) * std::log(total_trades + 1) * (1.0 - max_dd / 100.0 * 0.5), max_dd, daily_profit, daily_returns, trade_pcts, trade_dirs};
 }
 
 MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trade_pcts, double start_capital, int iterations = 2000) {
@@ -330,7 +371,6 @@ MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trade_pcts, d
             double current_dd = (sim_peak - sim_capital) / sim_peak * 100.0;
             if (current_dd > sim_max_dd) sim_max_dd = current_dd;
             
-            // "Ruin" defined as losing 30% or more of starting capital on a single asset stream
             if (sim_capital <= (start_capital * 0.70)) ruined = true;
         }
         if (ruined) ruin_count++;
@@ -362,7 +402,6 @@ LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, 
     sig.confidence = (can_l || can_s) ? calculate_confidence(sig.z_score, params.threshold, sig.trend, sig.regime, can_l) : 0.0;
     return sig;
 }
-
 
 std::vector<double> extractArray(const std::string& src, const std::string& key) {
     std::vector<double> out; std::string tag = "\"" + key + "\":["; size_t start = src.find(tag); if (start == std::string::npos) return out;
@@ -400,7 +439,7 @@ AnalysisResult seek(int idsmb, double equity) {
         }
         curl_easy_cleanup(curl);
     }
-	cout<<candles.size()<<" candles of "<<symbol<<"\n";
+    cout << candles.size() << " candles of " << symbol << "\n";
     if (candles.size() < 150) return res;
     size_t last_closed_idx = candles.size() - 2;
     Indicators ind = precompute_indicators(candles);
@@ -408,7 +447,7 @@ AnalysisResult seek(int idsmb, double equity) {
 
     StrategyParams best_params = {10, 1.0, 1.5}; 
     double best_robust_fitness = -9999.0; 
-    size_t split_idx = static_cast<size_t>(candles.size() * 0.80);
+    size_t split_idx = static_cast<size_t>(candles.size() * 0.8);
 
     for (size_t p : {5, 8, 10, 13, 20}) {
         auto& z_scores = z_cache.try_emplace(p, precompute_zscore(candles, p)).first->second;
@@ -428,18 +467,17 @@ AnalysisResult seek(int idsmb, double equity) {
     auto& best_z_scores = z_cache[best_params.period];
     BacktestResult oos_metrics = run_backtest(candles, best_params, ind, best_z_scores, split_idx, candles.size() - 1);
     
-    // Run the Monte Carlo simulation over the Out-Of-Sample trade returns distribution
     MonteCarloResult mc_res = run_monte_carlo(oos_metrics.trade_pcts, 1000.0, 2000);
 
     std::cout << "Best Params " << symbol << ": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
               << "OOS Expected Return: " << std::fixed << std::setprecision(2) << oos_metrics.total_return << "% | OOS Drawdown: " << oos_metrics.max_drawdown << "%\n"
               << "Monte Carlo Risk Analysis -> Prob of Ruin: " << mc_res.prob_of_ruin << "% | Worst-Case DD: " << mc_res.worst_case_drawdown << "%\n\n";
 
-	res.oos_return = oos_metrics.total_return;
+    res.oos_return = oos_metrics.total_return;
     res.oos_drawdown = oos_metrics.max_drawdown;
     res.oos_trades = oos_metrics.total_trades;
-    res.oos_trade_pcts = oos_metrics.trade_pcts; // Added this line
-	res.oos_trade_dirs = oos_metrics.trade_dirs; // Pass directions along
+    res.oos_trade_pcts = oos_metrics.trade_pcts; 
+    res.oos_trade_dirs = oos_metrics.trade_dirs; 
     res.signal = generate_signal(candles, last_closed_idx, best_params, equity, ind);
     res.mc = mc_res;
     res.success = true;
@@ -447,14 +485,17 @@ AnalysisResult seek(int idsmb, double equity) {
 }
 
 int main() {
+    symbols = get_hyperliquid_top_symbols(30); 
+    std::cout << "Successfully mapped " << symbols.size() << " top symbols by volume from Hyperliquid.\n\n";
+
     money moneyei = getUsdtFuturesBalance();
     std::string openPositions = getOpenedFuturesPositions();
     std::cout << "Current Account Equity: " << moneyei.equity << " USDT\n";
     
     vector<std::string> gops = getOpenPositionSymbols();
     cout << "Active Structural Positions: " << gops.size() << "\n\n";
-    for(int i=0;i<gops.size();i++){
-        cout<<"gops: "<<gops[i]<<"\n";
+    for(size_t i = 0; i < gops.size(); i++){
+        cout << "gops: " << gops[i] << "\n";
     }
 
     struct RankedSymbol { size_t index; AnalysisResult analysis; };
@@ -468,7 +509,6 @@ int main() {
         }
     }
 
-    // Rank symbols globally based on true historical Out-of-Sample Alpha
     std::sort(pipeline.begin(), pipeline.end(), [](const RankedSymbol& a, const RankedSymbol& b) {
         return a.analysis.oos_return > b.analysis.oos_return;
     });
@@ -487,17 +527,14 @@ int main() {
             continue;
         }
 
-        // Hard cutoff to completely protect capital from sub-optimal or flat equity curves
         if (report.oos_return <= 0.0) {
             std::cout << "[FILTERED] " << symbols[idx].mexc << " (" << report.oos_return << "%) - Negative or zero edge validation.\n";
             continue;
         }
 
-        // --- MONTE CARLO PROTECTIVE GATE ---
-        // If the simulation shows greater than a 5% probability of breaking your capital constraints under variance, walk away.
         if (report.mc.worst_case_drawdown > 12) {
             std::cout << "[RISK-REJECTED] " << symbols[idx].mexc << " | Nominal Return was " << report.oos_return 
-                      << "% but Monte Carlo Risk is too high (Ruin Prob: " << report.mc.worst_case_drawdown << "%)\n";
+                      << "% but Monte Carlo Risk is too high (Worst-Case DD: " << report.mc.worst_case_drawdown << "%)\n";
             continue;
         }
 
@@ -505,16 +542,14 @@ int main() {
         std::cout << ">>> [VALIDATED] Slot #" << (slots_filled + 1) << ": Deploying to " << symbols[idx].mexc 
                   << " | OOS: " << report.oos_return << "% | Signal: " << report.signal.direction << "\n";
 
-
-		// --- PRINT ALL LAST TESTED TRADES ---
         std::cout << "    -> Last Tested Trades (OOS): ";
         if (report.oos_trade_pcts.empty()) {
             std::cout << "None\n";
         } else {
             int start = std::max(0, (int)report.oos_trade_pcts.size() - 10);
             for (size_t t = start; t < report.oos_trade_pcts.size(); ++t) {
-                std::string dir = report.oos_trade_dirs[t]; // Pulls direction from parallel vector
-                double pct = report.oos_trade_pcts[t] * 100.0; // Pulls PnL %
+                std::string dir = report.oos_trade_dirs[t]; 
+                double pct = report.oos_trade_pcts[t] * 100.0; 
                 
                 std::cout << dir << "(";
                 if (pct >= 0) std::cout << "+";
@@ -523,14 +558,7 @@ int main() {
             std::cout << "\n";
         }
 
-
-
-
-        // Execution safely takes place here AFTER passing all hurdles
         if (report.signal.direction != "WAIT") {
-            // float stepsize = symbols[idx].stepsize;
-            // int d = symbols[idx].digits;
-            // double qty = std::floor(report.signal.exact_position_btc / stepsize) * stepsize;
             double qty = report.signal.exact_position_btc;
             double notional = qty * report.signal.entry;
             
