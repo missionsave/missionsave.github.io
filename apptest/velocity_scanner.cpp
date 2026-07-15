@@ -106,10 +106,10 @@ std::vector<symbolstruct> fetchHyperliquidVelocity() {
     std::sort(outputSymbols.begin(), outputSymbols.end(), [](const symbolstruct& a, const symbolstruct& b) {
         return a.getTurnoverRatio() > b.getTurnoverRatio();
     });
-
-    if (outputSymbols.size() > 20) {
-        outputSymbols.resize(20);
-    }
+    std::cout<<"oss "<<outputSymbols.size()<<"\n";
+    // if (outputSymbols.size() > 20) {
+    //     outputSymbols.resize(20);
+    // }
 
     return outputSymbols;
 }

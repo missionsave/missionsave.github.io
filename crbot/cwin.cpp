@@ -1,7 +1,7 @@
 // sudo apt update && sudo apt install libcurl4-openssl-dev pkg-config libcjson-dev
-// g++ -std=c++20 cwin.cpp  -o cwin  ../common/cJSON.c -I../common  $(pkg-config  --libs libcurl) -lcrypto -lssl  -lpthread -ldl -Os -s  -ffunction-sections -fdata-sections -Wl,--gc-sections  -fno-rtti -flto && ./cwin
-
+// g++ -std=c++20 cwin.cpp -o cwin ../common/cJSON.c -I../common $(pkg-config --libs libcurl) -lcrypto -lssl -lpthread -ldl -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections -fno-rtti -flto && ./cwin
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <numeric>
@@ -11,24 +11,38 @@
 #include <map>
 #include <ctime>
 #include <random>
+#include <thread>
+#include <chrono>
 #include <curl/curl.h>
 #include <cJSON.h>
-
 #include "cmexc.cpp"
-
 using namespace std;
 
 struct Candle { long long timestamp; double high, low, close; };
 struct StrategyParams { size_t period; double threshold, atr_mult; };
 struct FeeConfig {
-    double maker_fee = 0.0008, taker_fee = 0.0008, borrow_daily = 0.000, candle_hours = 1.0;      
+    double maker_fee = 0.0008, taker_fee = 0.0008, borrow_daily = 0.000, candle_hours = 1.0;
     double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
 };
+static constexpr double RISK_PER_TRADE = 0.03;
+static constexpr double SLIPPAGE_PCT = 0.0005;
+static constexpr double CORRELATION_THRESHOLD = 0.60;
+static constexpr double MAX_CORRELATED_RISK = 0.06; // e.g. 2x a single RISK_PER_TRADE
 
-static constexpr double RISK_PER_TRADE = 0.03; 
-static constexpr double SLIPPAGE_PCT = 0.0005;  
-static constexpr double tp_factor = 2;
-static constexpr double MIN_SL_PCT = 0.03; 
+// CHANGED: these are no longer fixed constants. main() scans a grid of candidates for
+// both and keeps whichever combination produces the best portfolio-level "Active
+// Out-of-Sample Combined Expectation" before any live trade fires. All functions below
+// still reference these as plain globals, so no call-site signatures had to change.
+double MIN_SL_PCT = 0.03;
+double tp_factor = 2.0;
+
+// Candidate grids for the scan. Keep these short: total runtime scales as
+// O(len(SL_CANDIDATES) * len(TP_CANDIDATES) * symbols * inner grid search), since each
+// combo re-runs the full per-symbol walk-forward parameter search. Candle data itself
+// is fetched once and reused across all combos, so only the math repeats.
+const std::vector<double> SL_CANDIDATES = {0.02, 0.03, 0.04};
+const std::vector<double> TP_CANDIDATES = {1.5, 2.0, 2.5};
+
 enum class PositionType { NONE, LONG, SHORT };
 
 struct BacktestResult {
@@ -37,40 +51,46 @@ struct BacktestResult {
     double win_rate, fitness_score, max_drawdown;
     std::map<std::string, double> daily_profit; std::vector<double> daily_returns;
     std::vector<double> trade_pcts;
-    std::vector<std::string> trade_dirs;  
+    std::vector<std::string> trade_dirs;
 };
-
 struct TrendReading { double ema_short, ema_medium, ema_long; int bullish_votes; bool is_bullish, is_trending; double trend_strength; };
 struct LiveSignal {
     std::string direction, regime, warnings; double confidence, entry, stop_loss, take_profit, z_score, atr;
     double order_size_usd, order_size_btc, risk_amount, stop_distance, exact_position_btc, exact_position_usd;
-    TrendReading trend; 
+    TrendReading trend;
 };
-
 struct MonteCarloResult { double prob_of_ruin; double worst_case_drawdown; double median_final_equity; };
-
 struct Indicators {
     std::vector<double> atr;
     std::vector<TrendReading> trend;
     std::vector<std::string> regime;
 };
-
 struct AnalysisResult {
     double oos_return = 0.0;
     double oos_drawdown = 0.0;
     int oos_trades = 0;
+    double walk_forward_score = -9999.0;
     LiveSignal signal;
     MonteCarloResult mc;
     bool success = false;
-    std::vector<double> oos_trade_pcts; 
-    std::vector<std::string> oos_trade_dirs; 
+    std::vector<double> oos_trade_pcts;
+    std::vector<std::string> oos_trade_dirs;
+    std::vector<double> recent_returns;
+    double oos_days = 0.0; // NEW: how many days the chosen holdout split actually spans
 };
-
 struct symbolstruct {
     string mexc;
 };
+std::vector<symbolstruct> symbols;
 
-std::vector<symbolstruct> symbols; 
+struct OpenPosition {
+    std::string symbol;
+    std::string direction;
+    double notional_usd = 0.0;
+};
+struct PortfolioState {
+    std::vector<OpenPosition> positions;
+};
 
 size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
     userp->append((char*)contents, size * nmemb); return size * nmemb;
@@ -80,7 +100,7 @@ std::vector<symbolstruct> get_hyperliquid_top_symbols(int top_n) {
     std::vector<symbolstruct> top_symbols;
     CURL* curl = curl_easy_init();
     std::string readBuffer;
-    
+
     if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, "https://api.hyperliquid.xyz/info");
         struct curl_slist* headers = NULL;
@@ -90,27 +110,27 @@ std::vector<symbolstruct> get_hyperliquid_top_symbols(int top_n) {
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
-        
+
         if (curl_easy_perform(curl) == CURLE_OK) {
             cJSON* root = cJSON_Parse(readBuffer.c_str());
             if (root != NULL) {
                 cJSON* meta = cJSON_GetArrayItem(root, 0);
                 cJSON* ctxs = cJSON_GetArrayItem(root, 1);
-                
+
                 if (meta != NULL && ctxs != NULL) {
                     cJSON* universe = cJSON_GetObjectItem(meta, "universe");
                     if (universe != NULL && cJSON_IsArray(universe) && cJSON_IsArray(ctxs)) {
                         struct AssetInfo { std::string name; double volume; };
                         std::vector<AssetInfo> assets;
-                        
+
                         int num_assets = std::min(cJSON_GetArraySize(universe), cJSON_GetArraySize(ctxs));
                         for (int i = 0; i < num_assets; ++i) {
                             cJSON* asset = cJSON_GetArrayItem(universe, i);
                             cJSON* ctx = cJSON_GetArrayItem(ctxs, i);
-                            
+
                             cJSON* name_item = cJSON_GetObjectItem(asset, "name");
                             cJSON* vol_item = cJSON_GetObjectItem(ctx, "dayNtlVlm");
-                            
+
                             if (cJSON_IsString(name_item) && (cJSON_IsString(vol_item) || cJSON_IsNumber(vol_item))) {
                                 std::string name = name_item->valuestring;
                                 double volume = 0.0;
@@ -122,11 +142,11 @@ std::vector<symbolstruct> get_hyperliquid_top_symbols(int top_n) {
                                 assets.push_back({name, volume});
                             }
                         }
-                        
+
                         std::sort(assets.begin(), assets.end(), [](const AssetInfo& a, const AssetInfo& b) {
                             return a.volume > b.volume;
                         });
-                        
+
                         for (int i = 0; i < std::min((int)assets.size(), top_n); ++i) {
                             top_symbols.push_back({assets[i].name + "_USDT"});
                         }
@@ -140,30 +160,14 @@ std::vector<symbolstruct> get_hyperliquid_top_symbols(int top_n) {
         curl_easy_cleanup(curl);
         curl_slist_free_all(headers);
     }
-    
+
     if (top_symbols.empty()) {
         top_symbols = {
-		{"BTC_USDT"},
-		{"ETH_USDT"},
-		{"SOL_USDT"},
-		{"BNB_USDT"},
-		{"XRP_USDT"},
-		{"DOGE_USDT"},
-		{"AVAX_USDT"},
-		{"SUI_USDT"},
-		{"NEAR_USDT"},
-		{"ADA_USDT"},
-		{"TRX_USDT"},
-		{"LINK_USDT"},
-		{"PEPE_USDT"},
-		{"SHIB_USDT"},
-		{"WLD_USDT"},
-		{"OP_USDT"},
-		{"ARB_USDT"},
-		{"FET_USDT"},
-		{"HYPE_USDT"},
-		{"ORDI_USDT"}
-		};
+{"BTC_USDT"},{"ETH_USDT"},{"SOL_USDT"},{"BNB_USDT"},{"XRP_USDT"},
+{"DOGE_USDT"},{"AVAX_USDT"},{"SUI_USDT"},{"NEAR_USDT"},{"ADA_USDT"},
+{"TRX_USDT"},{"LINK_USDT"},{"PEPE_USDT"},{"SHIB_USDT"},{"WLD_USDT"},
+{"OP_USDT"},{"ARB_USDT"},{"FET_USDT"},{"HYPE_USDT"},{"ORDI_USDT"}
+};
     }
     return top_symbols;
 }
@@ -172,11 +176,10 @@ double calculate_atr(const std::vector<Candle>& candles, size_t index, size_t pe
     if (index < period) return 0.0;
     double sum = 0.0;
     for (size_t i = index - period + 1; i <= index; ++i) {
-        sum += std::max({candles[i].high - candles[i].low, std::abs(candles[i].high - candles[i-1].close), std::abs(candles[i].low  - candles[i-1].close)});
+        sum += std::max({candles[i].high - candles[i].low, std::abs(candles[i].high - candles[i-1].close), std::abs(candles[i].low - candles[i-1].close)});
     }
     return sum / period;
 }
-
 double calculate_z_score(const std::vector<Candle>& candles, size_t idx, size_t period) {
     if (idx < period) return 0.0;
     double sum = 0.0, sq_sum = 0.0;
@@ -186,7 +189,6 @@ double calculate_z_score(const std::vector<Candle>& candles, size_t idx, size_t 
     double stdev = std::sqrt(sq_sum / period);
     return stdev < 1e-9 ? 0.0 : (candles[idx].close - mean) / stdev;
 }
-
 double calculate_confidence(double z_score, double threshold, const TrendReading& trend, const std::string& regime, bool is_long) {
     double score = std::min(30.0, (std::abs(z_score) - threshold) * 15.0);
     score += (trend.bullish_votes == 3 && is_long) || (trend.bullish_votes == 0 && !is_long) ? 25.0 : 0.0;
@@ -195,16 +197,13 @@ double calculate_confidence(double z_score, double threshold, const TrendReading
     score += trend.trend_strength * 15.0;
     return std::max(0.0, std::min(100.0, score + (regime == "TRENDING" ? 15.0 : (regime == "VOLATILE" ? -15.0 : 0.0))));
 }
-
 struct EntryDecision { bool can_long, can_short; double stop_dist; };
-
 EntryDecision evaluate_entry(double price, double z, double atr, double threshold, double atr_mult, const TrendReading& trend) {
-    double stop_dist = std::max(atr * atr_mult, price * MIN_SL_PCT); 
+    double stop_dist = std::max(atr * atr_mult, price * MIN_SL_PCT);
     bool can_l = z < -threshold && trend.is_bullish && trend.is_trending && trend.bullish_votes >= 2;
-    bool can_s = z >  threshold && !trend.is_bullish && trend.is_trending && trend.bullish_votes <= 1;
+    bool can_s = z > threshold && !trend.is_bullish && trend.is_trending && trend.bullish_votes <= 1;
     return {can_l, can_s, stop_dist};
 }
-
 Indicators precompute_indicators(const std::vector<Candle>& candles, size_t short_p = 20, size_t medium_p = 50, size_t long_p = 100) {
     size_t n = candles.size(); Indicators ind; ind.atr.assign(n, 0.0); ind.trend.assign(n, TrendReading{}); ind.regime.assign(n, "UNKNOWN");
     if (n == 0) return ind;
@@ -213,7 +212,7 @@ Indicators precompute_indicators(const std::vector<Candle>& candles, size_t shor
     const double k_s = 2.0 / (short_p + 1), k_m = 2.0 / (medium_p + 1), k_l = 2.0 / (long_p + 1);
     for (size_t i = 1; i < n; ++i) {
         ema_s = candles[i].close * k_s + ema_s * (1.0 - k_s); ema_m = candles[i].close * k_m + ema_m * (1.0 - k_m); ema_l = candles[i].close * k_l + ema_l * (1.0 - k_l);
-        if (i < long_p) continue; 
+        if (i < long_p) continue;
         TrendReading t{}; double price = candles[i].close; t.ema_short = ema_s; t.ema_medium = ema_m; t.ema_long = ema_l;
         t.bullish_votes = (price > t.ema_short) + (price > t.ema_medium) + (price > t.ema_long); t.is_bullish = (t.bullish_votes >= 2);
         t.is_trending = (t.ema_short > t.ema_medium && t.ema_medium > t.ema_long) || (t.ema_short < t.ema_medium && t.ema_medium < t.ema_long);
@@ -228,7 +227,6 @@ Indicators precompute_indicators(const std::vector<Candle>& candles, size_t shor
     }
     return ind;
 }
-
 std::vector<double> precompute_zscore(const std::vector<Candle>& candles, size_t period) {
     size_t n = candles.size(); std::vector<double> z(n, 0.0);
     for (size_t i = 0; i < n; ++i) z[i] = calculate_z_score(candles, i, period);
@@ -240,18 +238,16 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
     double entry_price = 0.0, fixed_sl = 0.0, dynamic_tp = 0.0, peak_capital = capital, current_trade_fee = 0.0;
     double current_trade_start_cap = capital; int long_trades = 0, short_trades = 0, winning_longs = 0, winning_shorts = 0;
     PositionType pos_type = PositionType::NONE; std::map<std::string, double> daily_profit; std::vector<double> daily_returns; std::vector<double> trade_pcts; std::vector<std::string> trade_dirs;
-
     auto log_daily = [&](long long ts, double pnl) {
         time_t t = ts / 1000; char buf[11]; std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::gmtime(&t));
         double net = pnl - current_trade_fee; daily_profit[buf] += net; daily_returns.push_back(net / initial_capital * 100.0); current_trade_fee = 0.0;
     };
     auto apply_fee = [&](double rate, double notional) { double fee = notional * rate; capital -= fee; total_fees += fee; current_trade_fee += fee; };
     size_t real_start = std::max({(size_t)101, params.period + 1, start_idx}), real_end = std::min(candles.size(), end_idx);
-
     for (size_t i = real_start; i < real_end; ++i) {
         double price = candles[i].close, atr = ind.atr[i]; const TrendReading& trend = ind.trend[i];
         if (pos_type != PositionType::NONE) apply_fee(fees.borrow_per_candle(), std::abs(position) * price);
-        
+
         if (pos_type == PositionType::NONE) {
             EntryDecision dec = evaluate_entry(price, z_scores[i], atr, params.threshold, params.atr_mult, trend);
             if (dec.can_long) {
@@ -263,78 +259,20 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
             }
         } else {
             bool is_l = (pos_type == PositionType::LONG), exit = false; double pnl = 0.0, exit_price = 0.0;
-            
+
             if (is_l) {
-                if (candles[i].low <= fixed_sl) {
-                    exit_price = fixed_sl * (1.0 - SLIPPAGE_PCT); exit = true;
-                } else if (candles[i].high >= dynamic_tp) {
-                    exit_price = dynamic_tp; exit = true;
-                }
+                if (candles[i].low <= fixed_sl) { exit_price = fixed_sl * (1.0 - SLIPPAGE_PCT); exit = true; }
+                else if (candles[i].high >= dynamic_tp) { exit_price = dynamic_tp; exit = true; }
             } else {
-                if (candles[i].high >= fixed_sl) {
-                    exit_price = fixed_sl * (1.0 + SLIPPAGE_PCT); exit = true;
-                } else if (candles[i].low <= dynamic_tp) {
-                    exit_price = dynamic_tp; exit = true;
-                }
+                if (candles[i].high >= fixed_sl) { exit_price = fixed_sl * (1.0 + SLIPPAGE_PCT); exit = true; }
+                else if (candles[i].low <= dynamic_tp) { exit_price = dynamic_tp; exit = true; }
             }
-            
+
             if (exit) {
                 pnl = position * (is_l ? exit_price - entry_price : entry_price - exit_price);
                 double net_pnl = pnl - current_trade_fee; capital += pnl; *(pnl >= 0 ? &gross_wins : &gross_losses) += std::abs(pnl);
-                apply_fee(fees.taker_fee, std::abs(position) * exit_price); log_daily(candles[i].timestamp, pnl); 
-                trade_pcts.push_back(net_pnl / current_trade_start_cap); 
-                trade_dirs.push_back(is_l ? "LONG" : "SHORT");
-                if (capital <= 0) capital = 0.01; pos_type = PositionType::NONE; (is_l ? long_trades : short_trades)++; if (pnl > 0) (is_l ? winning_longs : winning_shorts)++;
-            }
-        }
-        if (capital > peak_capital) peak_capital = capital;
-    }
-    int total_trades = long_trades + short_trades, wins = winning_longs + winning_shorts;
-    double win_rate = total_trades > 0 ? (double)wins / total_trades * 100.0 : 0.0, ret = (capital - initial_capital) / initial_capital * 100.0;
-    double max_dd = peak_capital > 0 ? (peak_capital - capital) / peak_capital * 100.0 : 0.0;
-    return {params, ret, capital - initial_capital, total_fees, gross_losses > 0 ? gross_wins / gross_losses : (gross_wins > 0 ? 99.0 : 0.0),
-            total_trades, long_trades, short_trades, winning_longs, winning_shorts, win_rate,
-            ret * (win_rate / 100.0) * std::log(total_trades + 1) * (1.0 - max_dd / 100.0 * 0.5), max_dd, daily_profit, daily_returns, trade_pcts, trade_dirs};
-}
-
-BacktestResult run_backtest1(const std::vector<Candle>& candles, const StrategyParams& params, const Indicators& ind, const std::vector<double>& z_scores, size_t start_idx, size_t end_idx, const FeeConfig& fees = FeeConfig{}) {
-    double capital = 1000.0, initial_capital = capital, position = 0.0, total_fees = 0.0, gross_wins = 0.0, gross_losses = 0.0;
-    double entry_price = 0.0, fixed_sl = 0.0, dynamic_tp = 0.0, peak_capital = capital, current_trade_fee = 0.0;
-    double current_trade_start_cap = capital; int long_trades = 0, short_trades = 0, winning_longs = 0, winning_shorts = 0;
-    PositionType pos_type = PositionType::NONE; std::map<std::string, double> daily_profit; std::vector<double> daily_returns; std::vector<double> trade_pcts; std::vector<std::string> trade_dirs;
-
-    auto log_daily = [&](long long ts, double pnl) {
-        time_t t = ts / 1000; char buf[11]; std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::gmtime(&t));
-        double net = pnl - current_trade_fee; daily_profit[buf] += net; daily_returns.push_back(net / initial_capital * 100.0); current_trade_fee = 0.0;
-    };
-    auto apply_fee = [&](double rate, double notional) { double fee = notional * rate; capital -= fee; total_fees += fee; current_trade_fee += fee; };
-    size_t real_start = std::max({(size_t)101, params.period + 1, start_idx}), real_end = std::min(candles.size(), end_idx);
-
-    for (size_t i = real_start; i < real_end; ++i) {
-        double price = candles[i].close, atr = ind.atr[i]; const TrendReading& trend = ind.trend[i];
-        if (pos_type != PositionType::NONE) apply_fee(fees.borrow_per_candle(), std::abs(position) * price);
-        if (pos_type == PositionType::NONE) {
-            EntryDecision dec = evaluate_entry(price, z_scores[i], atr, params.threshold, params.atr_mult, trend);
-            if (dec.can_long) {
-                current_trade_start_cap = capital; position = (capital * RISK_PER_TRADE) / dec.stop_dist; entry_price = price * (1.0 + SLIPPAGE_PCT);
-                pos_type = PositionType::LONG; fixed_sl = entry_price - dec.stop_dist; dynamic_tp = entry_price + dec.stop_dist * tp_factor; apply_fee(fees.maker_fee, position * entry_price);
-            } else if (dec.can_short) {
-                current_trade_start_cap = capital; position = (capital * RISK_PER_TRADE) / dec.stop_dist; entry_price = price * (1.0 - SLIPPAGE_PCT);
-                pos_type = PositionType::SHORT; fixed_sl = entry_price + dec.stop_dist; dynamic_tp = entry_price - dec.stop_dist * tp_factor; apply_fee(fees.maker_fee, position * entry_price);
-            }
-        } else {
-            bool is_l = (pos_type == PositionType::LONG), exit = false; double pnl = 0.0, exit_price = price;
-            if ((is_l && candles[i].low <= fixed_sl) || (!is_l && candles[i].high >= fixed_sl)) {
-                exit_price = is_l ? fixed_sl * (1.0 - SLIPPAGE_PCT) : fixed_sl * (1.0 + SLIPPAGE_PCT); pnl = position * (is_l ? exit_price - entry_price : entry_price - exit_price); exit = true;
-            } else if ((is_l && candles[i].high >= dynamic_tp) || (!is_l && candles[i].low <= dynamic_tp)) {
-                exit_price = dynamic_tp; pnl = position * (is_l ? dynamic_tp - entry_price : entry_price - dynamic_tp); exit = true;
-            } else if ((is_l && !trend.is_bullish) || (!is_l && trend.is_bullish)) {
-                exit_price = is_l ? price * (1.0 - SLIPPAGE_PCT) : price * (1.0 + SLIPPAGE_PCT); pnl = position * (is_l ? exit_price - entry_price : entry_price - exit_price); exit = true;
-            } 
-            if (exit) {
-                double net_pnl = pnl - current_trade_fee; capital += pnl; *(pnl >= 0 ? &gross_wins : &gross_losses) += std::abs(pnl);
-                apply_fee(fees.taker_fee, std::abs(position) * exit_price); log_daily(candles[i].timestamp, pnl); 
-                trade_pcts.push_back(net_pnl / current_trade_start_cap); 
+                apply_fee(fees.taker_fee, std::abs(position) * exit_price); log_daily(candles[i].timestamp, pnl);
+                trade_pcts.push_back(net_pnl / current_trade_start_cap);
                 trade_dirs.push_back(is_l ? "LONG" : "SHORT");
                 if (capital <= 0) capital = 0.01; pos_type = PositionType::NONE; (is_l ? long_trades : short_trades)++; if (pnl > 0) (is_l ? winning_longs : winning_shorts)++;
             }
@@ -352,25 +290,25 @@ BacktestResult run_backtest1(const std::vector<Candle>& candles, const StrategyP
 MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trade_pcts, double start_capital, int iterations = 2000) {
     if (actual_trade_pcts.empty()) return {0.0, 0.0, start_capital};
     std::vector<double> final_equities; std::vector<double> max_drawdowns;
-    int ruin_count = 0; 
-    
-    static std::random_device rd; 
+    int ruin_count = 0;
+
+    static std::random_device rd;
     static std::mt19937 g(rd());
-    
+
     for (int sim = 0; sim < iterations; ++sim) {
         std::vector<double> shuffled_pcts = actual_trade_pcts;
         std::shuffle(shuffled_pcts.begin(), shuffled_pcts.end(), g);
         double sim_capital = start_capital, sim_peak = start_capital, sim_max_dd = 0.0;
         bool ruined = false;
-        
+
         for (double pct : shuffled_pcts) {
-            sim_capital += (sim_capital * pct); 
+            sim_capital += (sim_capital * pct);
             if (sim_capital <= 0.01) sim_capital = 0.01;
-            
+
             if (sim_capital > sim_peak) sim_peak = sim_capital;
             double current_dd = (sim_peak - sim_capital) / sim_peak * 100.0;
             if (current_dd > sim_max_dd) sim_max_dd = current_dd;
-            
+
             if (sim_capital <= (start_capital * 0.70)) ruined = true;
         }
         if (ruined) ruin_count++;
@@ -378,10 +316,36 @@ MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trade_pcts, d
     }
     std::sort(final_equities.begin(), final_equities.end());
     std::sort(max_drawdowns.begin(), max_drawdowns.end());
-    
+
     double prob_ruin = ((double)ruin_count / iterations) * 100.0;
     size_t dd_95_idx = static_cast<size_t>(iterations * 0.95);
     return { prob_ruin, max_drawdowns[dd_95_idx], final_equities[iterations / 2] };
+}
+
+struct WalkForwardResult { double avg_oos_return = -9999.0; int valid_folds = 0; double avg_oos_dd = 0.0; };
+WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, const StrategyParams& params,
+                                         const Indicators& ind, const std::vector<double>& z_scores,
+                                         size_t n_folds = 4, int min_trades_per_fold = 5) {
+    WalkForwardResult wf;
+    if (candles.size() < n_folds * 150) return wf;
+    size_t fold_size = candles.size() / n_folds;
+    double total_ret = 0.0, total_dd = 0.0;
+    for (size_t f = 0; f + 2 <= n_folds; ++f) {
+        size_t test_start = fold_size * (f + 1);
+        size_t test_end = std::min(candles.size(), fold_size * (f + 2));
+        if (test_start >= test_end) continue;
+        BacktestResult r = run_backtest(candles, params, ind, z_scores, test_start, test_end);
+        if (r.total_trades >= min_trades_per_fold) {
+            total_ret += r.total_return;
+            total_dd += r.max_drawdown;
+            wf.valid_folds++;
+        }
+    }
+    if (wf.valid_folds >= 2) {
+        wf.avg_oos_return = total_ret / wf.valid_folds;
+        wf.avg_oos_dd = total_dd / wf.valid_folds;
+    }
+    return wf;
 }
 
 LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, const StrategyParams& params, double free_margin, const Indicators& ind) {
@@ -389,7 +353,7 @@ LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, 
     sig.trend = ind.trend[eval_idx]; sig.regime = ind.regime[eval_idx]; sig.atr = ind.atr[eval_idx]; sig.z_score = calculate_z_score(candles, eval_idx, params.period);
     double price = candles[eval_idx].close;
     EntryDecision dec = evaluate_entry(price, sig.z_score, sig.atr, params.threshold, params.atr_mult, sig.trend);
-    sig.stop_distance = dec.stop_dist; sig.risk_amount = free_margin * RISK_PER_TRADE; 
+    sig.stop_distance = dec.stop_dist; sig.risk_amount = free_margin * RISK_PER_TRADE;
     sig.exact_position_btc = sig.order_size_btc = (dec.stop_dist > 0.0) ? (sig.risk_amount / dec.stop_dist) : 0.0;
     sig.exact_position_usd = sig.order_size_usd = sig.exact_position_btc * price;
     if (sig.trend.bullish_votes == 1 || sig.trend.bullish_votes == 2) sig.warnings += "[WARN] EMA split. ";
@@ -416,176 +380,491 @@ std::vector<double> extractArray(const std::string& src, const std::string& key)
     return out;
 }
 
-AnalysisResult seek(int idsmb, double equity) {
-    AnalysisResult res;
-    string symbol = symbols[idsmb].mexc;
-    CURL* curl = curl_easy_init();
-    std::string readBuffer; std::vector<Candle> candles;
+std::vector<double> compute_returns(const std::vector<Candle>& candles, size_t lookback = 200) {
+    std::vector<double> rets;
+    if (candles.size() < 2) return rets;
+    size_t start = candles.size() > lookback ? candles.size() - lookback : 1;
+    for (size_t i = start; i < candles.size(); ++i) {
+        double prev = candles[i - 1].close;
+        if (prev != 0.0) rets.push_back((candles[i].close - prev) / prev);
+    }
+    return rets;
+}
 
+double pearson_correlation(const std::vector<double>& a, const std::vector<double>& b) {
+    size_t n = std::min(a.size(), b.size());
+    if (n < 20) return 0.0;
+    double mean_a = 0.0, mean_b = 0.0;
+    for (size_t i = 0; i < n; ++i) { mean_a += a[a.size() - n + i]; mean_b += b[b.size() - n + i]; }
+    mean_a /= n; mean_b /= n;
+    double cov = 0.0, var_a = 0.0, var_b = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+        double da = a[a.size() - n + i] - mean_a, db = b[b.size() - n + i] - mean_b;
+        cov += da * db; var_a += da * da; var_b += db * db;
+    }
+    if (var_a < 1e-12 || var_b < 1e-12) return 0.0;
+    return cov / std::sqrt(var_a * var_b);
+}
+
+// VERIFY THIS AGAINST YOUR cmexc.cpp / MEXC response schema before relying on it live.
+// Guessed field names: "positionType" (1=long,2=short), "holdVol"/"vol", "openAvgPrice"/
+// "holdAvgPrice". Print openPositions raw once and compare against these keys.
+std::vector<OpenPosition> parse_open_positions(const std::string& json) {
+    std::vector<OpenPosition> out;
+    size_t pos = 0;
+    while (true) {
+        size_t sym_key = json.find("\"symbol\":\"", pos);
+        if (sym_key == std::string::npos) break;
+        size_t sym_start = sym_key + 10;
+        size_t sym_end = json.find("\"", sym_start);
+        if (sym_end == std::string::npos) break;
+        std::string symbol = json.substr(sym_start, sym_end - sym_start);
+
+        size_t window_end = json.find("\"symbol\":\"", sym_end);
+        if (window_end == std::string::npos) window_end = json.size();
+        std::string obj = json.substr(sym_end, window_end - sym_end);
+
+        std::string direction = "LONG";
+        size_t pt_key = obj.find("\"positionType\":");
+        if (pt_key != std::string::npos) {
+            size_t v = pt_key + 15;
+            while (v < obj.size() && (obj[v] == ':' || obj[v] == ' ')) v++;
+            if (v < obj.size() && obj[v] == '2') direction = "SHORT";
+        }
+
+        auto find_number = [&](const std::string& key) -> double {
+            std::string tag = "\"" + key + "\":";
+            size_t k = obj.find(tag);
+            if (k == std::string::npos) return 0.0;
+            size_t v = k + tag.size();
+            size_t end = obj.find_first_of(",}", v);
+            if (end == std::string::npos) return 0.0;
+            std::string num = obj.substr(v, end - v);
+            num.erase(std::remove(num.begin(), num.end(), '"'), num.end());
+            try { return num.empty() ? 0.0 : std::stod(num); } catch (...) { return 0.0; }
+        };
+        double vol = find_number("holdVol");
+        if (vol == 0.0) vol = find_number("vol");
+        double avg_price = find_number("openAvgPrice");
+        if (avg_price == 0.0) avg_price = find_number("holdAvgPrice");
+
+        if (!symbol.empty() && vol > 0.0) {
+            out.push_back({symbol, direction, std::abs(vol * avg_price)});
+        }
+        pos = sym_end;
+    }
+    return out;
+}
+
+double get_correlated_risk_committed(const std::string& candidate_symbol,
+                                      const std::vector<double>& candidate_returns,
+                                      const PortfolioState& portfolio,
+                                      const std::map<std::string, std::vector<double>>& returns_cache,
+                                      double equity) {
+    // Conservative proxy: each correlated open position consumes one full RISK_PER_TRADE
+    // unit, since getOpenedFuturesPositions() doesn't give us the original stop distance
+    // needed to compute exact risk-at-stop for positions opened outside this run.
+    double committed = 0.0;
+    for (const auto& pos : portfolio.positions) {
+        if (pos.symbol == candidate_symbol) continue;
+        auto it = returns_cache.find(pos.symbol);
+        if (it == returns_cache.end()) continue;
+        double corr = pearson_correlation(candidate_returns, it->second);
+        if (std::abs(corr) >= CORRELATION_THRESHOLD) committed += RISK_PER_TRADE;
+    }
+    return committed;
+}
+
+std::vector<Candle> fetch_candles(const std::string& symbol) {
+    std::vector<Candle> candles;
+    CURL* curl = curl_easy_init();
+    std::string readBuffer;
     if (curl) {
-        std::string url = "https://contract.mexc.com/api/v1/contract/kline/" + symbols[idsmb].mexc + "?interval=Min60&limit=2000";
+        std::string url = "https://contract.mexc.com/api/v1/contract/kline/" + symbol + "?interval=Min60&limit=2000";
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L); curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback); curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
-
         if (curl_easy_perform(curl) == CURLE_OK) {
             std::vector<double> t = extractArray(readBuffer, "time"); std::vector<double> h = extractArray(readBuffer, "high");
-            std::vector<double> l = extractArray(readBuffer, "low");  std::vector<double> c = extractArray(readBuffer, "close");
+            std::vector<double> l = extractArray(readBuffer, "low"); std::vector<double> c = extractArray(readBuffer, "close");
             size_t n = t.size(); candles.reserve(n);
             for (size_t i = 0; i < n; ++i) candles.push_back({(long long)t[i] * 1000LL, h[i], l[i], c[i]});
-        } else {
-            curl_easy_cleanup(curl); return res;
         }
         curl_easy_cleanup(curl);
     }
-    cout << candles.size() << " candles of " << symbol << "\n";
+    return candles;
+}
+
+// NEW: instead of a fixed 80/20 holdout split, scan several split boundaries and select
+// whichever produces the highest WINNING TRADES PER DAY in its test window. This is
+// requested explicitly, but it carries the same cherry-picking risk flagged earlier:
+// picking whichever window looks best is how you end up trusting noise. Two guardrails
+// are built in to blunt that: (1) a minimum trade count per candidate split, so a
+// 3-day window with one lucky trade can't win by producing a huge per-day rate off a
+// tiny sample, and (2) every candidate gets printed (in verbose mode) so you can see
+// the full spread, not just the winner - a winner that stands far above a tight
+// cluster of the rest is a much weaker signal than one where all splits roughly agree.
+const std::vector<double> SPLIT_CANDIDATES = {0.60, 0.65, 0.70, 0.75, 0.80, 0.85};
+static constexpr int MIN_TRADES_FOR_SPLIT_CANDIDACY = 5;
+
+struct SplitEvaluation {
+    bool found = false;
+    double split_fraction = 0.8;
+    BacktestResult metrics{};
+    double test_days = 0.0;
+    double wins_per_day = -1.0;
+};
+
+SplitEvaluation select_best_split(const std::string& symbol, const std::vector<Candle>& candles,
+                                   const StrategyParams& params, const Indicators& ind,
+                                   const std::vector<double>& z_scores, bool verbose) {
+    SplitEvaluation best;
+    for (double frac : SPLIT_CANDIDATES) {
+        size_t split_idx = static_cast<size_t>(candles.size() * frac);
+        if (split_idx + 20 >= candles.size()) continue; // leave enough holdout room to mean anything
+
+        BacktestResult r = run_backtest(candles, params, ind, z_scores, split_idx, candles.size() - 1);
+        if (r.total_trades < MIN_TRADES_FOR_SPLIT_CANDIDACY) {
+            if (verbose) std::cout << "    [SPLIT] frac=" << frac << " -> only " << r.total_trades
+                                    << " trades, below minimum of " << MIN_TRADES_FOR_SPLIT_CANDIDACY << ", skipped\n";
+            continue;
+        }
+
+        long long span_ms = candles.back().timestamp - candles[split_idx].timestamp;
+        double test_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
+        int wins = r.winning_longs + r.winning_shorts;
+        double wins_per_day = wins / test_days;
+
+        if (verbose) {
+            std::cout << "    [SPLIT] frac=" << frac << " days=" << std::fixed << std::setprecision(1) << test_days
+                       << " trades=" << r.total_trades << " win_rate=" << std::setprecision(1) << r.win_rate
+                       << "% wins/day=" << std::setprecision(3) << wins_per_day
+                       << " return=" << std::setprecision(2) << r.total_return << "% dd=" << r.max_drawdown << "%\n";
+        }
+
+        if (wins_per_day > best.wins_per_day) {
+            best.found = true;
+            best.wins_per_day = wins_per_day;
+            best.split_fraction = frac;
+            best.metrics = r;
+            best.test_days = test_days;
+        }
+    }
+    return best;
+}
+
+// CHANGED: renamed from seek() and split so candle fetching happens once, outside this
+// function, and gets reused across every (MIN_SL_PCT, tp_factor) combo. Added `verbose`
+// so the scanning phase doesn't spam the console 9x over.
+AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle>& candles, bool verbose = true) {
+    AnalysisResult res;
+    string symbol = symbols[idsmb].mexc;
     if (candles.size() < 150) return res;
     size_t last_closed_idx = candles.size() - 2;
     Indicators ind = precompute_indicators(candles);
     std::map<size_t, std::vector<double>> z_cache;
 
-    StrategyParams best_params = {10, 1.0, 1.5}; 
-    double best_robust_fitness = -9999.0; 
-    size_t split_idx = static_cast<size_t>(candles.size() * 0.8);
-
+    StrategyParams best_params = {10, 1.0, 1.5};
+    double best_wf_score = -9999.0;
+    WalkForwardResult best_wf;
     for (size_t p : {5, 8, 10, 13, 20}) {
         auto& z_scores = z_cache.try_emplace(p, precompute_zscore(candles, p)).first->second;
         for (auto t : {0.5, 0.7, 1.0, 1.2}) {
             for (auto a : {1.2, 1.5, 1.8, 2.2}) {
-                BacktestResult is_res = run_backtest(candles, {p, t, a}, ind, z_scores, 0, split_idx);
-                if (is_res.total_trades >= 15 && is_res.max_drawdown < 15.0) {
-                    double robust_fitness = is_res.total_return * (1.0 - (is_res.max_drawdown / 100.0));
-                    if (robust_fitness > best_robust_fitness) {
-                        best_robust_fitness = robust_fitness; best_params = {p, t, a};
-                    }
-                }
+                StrategyParams cand = {p, t, a};
+                WalkForwardResult wf = evaluate_walk_forward(candles, cand, ind, z_scores, 4, 5);
+                if (wf.valid_folds < 2) continue;
+                double score = wf.avg_oos_return * (1.0 - wf.avg_oos_dd / 100.0);
+                if (score > best_wf_score) { best_wf_score = score; best_params = cand; best_wf = wf; }
             }
         }
     }
+    if (best_wf.valid_folds < 2) {
+        if (verbose) std::cout << "  " << symbol << ": insufficient walk-forward data, skipping.\n";
+        return res;
+    }
 
     auto& best_z_scores = z_cache[best_params.period];
-    BacktestResult oos_metrics = run_backtest(candles, best_params, ind, best_z_scores, split_idx, candles.size() - 1);
-    
+
+    if (verbose) std::cout << "  " << symbol << ": scanning holdout splits by wins/day...\n";
+    SplitEvaluation split_eval = select_best_split(symbol, candles, best_params, ind, best_z_scores, verbose);
+
+    BacktestResult oos_metrics;
+    double chosen_split_fraction;
+    double chosen_test_days;
+    if (split_eval.found) {
+        oos_metrics = split_eval.metrics;
+        chosen_split_fraction = split_eval.split_fraction;
+        chosen_test_days = split_eval.test_days;
+    } else {
+        // No candidate split cleared the minimum trade count - fall back to a fixed
+        // 80/20 split rather than reporting nothing, but flag it as low-confidence.
+        if (verbose) std::cout << "    " << symbol << ": no split cleared the trade minimum, falling back to fixed 80/20 (low confidence).\n";
+        size_t split_idx = static_cast<size_t>(candles.size() * 0.8);
+        oos_metrics = run_backtest(candles, best_params, ind, best_z_scores, split_idx, candles.size() - 1);
+        chosen_split_fraction = 0.8;
+        long long span_ms = candles.back().timestamp - candles[split_idx].timestamp;
+        chosen_test_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
+    }
     MonteCarloResult mc_res = run_monte_carlo(oos_metrics.trade_pcts, 1000.0, 2000);
 
-    std::cout << "Best Params " << symbol << ": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult << "\n"
-              << "OOS Expected Return: " << std::fixed << std::setprecision(2) << oos_metrics.total_return << "% | OOS Drawdown: " << oos_metrics.max_drawdown << "%\n"
-              << "Monte Carlo Risk Analysis -> Prob of Ruin: " << mc_res.prob_of_ruin << "% | Worst-Case DD: " << mc_res.worst_case_drawdown << "%\n\n";
+    if (verbose) {
+        std::cout << "Best Params " << symbol << ": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult
+                  << " | Walk-Forward Avg OOS: " << std::fixed << std::setprecision(2) << best_wf.avg_oos_return
+                  << "% over " << best_wf.valid_folds << " folds\n"
+                  << "Selected Split: " << chosen_split_fraction << " (" << std::setprecision(2)
+                  << (split_eval.found ? split_eval.wins_per_day : -1.0) << " wins/day, " << oos_metrics.total_trades
+                  << " trades, " << std::setprecision(1) << chosen_test_days << " days)\n"
+                  << "Holdout OOS Return: " << oos_metrics.total_return << "% | OOS Drawdown: " << oos_metrics.max_drawdown << "%\n"
+                  << "Monte Carlo Risk Analysis -> Prob of Ruin: " << mc_res.prob_of_ruin << "% | Worst-Case DD: " << mc_res.worst_case_drawdown << "%\n\n";
+    }
 
     res.oos_return = oos_metrics.total_return;
     res.oos_drawdown = oos_metrics.max_drawdown;
     res.oos_trades = oos_metrics.total_trades;
-    res.oos_trade_pcts = oos_metrics.trade_pcts; 
-    res.oos_trade_dirs = oos_metrics.trade_dirs; 
+    res.oos_days = chosen_test_days;
+    res.walk_forward_score = best_wf.avg_oos_return;
+    res.oos_trade_pcts = oos_metrics.trade_pcts;
+    res.oos_trade_dirs = oos_metrics.trade_dirs;
     res.signal = generate_signal(candles, last_closed_idx, best_params, equity, ind);
     res.mc = mc_res;
+    res.recent_returns = compute_returns(candles, 200);
     res.success = true;
     return res;
 }
 
-int main() {
-    symbols = get_hyperliquid_top_symbols(30); 
-    std::cout << "Successfully mapped " << symbols.size() << " top symbols by volume from Hyperliquid.\n\n";
+// void log_trade_decision(const std::string& symbol, const LiveSignal& sig, double oos_return, double wf_score) {
+//     std::ofstream f("trade_log.csv", std::ios::app);
+//     if (!f.is_open()) return;
+//     time_t now = time(nullptr);
+//     char buf[32]; std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::gmtime(&now));
+//     f << buf << "," << symbol << "," << sig.direction << "," << sig.entry << ","
+//       << sig.stop_loss << "," << sig.take_profit << "," << sig.confidence << ","
+//       << oos_return << "," << wf_score << "\n";
+// }
 
-    money moneyei = getUsdtFuturesBalance();
-    std::string openPositions = getOpenedFuturesPositions();
-    std::cout << "Current Account Equity: " << moneyei.equity << " USDT\n";
-    
-    vector<std::string> gops = getOpenPositionSymbols();
-    cout << "Active Structural Positions: " << gops.size() << "\n\n";
-    for(size_t i = 0; i < gops.size(); i++){
-        cout << "gops: " << gops[i] << "\n";
-    }
+struct RankedSymbol { size_t index; AnalysisResult analysis; };
 
-    struct RankedSymbol { size_t index; AnalysisResult analysis; };
-    vector<RankedSymbol> pipeline;
+// NEW: the horizon every deployed symbol's holdout return gets projected onto before
+// being summed. Without this, cumulative_oos was adding returns from windows of
+// different lengths (e.g. 9.5 days and 40 days) as if they were the same period -
+// arithmetically valid, practically misleading.
+static constexpr double NORMALIZATION_HORIZON_DAYS = 30.0;
 
-    std::cout << "--- Starting Parallel Screening Pipeline ---\n";
-    for (size_t i = 0; i < symbols.size(); i++) {
-        AnalysisResult report = seek(i, moneyei.equity);
-        if (report.success) {
-            pipeline.push_back({i, report});
-        }
-    }
-
-    std::sort(pipeline.begin(), pipeline.end(), [](const RankedSymbol& a, const RankedSymbol& b) {
-        return a.analysis.oos_return > b.analysis.oos_return;
-    });
-
-    const size_t MAX_SIMULTANEOUS_ASSETS = 4; 
+struct DeploymentResult {
+    double cumulative_oos = 0.0;      // normalized: each symbol's return projected to NORMALIZATION_HORIZON_DAYS, then summed
+    double cumulative_oos_raw = 0.0;  // NEW: the old behavior - raw, unnormalized sum, kept for transparency/debugging
     size_t slots_filled = 0;
-    double cumulative_verified_oos = 0.0;
+    double min_window_days = 0.0;     // NEW: shortest underlying holdout window among deployed slots
+    double max_window_days = 0.0;     // NEW: longest underlying holdout window among deployed slots
+};
 
-    std::cout << "\n------------------ DEPLOYMENT MATRIX ------------------\n";
+// Runs the filtering / correlation-gating / slot-filling logic. When execute_orders is
+// false this is a pure dry run used purely to SCORE a (MIN_SL_PCT, tp_factor) combo by
+// its resulting cumulative_oos ("Active Out-of-Sample Combined Expectation") — no
+// exchange calls happen. When true, it's the real thing.
+DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
+                                      const std::map<std::string, std::vector<double>>& returns_cache,
+                                      double equity,
+                                      PortfolioState portfolio,
+                                      bool execute_orders,
+                                      bool verbose,
+                                      const std::vector<symbolstruct>& syms) {
+    DeploymentResult dr;
+    const size_t MAX_SIMULTANEOUS_ASSETS = 4;
+    PortfolioState working_portfolio = portfolio;
+
+    if (verbose) std::cout << "\n------------------ DEPLOYMENT MATRIX ------------------\n";
     for (const auto& item : pipeline) {
         size_t idx = item.index;
         const auto& report = item.analysis;
+        const std::string& sym = syms[idx].mexc;
 
-        if (slots_filled >= MAX_SIMULTANEOUS_ASSETS) {
-            std::cout << "[SKIPPED] " << symbols[idx].mexc << " (" << report.oos_return << "%) - Exceeds portfolio limit slots.\n";
+        if (dr.slots_filled >= MAX_SIMULTANEOUS_ASSETS) {
+            if (verbose) std::cout << "[SKIPPED] " << sym << " (WF: " << report.walk_forward_score << "%) - Exceeds portfolio limit slots.\n";
             continue;
         }
-
-        if (report.oos_return <= 0.0) {
-            std::cout << "[FILTERED] " << symbols[idx].mexc << " (" << report.oos_return << "%) - Negative or zero edge validation.\n";
+        if (report.walk_forward_score <= 0.0) {
+            if (verbose) std::cout << "[FILTERED] " << sym << " (WF: " << report.walk_forward_score << "%) - No validated edge across folds.\n";
             continue;
         }
-
         if (report.mc.worst_case_drawdown > 12) {
-            std::cout << "[RISK-REJECTED] " << symbols[idx].mexc << " | Nominal Return was " << report.oos_return 
-                      << "% but Monte Carlo Risk is too high (Worst-Case DD: " << report.mc.worst_case_drawdown << "%)\n";
+            if (verbose) std::cout << "[RISK-REJECTED] " << sym << " | WF: " << report.walk_forward_score
+                      << "% but Monte Carlo Worst-Case DD: " << report.mc.worst_case_drawdown << "%\n";
+            continue;
+        }
+        double corr_risk = get_correlated_risk_committed(sym, report.recent_returns, working_portfolio, returns_cache, equity);
+        if (corr_risk + RISK_PER_TRADE > MAX_CORRELATED_RISK) {
+            if (verbose) std::cout << "[CORRELATION-REJECTED] " << sym << " | Correlated risk already committed: "
+                      << (corr_risk * 100.0) << "% of equity, adding this would exceed the "
+                      << (MAX_CORRELATED_RISK * 100.0) << "% correlated-bucket cap.\n";
             continue;
         }
 
-        cumulative_verified_oos += report.oos_return;
-        std::cout << ">>> [VALIDATED] Slot #" << (slots_filled + 1) << ": Deploying to " << symbols[idx].mexc 
-                  << " | OOS: " << report.oos_return << "% | Signal: " << report.signal.direction << "\n";
-
-        std::cout << "    -> Last Tested Trades (OOS): ";
-        if (report.oos_trade_pcts.empty()) {
-            std::cout << "None\n";
-        } else {
-            int start = std::max(0, (int)report.oos_trade_pcts.size() - 10);
-            for (size_t t = start; t < report.oos_trade_pcts.size(); ++t) {
-                std::string dir = report.oos_trade_dirs[t]; 
-                double pct = report.oos_trade_pcts[t] * 100.0; 
-                
-                std::cout << dir << "(";
-                if (pct >= 0) std::cout << "+";
-                std::cout << std::fixed << std::setprecision(2) << pct << "%) ";
+        dr.cumulative_oos += report.oos_return;
+        if (verbose) {
+            std::cout << ">>> [VALIDATED] Slot #" << (dr.slots_filled + 1) << ": Deploying to " << sym
+                      << " | WF: " << report.walk_forward_score << "% | Holdout OOS: " << report.oos_return
+                      << "% | Signal: " << report.signal.direction << "\n";
+            std::cout << " -> Last Tested Trades (Holdout OOS): ";
+            if (report.oos_trade_pcts.empty()) {
+                std::cout << "None\n";
+            } else {
+                int start = std::max(0, (int)report.oos_trade_pcts.size() - 10);
+                for (size_t t = start; t < report.oos_trade_pcts.size(); ++t) {
+                    std::string dir = report.oos_trade_dirs[t];
+                    double pct = report.oos_trade_pcts[t] * 100.0;
+                    std::cout << dir << "(";
+                    if (pct >= 0) std::cout << "+";
+                    std::cout << std::fixed << std::setprecision(2) << pct << "%) ";
+                }
+                std::cout << "\n";
             }
-            std::cout << "\n";
         }
 
         if (report.signal.direction != "WAIT") {
             double qty = report.signal.exact_position_btc;
             double notional = qty * report.signal.entry;
-            
-            if (qty > 0) {
-                printf("    -> EXECUTE ORDER: %s %s | Qty: %f | Entry: %f | SL: %f | TP: %f\n", 
-                       symbols[idx].mexc.c_str(), (report.signal.direction == "LONG" ? "BUY" : "SELL"), 
-                       qty, report.signal.entry, report.signal.stop_loss, report.signal.take_profit);
-                std::cout << "    -> Required Leverage: " << (notional / moneyei.equity) << "x\n";
 
-                openAtomicBracketFuturesPosition(
-                    symbols[idx].mexc,
-                    report.signal.direction == "LONG" ? "BUY" : "SELL",
-                    qty,
-                    report.signal.entry,
-                    report.signal.stop_loss,
-                    report.signal.take_profit
-                );
+            if (qty > 0) {
+                if (execute_orders) {
+                    printf(" -> EXECUTE ORDER: %s %s | Qty: %f | Entry: %f | SL: %f | TP: %f\n",
+                           sym.c_str(), (report.signal.direction == "LONG" ? "BUY" : "SELL"),
+                           qty, report.signal.entry, report.signal.stop_loss, report.signal.take_profit);
+                    std::cout << " -> Required Leverage: " << (notional / equity) << "x\n";
+
+                    // NOTE: adjust if openAtomicBracketFuturesPosition's return type in
+                    // your cmexc.cpp isn't bool.
+                    // bool order_ok = openAtomicBracketFuturesPosition(
+                    openAtomicBracketFuturesPosition(
+                        sym,
+                        report.signal.direction == "LONG" ? "BUY" : "SELL",
+                        qty,
+                        report.signal.entry,
+                        report.signal.stop_loss,
+                        report.signal.take_profit
+                    );
+                    // if (!order_ok) {
+                    //     std::cout << " -> [ORDER FAILED] Exchange rejected or call errored for " << sym << ". Not counting toward slots.\n";
+                    //     continue;
+                    // }
+                    // log_trade_decision(sym, report.signal, report.oos_return, report.walk_forward_score);
+                } else if (verbose) {
+                    std::cout << " -> [DRY RUN] Would execute " << report.signal.direction << " on " << sym << "\n";
+                }
+                working_portfolio.positions.push_back({sym, report.signal.direction, notional});
             }
-        } else {
-            std::cout << "    -> Market pattern neutral. No live trade trigger generated.\n";
+        } else if (verbose) {
+            std::cout << " -> Market pattern neutral. No live trade trigger generated.\n";
         }
-        slots_filled++;
+        dr.slots_filled++;
     }
-    std::cout << "--------------------------------------------------------\n";
-    if (slots_filled > 0) {
-        cout << "Portfolio Deployed Slots: " << slots_filled << " / " << MAX_SIMULTANEOUS_ASSETS << "\n";
-        cout << "Active Out-of-Sample Combined Expectation: " << cumulative_verified_oos << "%\n";
+    if (verbose) std::cout << "--------------------------------------------------------\n";
+    return dr;
+}
+
+int main() {
+    symbols = get_hyperliquid_top_symbols(30);
+    std::cout << "Successfully mapped " << symbols.size() << " top symbols by volume from Hyperliquid.\n\n";
+    money moneyei = getUsdtFuturesBalance();
+    std::string openPositions = getOpenedFuturesPositions();
+    std::cout << "Current Account Equity: " << moneyei.equity << " USDT\n";
+
+    PortfolioState base_portfolio;
+    base_portfolio.positions = parse_open_positions(openPositions);
+    std::cout << "Reconstructed " << base_portfolio.positions.size() << " open position(s) from exchange:\n";
+    for (const auto& p : base_portfolio.positions)
+        std::cout << "  " << p.symbol << " " << p.direction << " notional~" << p.notional_usd << " USDT\n";
+
+    vector<std::string> gops = getOpenPositionSymbols();
+    cout << "Active Structural Positions: " << gops.size() << "\n\n";
+    for (size_t i = 0; i < gops.size(); i++) cout << "gops: " << gops[i] << "\n";
+
+    // Fetch candles once per symbol, reused across every (MIN_SL_PCT, tp_factor) combo.
+    std::cout << "--- Fetching candle history for " << symbols.size() << " symbols ---\n";
+    std::vector<std::vector<Candle>> candle_cache(symbols.size());
+    for (size_t i = 0; i < symbols.size(); i++) {
+        candle_cache[i] = fetch_candles(symbols[i].mexc);
+        std::cout << "  " << symbols[i].mexc << ": " << candle_cache[i].size() << " candles\n";
+    }
+
+    // NEW: scan MIN_SL_PCT x tp_factor combinations. Each combo re-runs the full
+    // per-symbol walk-forward analysis (using cached candles, no re-fetching) and a
+    // dry-run of the deployment matrix, then gets scored by its resulting cumulative_oos
+    // ("Active Out-of-Sample Combined Expectation" - the same metric already printed at
+    // the end of a normal run).
+    std::cout << "\n--- Scanning MIN_SL_PCT x tp_factor combinations ---\n";
+    double best_combo_sl = SL_CANDIDATES[0], best_combo_tp = TP_CANDIDATES[0];
+    double best_combo_score = -1e18;
+    for (double sl : SL_CANDIDATES) {
+        for (double tp : TP_CANDIDATES) {
+            MIN_SL_PCT = sl;
+            tp_factor = tp;
+
+            std::vector<RankedSymbol> pipeline;
+            std::map<std::string, std::vector<double>> returns_cache;
+            for (size_t i = 0; i < symbols.size(); i++) {
+                if (candle_cache[i].empty()) continue;
+                AnalysisResult report = analyze_symbol(i, moneyei.equity, candle_cache[i], /*verbose=*/false);
+                if (report.success) {
+                    returns_cache[symbols[i].mexc] = report.recent_returns;
+                    pipeline.push_back({i, report});
+                }
+            }
+            std::sort(pipeline.begin(), pipeline.end(), [](const RankedSymbol& a, const RankedSymbol& b) {
+                return a.analysis.walk_forward_score > b.analysis.walk_forward_score;
+            });
+
+            DeploymentResult dry = simulate_deployment(pipeline, returns_cache, moneyei.equity,
+                                                        base_portfolio, /*execute_orders=*/false,
+                                                        /*verbose=*/false, symbols);
+
+            std::cout << "  [SCAN] MIN_SL_PCT=" << (sl * 100.0) << "% tp_factor=" << tp
+                      << "x -> Combined Expectation: " << std::fixed << std::setprecision(2)
+                      << dry.cumulative_oos << "% (" << dry.slots_filled << " slots)\n";
+
+            if (dry.slots_filled > 0 && dry.cumulative_oos > best_combo_score) {
+                best_combo_score = dry.cumulative_oos;
+                best_combo_sl = sl;
+                best_combo_tp = tp;
+            }
+        }
+    }
+
+    if (best_combo_score <= -1e17) {
+        std::cout << "\nNo (MIN_SL_PCT, tp_factor) combination produced any validated slots. Defensive phase, no trades.\n";
+        return 0;
+    }
+
+    std::cout << "\n>>> Selected MIN_SL_PCT=" << (best_combo_sl * 100.0) << "% tp_factor=" << best_combo_tp
+              << "x with Combined Expectation " << best_combo_score << "%\n";
+    MIN_SL_PCT = best_combo_sl;
+    tp_factor = best_combo_tp;
+
+    // Re-run the winning combo once more, verbosely this time, and actually execute trades.
+    std::vector<RankedSymbol> pipeline;
+    std::map<std::string, std::vector<double>> returns_cache;
+    std::cout << "\n--- Final Screening Pass (Selected Parameters) ---\n";
+    for (size_t i = 0; i < symbols.size(); i++) {
+        if (candle_cache[i].empty()) continue;
+        AnalysisResult report = analyze_symbol(i, moneyei.equity, candle_cache[i], /*verbose=*/true);
+        if (report.success) {
+            returns_cache[symbols[i].mexc] = report.recent_returns;
+            pipeline.push_back({i, report});
+        }
+    }
+    std::sort(pipeline.begin(), pipeline.end(), [](const RankedSymbol& a, const RankedSymbol& b) {
+        return a.analysis.walk_forward_score > b.analysis.walk_forward_score;
+    });
+
+    DeploymentResult live = simulate_deployment(pipeline, returns_cache, moneyei.equity,
+                                                 base_portfolio, /*execute_orders=*/true,
+                                                 /*verbose=*/true, symbols);
+
+    if (live.slots_filled > 0) {
+        cout << "Portfolio Deployed Slots: " << live.slots_filled << " / 4\n";
+        cout << "Active Out-of-Sample Combined Expectation: " << live.cumulative_oos << "%\n";
     } else {
         cout << "Defensive Phase: 0 Slots Allocated. All assets filtered out.\n";
     }
