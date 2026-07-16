@@ -29,19 +29,13 @@ static constexpr double SLIPPAGE_PCT = 0.0005;
 static constexpr double CORRELATION_THRESHOLD = 0.60;
 static constexpr double MAX_CORRELATED_RISK = 0.06; // e.g. 2x a single RISK_PER_TRADE
 
-// CHANGED: these are no longer fixed constants. main() scans a grid of candidates for
-// both and keeps whichever combination produces the best portfolio-level "Active
-// Out-of-Sample Combined Expectation" before any live trade fires. All functions below
-// still reference these as plain globals, so no call-site signatures had to change.
 double MIN_SL_PCT = 0.03;
 double tp_factor = 2.0;
 
-// Candidate grids for the scan. Keep these short: total runtime scales as
-// O(len(SL_CANDIDATES) * len(TP_CANDIDATES) * symbols * inner grid search), since each
-// combo re-runs the full per-symbol walk-forward parameter search. Candle data itself
-// is fetched once and reused across all combos, so only the math repeats.
-const std::vector<double> SL_CANDIDATES = {0.02, 0.03, 0.04};
-const std::vector<double> TP_CANDIDATES = {1.5, 2.0, 2.5};
+const std::vector<double> SL_CANDIDATES = {0.02, 0.025, 0.03, 0.035, 0.04};
+const std::vector<double> TP_CANDIDATES = {1.5, 2.0, 2.5, 3.0};
+
+static constexpr double MIN_WINS_PER_DAY = 0.10;
 
 enum class PositionType { NONE, LONG, SHORT };
 
@@ -69,6 +63,8 @@ struct AnalysisResult {
     double oos_return = 0.0;
     double oos_drawdown = 0.0;
     int oos_trades = 0;
+    int oos_wins = 0;
+    double oos_days = 0.0;
     double walk_forward_score = -9999.0;
     LiveSignal signal;
     MonteCarloResult mc;
@@ -76,7 +72,6 @@ struct AnalysisResult {
     std::vector<double> oos_trade_pcts;
     std::vector<std::string> oos_trade_dirs;
     std::vector<double> recent_returns;
-    double oos_days = 0.0; // NEW: how many days the chosen holdout split actually spans
 };
 struct symbolstruct {
     string mexc;
@@ -322,14 +317,20 @@ MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trade_pcts, d
     return { prob_ruin, max_drawdowns[dd_95_idx], final_equities[iterations / 2] };
 }
 
-struct WalkForwardResult { double avg_oos_return = -9999.0; int valid_folds = 0; double avg_oos_dd = 0.0; };
+struct WalkForwardResult { 
+    double avg_oos_return = -9999.0; 
+    int valid_folds = 0; 
+    double avg_oos_dd = 0.0; 
+    double avg_wins_per_day = 0.0;
+};
+
 WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, const StrategyParams& params,
                                          const Indicators& ind, const std::vector<double>& z_scores,
                                          size_t n_folds = 4, int min_trades_per_fold = 5) {
     WalkForwardResult wf;
     if (candles.size() < n_folds * 150) return wf;
     size_t fold_size = candles.size() / n_folds;
-    double total_ret = 0.0, total_dd = 0.0;
+    double total_ret = 0.0, total_dd = 0.0, total_wpd = 0.0;
     for (size_t f = 0; f + 2 <= n_folds; ++f) {
         size_t test_start = fold_size * (f + 1);
         size_t test_end = std::min(candles.size(), fold_size * (f + 2));
@@ -338,12 +339,17 @@ WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, cons
         if (r.total_trades >= min_trades_per_fold) {
             total_ret += r.total_return;
             total_dd += r.max_drawdown;
+            long long fold_duration_ms = candles[test_end-1].timestamp - candles[test_start].timestamp;
+            double fold_days = std::max(1.0, fold_duration_ms / (1000.0 * 60.0 * 60.0 * 24.0));
+            double wins = r.winning_longs + r.winning_shorts;
+            total_wpd += wins / fold_days;
             wf.valid_folds++;
         }
     }
     if (wf.valid_folds >= 2) {
         wf.avg_oos_return = total_ret / wf.valid_folds;
         wf.avg_oos_dd = total_dd / wf.valid_folds;
+        wf.avg_wins_per_day = total_wpd / wf.valid_folds;
     }
     return wf;
 }
@@ -406,9 +412,6 @@ double pearson_correlation(const std::vector<double>& a, const std::vector<doubl
     return cov / std::sqrt(var_a * var_b);
 }
 
-// VERIFY THIS AGAINST YOUR cmexc.cpp / MEXC response schema before relying on it live.
-// Guessed field names: "positionType" (1=long,2=short), "holdVol"/"vol", "openAvgPrice"/
-// "holdAvgPrice". Print openPositions raw once and compare against these keys.
 std::vector<OpenPosition> parse_open_positions(const std::string& json) {
     std::vector<OpenPosition> out;
     size_t pos = 0;
@@ -461,9 +464,6 @@ double get_correlated_risk_committed(const std::string& candidate_symbol,
                                       const PortfolioState& portfolio,
                                       const std::map<std::string, std::vector<double>>& returns_cache,
                                       double equity) {
-    // Conservative proxy: each correlated open position consumes one full RISK_PER_TRADE
-    // unit, since getOpenedFuturesPositions() doesn't give us the original stop distance
-    // needed to compute exact risk-at-stop for positions opened outside this run.
     double committed = 0.0;
     for (const auto& pos : portfolio.positions) {
         if (pos.symbol == candidate_symbol) continue;
@@ -496,15 +496,6 @@ std::vector<Candle> fetch_candles(const std::string& symbol) {
     return candles;
 }
 
-// NEW: instead of a fixed 80/20 holdout split, scan several split boundaries and select
-// whichever produces the highest WINNING TRADES PER DAY in its test window. This is
-// requested explicitly, but it carries the same cherry-picking risk flagged earlier:
-// picking whichever window looks best is how you end up trusting noise. Two guardrails
-// are built in to blunt that: (1) a minimum trade count per candidate split, so a
-// 3-day window with one lucky trade can't win by producing a huge per-day rate off a
-// tiny sample, and (2) every candidate gets printed (in verbose mode) so you can see
-// the full spread, not just the winner - a winner that stands far above a tight
-// cluster of the rest is a much weaker signal than one where all splits roughly agree.
 const std::vector<double> SPLIT_CANDIDATES = {0.60, 0.65, 0.70, 0.75, 0.80, 0.85};
 static constexpr int MIN_TRADES_FOR_SPLIT_CANDIDACY = 5;
 
@@ -522,7 +513,7 @@ SplitEvaluation select_best_split(const std::string& symbol, const std::vector<C
     SplitEvaluation best;
     for (double frac : SPLIT_CANDIDATES) {
         size_t split_idx = static_cast<size_t>(candles.size() * frac);
-        if (split_idx + 20 >= candles.size()) continue; // leave enough holdout room to mean anything
+        if (split_idx + 20 >= candles.size()) continue; 
 
         BacktestResult r = run_backtest(candles, params, ind, z_scores, split_idx, candles.size() - 1);
         if (r.total_trades < MIN_TRADES_FOR_SPLIT_CANDIDACY) {
@@ -554,9 +545,6 @@ SplitEvaluation select_best_split(const std::string& symbol, const std::vector<C
     return best;
 }
 
-// CHANGED: renamed from seek() and split so candle fetching happens once, outside this
-// function, and gets reused across every (MIN_SL_PCT, tp_factor) combo. Added `verbose`
-// so the scanning phase doesn't spam the console 9x over.
 AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle>& candles, bool verbose = true) {
     AnalysisResult res;
     string symbol = symbols[idsmb].mexc;
@@ -575,7 +563,7 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
                 StrategyParams cand = {p, t, a};
                 WalkForwardResult wf = evaluate_walk_forward(candles, cand, ind, z_scores, 4, 5);
                 if (wf.valid_folds < 2) continue;
-                double score = wf.avg_oos_return * (1.0 - wf.avg_oos_dd / 100.0);
+                double score = wf.avg_oos_return * (1.0 - wf.avg_oos_dd / 100.0) + 0.5 * wf.avg_wins_per_day;
                 if (score > best_wf_score) { best_wf_score = score; best_params = cand; best_wf = wf; }
             }
         }
@@ -598,8 +586,6 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
         chosen_split_fraction = split_eval.split_fraction;
         chosen_test_days = split_eval.test_days;
     } else {
-        // No candidate split cleared the minimum trade count - fall back to a fixed
-        // 80/20 split rather than reporting nothing, but flag it as low-confidence.
         if (verbose) std::cout << "    " << symbol << ": no split cleared the trade minimum, falling back to fixed 80/20 (low confidence).\n";
         size_t split_idx = static_cast<size_t>(candles.size() * 0.8);
         oos_metrics = run_backtest(candles, best_params, ind, best_z_scores, split_idx, candles.size() - 1);
@@ -612,7 +598,7 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
     if (verbose) {
         std::cout << "Best Params " << symbol << ": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult
                   << " | Walk-Forward Avg OOS: " << std::fixed << std::setprecision(2) << best_wf.avg_oos_return
-                  << "% over " << best_wf.valid_folds << " folds\n"
+                  << "% over " << best_wf.valid_folds << " folds (wins/day: " << best_wf.avg_wins_per_day << ")\n"
                   << "Selected Split: " << chosen_split_fraction << " (" << std::setprecision(2)
                   << (split_eval.found ? split_eval.wins_per_day : -1.0) << " wins/day, " << oos_metrics.total_trades
                   << " trades, " << std::setprecision(1) << chosen_test_days << " days)\n"
@@ -623,6 +609,7 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
     res.oos_return = oos_metrics.total_return;
     res.oos_drawdown = oos_metrics.max_drawdown;
     res.oos_trades = oos_metrics.total_trades;
+    res.oos_wins = oos_metrics.winning_longs + oos_metrics.winning_shorts;
     res.oos_days = chosen_test_days;
     res.walk_forward_score = best_wf.avg_oos_return;
     res.oos_trade_pcts = oos_metrics.trade_pcts;
@@ -634,36 +621,20 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
     return res;
 }
 
-// void log_trade_decision(const std::string& symbol, const LiveSignal& sig, double oos_return, double wf_score) {
-//     std::ofstream f("trade_log.csv", std::ios::app);
-//     if (!f.is_open()) return;
-//     time_t now = time(nullptr);
-//     char buf[32]; std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::gmtime(&now));
-//     f << buf << "," << symbol << "," << sig.direction << "," << sig.entry << ","
-//       << sig.stop_loss << "," << sig.take_profit << "," << sig.confidence << ","
-//       << oos_return << "," << wf_score << "\n";
-// }
-
 struct RankedSymbol { size_t index; AnalysisResult analysis; };
 
-// NEW: the horizon every deployed symbol's holdout return gets projected onto before
-// being summed. Without this, cumulative_oos was adding returns from windows of
-// different lengths (e.g. 9.5 days and 40 days) as if they were the same period -
-// arithmetically valid, practically misleading.
 static constexpr double NORMALIZATION_HORIZON_DAYS = 30.0;
 
 struct DeploymentResult {
-    double cumulative_oos = 0.0;      // normalized: each symbol's return projected to NORMALIZATION_HORIZON_DAYS, then summed
-    double cumulative_oos_raw = 0.0;  // NEW: the old behavior - raw, unnormalized sum, kept for transparency/debugging
+    double cumulative_oos = 0.0;
+    double cumulative_oos_raw = 0.0;
     size_t slots_filled = 0;
-    double min_window_days = 0.0;     // NEW: shortest underlying holdout window among deployed slots
-    double max_window_days = 0.0;     // NEW: longest underlying holdout window among deployed slots
+    double min_window_days = 0.0;
+    double max_window_days = 0.0;
+    double avg_wins_per_day = 0.0;
+    double projected_daily_return = 0.0;   // NEW: sum of daily returns of deployed slots
 };
 
-// Runs the filtering / correlation-gating / slot-filling logic. When execute_orders is
-// false this is a pure dry run used purely to SCORE a (MIN_SL_PCT, tp_factor) combo by
-// its resulting cumulative_oos ("Active Out-of-Sample Combined Expectation") — no
-// exchange calls happen. When true, it's the real thing.
 DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
                                       const std::map<std::string, std::vector<double>>& returns_cache,
                                       double equity,
@@ -676,6 +647,10 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
     PortfolioState working_portfolio = portfolio;
 
     if (verbose) std::cout << "\n------------------ DEPLOYMENT MATRIX ------------------\n";
+    double total_wpd = 0.0;
+    double total_daily_return = 0.0;
+    int accepted_count = 0;
+
     for (const auto& item : pipeline) {
         size_t idx = item.index;
         const auto& report = item.analysis;
@@ -694,6 +669,14 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
                       << "% but Monte Carlo Worst-Case DD: " << report.mc.worst_case_drawdown << "%\n";
             continue;
         }
+
+        double sym_wpd = (report.oos_days > 0) ? (report.oos_wins / report.oos_days) : 0.0;
+        if (sym_wpd < MIN_WINS_PER_DAY) {
+            if (verbose) std::cout << "[LOW FREQ] " << sym << " | wins/day=" << std::fixed << std::setprecision(3) << sym_wpd
+                      << " below threshold " << MIN_WINS_PER_DAY << ", skipping.\n";
+            continue;
+        }
+
         double corr_risk = get_correlated_risk_committed(sym, report.recent_returns, working_portfolio, returns_cache, equity);
         if (corr_risk + RISK_PER_TRADE > MAX_CORRELATED_RISK) {
             if (verbose) std::cout << "[CORRELATION-REJECTED] " << sym << " | Correlated risk already committed: "
@@ -703,10 +686,18 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
         }
 
         dr.cumulative_oos += report.oos_return;
+        total_wpd += sym_wpd;
+        // Daily return for this slot
+        double slot_daily_return = report.oos_return / report.oos_days;
+        total_daily_return += slot_daily_return;
+        accepted_count++;
+
         if (verbose) {
             std::cout << ">>> [VALIDATED] Slot #" << (dr.slots_filled + 1) << ": Deploying to " << sym
                       << " | WF: " << report.walk_forward_score << "% | Holdout OOS: " << report.oos_return
-                      << "% | Signal: " << report.signal.direction << "\n";
+                      << "% | wins/day: " << std::fixed << std::setprecision(3) << sym_wpd
+                      << " | daily return: " << std::setprecision(3) << slot_daily_return << "%"
+                      << " | Signal: " << report.signal.direction << "\n";
             std::cout << " -> Last Tested Trades (Holdout OOS): ";
             if (report.oos_trade_pcts.empty()) {
                 std::cout << "None\n";
@@ -734,9 +725,6 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
                            qty, report.signal.entry, report.signal.stop_loss, report.signal.take_profit);
                     std::cout << " -> Required Leverage: " << (notional / equity) << "x\n";
 
-                    // NOTE: adjust if openAtomicBracketFuturesPosition's return type in
-                    // your cmexc.cpp isn't bool.
-                    // bool order_ok = openAtomicBracketFuturesPosition(
                     openAtomicBracketFuturesPosition(
                         sym,
                         report.signal.direction == "LONG" ? "BUY" : "SELL",
@@ -745,11 +733,6 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
                         report.signal.stop_loss,
                         report.signal.take_profit
                     );
-                    // if (!order_ok) {
-                    //     std::cout << " -> [ORDER FAILED] Exchange rejected or call errored for " << sym << ". Not counting toward slots.\n";
-                    //     continue;
-                    // }
-                    // log_trade_decision(sym, report.signal, report.oos_return, report.walk_forward_score);
                 } else if (verbose) {
                     std::cout << " -> [DRY RUN] Would execute " << report.signal.direction << " on " << sym << "\n";
                 }
@@ -759,6 +742,10 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
             std::cout << " -> Market pattern neutral. No live trade trigger generated.\n";
         }
         dr.slots_filled++;
+    }
+    if (accepted_count > 0) {
+        dr.avg_wins_per_day = total_wpd / accepted_count;
+        dr.projected_daily_return = total_daily_return;   // sum across slots
     }
     if (verbose) std::cout << "--------------------------------------------------------\n";
     return dr;
@@ -781,7 +768,6 @@ int main() {
     cout << "Active Structural Positions: " << gops.size() << "\n\n";
     for (size_t i = 0; i < gops.size(); i++) cout << "gops: " << gops[i] << "\n";
 
-    // Fetch candles once per symbol, reused across every (MIN_SL_PCT, tp_factor) combo.
     std::cout << "--- Fetching candle history for " << symbols.size() << " symbols ---\n";
     std::vector<std::vector<Candle>> candle_cache(symbols.size());
     for (size_t i = 0; i < symbols.size(); i++) {
@@ -789,11 +775,6 @@ int main() {
         std::cout << "  " << symbols[i].mexc << ": " << candle_cache[i].size() << " candles\n";
     }
 
-    // NEW: scan MIN_SL_PCT x tp_factor combinations. Each combo re-runs the full
-    // per-symbol walk-forward analysis (using cached candles, no re-fetching) and a
-    // dry-run of the deployment matrix, then gets scored by its resulting cumulative_oos
-    // ("Active Out-of-Sample Combined Expectation" - the same metric already printed at
-    // the end of a normal run).
     std::cout << "\n--- Scanning MIN_SL_PCT x tp_factor combinations ---\n";
     double best_combo_sl = SL_CANDIDATES[0], best_combo_tp = TP_CANDIDATES[0];
     double best_combo_score = -1e18;
@@ -820,12 +801,15 @@ int main() {
                                                         base_portfolio, /*execute_orders=*/false,
                                                         /*verbose=*/false, symbols);
 
+            double combo_score = dry.cumulative_oos + 5.0 * dry.avg_wins_per_day;
             std::cout << "  [SCAN] MIN_SL_PCT=" << (sl * 100.0) << "% tp_factor=" << tp
                       << "x -> Combined Expectation: " << std::fixed << std::setprecision(2)
-                      << dry.cumulative_oos << "% (" << dry.slots_filled << " slots)\n";
+                      << dry.cumulative_oos << "% (slots=" << dry.slots_filled
+                      << ", avg wins/day=" << std::setprecision(3) << dry.avg_wins_per_day
+                      << ", combo_score=" << std::setprecision(2) << combo_score << ")\n";
 
-            if (dry.slots_filled > 0 && dry.cumulative_oos > best_combo_score) {
-                best_combo_score = dry.cumulative_oos;
+            if (dry.slots_filled > 0 && combo_score > best_combo_score) {
+                best_combo_score = combo_score;
                 best_combo_sl = sl;
                 best_combo_tp = tp;
             }
@@ -838,11 +822,10 @@ int main() {
     }
 
     std::cout << "\n>>> Selected MIN_SL_PCT=" << (best_combo_sl * 100.0) << "% tp_factor=" << best_combo_tp
-              << "x with Combined Expectation " << best_combo_score << "%\n";
+              << "x with combo_score " << best_combo_score << "\n";
     MIN_SL_PCT = best_combo_sl;
     tp_factor = best_combo_tp;
 
-    // Re-run the winning combo once more, verbosely this time, and actually execute trades.
     std::vector<RankedSymbol> pipeline;
     std::map<std::string, std::vector<double>> returns_cache;
     std::cout << "\n--- Final Screening Pass (Selected Parameters) ---\n";
@@ -863,8 +846,10 @@ int main() {
                                                  /*verbose=*/true, symbols);
 
     if (live.slots_filled > 0) {
-        cout << "Portfolio Deployed Slots: " << live.slots_filled << " / 4\n";
+        cout << "\nPortfolio Deployed Slots: " << live.slots_filled << " / 4\n";
         cout << "Active Out-of-Sample Combined Expectation: " << live.cumulative_oos << "%\n";
+        cout << "Average wins per day across deployed assets: " << live.avg_wins_per_day << "\n";
+        cout << "Projected daily portfolio return (based on holdout): " << live.projected_daily_return << "% per day\n";
     } else {
         cout << "Defensive Phase: 0 Slots Allocated. All assets filtered out.\n";
     }
