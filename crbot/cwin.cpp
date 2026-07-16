@@ -60,11 +60,12 @@ struct Indicators {
     std::vector<std::string> regime;
 };
 struct AnalysisResult {
-    double oos_return = 0.0;
+    double oos_return = 0.0;               // fixed 80/20 split return (for signal quality)
     double oos_drawdown = 0.0;
     int oos_trades = 0;
     int oos_wins = 0;
-    double oos_days = 0.0;
+    double oos_days = 0.0;                 // duration of the fixed 80/20 window
+    double walk_forward_daily_return = 0.0; // NEW: robust daily return from cross‑validation
     double walk_forward_score = -9999.0;
     LiveSignal signal;
     MonteCarloResult mc;
@@ -322,6 +323,7 @@ struct WalkForwardResult {
     int valid_folds = 0; 
     double avg_oos_dd = 0.0; 
     double avg_wins_per_day = 0.0;
+    double avg_test_days = 0.0;   // NEW: average duration of test folds
 };
 
 WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, const StrategyParams& params,
@@ -330,7 +332,7 @@ WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, cons
     WalkForwardResult wf;
     if (candles.size() < n_folds * 150) return wf;
     size_t fold_size = candles.size() / n_folds;
-    double total_ret = 0.0, total_dd = 0.0, total_wpd = 0.0;
+    double total_ret = 0.0, total_dd = 0.0, total_wpd = 0.0, total_days = 0.0;
     for (size_t f = 0; f + 2 <= n_folds; ++f) {
         size_t test_start = fold_size * (f + 1);
         size_t test_end = std::min(candles.size(), fold_size * (f + 2));
@@ -341,6 +343,7 @@ WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, cons
             total_dd += r.max_drawdown;
             long long fold_duration_ms = candles[test_end-1].timestamp - candles[test_start].timestamp;
             double fold_days = std::max(1.0, fold_duration_ms / (1000.0 * 60.0 * 60.0 * 24.0));
+            total_days += fold_days;
             double wins = r.winning_longs + r.winning_shorts;
             total_wpd += wins / fold_days;
             wf.valid_folds++;
@@ -350,8 +353,19 @@ WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, cons
         wf.avg_oos_return = total_ret / wf.valid_folds;
         wf.avg_oos_dd = total_dd / wf.valid_folds;
         wf.avg_wins_per_day = total_wpd / wf.valid_folds;
+        wf.avg_test_days = total_days / wf.valid_folds;
     }
     return wf;
+}
+
+// Fixed 80/20 split evaluation
+BacktestResult evaluate_fixed_split(const std::vector<Candle>& candles, 
+                                     const StrategyParams& params, 
+                                     const Indicators& ind, 
+                                     const std::vector<double>& z_scores) {
+    size_t split_idx = static_cast<size_t>(candles.size() * 0.8);
+    if (split_idx + 20 >= candles.size()) split_idx = candles.size() - 20;
+    return run_backtest(candles, params, ind, z_scores, split_idx, candles.size() - 1);
 }
 
 LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, const StrategyParams& params, double free_margin, const Indicators& ind) {
@@ -496,55 +510,6 @@ std::vector<Candle> fetch_candles(const std::string& symbol) {
     return candles;
 }
 
-const std::vector<double> SPLIT_CANDIDATES = {0.60, 0.65, 0.70, 0.75, 0.80, 0.85};
-static constexpr int MIN_TRADES_FOR_SPLIT_CANDIDACY = 5;
-
-struct SplitEvaluation {
-    bool found = false;
-    double split_fraction = 0.8;
-    BacktestResult metrics{};
-    double test_days = 0.0;
-    double wins_per_day = -1.0;
-};
-
-SplitEvaluation select_best_split(const std::string& symbol, const std::vector<Candle>& candles,
-                                   const StrategyParams& params, const Indicators& ind,
-                                   const std::vector<double>& z_scores, bool verbose) {
-    SplitEvaluation best;
-    for (double frac : SPLIT_CANDIDATES) {
-        size_t split_idx = static_cast<size_t>(candles.size() * frac);
-        if (split_idx + 20 >= candles.size()) continue; 
-
-        BacktestResult r = run_backtest(candles, params, ind, z_scores, split_idx, candles.size() - 1);
-        if (r.total_trades < MIN_TRADES_FOR_SPLIT_CANDIDACY) {
-            if (verbose) std::cout << "    [SPLIT] frac=" << frac << " -> only " << r.total_trades
-                                    << " trades, below minimum of " << MIN_TRADES_FOR_SPLIT_CANDIDACY << ", skipped\n";
-            continue;
-        }
-
-        long long span_ms = candles.back().timestamp - candles[split_idx].timestamp;
-        double test_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
-        int wins = r.winning_longs + r.winning_shorts;
-        double wins_per_day = wins / test_days;
-
-        if (verbose) {
-            std::cout << "    [SPLIT] frac=" << frac << " days=" << std::fixed << std::setprecision(1) << test_days
-                       << " trades=" << r.total_trades << " win_rate=" << std::setprecision(1) << r.win_rate
-                       << "% wins/day=" << std::setprecision(3) << wins_per_day
-                       << " return=" << std::setprecision(2) << r.total_return << "% dd=" << r.max_drawdown << "%\n";
-        }
-
-        if (wins_per_day > best.wins_per_day) {
-            best.found = true;
-            best.wins_per_day = wins_per_day;
-            best.split_fraction = frac;
-            best.metrics = r;
-            best.test_days = test_days;
-        }
-    }
-    return best;
-}
-
 AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle>& candles, bool verbose = true) {
     AnalysisResult res;
     string symbol = symbols[idsmb].mexc;
@@ -575,34 +540,22 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
 
     auto& best_z_scores = z_cache[best_params.period];
 
-    if (verbose) std::cout << "  " << symbol << ": scanning holdout splits by wins/day...\n";
-    SplitEvaluation split_eval = select_best_split(symbol, candles, best_params, ind, best_z_scores, verbose);
+    // --- Fixed 80/20 split evaluation (no cherry‑picking) ---
+    BacktestResult oos_metrics = evaluate_fixed_split(candles, best_params, ind, best_z_scores);
+    long long span_ms = candles.back().timestamp - candles[static_cast<size_t>(candles.size() * 0.8)].timestamp;
+    double test_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
 
-    BacktestResult oos_metrics;
-    double chosen_split_fraction;
-    double chosen_test_days;
-    if (split_eval.found) {
-        oos_metrics = split_eval.metrics;
-        chosen_split_fraction = split_eval.split_fraction;
-        chosen_test_days = split_eval.test_days;
-    } else {
-        if (verbose) std::cout << "    " << symbol << ": no split cleared the trade minimum, falling back to fixed 80/20 (low confidence).\n";
-        size_t split_idx = static_cast<size_t>(candles.size() * 0.8);
-        oos_metrics = run_backtest(candles, best_params, ind, best_z_scores, split_idx, candles.size() - 1);
-        chosen_split_fraction = 0.8;
-        long long span_ms = candles.back().timestamp - candles[split_idx].timestamp;
-        chosen_test_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
-    }
     MonteCarloResult mc_res = run_monte_carlo(oos_metrics.trade_pcts, 1000.0, 2000);
+
+    // Walk‑forward daily return (robust)
+    double wf_daily_return = (best_wf.avg_test_days > 0) ? best_wf.avg_oos_return / best_wf.avg_test_days : 0.0;
 
     if (verbose) {
         std::cout << "Best Params " << symbol << ": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult
                   << " | Walk-Forward Avg OOS: " << std::fixed << std::setprecision(2) << best_wf.avg_oos_return
                   << "% over " << best_wf.valid_folds << " folds (wins/day: " << best_wf.avg_wins_per_day << ")\n"
-                  << "Selected Split: " << chosen_split_fraction << " (" << std::setprecision(2)
-                  << (split_eval.found ? split_eval.wins_per_day : -1.0) << " wins/day, " << oos_metrics.total_trades
-                  << " trades, " << std::setprecision(1) << chosen_test_days << " days)\n"
-                  << "Holdout OOS Return: " << oos_metrics.total_return << "% | OOS Drawdown: " << oos_metrics.max_drawdown << "%\n"
+                  << "Fixed 80/20 Holdout Return: " << oos_metrics.total_return << "% | Drawdown: " << oos_metrics.max_drawdown << "%\n"
+                  << "Walk‑Forward daily return (conservative projection): " << wf_daily_return << "%\n"
                   << "Monte Carlo Risk Analysis -> Prob of Ruin: " << mc_res.prob_of_ruin << "% | Worst-Case DD: " << mc_res.worst_case_drawdown << "%\n\n";
     }
 
@@ -610,7 +563,8 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
     res.oos_drawdown = oos_metrics.max_drawdown;
     res.oos_trades = oos_metrics.total_trades;
     res.oos_wins = oos_metrics.winning_longs + oos_metrics.winning_shorts;
-    res.oos_days = chosen_test_days;
+    res.oos_days = test_days;
+    res.walk_forward_daily_return = wf_daily_return;
     res.walk_forward_score = best_wf.avg_oos_return;
     res.oos_trade_pcts = oos_metrics.trade_pcts;
     res.oos_trade_dirs = oos_metrics.trade_dirs;
@@ -623,16 +577,11 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
 
 struct RankedSymbol { size_t index; AnalysisResult analysis; };
 
-static constexpr double NORMALIZATION_HORIZON_DAYS = 30.0;
-
 struct DeploymentResult {
-    double cumulative_oos = 0.0;
-    double cumulative_oos_raw = 0.0;
+    double cumulative_oos = 0.0;           // sum of walk‑forward avg OOS returns
     size_t slots_filled = 0;
-    double min_window_days = 0.0;
-    double max_window_days = 0.0;
     double avg_wins_per_day = 0.0;
-    double projected_daily_return = 0.0;   // NEW: sum of daily returns of deployed slots
+    double projected_daily_return_wf = 0.0; // sum of walk‑forward daily returns of deployed slots
 };
 
 DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
@@ -648,7 +597,7 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
 
     if (verbose) std::cout << "\n------------------ DEPLOYMENT MATRIX ------------------\n";
     double total_wpd = 0.0;
-    double total_daily_return = 0.0;
+    double total_daily_return_wf = 0.0;
     int accepted_count = 0;
 
     for (const auto& item : pipeline) {
@@ -685,18 +634,15 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
             continue;
         }
 
-        dr.cumulative_oos += report.oos_return;
+        dr.cumulative_oos += report.walk_forward_score;
         total_wpd += sym_wpd;
-        // Daily return for this slot
-        double slot_daily_return = report.oos_return / report.oos_days;
-        total_daily_return += slot_daily_return;
+        total_daily_return_wf += report.walk_forward_daily_return;
         accepted_count++;
 
         if (verbose) {
             std::cout << ">>> [VALIDATED] Slot #" << (dr.slots_filled + 1) << ": Deploying to " << sym
-                      << " | WF: " << report.walk_forward_score << "% | Holdout OOS: " << report.oos_return
-                      << "% | wins/day: " << std::fixed << std::setprecision(3) << sym_wpd
-                      << " | daily return: " << std::setprecision(3) << slot_daily_return << "%"
+                      << " | WF OOS: " << report.walk_forward_score << "% | wins/day: " << std::fixed << std::setprecision(3) << sym_wpd
+                      << " | daily return (WF): " << std::setprecision(3) << report.walk_forward_daily_return << "%"
                       << " | Signal: " << report.signal.direction << "\n";
             std::cout << " -> Last Tested Trades (Holdout OOS): ";
             if (report.oos_trade_pcts.empty()) {
@@ -745,7 +691,7 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
     }
     if (accepted_count > 0) {
         dr.avg_wins_per_day = total_wpd / accepted_count;
-        dr.projected_daily_return = total_daily_return;   // sum across slots
+        dr.projected_daily_return_wf = total_daily_return_wf;
     }
     if (verbose) std::cout << "--------------------------------------------------------\n";
     return dr;
@@ -801,9 +747,9 @@ int main() {
                                                         base_portfolio, /*execute_orders=*/false,
                                                         /*verbose=*/false, symbols);
 
-            double combo_score = dry.cumulative_oos + 5.0 * dry.avg_wins_per_day;
+            double combo_score = dry.cumulative_oos;   // only walk‑forward OOS; no extra win‑rate term
             std::cout << "  [SCAN] MIN_SL_PCT=" << (sl * 100.0) << "% tp_factor=" << tp
-                      << "x -> Combined Expectation: " << std::fixed << std::setprecision(2)
+                      << "x -> Cumulative WF OOS: " << std::fixed << std::setprecision(2)
                       << dry.cumulative_oos << "% (slots=" << dry.slots_filled
                       << ", avg wins/day=" << std::setprecision(3) << dry.avg_wins_per_day
                       << ", combo_score=" << std::setprecision(2) << combo_score << ")\n";
@@ -847,9 +793,11 @@ int main() {
 
     if (live.slots_filled > 0) {
         cout << "\nPortfolio Deployed Slots: " << live.slots_filled << " / 4\n";
-        cout << "Active Out-of-Sample Combined Expectation: " << live.cumulative_oos << "%\n";
-        cout << "Average wins per day across deployed assets: " << live.avg_wins_per_day << "\n";
-        cout << "Projected daily portfolio return (based on holdout): " << live.projected_daily_return << "% per day\n";
+        cout << "Cumulative Walk-Forward OOS Return: " << live.cumulative_oos << "%\n";
+        cout << "Average wins/day (holdout): " << live.avg_wins_per_day << "\n";
+        cout << "Projected daily return (walk-forward, conservative): " << live.projected_daily_return_wf << "% per day\n";
+        cout << "NOTE: apply a ~30% haircut for slippage/regime shifts → realistic target ~" 
+             << (live.projected_daily_return_wf * 0.7) << "% per day.\n";
     } else {
         cout << "Defensive Phase: 0 Slots Allocated. All assets filtered out.\n";
     }
