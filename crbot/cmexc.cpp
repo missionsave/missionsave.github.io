@@ -9,6 +9,7 @@
 // #include <nlohmann/json.hpp>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
+#include <cJSON.h>
 using namespace std;
 
 // --- Helper: cURL Write Callback ---
@@ -151,6 +152,11 @@ bool symbol_opened(string symbol){
 	}
 	return 0;
 }
+bool max_symbols_reached(){
+	vector<std::string> gops=getOpenPositionSymbols();
+	if(gops.size()>=4)return 1;
+	return 0;
+}
 
 // --- Get All Opened Futures Positions ---
 // GET /api/v1/private/position/open_positions
@@ -227,7 +233,111 @@ digits_contractsize getContractSize(const std::string& apiKey,
 
     return { priceScale, contractSize };
 }
+// --- Updated: Close Oldest Position & Cancel Associated TP/SL Plan Orders ---
+void closeOldestPosition() {
+    const char* envKey = std::getenv("MEXC_API_KEY");
+    const char* envSecret = std::getenv("MEXC_API_SECRET");
 
+    if (!envKey || !envSecret) {
+        std::cerr << "Execution Blocked: Missing API credentials." << std::endl;
+        return;
+    }
+
+    std::string apiKey(envKey);
+    std::string apiSecret(envSecret);
+
+    std::string response = sendFuturesRequest(apiKey, apiSecret, "GET", "/api/v1/private/position/open_positions", "");
+
+    cJSON* json = cJSON_Parse(response.c_str());
+    if (!json) {
+        std::cerr << "Error: Failed to parse open positions response." << std::endl;
+        return;
+    }
+
+    cJSON* data = cJSON_GetObjectItem(json, "data");
+    if (!data || !cJSON_IsArray(data)) {
+        cJSON_Delete(json);
+        std::cout << "No open positions array found." << std::endl;
+        return;
+    }
+
+    int arraySize = cJSON_GetArraySize(data);
+    long long oldestTime = -1;
+    std::string oldestSymbol = "";
+    double oldestVol = 0.0;
+    double currentPrice = 0.0; 
+    int oldestSide = 0;        // positionType: 1 = Long, 2 = Short
+    int oldestOpenType = 1;    // openType: 1 = Isolated, 2 = Cross
+
+    for (int i = 0; i < arraySize; ++i) {
+        cJSON* item = cJSON_GetArrayItem(data, i);
+        if (!item) continue;
+
+        cJSON* holdVolObj = cJSON_GetObjectItem(item, "holdVol");
+        double holdVol = holdVolObj ? holdVolObj->valuedouble : 0.0;
+
+        if (holdVol > 0.0) {
+            cJSON* createTimeObj = cJSON_GetObjectItem(item, "createTime");
+            long long createTime = createTimeObj ? (long long)createTimeObj->valuedouble : 0;
+
+            if (oldestTime == -1 || createTime < oldestTime) {
+                oldestTime = createTime;
+                
+                cJSON* symbolObj = cJSON_GetObjectItem(item, "symbol");
+                oldestSymbol = symbolObj ? symbolObj->valuestring : "";
+                
+                oldestVol = holdVol;
+
+                cJSON* fairPriceObj = cJSON_GetObjectItem(item, "fairPrice");
+                currentPrice = fairPriceObj ? fairPriceObj->valuedouble : 0.0;
+
+                cJSON* posTypeObj = cJSON_GetObjectItem(item, "positionType");
+                oldestSide = posTypeObj ? posTypeObj->valueint : 1;
+
+                cJSON* openTypeObj = cJSON_GetObjectItem(item, "openType");
+                oldestOpenType = openTypeObj ? openTypeObj->valueint : 1;
+            }
+        }
+    }
+
+    cJSON_Delete(json);
+
+    if (oldestSymbol.empty()) {
+        std::cout << "No open positions found to close." << std::endl;
+        return;
+    }
+
+    int closeSideInt = (oldestSide == 1) ? 4 : 2;
+
+    std::cout << "--- Closing Oldest Position via Limit Order ---" << std::endl;
+    std::cout << "Symbol:        " << oldestSymbol << std::endl;
+    std::cout << "Target Price:  " << currentPrice << std::endl;
+    std::cout << "Volume (Qty):  " << oldestVol << std::endl;
+    std::cout << "Exit Side:     " << (closeSideInt == 4 ? "Close Long (4)" : "Close Short (2)") << std::endl;
+    std::cout << "-----------------------------------------------" << std::endl;
+
+    // 1. Submit Limit Close Order
+    std::stringstream closeOrder;
+    closeOrder << "{"
+               << "\"symbol\":\"" << oldestSymbol << "\","
+               << "\"price\":" << currentPrice << ","
+               << "\"vol\":" << static_cast<int>(oldestVol) << ","
+               << "\"side\":" << closeSideInt << ","
+               << "\"type\":1,"  
+               << "\"openType\":" << oldestOpenType
+               << "}";
+
+    std::string closeRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/create", closeOrder.str());
+    std::cout << "Close Position Response: " << closeRes << std::endl;
+
+    // 2. Automatically clean up associated TP/SL plan orders for this symbol
+    std::cout << "Canceling all active TP/SL plan orders for " << oldestSymbol << "..." << std::endl;
+    std::stringstream cancelPayload;
+    cancelPayload << "{\"symbol\":\"" << oldestSymbol << "\"}";
+    
+    std::string cancelRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/cancel_all", cancelPayload.str());
+    std::cout << "Cancel Plan Orders Response: " << cancelRes << std::endl;
+}
 // --- Optimized & Atomic Orchestrator ---
 // Unified Execution (Entry + OCO TP/SL): POST /api/v1/private/order/create
 void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side,
@@ -235,6 +345,8 @@ void openAtomicBracketFuturesPosition(const std::string& symbol, const std::stri
 	double takeProfit, int leverage = 30) {
 
 	if(symbol_opened(symbol)) return;
+
+	if(max_symbols_reached())closeOldestPosition();
 
 	const char* envKey = std::getenv("MEXC_API_KEY");
 	const char* envSecret = std::getenv("MEXC_API_SECRET");
