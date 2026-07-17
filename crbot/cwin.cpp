@@ -734,6 +734,7 @@ int main() {
     vector<std::string> gops = getOpenPositionSymbols();
     cout << "Active Structural Positions: " << gops.size() << "\n\n";
     for (size_t i = 0; i < gops.size(); i++) cout << "gops: " << gops[i] << "\n";
+	
 
     std::cout << "--- Fetching candle history for " << symbols.size() << " symbols ---\n";
     std::vector<std::vector<Candle>> candle_cache(symbols.size());
@@ -741,6 +742,9 @@ int main() {
         candle_cache[i] = fetch_candles(symbols[i].mexc);
         std::cout << "  " << symbols[i].mexc << ": " << candle_cache[i].size() << " candles\n";
     }
+
+	
+	cancelAllPendingOrders();
 
     std::cout << "\n--- Scanning MIN_SL_PCT x tp_factor combinations ---\n";
     double best_combo_sl = SL_CANDIDATES[0], best_combo_tp = TP_CANDIDATES[0];

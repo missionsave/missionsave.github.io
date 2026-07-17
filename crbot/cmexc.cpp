@@ -360,14 +360,59 @@ void closeMostProfitablePosition() {
     cancelPayload << "{\"symbol\":\"" << bestSymbol << "\"}";
     sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/cancel_all", cancelPayload.str());
 }
+// --- Cancel All Pending/Open Orders Across All Symbols ---
+void cancelAllPendingOrders() {
+    const char* envKey = std::getenv("MEXC_API_KEY");
+    const char* envSecret = std::getenv("MEXC_API_SECRET");
+
+    if (!envKey || !envSecret) {
+        std::cerr << "Execution Blocked: Missing API credentials." << std::endl;
+        return;
+    }
+
+    std::string apiKey(envKey);
+    std::string apiSecret(envSecret);
+
+    std::cout << "--- Purging All Pending Limit Orders ---" << std::endl;
+
+    // 1. Build the payload. 
+    // Sending an empty JSON object "{}" to cancel_all tells MEXC to wipe out ALL open orders.
+    // If you ever want to target just a specific token, you'd use: {"symbol":"BTC_USDT"}
+    cJSON* payloadJson = cJSON_CreateObject();
+    char* rawPayload = cJSON_PrintUnformatted(payloadJson);
+    std::string payloadStr(rawPayload);
+
+    // Free the locally created cJSON structures immediately
+    free(rawPayload);
+    cJSON_Delete(payloadJson);
+
+    // 2. Submit the POST request to the batch cancel endpoint
+    std::string response = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/cancel_all", payloadStr);
+    
+    // 3. Log and verify the response status
+    cJSON* resJson = cJSON_Parse(response.c_str());
+    if (resJson) {
+        cJSON* codeObj = cJSON_GetObjectItem(resJson, "code");
+        if (codeObj && codeObj->valueint == 0) {
+            std::cout << "Success: All pending orders have been canceled." << std::endl;
+        } else {
+            std::cerr << "Warning: Server returned non-zero code. Response: " << response << std::endl;
+        }
+        cJSON_Delete(resJson);
+    } else {
+        std::cerr << "Error: Failed to parse cancel response." << std::endl;
+    }
+}
 // --- Optimized & Atomic Orchestrator ---
 // Unified Execution (Entry + OCO TP/SL): POST /api/v1/private/order/create
+bool mexc_only_one=0;
 void openAtomicBracketFuturesPosition(const std::string& symbol, const std::string& side,
 	double qty, double entryPrice, double stopLoss,
 	double takeProfit, int leverage = 30) {
 
 	if(symbol_opened(symbol)) return;
-
+	if(mexc_only_one)return;
+	mexc_only_one=1;
 
 	const char* envKey = std::getenv("MEXC_API_KEY");
 	const char* envSecret = std::getenv("MEXC_API_SECRET");
@@ -605,7 +650,7 @@ money getUsdtFuturesBalance() {
 }
 
 // int main(){
-// 	closeOldestPosition();
+// 	cancelAllPendingOrders();
 // 	return 0;
 // }
 
