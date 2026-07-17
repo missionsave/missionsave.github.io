@@ -505,7 +505,7 @@ void openAtomicBracketFuturesPosition(const std::string& symbol, const std::stri
 				pOrder.str());
 	std::cout << "Exchange Response: " << orderRes << "\n";
 	
-	if(max_symbols_reached())closeMostProfitablePosition();
+	// if(max_symbols_reached())closeMostProfitablePosition();
 }
 
 // --- Orchestrator: Bracket Futures Position (JSON Adapted) ---
