@@ -96,13 +96,13 @@ std::string sendFuturesRequest(const std::string& apiKey, const std::string& api
 
     return response;
 }
-bool getOpenPositionSymbolsfetched=0;
+std::string opened_positions="";
 std::vector<std::string> getOpenPositionSymbols(){
 
 	static std::vector<std::string> symbols;
 	if(symbols.size()>0)return symbols;
-	if(getOpenPositionSymbolsfetched==1)return symbols;
-	getOpenPositionSymbolsfetched=1;
+	if(opened_positions!="")return symbols;
+	// getOpenPositionSymbolsfetched=1;
 	
 	const char* envKey = std::getenv("MEXC_API_KEY");
     const char* envSecret = std::getenv("MEXC_API_SECRET");
@@ -112,6 +112,7 @@ std::vector<std::string> getOpenPositionSymbols(){
 
 	// GET request sem payload
 	std::string response = sendFuturesRequest(envKey, envSecret, "GET", endpoint, "");
+	opened_positions=response;
 	// cout<<response<<"\n";
 
 
@@ -161,22 +162,22 @@ bool max_symbols_reached(){
 
 // --- Get All Opened Futures Positions ---
 // GET /api/v1/private/position/open_positions
-std::string getOpenedFuturesPositions() {
-    const char* envKey = std::getenv("MEXC_API_KEY");
-    const char* envSecret = std::getenv("MEXC_API_SECRET");
+// std::string getOpenedFuturesPositions() {
+//     const char* envKey = std::getenv("MEXC_API_KEY");
+//     const char* envSecret = std::getenv("MEXC_API_SECRET");
 
-    if (!envKey || !envSecret) {
-        return "{\"error\":\"Missing API credentials in environment variables.\"}";
-    }
+//     if (!envKey || !envSecret) {
+//         return "{\"error\":\"Missing API credentials in environment variables.\"}";
+//     }
 
-    std::string apiKey(envKey);
-    std::string apiSecret(envSecret);
+//     std::string apiKey(envKey);
+//     std::string apiSecret(envSecret);
 
-    std::string endpoint = "/api/v1/private/position/open_positions";
+//     std::string endpoint = "/api/v1/private/position/open_positions";
 
-    std::cout << "Fetching all opened futures positions..." << std::endl;
-    return sendFuturesRequest(apiKey, apiSecret, "GET", endpoint);
-}
+//     std::cout << "Fetching all opened futures positions..." << std::endl;
+//     return sendFuturesRequest(apiKey, apiSecret, "GET", endpoint);
+// }
 int formatVol(double qty, int stepsize)
 {
     // 1) Round qty to the desired number of decimals
@@ -248,11 +249,11 @@ void closeMostProfitablePosition() {
     std::string apiSecret(envSecret);
 
     // 1. Fetch all open positions
-    std::string response = sendFuturesRequest(apiKey, apiSecret, "GET", "/api/v1/private/position/open_positions", "");
+    // std::string response = sendFuturesRequest(apiKey, apiSecret, "GET", "/api/v1/private/position/open_positions", "");
 
-    cJSON* json = cJSON_Parse(response.c_str());
+    cJSON* json = cJSON_Parse(opened_positions.c_str());
     if (!json) {
-        std::cerr << "Error: Failed to parse open positions response." << std::endl;
+        std::cerr << "Error: Failed to parse open positions opened_positions response." << std::endl;
         return;
     }
 
@@ -367,7 +368,6 @@ void openAtomicBracketFuturesPosition(const std::string& symbol, const std::stri
 
 	if(symbol_opened(symbol)) return;
 
-	if(max_symbols_reached())closeMostProfitablePosition();
 
 	const char* envKey = std::getenv("MEXC_API_KEY");
 	const char* envSecret = std::getenv("MEXC_API_SECRET");
@@ -456,6 +456,8 @@ void openAtomicBracketFuturesPosition(const std::string& symbol, const std::stri
 				"/api/v1/private/order/create",
 				pOrder.str());
 	std::cout << "Exchange Response: " << orderRes << "\n";
+	
+	if(max_symbols_reached())closeMostProfitablePosition();
 }
 
 // --- Orchestrator: Bracket Futures Position (JSON Adapted) ---
@@ -615,8 +617,8 @@ int print_account() {
     std::cout << "Account Metrics Details:\n" << accountInfo.equity << std::endl;
 return 0;
     // 1. Fetching all currently open futures positions
-    std::string openPositions = getOpenedFuturesPositions();
-    std::cout << "Open Positions Data:\n" << openPositions << "\n" << std::endl;
+    // std::string openPositions = getOpenedFuturesPositions();
+    // std::cout << "Open Positions Data:\n" << openPositions << "\n" << std::endl;
 
     // 2. Example: Opening a 5x Futures Long on BTC_USDT (Notice MEXC futures uses the underscore)
     // openBracketFuturesPosition("BTC_USDT", "BUY", 0.025, 64200.00, 63100.00, 67500.00, 5);

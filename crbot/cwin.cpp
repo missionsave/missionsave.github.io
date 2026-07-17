@@ -426,50 +426,70 @@ double pearson_correlation(const std::vector<double>& a, const std::vector<doubl
     return cov / std::sqrt(var_a * var_b);
 }
 
-std::vector<OpenPosition> parse_open_positions(const std::string& json) {
+ 
+std::vector<OpenPosition> parse_open_positions(const std::string& json_str) {
     std::vector<OpenPosition> out;
-    size_t pos = 0;
-    while (true) {
-        size_t sym_key = json.find("\"symbol\":\"", pos);
-        if (sym_key == std::string::npos) break;
-        size_t sym_start = sym_key + 10;
-        size_t sym_end = json.find("\"", sym_start);
-        if (sym_end == std::string::npos) break;
-        std::string symbol = json.substr(sym_start, sym_end - sym_start);
 
-        size_t window_end = json.find("\"symbol\":\"", sym_end);
-        if (window_end == std::string::npos) window_end = json.size();
-        std::string obj = json.substr(sym_end, window_end - sym_end);
-
-        std::string direction = "LONG";
-        size_t pt_key = obj.find("\"positionType\":");
-        if (pt_key != std::string::npos) {
-            size_t v = pt_key + 15;
-            while (v < obj.size() && (obj[v] == ':' || obj[v] == ' ')) v++;
-            if (v < obj.size() && obj[v] == '2') direction = "SHORT";
-        }
-
-        auto find_number = [&](const std::string& key) -> double {
-            std::string tag = "\"" + key + "\":";
-            size_t k = obj.find(tag);
-            if (k == std::string::npos) return 0.0;
-            size_t v = k + tag.size();
-            size_t end = obj.find_first_of(",}", v);
-            if (end == std::string::npos) return 0.0;
-            std::string num = obj.substr(v, end - v);
-            num.erase(std::remove(num.begin(), num.end(), '"'), num.end());
-            try { return num.empty() ? 0.0 : std::stod(num); } catch (...) { return 0.0; }
-        };
-        double vol = find_number("holdVol");
-        if (vol == 0.0) vol = find_number("vol");
-        double avg_price = find_number("openAvgPrice");
-        if (avg_price == 0.0) avg_price = find_number("holdAvgPrice");
-
-        if (!symbol.empty() && vol > 0.0) {
-            out.push_back({symbol, direction, std::abs(vol * avg_price)});
-        }
-        pos = sym_end;
+    cJSON* json = cJSON_Parse(json_str.c_str());
+    if (!json) {
+        std::cerr << "Error: Failed to parse positions JSON payload." << std::endl;
+        return out;
     }
+
+    cJSON* data = cJSON_GetObjectItem(json, "data");
+    if (!data || !cJSON_IsArray(data)) {
+        cJSON_Delete(json);
+        return out;
+    }
+
+    int arraySize = cJSON_GetArraySize(data);
+    for (int i = 0; i < arraySize; ++i) {
+        cJSON* item = cJSON_GetArrayItem(data, i);
+        if (!item) continue;
+
+        // 1. Parse Volume (Check "holdVol", fallback to "vol")
+        double vol = 0.0;
+        cJSON* holdVolObj = cJSON_GetObjectItem(item, "holdVol");
+        if (holdVolObj) {
+            vol = holdVolObj->valuedouble;
+        } else {
+            cJSON* volObj = cJSON_GetObjectItem(item, "vol");
+            if (volObj) vol = volObj->valuedouble;
+        }
+
+        // Only bother evaluating further if there is an active volume balance
+        if (vol > 0.0) {
+            // 2. Parse Symbol
+            cJSON* symbolObj = cJSON_GetObjectItem(item, "symbol");
+            std::string symbol = symbolObj && symbolObj->valuestring ? symbolObj->valuestring : "";
+
+            if (symbol.empty()) continue;
+
+            // 3. Parse Direction (positionType: 1 = Long, 2 = Short)
+            std::string direction = "LONG";
+            cJSON* posTypeObj = cJSON_GetObjectItem(item, "positionType");
+            if (posTypeObj && posTypeObj->valueint == 2) {
+                direction = "SHORT";
+            }
+
+            // 4. Parse Average Entry Price (Check "openAvgPrice", fallback to "holdAvgPrice")
+            double avg_price = 0.0;
+            cJSON* openAvgPriceObj = cJSON_GetObjectItem(item, "openAvgPrice");
+            if (openAvgPriceObj) {
+                avg_price = openAvgPriceObj->valuedouble;
+            } else {
+                cJSON* holdAvgPriceObj = cJSON_GetObjectItem(item, "holdAvgPrice");
+                if (holdAvgPriceObj) avg_price = holdAvgPriceObj->valuedouble;
+            }
+
+            // 5. Package the data identically to your old parser logic
+            double positionValue = std::abs(vol * avg_price);
+            out.push_back({symbol, direction, positionValue});
+        }
+    }
+
+    // Always free memory allocated by cJSON before exiting
+    cJSON_Delete(json);
     return out;
 }
 
@@ -701,7 +721,8 @@ int main() {
     symbols = get_hyperliquid_top_symbols(30);
     std::cout << "Successfully mapped " << symbols.size() << " top symbols by volume from Hyperliquid.\n\n";
     money moneyei = getUsdtFuturesBalance();
-    std::string openPositions = getOpenedFuturesPositions();
+	getOpenPositionSymbols();
+    std::string openPositions = opened_positions;
     std::cout << "Current Account Equity: " << moneyei.equity << " USDT\n";
 
     PortfolioState base_portfolio;
