@@ -234,9 +234,8 @@ digits_contractsize getContractSize(const std::string& apiKey,
 
     return { priceScale, contractSize };
 }
-// --- Updated: Close Oldest Position & Cancel Associated TP/SL Plan Orders ---
-// --- Close the Oldest Active Position at the Current Ticker Price ---
-void closeOldestPosition() {
+// --- Close the Running Position with the Highest Profit (Highest Unrealized PnL) ---
+void closeMostProfitablePosition() {
     const char* envKey = std::getenv("MEXC_API_KEY");
     const char* envSecret = std::getenv("MEXC_API_SECRET");
 
@@ -265,14 +264,14 @@ void closeOldestPosition() {
     }
 
     int arraySize = cJSON_GetArraySize(data);
-    long long oldestTime = -1;
-    std::string oldestSymbol = "";
-    double oldestVol = 0.0;
-    double fallbackPrice = 0.0; // In case public ticker fetch fails
-    int oldestSide = 0;        // positionType: 1 = Long, 2 = Short
-    int oldestOpenType = 1;    // openType: 1 = Isolated, 2 = Cross
+    double highestPnL = -99999999.0; // Seed with a very low value to catch even small or negative values if needed
+    std::string bestSymbol = "";
+    double bestVol = 0.0;
+    double fallbackPrice = 0.0; 
+    int bestSide = 0;        // positionType: 1 = Long, 2 = Short
+    int bestOpenType = 1;    // openType: 1 = Isolated, 2 = Cross
 
-    // 2. Loop through all positions to identify the absolute oldest
+    // 2. Loop through up to 4 positions to identify the one with the most gain
     for (int i = 0; i < arraySize; ++i) {
         cJSON* item = cJSON_GetArrayItem(data, i);
         if (!item) continue;
@@ -281,38 +280,39 @@ void closeOldestPosition() {
         double holdVol = holdVolObj ? holdVolObj->valuedouble : 0.0;
 
         if (holdVol > 0.0) {
-            cJSON* createTimeObj = cJSON_GetObjectItem(item, "createTime");
-            long long createTime = createTimeObj ? (long long)createTimeObj->valuedouble : 0;
+            cJSON* pnlObj = cJSON_GetObjectItem(item, "unrealisedPnL");
+            double unrealisedPnL = pnlObj ? pnlObj->valuedouble : 0.0;
 
-            if (oldestTime == -1 || createTime < oldestTime) {
-                oldestTime = createTime;
+            // Check if this position has more profit than our recorded highest
+            if (bestSymbol.empty() || unrealisedPnL > highestPnL) {
+                highestPnL = unrealisedPnL;
                 
                 cJSON* symbolObj = cJSON_GetObjectItem(item, "symbol");
-                oldestSymbol = symbolObj ? symbolObj->valuestring : "";
+                bestSymbol = symbolObj ? symbolObj->valuestring : "";
                 
-                oldestVol = holdVol;
+                bestVol = holdVol;
 
                 cJSON* avgPriceObj = cJSON_GetObjectItem(item, "holdAvgPrice");
                 fallbackPrice = avgPriceObj ? avgPriceObj->valuedouble : 0.0;
 
                 cJSON* posTypeObj = cJSON_GetObjectItem(item, "positionType");
-                oldestSide = posTypeObj ? posTypeObj->valueint : 1;
+                bestSide = posTypeObj ? posTypeObj->valueint : 1;
 
                 cJSON* openTypeObj = cJSON_GetObjectItem(item, "openType");
-                oldestOpenType = openTypeObj ? openTypeObj->valueint : 1;
+                bestOpenType = openTypeObj ? openTypeObj->valueint : 1;
             }
         }
     }
     cJSON_Delete(json);
 
-    if (oldestSymbol.empty()) {
-        std::cout << "No open positions found to close." << std::endl;
+    if (bestSymbol.empty()) {
+        std::cout << "No open positions found to close.\n";
         return;
     }
 
-    // 3. Query the real-time ticker price for this specific symbol
+    // 3. Query the real-time ticker price for the target profitable symbol
     double targetPrice = 0.0;
-    std::string tickerRes = sendFuturesRequest(apiKey, apiSecret, "GET", "/api/v1/contract/ticker", "symbol=" + oldestSymbol);
+    std::string tickerRes = sendFuturesRequest(apiKey, apiSecret, "GET", "/api/v1/contract/ticker", "symbol=" + bestSymbol);
     
     cJSON* tickerJson = cJSON_Parse(tickerRes.c_str());
     if (tickerJson) {
@@ -326,38 +326,37 @@ void closeOldestPosition() {
         cJSON_Delete(tickerJson);
     }
 
-    // If ticker request fails, use the average entry price as a fallback
     if (targetPrice <= 0.0) {
         targetPrice = fallbackPrice;
     }
 
-    // Side mapping: Long (1) -> Close Long (4) | Short (2) -> Close Short (2)
-    int closeSideInt = (oldestSide == 1) ? 4 : 2;
+    int closeSideInt = (bestSide == 1) ? 4 : 2;
 
-    std::cout << "--- Closing Oldest Position via Limit Order ---" << std::endl;
-    std::cout << "Symbol:        " << oldestSymbol << std::endl;
+    std::cout << "--- Closing Most Profitable Position via Limit Order ---" << std::endl;
+    std::cout << "Symbol:        " << bestSymbol << std::endl;
+    std::cout << "Current PnL:   " << highestPnL << " USDT" << std::endl;
     std::cout << "Target Price:  " << targetPrice << std::endl;
-    std::cout << "Volume (Qty):  " << oldestVol << std::endl;
+    std::cout << "Volume (Qty):  " << bestVol << std::endl;
     std::cout << "Exit Side:     " << (closeSideInt == 4 ? "Close Long (4)" : "Close Short (2)") << std::endl;
-    std::cout << "-----------------------------------------------" << std::endl;
+    std::cout << "--------------------------------------------------------" << std::endl;
 
     // 4. Submit Limit Close Order
     std::stringstream closeOrder;
     closeOrder << "{"
-               << "\"symbol\":\"" << oldestSymbol << "\","
+               << "\"symbol\":\"" << bestSymbol << "\","
                << "\"price\":" << targetPrice << ","
-               << "\"vol\":" << static_cast<int>(oldestVol) << ","
+               << "\"vol\":" << static_cast<int>(bestVol) << ","
                << "\"side\":" << closeSideInt << ","
-               << "\"type\":1,"  // 1 = Limit Order
-               << "\"openType\":" << oldestOpenType
+               << "\"type\":1,"  
+               << "\"openType\":" << bestOpenType
                << "}";
 
     std::string closeRes = sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/order/create", closeOrder.str());
     std::cout << "Close Position Response: " << closeRes << std::endl;
 
-    // 5. Clean up associated TP/SL plan orders for this symbol
+    // 5. Clean up associated TP/SL plan orders for this specific symbol
     std::stringstream cancelPayload;
-    cancelPayload << "{\"symbol\":\"" << oldestSymbol << "\"}";
+    cancelPayload << "{\"symbol\":\"" << bestSymbol << "\"}";
     sendFuturesRequest(apiKey, apiSecret, "POST", "/api/v1/private/planorder/cancel_all", cancelPayload.str());
 }
 // --- Optimized & Atomic Orchestrator ---
@@ -368,7 +367,7 @@ void openAtomicBracketFuturesPosition(const std::string& symbol, const std::stri
 
 	if(symbol_opened(symbol)) return;
 
-	if(max_symbols_reached())closeOldestPosition();
+	if(max_symbols_reached())closeMostProfitablePosition();
 
 	const char* envKey = std::getenv("MEXC_API_KEY");
 	const char* envSecret = std::getenv("MEXC_API_SECRET");
