@@ -415,6 +415,7 @@ void openAtomicBracketFuturesPosition(const std::string& symbol, const std::stri
 	mexc_only_one=1;
 	if(getOpenPositionSymbols().size()>=4){
 		std::cout<<"No slots avaiable.----------------\n";
+		return;
 	}
 
 	const char* envKey = std::getenv("MEXC_API_KEY");

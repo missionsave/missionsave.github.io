@@ -83,6 +83,11 @@ struct OpenPosition {
     std::string symbol;
     std::string direction;
     double notional_usd = 0.0;
+	std::string createTime;
+	float unRealizedPnl=0;
+	float entry=0;
+	float sl=0;
+	float tp=0;
 };
 struct PortfolioState {
     std::vector<OpenPosition> positions;
@@ -484,7 +489,14 @@ std::vector<OpenPosition> parse_open_positions(const std::string& json_str) {
 
             // 5. Package the data identically to your old parser logic
             double positionValue = std::abs(vol * avg_price);
-            out.push_back({symbol, direction, positionValue});
+			std::time_t rawTime = cJSON_GetObjectItem(item, "createTime")->valuedouble/1000;
+			std::tm timeInfo;
+			localtime_r(&rawTime, &timeInfo); 
+			char buf[16];
+			std::strftime(buf, sizeof(buf), "%Y-%m-%d %H", &timeInfo);
+			std::string createTime(buf);
+
+            out.push_back({symbol, direction, positionValue,createTime,(float)cJSON_GetObjectItem(item, "unRealizedPnl")->valuedouble,(float)cJSON_GetObjectItem(item, "openAvgPrice")->valuedouble,0,0});
         }
     }
 
@@ -729,7 +741,11 @@ int main() {
     base_portfolio.positions = parse_open_positions(openPositions);
     std::cout << "Reconstructed " << base_portfolio.positions.size() << " open position(s) from exchange:\n";
     for (const auto& p : base_portfolio.positions)
-        std::cout << "  " << p.symbol << " " << p.direction << " notional~" << p.notional_usd << " USDT\n";
+        std::cout << "  " << p.symbol << " " << p.direction << " notional~" << p.notional_usd << " USDT "
+	<<" createTime:"<<p.createTime
+	<<" entry:"<<p.entry
+	<<" gain:"<<p.unRealizedPnl
+	<<"\n";
 
     vector<std::string> gops = getOpenPositionSymbols();
     cout << "Active Structural Positions: " << gops.size() << "\n\n";
