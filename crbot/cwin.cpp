@@ -730,7 +730,7 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
 }
 
 int main() {
-    symbols = get_hyperliquid_top_symbols(30);
+    symbols = get_hyperliquid_top_symbols(20);
     std::cout << "Successfully mapped " << symbols.size() << " top symbols by volume from Hyperliquid.\n\n";
     money moneyei = getUsdtFuturesBalance();
 	getOpenPositionSymbols();
