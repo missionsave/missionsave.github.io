@@ -273,7 +273,7 @@ static Balance get_balance(Exchange e) {
     auto* cfg = get_exchange(e);
     if (!cfg) return {0,0};
     if (e == Exchange::MEXC) {
-        std::string resp = mexc_request(*cfg, "GET", "/api/v1/private/account/asset/USDT");
+        std::string resp = mexc_request(*cfg, "GET", "/api/v1/private/account/asset/USDT","",1);
         auto extract = [&](const std::string& key) -> double {
             size_t p = resp.find("\"" + key + "\":");
             if (p == std::string::npos) return 0;
