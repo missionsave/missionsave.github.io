@@ -1632,10 +1632,14 @@ public:
             slots_filled++;
         }
         
-        double total_equity = 0;
-        for (auto& ex : exchanges) total_equity += get_balance(ex.exchange).equity;
-        state_->equity = total_equity;
-        if (state_->equity > state_->peak_equity) state_->peak_equity = state_->equity;
+		// Atualiza equity do exchange REAL antes de mostrar
+		double total_equity = 0;
+		for (auto& ex : exchanges) {
+			Balance bal = get_balance(ex.exchange);
+			total_equity += bal.equity;
+		}
+		state_->equity = total_equity;
+		if (state_->equity > state_->peak_equity) state_->peak_equity = state_->equity;
     }
     
     void close_expired_positions() {
@@ -1736,16 +1740,12 @@ static std::string format_timestamp(std::int64_t epoch) {
     return std::string(buf);
 }
 
-static void display_portfolio(const BotState& state) {
+static void display_portfolio(BotState& state) {
     std::cout << "\n";
     std::cout << "┌────────────── PORTFOLIO ──────────────┐\n";
     
-    double total_equity = 0;
-    for (auto& ex : exchanges) {
-        Balance bal = get_balance(ex.exchange);
-        total_equity += bal.equity;
-    }
-    
+    // Usa o equity já atualizado pelo hourly/daily/weekly
+    double total_equity = state.equity;
     double pnl = total_equity - state.starting_equity;
     double pnl_pct = (state.starting_equity > 0) ? (pnl / state.starting_equity) * 100.0 : 0.0;
     
@@ -1775,12 +1775,25 @@ static void display_portfolio(const BotState& state) {
         std::cout << "│ Positions: " << state.positions.size() << "/" << MAX_POSITIONS << "\n";
         std::cout << "├────────────────────────────────────────┤\n";
         
+        // Fetch all current prices once (batch to avoid rate limits)
+        std::map<std::string, double> current_prices;
+        for (auto& p : state.positions) {
+            if (current_prices.find(p.symbol) == current_prices.end()) {
+                Exchange e = Exchange::MEXC;
+                for (auto& ex : exchanges) if (ex.name() == p.exchange) { e = ex.exchange; break; }
+                double price = get_current_price(e, p.symbol);
+                if (price <= 0) {
+                    // Fallback: usa o último preço conhecido do estado
+                    price = p.entry_price;
+                }
+                current_prices[p.symbol] = price;
+                std::this_thread::sleep_for(std::chrono::milliseconds(50)); // rate limit
+            }
+        }
+        
         for (size_t i = 0; i < state.positions.size(); ++i) {
             auto& p = state.positions[i];
-            
-            Exchange e = Exchange::MEXC;
-            for (auto& ex : exchanges) if (ex.name() == p.exchange) { e = ex.exchange; break; }
-            double current = get_current_price(e, p.symbol);
+            double current = current_prices[p.symbol];
             
             double upnl = (p.side == "LONG") 
                 ? (current - p.entry_price) * p.quantity 
@@ -1794,11 +1807,12 @@ static void display_portfolio(const BotState& state) {
                       << " " << format_timestamp(p.timestamp) << "\n";
             std::cout << std::setprecision(6);
             std::cout << "│ E:" << p.entry_price << " SL:" << p.sl;
-            std::cout << std::setprecision(4);
+            std::cout << std::setprecision(6);
             std::cout << " C:" << current << "\n";
-            std::cout << std::setprecision(2);
+            std::cout << std::setprecision(4);
             std::cout << "│ TP:" << p.tp << " Q:" << p.quantity;
             std::cout << " " << hours_open << "h";
+            std::cout << std::setprecision(2);
             std::cout << " uP:" << (upnl >= 0 ? "+" : "") << upnl << " (" << upnl_pct << "%)\n";
             
             if (i < state.positions.size() - 1) {
@@ -1843,6 +1857,7 @@ int main(int argc, char* argv[]) {
     PortfolioManager pm(&state);
 
 	if(cmd==""){
+		pm.sync_positions_with_exchange();
 		display_portfolio(state);
 		return 0;
 	}
