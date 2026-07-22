@@ -184,7 +184,7 @@ static std::string http_request(const std::string& url, const std::string& metho
 }
 
 static std::string mexc_request(const ExchangeConfig& cfg, const std::string& method,
-                                 const std::string& endpoint, const std::string& payload = "") {
+                                 const std::string& endpoint, const std::string& payload = "",bool dbg=0) {
     long long ms = now_ms();
     std::string ts = std::to_string(ms);
     std::string sig = get_mexc_signature(cfg.api_key, cfg.api_secret, ts, payload);
@@ -199,6 +199,7 @@ static std::string mexc_request(const ExchangeConfig& cfg, const std::string& me
     
     std::string result = http_request(url, method, (method == "POST" ? payload : ""), headers);
     curl_slist_free_all(headers);
+	if(dbg)std::cout<<result<<"\n";
     return result;
 }
 
@@ -337,7 +338,7 @@ static void execute_bracket(Exchange e, const std::string& symbol, const std::st
               << "\"stopLossPrice\":" << adjusted_sl << ","
               << "\"takeProfitPrice\":" << adjusted_tp
               << "}";
-        mexc_request(*cfg, "POST", "/api/v1/private/order/create", order.str());
+        mexc_request(*cfg, "POST", "/api/v1/private/order/create", order.str(),1);
         std::cout << "EXECUTE [" << cfg->name() << ":" << symbol << "] " << side 
                   << " qty=" << contracts << " entry=" << adjusted_entry 
                   << " sl=" << adjusted_sl << " tp=" << adjusted_tp 
