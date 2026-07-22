@@ -34,6 +34,8 @@
 #include <curl/curl.h>
 #include <cJSON.h>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 
@@ -293,107 +295,361 @@ static void cancel_all_orders(Exchange e) {
     if (e == Exchange::MEXC) mexc_request(*cfg, "POST", "/api/v1/private/order/cancel_all", "{}");
 }
 
+// ----------------------------------------------------------------------
+// CORRECTED: Price formatter using MEXC priceScale
+// ----------------------------------------------------------------------
+static double format_price(double price, double priceScale) {
+    if (priceScale <= 0) return price;
+    double factor = std::pow(10.0, priceScale);
+    return std::round(price * factor) / factor;
+}
+
+static int format_quantity(double qty, double contractSize) {
+    if (contractSize <= 0) return 0;
+    int contracts = (int)std::floor(qty / contractSize);
+    return std::max(1, contracts); // minimum 1 contract
+}
+
+// ----------------------------------------------------------------------
+// CORRECTED: Fetch open position to check existing leverage
+// ----------------------------------------------------------------------
+static int get_existing_leverage(Exchange e, const std::string& symbol) {
+    auto* cfg = get_exchange(e);
+    if (!cfg || e != Exchange::MEXC) return 0;
+    
+    std::string resp = mexc_request(*cfg, "GET", "/api/v1/private/position/open_positions");
+    if (resp.empty()) return 0;
+    
+    // Find symbol in response
+    std::string search = "\"symbol\":\"" + symbol + "\"";
+    size_t pos = resp.find(search);
+    if (pos == std::string::npos) return 0;
+    
+    // Find leverage after this symbol entry
+    std::string lev_tag = "\"leverage\":";
+    size_t lev_pos = resp.find(lev_tag, pos);
+    if (lev_pos == std::string::npos) return 0;
+    lev_pos += lev_tag.size();
+    
+    size_t lev_end = resp.find_first_of(",}", lev_pos);
+    if (lev_end == std::string::npos) return 0;
+    
+    try {
+        return (int)std::stod(resp.substr(lev_pos, lev_end - lev_pos));
+    } catch(...) {
+        return 0;
+    }
+}
+
+// ----------------------------------------------------------------------
+// CORRECTED: Set leverage BEFORE opening position
+// ----------------------------------------------------------------------
+static bool set_leverage(Exchange e, const std::string& symbol, int leverage) {
+    auto* cfg = get_exchange(e);
+    if (!cfg || e != Exchange::MEXC) return false;
+    
+    // Check if position already exists with different leverage
+    int existing_lev = get_existing_leverage(e, symbol);
+    if (existing_lev > 0 && existing_lev != leverage) {
+        std::cout << "  [WARN] " << symbol << " has existing position with " 
+                  << existing_lev << "x, cannot change to " << leverage << "x\n";
+        return false;
+    }
+    
+    // If no position, set leverage
+    if (existing_lev == 0) {
+        std::stringstream payload;
+        payload << "{\"symbol\":\"" << symbol << "\",\"leverage\":" << leverage 
+                << ",\"openType\":1}";
+        std::string resp = mexc_request(*cfg, "POST", 
+                                         "/api/v1/private/position/change_leverage", 
+                                         payload.str());
+        std::cout << "  Leverage set: " << symbol << " -> " << leverage << "x\n";
+    }
+    return true;
+}
+
+// ----------------------------------------------------------------------
+// CORRECTED: Execute bracket with proper precision
+// ----------------------------------------------------------------------
 static void execute_bracket(Exchange e, const std::string& symbol, const std::string& side,
-                              double qty, double entry, double sl, double tp, double& total_fees_paid) {
-    auto* cfg = get_exchange(e);
-    if (!cfg) return;
-    if (e == Exchange::MEXC) {
-        auto info = get_contract_info(e, symbol);
-        int contracts = (info.contractSize > 0) ? (int)std::floor(qty / info.contractSize) : 0;
-        if (contracts <= 0) return;
+                              double qty, double entry, double sl, double tp, 
+                              double& total_fees_paid) {
+	auto* cfg = get_exchange(e);
+	if (!cfg || e != Exchange::MEXC) return;
+	
+	// Rate limit protection - MEXC allows ~10 req/sec, we play safe at 5/sec
+	static std::chrono::steady_clock::time_point last_request;
+	static std::mutex rate_mutex;
+	{
+		std::lock_guard<std::mutex> lock(rate_mutex);
+		auto now = std::chrono::steady_clock::now();
+		auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_request).count();
+		if (elapsed < 200 && elapsed > 0) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(200 - elapsed));
+		}
+		last_request = std::chrono::steady_clock::now();
+	}
+    
+    // Get contract info
+    auto info = get_contract_info(e, symbol);
+    if (info.contractSize <= 0) {
+        std::cerr << "  [ERROR] Cannot get contract info for " << symbol << "\n";
+        return;
+    }
+    
+    int contracts = format_quantity(qty, info.contractSize);
+    if (contracts <= 0) {
+        std::cerr << "  [ERROR] Quantity too small for " << symbol << "\n";
+        return;
+    }
+    
+    // Format prices according to symbol's priceScale
+    double ps = info.priceScale;
+    double formatted_entry = format_price(entry, ps);
+    double formatted_sl = format_price(sl, ps);
+    double formatted_tp = format_price(tp, ps);
+    
+    const double maker_fee = 0.0008;
+    const double taker_fee = 0.0008;
+    
+    int sideInt = (side == "BUY") ? 1 : 3;
+    
+    // Calculate optimal leverage
+    int bestLev = 1;
+    const double MMR = 0.004;
+    if (side == "BUY" && formatted_sl < formatted_entry) {
+        double maxLev = formatted_entry / (formatted_entry - formatted_sl + formatted_entry * MMR);
+        bestLev = std::min(50, (int)maxLev);
+    } else if (side == "SELL" && formatted_sl > formatted_entry) {
+        double maxLev = formatted_entry / (formatted_sl - formatted_entry + formatted_entry * MMR);
+        bestLev = std::min(50, (int)maxLev);
+    }
+    if (bestLev < 1) bestLev = 1;
+    
+    // Set leverage first
+    if (!set_leverage(e, symbol, bestLev)) {
+        std::cerr << "  [SKIP] Cannot set leverage for " << symbol << "\n";
+        return;
+    }
+    
+    // Calculate fees
+    double notional = contracts * info.contractSize * formatted_entry;
+    double maker_fee_cost = notional * maker_fee;
+    double taker_fee_cost = notional * taker_fee;
+    total_fees_paid += maker_fee_cost + taker_fee_cost;
+    
+    // Adjust entry for maker fee
+    double adjusted_entry = (side == "BUY") 
+        ? format_price(formatted_entry * (1.0 + maker_fee), ps)
+        : format_price(formatted_entry * (1.0 - maker_fee), ps);
+    
+    double adjusted_sl = (side == "BUY")
+        ? format_price(formatted_sl * (1.0 - taker_fee), ps)
+        : format_price(formatted_sl * (1.0 + taker_fee), ps);
+    
+    double adjusted_tp = (side == "BUY")
+        ? format_price(formatted_tp * (1.0 - taker_fee), ps)
+        : format_price(formatted_tp * (1.0 + taker_fee), ps);
+    
+    // Build order JSON with proper precision
+    std::stringstream order;
+    order << std::fixed << std::setprecision((int)ps);
+    order << "{"
+          << "\"symbol\":\"" << symbol << "\","
+          << "\"price\":" << adjusted_entry << ","
+          << "\"vol\":" << contracts << ","
+          << "\"side\":" << sideInt << ","
+          << "\"type\":1,"
+          << "\"openType\":1,"
+          << "\"leverage\":" << bestLev << ","
+          << "\"stopLossPrice\":" << adjusted_sl << ","
+          << "\"takeProfitPrice\":" << adjusted_tp
+          << "}";
+    
+    std::string order_str = order.str();
+    std::cout << "  Order: " << order_str << "\n";
+    
+    std::string resp = mexc_request(*cfg, "POST", "/api/v1/private/order/create", order_str);
+    std::cout << "  Response: " << resp << "\n";
+    
+    // Check if success
+    cJSON* root = cJSON_Parse(resp.c_str());
+    if (root) {
+        cJSON* code = cJSON_GetObjectItem(root, "code");
+        cJSON* success = cJSON_GetObjectItem(root, "success");
+        bool ok = (code && code->valueint == 0) || (success && cJSON_IsTrue(success));
         
-        const double maker_fee = 0.0008;
-        const double taker_fee = 0.0008;
-        
-        int sideInt = (side == "BUY") ? 1 : 3;
-        int bestLev = 1;
-        const double MMR = 0.004;
-        if (side == "BUY" && sl < entry) {
-            double maxLev = entry / (entry - sl + entry * MMR);
-            bestLev = std::min(50, (int)maxLev);
-        } else if (side == "SELL" && sl > entry) {
-            double maxLev = entry / (sl - entry + entry * MMR);
-            bestLev = std::min(50, (int)maxLev);
+        if (ok) {
+            std::cout << "  [OK] " << symbol << " " << side 
+                      << " qty=" << contracts << " price=" << adjusted_entry
+                      << " sl=" << adjusted_sl << " tp=" << adjusted_tp
+                      << " lev=" << bestLev << "x fees=" << (maker_fee_cost+taker_fee_cost) << " USDT\n";
+        } else {
+            cJSON* msg = cJSON_GetObjectItem(root, "message");
+            std::cerr << "  [FAIL] " << symbol << ": " 
+                      << (msg && cJSON_IsString(msg) ? msg->valuestring : "unknown error") << "\n";
         }
-        if (bestLev < 1) bestLev = 1;
-        
-        double notional = contracts * info.contractSize * entry;
-        double maker_fee_cost = notional * maker_fee;
-        double taker_fee_cost = notional * taker_fee;
-        total_fees_paid += maker_fee_cost + taker_fee_cost;
-        
-        double adjusted_entry = (side == "BUY") ? entry * (1.0 + maker_fee) : entry * (1.0 - maker_fee);
-        double adjusted_sl = (side == "BUY") ? sl * (1.0 - taker_fee) : sl * (1.0 + taker_fee);
-        double adjusted_tp = (side == "BUY") ? tp * (1.0 - taker_fee) : tp * (1.0 + taker_fee);
-        
-        std::stringstream order;
-        order << "{"
-              << "\"symbol\":\"" << symbol << "\","
-              << "\"price\":" << adjusted_entry << ","
-              << "\"vol\":" << contracts << ","
-              << "\"side\":" << sideInt << ","
-              << "\"type\":1,"
-              << "\"openType\":1,"
-              << "\"leverage\":" << bestLev << ","
-              << "\"stopLossPrice\":" << adjusted_sl << ","
-              << "\"takeProfitPrice\":" << adjusted_tp
-              << "}";
-        mexc_request(*cfg, "POST", "/api/v1/private/order/create", order.str(),1);
-        std::cout << "EXECUTE [" << cfg->name() << ":" << symbol << "] " << side 
-                  << " qty=" << contracts << " entry=" << adjusted_entry 
-                  << " sl=" << adjusted_sl << " tp=" << adjusted_tp 
-                  << " lev=" << bestLev << "x fees=" << (maker_fee_cost+taker_fee_cost) << " USDT\n";
+        cJSON_Delete(root);
     }
 }
 
-static void close_position_order(Exchange e, const std::string& symbol, const std::string& side, double qty) {
-    auto* cfg = get_exchange(e);
-    if (!cfg) return;
-    if (e == Exchange::MEXC) {
-        auto info = get_contract_info(e, symbol);
-        int contracts = (info.contractSize > 0) ? (int)std::floor(qty / info.contractSize) : 0;
-        if (contracts <= 0) return;
-        double price = get_current_price(e, symbol);
-        int closeSide = (side == "LONG") ? 4 : 2;
-        std::stringstream order;
-        order << "{" << "\"symbol\":\"" << symbol << "\",\"price\":" << price 
-              << ",\"vol\":" << contracts << ",\"side\":" << closeSide 
-              << ",\"type\":1,\"openType\":1}";
-        mexc_request(*cfg, "POST", "/api/v1/private/order/create", order.str());
-        std::stringstream cancel;
-        cancel << "{\"symbol\":\"" << symbol << "\"}";
-        mexc_request(*cfg, "POST", "/api/v1/private/planorder/cancel_all", cancel.str());
-    }
+static void close_position_order(Exchange e, const std::string& symbol, 
+	const std::string& side, double qty) {
+	auto* cfg = get_exchange(e);
+	if (!cfg || e != Exchange::MEXC) return;
+
+	auto info = get_contract_info(e, symbol);
+	if (info.contractSize <= 0) return;
+
+	int contracts = format_quantity(qty, info.contractSize);
+	if (contracts <= 0) return;
+
+	double price = get_current_price(e, symbol);
+	double ps = info.priceScale;
+	double formatted_price = format_price(price, ps);
+
+	int closeSide = (side == "LONG") ? 4 : 2;
+
+	std::stringstream order;
+	order << std::fixed << std::setprecision((int)ps);
+	order << "{"
+	<< "\"symbol\":\"" << symbol << "\","
+	<< "\"price\":" << formatted_price << ","
+	<< "\"vol\":" << contracts << ","
+	<< "\"side\":" << closeSide << ","
+	<< "\"type\":1,"
+	<< "\"openType\":1"
+	<< "}";
+
+	mexc_request(*cfg, "POST", "/api/v1/private/order/create", order.str());
+
+	// Cancel associated plan orders
+	std::stringstream cancel;
+	cancel << "{\"symbol\":\"" << symbol << "\"}";
+	mexc_request(*cfg, "POST", "/api/v1/private/planorder/cancel_all", cancel.str());
+
+	std::cout << "CLOSE [" << symbol << "] " << (side=="LONG"?"SELL":"BUY") 
+	<< " qty=" << contracts << " price=" << formatted_price << "\n";
 }
 
+// ----------------------------------------------------------------------
+// CORRECTED: Update trailing stop with proper precision
+// ----------------------------------------------------------------------
 static void update_mexc_trailing_stop(Exchange e, const std::string& symbol,
                                        const std::string& side, double qty,
                                        double entry, double new_sl, double tp) {
     auto* cfg = get_exchange(e);
     if (!cfg || e != Exchange::MEXC) return;
+    
+    // Cancel all plan orders for this symbol
     std::string cancel_payload = "{\"symbol\":\"" + symbol + "\"}";
     mexc_request(*cfg, "POST", "/api/v1/private/planorder/cancel_all", cancel_payload);
+    
+    // Get contract info for proper formatting
     auto info = get_contract_info(e, symbol);
-    int contracts = (info.contractSize > 0) ? (int)std::floor(qty / info.contractSize) : 0;
+    if (info.contractSize <= 0) return;
+    
+    int contracts = format_quantity(qty, info.contractSize);
     if (contracts <= 0) return;
+    
+    double ps = info.priceScale;
     int exitSideInt = (side == "LONG") ? 4 : 2;
-    double slOrderPrice = (side == "LONG") ? new_sl * 0.995 : new_sl * 1.005;
-    int slTriggerType = (side == "LONG") ? 2 : 1;
-    std::stringstream sl;
-    sl << "{\"symbol\":\"" << symbol << "\",\"leverage\":1,\"openType\":1,"
-       << "\"triggerPrice\":" << new_sl << ",\"triggerType\":" << slTriggerType
-       << ",\"price\":" << slOrderPrice << ",\"vol\":" << contracts
-       << ",\"side\":" << exitSideInt << ",\"orderType\":1,\"executeCycle\":1,\"trend\":1}";
-    mexc_request(*cfg, "POST", "/api/v1/private/planorder/place/v2", sl.str());
-    if (tp > 0) {
-        int tpTriggerType = (side == "LONG") ? 1 : 2;
-        std::stringstream tp_stream;
-        tp_stream << "{\"symbol\":\"" << symbol << "\",\"leverage\":1,\"openType\":1,"
-                  << "\"triggerPrice\":" << tp << ",\"triggerType\":" << tpTriggerType
-                  << ",\"price\":" << tp << ",\"vol\":" << contracts
-                  << ",\"side\":" << exitSideInt << ",\"orderType\":1,\"executeCycle\":1,\"trend\":1}";
-        mexc_request(*cfg, "POST", "/api/v1/private/planorder/place/v2", tp_stream.str());
+    
+    // Format prices
+    double formatted_sl = format_price(new_sl, ps);
+    double sl_order_price = (side == "LONG") 
+        ? format_price(new_sl * 0.995, ps)   // slightly below for safety
+        : format_price(new_sl * 1.005, ps);  // slightly above for safety
+    
+    int slTriggerType = (side == "LONG") ? 2 : 1;  // 2=≤, 1=≥
+    
+    // Place new Stop Loss plan order
+    std::stringstream sl_stream;
+    sl_stream << std::fixed << std::setprecision((int)ps);
+    sl_stream << "{"
+              << "\"symbol\":\"" << symbol << "\","
+              << "\"leverage\":1,"           // leverage not needed for plan orders
+              << "\"openType\":1,"
+              << "\"triggerPrice\":" << formatted_sl << ","
+              << "\"triggerType\":" << slTriggerType << ","
+              << "\"price\":" << sl_order_price << ","
+              << "\"vol\":" << contracts << ","
+              << "\"side\":" << exitSideInt << ","
+              << "\"orderType\":1,"          // limit order
+              << "\"executeCycle\":1,"       // 24 hours
+              << "\"trend\":1"               // trigger on latest price
+              << "}";
+    
+    std::string sl_resp = mexc_request(*cfg, "POST", 
+                                        "/api/v1/private/planorder/place/v2", 
+                                        sl_stream.str());
+    
+    // Check response
+    cJSON* sl_root = cJSON_Parse(sl_resp.c_str());
+    bool sl_ok = false;
+    if (sl_root) {
+        cJSON* code = cJSON_GetObjectItem(sl_root, "code");
+        sl_ok = (code && code->valueint == 0);
+        if (!sl_ok) {
+            cJSON* msg = cJSON_GetObjectItem(sl_root, "message");
+            std::cerr << "  [TRAIL SL FAIL] " << symbol << ": " 
+                      << (msg && cJSON_IsString(msg) ? msg->valuestring : "unknown") << "\n";
+        }
+        cJSON_Delete(sl_root);
     }
+    
+    // Re-place Take Profit if exists
+    if (tp > 0) {
+        double formatted_tp = format_price(tp, ps);
+        int tpTriggerType = (side == "LONG") ? 1 : 2;  // 1=≥, 2=≤
+        
+        std::stringstream tp_stream;
+        tp_stream << std::fixed << std::setprecision((int)ps);
+        tp_stream << "{"
+                  << "\"symbol\":\"" << symbol << "\","
+                  << "\"leverage\":1,"
+                  << "\"openType\":1,"
+                  << "\"triggerPrice\":" << formatted_tp << ","
+                  << "\"triggerType\":" << tpTriggerType << ","
+                  << "\"price\":" << formatted_tp << ","
+                  << "\"vol\":" << contracts << ","
+                  << "\"side\":" << exitSideInt << ","
+                  << "\"orderType\":1,"
+                  << "\"executeCycle\":1,"
+                  << "\"trend\":1"
+                  << "}";
+        
+        std::string tp_resp = mexc_request(*cfg, "POST", 
+                                            "/api/v1/private/planorder/place/v2", 
+                                            tp_stream.str());
+        
+        cJSON* tp_root = cJSON_Parse(tp_resp.c_str());
+        bool tp_ok = false;
+        if (tp_root) {
+            cJSON* code = cJSON_GetObjectItem(tp_root, "code");
+            tp_ok = (code && code->valueint == 0);
+            if (!tp_ok) {
+                cJSON* msg = cJSON_GetObjectItem(tp_root, "message");
+                std::cerr << "  [TRAIL TP FAIL] " << symbol << ": " 
+                          << (msg && cJSON_IsString(msg) ? msg->valuestring : "unknown") << "\n";
+            }
+            cJSON_Delete(tp_root);
+        }
+        
+        if (sl_ok && tp_ok) {
+            std::cout << "TRAIL [" << symbol << "] " << side 
+                      << " SL→" << formatted_sl << " TP→" << formatted_tp << "\n";
+        }
+    } else {
+        if (sl_ok) {
+            std::cout << "TRAIL [" << symbol << "] " << side 
+                      << " SL→" << formatted_sl << "\n";
+        }
+    }
+    
+    // Rate limit protection
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 // ----------------------------------------------------------------------
