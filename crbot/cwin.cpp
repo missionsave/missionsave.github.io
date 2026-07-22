@@ -1725,16 +1725,102 @@ public:
         if (state_->recent_trade_returns.size() > 100) state_->recent_trade_returns.erase(state_->recent_trade_returns.begin());
     }
 };
+// ----------------------------------------------------------------------
+// Display current equity and all open positions (narrow format)
+// ----------------------------------------------------------------------
+static std::string format_timestamp(std::int64_t epoch) {
+    std::time_t t = (std::time_t)epoch;
+    std::tm* utc = std::gmtime(&t);
+    char buf[14];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %Hh", utc);
+    return std::string(buf);
+}
 
+static void display_portfolio(const BotState& state) {
+    std::cout << "\n";
+    std::cout << "┌────────────── PORTFOLIO ──────────────┐\n";
+    
+    double total_equity = 0;
+    for (auto& ex : exchanges) {
+        Balance bal = get_balance(ex.exchange);
+        total_equity += bal.equity;
+    }
+    
+    double pnl = total_equity - state.starting_equity;
+    double pnl_pct = (state.starting_equity > 0) ? (pnl / state.starting_equity) * 100.0 : 0.0;
+    
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "│ Equity:  " << std::setw(10) << total_equity << " USDT";
+    std::cout << " (" << (pnl >= 0 ? "+" : "") << pnl_pct << "%)\n";
+    std::cout << "│ Peak:    " << std::setw(10) << state.peak_equity << " USDT\n";
+    std::cout << "│ Fees:    " << std::setw(10) << state.total_fees_paid << " USDT\n";
+    
+    if (state.recent_trade_returns.size() >= (size_t)KELLY_WINDOW) {
+        std::vector<double> window(state.recent_trade_returns.end() - KELLY_WINDOW,
+                                   state.recent_trade_returns.end());
+        double mean = std::accumulate(window.begin(), window.end(), 0.0) / window.size();
+        double var = 0;
+        for (double r : window) var += (r - mean) * (r - mean);
+        double std = std::sqrt(var / window.size());
+        double sharpe = (std > 0) ? mean / std * std::sqrt(window.size()) : 0;
+        std::cout << "│ Sharpe:  " << std::setw(10) << std::setprecision(3) << sharpe << "\n";
+        std::cout << std::setprecision(2);
+    }
+    
+    std::cout << "├────────────────────────────────────────┤\n";
+    
+    if (state.positions.empty()) {
+        std::cout << "│ No open positions                      │\n";
+    } else {
+        std::cout << "│ Positions: " << state.positions.size() << "/" << MAX_POSITIONS << "\n";
+        std::cout << "├────────────────────────────────────────┤\n";
+        
+        for (size_t i = 0; i < state.positions.size(); ++i) {
+            auto& p = state.positions[i];
+            
+            Exchange e = Exchange::MEXC;
+            for (auto& ex : exchanges) if (ex.name() == p.exchange) { e = ex.exchange; break; }
+            double current = get_current_price(e, p.symbol);
+            
+            double upnl = (p.side == "LONG") 
+                ? (current - p.entry_price) * p.quantity 
+                : (p.entry_price - current) * p.quantity;
+            
+            double entry_notional = p.entry_price * p.quantity;
+            double upnl_pct = (entry_notional > 0) ? (upnl / entry_notional) * 100.0 : 0.0;
+            int hours_open = (now_epoch() - p.timestamp) / 3600;
+            
+            std::cout << "│ " << p.symbol << " " << p.side 
+                      << " " << format_timestamp(p.timestamp) << "\n";
+            std::cout << std::setprecision(6);
+            std::cout << "│ E:" << p.entry_price << " SL:" << p.sl;
+            std::cout << std::setprecision(4);
+            std::cout << " C:" << current << "\n";
+            std::cout << std::setprecision(2);
+            std::cout << "│ TP:" << p.tp << " Q:" << p.quantity;
+            std::cout << " " << hours_open << "h";
+            std::cout << " uP:" << (upnl >= 0 ? "+" : "") << upnl << " (" << upnl_pct << "%)\n";
+            
+            if (i < state.positions.size() - 1) {
+                std::cout << "├────────────────────────────────────────┤\n";
+            }
+        }
+    }
+    
+    std::cout << "└────────────────────────────────────────┘\n";
+    std::cout << std::endl;
+}
 // ----------------------------------------------------------------------
 // Main
 // ----------------------------------------------------------------------
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: alpha_factory {hourly|daily|weekly}\n";
-        return 1;
+	std::string cmd ="";
+    if (argc >1) {
+		cmd = argv[1];
+        // std::cerr << "Usage: alpha_factory {hourly|daily|weekly}\n";
+        // return 1;
     }
-    std::string cmd = argv[1];
+    // std::string cmd = argv[1];
     init_exchanges();
     if (exchanges.empty()) {
         std::cerr << "No exchanges configured. Set MEXC_API_KEY and MEXC_API_SECRET.\n";
@@ -1755,6 +1841,13 @@ int main(int argc, char* argv[]) {
         state.trading_halted_until = 0;
     }
     PortfolioManager pm(&state);
+
+	if(cmd==""){
+		display_portfolio(state);
+		return 0;
+	}
+
+
     if (cmd == "hourly") pm.hourly();
     else if (cmd == "daily") pm.daily_update();
     else if (cmd == "weekly") pm.weekly_reoptimize();
