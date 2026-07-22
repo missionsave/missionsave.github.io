@@ -22,6 +22,7 @@ if ! git commit -m "$1"; then
     exit 1
 fi
 
+git pull --rebase origin "$branch"
 if ! git push origin "$branch"; then
     echo "Error: Failed to push to origin/$branch."
     exit 1
