@@ -123,6 +123,7 @@ crbot/state.json
 !.github/workflows/daily*.*
 !.github/workflows/botrecent.yaml
 !.github/workflows/cwin.yaml
+!.github/workflows/deploy_pages.yaml
 # !.github/workflows/crobot.js
 # !.github/workflows/crobot.js
 # !.github/**/**
