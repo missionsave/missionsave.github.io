@@ -1,33 +1,11 @@
 {
-	"equity":	45.32589716,
+	"equity":	44.94387124,
 	"starting_equity":	41.65862249,
 	"peak_equity":	45.32589716,
-	"total_fees_paid":	0.41073664,
+	"total_fees_paid":	0.8256128,
 	"trading_halted_until":	0,
-	"last_run":	1784743226,
+	"last_run":	1784746825,
 	"positions":	[{
-			"symbol":	"ARB_USDT",
-			"side":	"SHORT",
-			"strategy":	"trend_exhaustion",
-			"exchange":	"MEXC",
-			"quantity":	515.08818958462382,
-			"entry_price":	0.09064,
-			"sl":	0.092253,
-			"tp":	0.087414,
-			"trailing":	0.089027,
-			"timestamp":	1784743224
-		}, {
-			"symbol":	"AVAX_USDT",
-			"side":	"SHORT",
-			"strategy":	"trend_exhaustion",
-			"exchange":	"MEXC",
-			"quantity":	13.710185640264031,
-			"entry_price":	6.61,
-			"sl":	6.6706,
-			"tp":	6.4888,
-			"trailing":	6.5494,
-			"timestamp":	1784743225
-		}, {
 			"symbol":	"ETH_USDT",
 			"side":	"LONG",
 			"strategy":	"ema_trend",
@@ -39,27 +17,49 @@
 			"trailing":	1967.8885714285716,
 			"timestamp":	1784743225
 		}, {
+			"symbol":	"AVAX_USDT",
+			"side":	"SHORT",
+			"strategy":	"trend_exhaustion",
+			"exchange":	"MEXC",
+			"quantity":	16.275007956912066,
+			"entry_price":	6.611,
+			"sl":	6.6667,
+			"tp":	6.4996,
+			"trailing":	6.5553,
+			"timestamp":	1784746822
+		}, {
 			"symbol":	"LINK_USDT",
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	6.0019202771929869,
-			"entry_price":	8.641,
-			"sl":	8.50257142857143,
-			"tp":	9.0562857142857141,
-			"trailing":	8.77942857142857,
-			"timestamp":	1784743226
+			"quantity":	6.8824572694142718,
+			"entry_price":	8.623,
+			"sl":	8.4912857142857128,
+			"tp":	9.0181428571428572,
+			"trailing":	8.7547142857142859,
+			"timestamp":	1784746823
+		}, {
+			"symbol":	"ORDI_USDT",
+			"side":	"LONG",
+			"strategy":	"trend_exhaustion",
+			"exchange":	"MEXC",
+			"quantity":	18.27657143548392,
+			"entry_price":	3.56,
+			"sl":	3.5104,
+			"tp":	3.6592,
+			"trailing":	3.6096,
+			"timestamp":	1784746824
 		}, {
 			"symbol":	"PEPE_USDT",
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	15693094.302752316,
-			"entry_price":	2.8858e-06,
-			"sl":	2.8328571428571429e-06,
-			"tp":	3.0446285714285716e-06,
-			"trailing":	2.938742857142857e-06,
-			"timestamp":	1784743226
+			"quantity":	17243547.832608689,
+			"entry_price":	2.8771e-06,
+			"sl":	2.8245285714285714e-06,
+			"tp":	3.0348142857142861e-06,
+			"trailing":	2.9296714285714285e-06,
+			"timestamp":	1784746825
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
@@ -795,6 +795,6 @@
 				"stop_atr_mult":	1.5
 			}
 		}],
-	"recent_trade_returns":	[0.039438945570287584, 0.011697755875728889],
+	"recent_trade_returns":	[0.039438945570287584, 0.011697755875728889, 0.0045456414267222483, 0, -0.002648340420491242, -0.0034276571084478373],
 	"equity_curve":	[41.62942249]
 }
