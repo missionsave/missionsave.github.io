@@ -35,7 +35,7 @@ jobs:
         run: chmod +x crbot/cwin
 
       - name: Ensure state.json exists
-        run: [ -f crbot/state.json ] || echo '{}' > crbot/state.json
+        run: test -f crbot/state.json || echo '{}' > crbot/state.json
 
       - name: Determine mode
         id: mode
