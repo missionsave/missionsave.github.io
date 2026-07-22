@@ -1,24 +1,57 @@
-name: Correr cwin workflow
+name: Alpha Factory
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Execution mode'
+        required: true
+        default: 'hourly'
+        type: choice
+        options:
+          - hourly
+          - daily
+          - weekly
+  schedule:
+    - cron: '0 0 * * *'    # daily at midnight UTC
+    - cron: '0 3 * * 0'    # weekly Sunday 03:00 UTC
 
 jobs:
-  run-cwin:
+  run-bot:
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
 
     steps:
-      - name: Baixar apenas o executavel cwin
-        run: |
-          mkdir -p crbot
-          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-               -H "Accept: application/vnd.github.v3.raw" \
-               -L "https://api.github.com/repos/${{ github.repository }}/contents/crbot/cwin" \
-               -o crbot/cwin
-          chmod +x crbot/cwin
+      - name: Checkout only needed files
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            crbot/cwin
+            crbot/state.json
+          sparse-checkout-cone-mode: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Executar bot
-        run: ./cwin
+      - name: Make binary executable
+        run: chmod +x crbot/cwin
+
+      - name: Ensure state.json exists
+        run: [ -f crbot/state.json ] || echo '{}' > crbot/state.json
+
+      - name: Determine mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 0 * * *" ]; then
+            echo "mode=daily" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 3 * * 0" ]; then
+            echo "mode=weekly" >> $GITHUB_OUTPUT
+          else
+            echo "mode=hourly" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run bot
+        run: ./cwin ${{ steps.mode.outputs.mode }}
         working-directory: ./crbot
         env:
           MEXC_API_KEY: ${{ secrets.MEXC_API_KEY }}
@@ -26,3 +59,12 @@ jobs:
           WB_KEY: ${{ secrets.WB_KEY }}
           WB_SECRET: ${{ secrets.WB_SECRET }}
           CG_KEY: ${{ secrets.CG_KEY }}
+
+      - name: Commit state.json changes
+        if: always()
+        run: |
+          git config user.name "alpha-bot"
+          git config user.email "bot@localhost"
+          git add crbot/state.json
+          git diff --staged --quiet || git commit -m "state: ${{ steps.mode.outputs.mode }} $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push

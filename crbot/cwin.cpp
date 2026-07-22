@@ -1,955 +1,1507 @@
-// sudo apt update && sudo apt install libcurl4-openssl-dev pkg-config libcjson-dev
-// g++ -std=c++20 cwin.cpp -o cwin ../common/cJSON.c -I../common $(pkg-config --libs libcurl) -lcrypto -lssl -lpthread -ldl -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections -fno-rtti -flto && ./cwin
+/*
+ * alpha_factory_final.cpp – 6 estratégias reais, taxas MEXC 0.08%/0.08%,
+ *                             Kelly adaptativo (max 2.5x), correlation guard,
+ *                             trailing stops, MIN_TRADES_HOLDOUT=5.
+ *
+ * Compile:
+ *   g++ -std=c++20 -Os -s alpha_factory_final.cpp ../common/cJSON.c \
+ *       -lcurl -lcrypto -lssl -lpthread -ldl -o alpha_factory
+ *
+ * Uso:
+ *   ./alpha_factory hourly   (executa sinais, atualiza trailing, sincroniza)
+ *   ./alpha_factory daily    (verifica equity e drawdown)
+ *   ./alpha_factory weekly   (re‑otimização walk‑forward completa)
+ *
+ * Variáveis de ambiente:
+ *   MEXC_API_KEY, MEXC_API_SECRET
+ */
+
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
+#include <map>
+#include <set>
+#include <algorithm>
 #include <numeric>
 #include <cmath>
-#include <algorithm>
-#include <iomanip>
-#include <map>
 #include <ctime>
 #include <random>
-#include <thread>
 #include <chrono>
+#include <iomanip>
+#include <cstring>
 #include <curl/curl.h>
 #include <cJSON.h>
-#include "cmexc.cpp"
-using namespace std;
+#include <memory>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 
-struct Candle { long long timestamp; double high, low, close; };
-struct StrategyParams { size_t period; double threshold, atr_mult; };
-struct FeeConfig {
-    // borrow_daily defaults to a conservative non-zero funding assumption; it gets
-    // overwritten per-symbol with the real MEXC funding rate in fetch_funding_rate().
-    // Leaving this at 0 (as before) silently deletes a real, recurring perp cost from every backtest.
-    double maker_fee = 0.0008, taker_fee = 0.0008, borrow_daily = 0.0003, candle_hours = 1.0;
-    double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
-};
-static constexpr double RISK_PER_TRADE = 0.03;
-static constexpr double SLIPPAGE_PCT = 0.0005;
-static constexpr double CORRELATION_THRESHOLD = 0.60;
-static constexpr double MAX_CORRELATED_RISK = 0.06; // e.g. 2x a single RISK_PER_TRADE
+// ----------------------------------------------------------------------
+// Configuração global
+// ----------------------------------------------------------------------
+static constexpr double MAX_RISK_PER_TRADE       = 0.035;
+static constexpr double MIN_RISK_PER_TRADE       = 0.01;
+static constexpr double PORTFOLIO_DAILY_VOL_TARGET= 0.03;
+static constexpr double MAX_PORTFOLIO_NOTIONAL   = 8.0;
+static constexpr double CORRELATION_LIMIT        = 0.65;
+static constexpr double TEST_FRACTION            = 0.25;
+static constexpr double MIN_HOLDOUT_SHARPE       = 0.3;
+static constexpr int    MIN_TRADES_HOLDOUT       = 5;
+static constexpr int    MONTE_CARLO_ITERATIONS   = 2000;
+static constexpr double MAX_MC_RUIN_PROB         = 25.0;
+static constexpr int    MAX_HOLD_HOURS           = 72;
+static constexpr int    MAX_POSITIONS            = 5;
+static constexpr const char* STATE_FILE          = "state.json";
+static constexpr int    KELLY_WINDOW             = 30;
+static constexpr double KELLY_SHARPE_MAX         = 2.0;
+static constexpr double KELLY_SHARPE_MIN         = 0.5;
 
-// Fraction of each symbol's candle history reserved as a true holdout. This slice is
-// NEVER touched by walk-forward folds, the period/threshold/atr_mult grid search, or the
-// outer MIN_SL_PCT/tp_factor scan. It's evaluated exactly once, after every parameter
-// has already been locked in, and its result — not the walk-forward number — is what
-// gets reported as the "expected" return and used to veto live deployment.
-// 25% (not 30%) so the train region still has enough candles per fold to clear the
-// trade-count bar below on real, not-always-cooperative market data.
-static constexpr double TEST_FRACTION = 0.25;
+// ----------------------------------------------------------------------
+// Abstração de exchange
+// ----------------------------------------------------------------------
+enum class Exchange { MEXC, BINANCE, BYBIT, OKX };
 
-double MIN_SL_PCT = 0.03;
-double tp_factor = 2.0;
-
-// Trimmed from the original 5x4=20 combos to 4x3=12 — still fewer degrees of freedom
-// than the original scan, but wide enough to actually find a working combo on real data.
-const std::vector<double> SL_CANDIDATES = {0.02, 0.025, 0.03, 0.035};
-const std::vector<double> TP_CANDIDATES = {1.5, 2.0, 2.5};
-
-static constexpr double MIN_WINS_PER_DAY = 0.10;
-
-enum class PositionType { NONE, LONG, SHORT };
-
-struct BacktestResult {
-    StrategyParams params; double total_return, dollar_gain, total_fees_paid, profit_factor;
-    int total_trades, long_trades, short_trades, winning_longs, winning_shorts;
-    double win_rate, fitness_score, max_drawdown;
-    std::map<std::string, double> daily_profit; std::vector<double> daily_returns;
-    std::vector<double> trade_pcts;
-    std::vector<std::string> trade_dirs;
-};
-struct TrendReading { double ema_short, ema_medium, ema_long; int bullish_votes; bool is_bullish, is_trending; double trend_strength; };
-struct LiveSignal {
-    std::string direction, regime, warnings; double confidence, entry, stop_loss, take_profit, z_score, atr;
-    double order_size_usd, order_size_btc, risk_amount, stop_distance, exact_position_btc, exact_position_usd;
-    TrendReading trend;
-};
-struct MonteCarloResult { double prob_of_ruin; double worst_case_drawdown; double median_final_equity; };
-struct Indicators {
-    std::vector<double> atr;
-    std::vector<TrendReading> trend;
-    std::vector<std::string> regime;
-};
-struct AnalysisResult {
-    // oos_* fields below are the TRUE holdout (last TEST_FRACTION of history, never
-    // used in any fold or grid search) — this is the only genuinely out-of-sample
-    // measurement in the pipeline.
-    double oos_return = 0.0;
-    double oos_drawdown = 0.0;
-    int oos_trades = 0;
-    int oos_wins = 0;
-    double oos_days = 0.0;
-    double holdout_daily_return = 0.0;      // true-holdout return / holdout window days
-
-    // walk_forward_* fields are TRAIN-only (in-sample by construction, used for
-    // parameter/SL-TP selection and for live gating that must not touch the holdout).
-    double walk_forward_daily_return = 0.0;
-    double walk_forward_score = -9999.0;
-    double train_wins_per_day = 0.0;
-
-    LiveSignal signal;
-    MonteCarloResult mc; // computed from TRAIN walk-forward trades, used for selection/gating
-    bool success = false;
-    std::vector<double> oos_trade_pcts;
-    std::vector<std::string> oos_trade_dirs;
-    std::vector<double> recent_returns;
-};
-struct symbolstruct {
-    string mexc;
-};
-std::vector<symbolstruct> symbols;
-
-struct OpenPosition {
-    std::string symbol;
-    std::string direction;
-    double notional_usd = 0.0;
-	std::string createTime;
-	float unRealizedPnl=0;
-	float entry=0;
-	float sl=0;
-	float tp=0;
-};
-struct PortfolioState {
-    std::vector<OpenPosition> positions;
+struct ExchangeConfig {
+    Exchange exchange;
+    std::string api_key;
+    std::string api_secret;
+    std::string base_url;
+    std::string name() const {
+        switch(exchange) {
+            case Exchange::MEXC:   return "MEXC";
+            case Exchange::BINANCE:return "BINANCE";
+            case Exchange::BYBIT:  return "BYBIT";
+            case Exchange::OKX:    return "OKX";
+        }
+        return "UNKNOWN";
+    }
 };
 
-size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* userp) {
-    userp->append((char*)contents, size * nmemb); return size * nmemb;
+static std::vector<ExchangeConfig> exchanges;
+
+static void init_exchanges() {
+    const char* mexc_key = std::getenv("MEXC_API_KEY");
+    const char* mexc_secret = std::getenv("MEXC_API_SECRET");
+    if (mexc_key && mexc_secret) {
+        exchanges.push_back({Exchange::MEXC, mexc_key, mexc_secret, "https://contract.mexc.com"});
+    }
 }
 
-// Pulls the current funding rate for a symbol from MEXC and converts it to a
-// daily-equivalent cost. MEXC settles funding every 8h, so we approximate the
-// daily drag as 3x the current rate's magnitude. Falls back to a conservative
-// non-zero estimate if the request or parse fails, rather than falling back to 0.
-double fetch_funding_rate(const std::string& symbol) {
-    const double fallback_daily = 0.0003; // ~3bps/day conservative fallback
+// ----------------------------------------------------------------------
+// Tipos base
+// ----------------------------------------------------------------------
+struct Candle { long long timestamp; double high, low, close; };
+
+struct Signal { 
+    std::string direction = "WAIT"; 
+    double entry = 0, stop_loss = 0, take_profit = 0, confidence = 0, risk_percent = 0;
+    std::string strategy_name;
+    Exchange exchange = Exchange::MEXC;
+};
+
+struct OpenPos {
+    std::string symbol, side, strategy, exchange;
+    double quantity = 0, entry_price = 0, sl = 0, tp = 0, trailing = 0;
+    std::int64_t timestamp = 0;
+};
+
+struct StrategyCfg {
+    std::string name, symbol;
+    Exchange exchange = Exchange::MEXC;
+    std::map<std::string, double> params;
+    bool active = true;
+    double mc_ruin_prob = 0, holdout_sharpe = 0;
+    int holdout_trades = 0;
+};
+
+struct BotState {
+    double equity = 1000.0, starting_equity = 1000.0, peak_equity = 1000.0;
+    double total_fees_paid = 0.0;
+    std::vector<OpenPos> positions;
+    std::vector<StrategyCfg> strategies;
+    std::int64_t trading_halted_until = 0, last_run = 0;
+    std::vector<double> equity_curve, recent_trade_returns;
+};
+
+struct Balance { double equity = 0.0, available = 0.0; };
+struct ContractInfo { double priceScale = 0, contractSize = 0; };
+
+// ----------------------------------------------------------------------
+// Utilitários
+// ----------------------------------------------------------------------
+static std::string read_file(const std::string& path) {
+    std::ifstream f(path);
+    if (!f) return "";
+    std::stringstream ss; ss << f.rdbuf(); return ss.str();
+}
+static void write_file(const std::string& path, const std::string& content) {
+    std::ofstream f(path); f << content;
+}
+static std::time_t now_epoch() { return std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()); }
+static long long now_ms() { return std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::system_clock::now().time_since_epoch()).count(); }
+
+// ----------------------------------------------------------------------
+// MEXC assinatura & HTTP
+// ----------------------------------------------------------------------
+static std::string get_mexc_signature(const std::string& apiKey, const std::string& secret,
+                                       const std::string& timestamp, const std::string& requestBody) {
+    std::string message = apiKey + timestamp + requestBody;
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int length = 0;
+    HMAC(EVP_sha256(), secret.c_str(), secret.length(),
+         reinterpret_cast<const unsigned char*>(message.c_str()), message.length(),
+         hash, &length);
+    std::stringstream ss;
+    for (unsigned int i = 0; i < length; ++i)
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
+    return ss.str();
+}
+
+static size_t write_cb(void* contents, size_t size, size_t nmemb, std::string* userp) {
+    userp->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+static std::string http_request(const std::string& url, const std::string& method = "GET",
+                                 const std::string& payload = "", struct curl_slist* headers = nullptr) {
     CURL* curl = curl_easy_init();
-    if (!curl) return fallback_daily;
-    std::string readBuffer;
-    std::string url = "https://contract.mexc.com/api/v1/contract/funding_rate/" + symbol;
+    if (!curl) return "";
+    std::string buf;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
-    double result = fallback_daily;
-    if (curl_easy_perform(curl) == CURLE_OK) {
-        cJSON* root = cJSON_Parse(readBuffer.c_str());
-        if (root) {
-            cJSON* data = cJSON_GetObjectItem(root, "data");
-            if (data) {
-                cJSON* fr = cJSON_GetObjectItem(data, "fundingRate");
-                if (fr && cJSON_IsNumber(fr)) result = std::abs(fr->valuedouble) * 3.0;
-            }
-            cJSON_Delete(root);
-        }
-    }
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
+    if (!payload.empty()) curl_easy_setopt(curl, CURLOPT_POSTFIELDS, payload.c_str());
+    if (headers) curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "AlphaFactory/1.0");
+    curl_easy_perform(curl);
     curl_easy_cleanup(curl);
+    return buf;
+}
+
+static std::string mexc_request(const ExchangeConfig& cfg, const std::string& method,
+                                 const std::string& endpoint, const std::string& payload = "") {
+    long long ms = now_ms();
+    std::string ts = std::to_string(ms);
+    std::string sig = get_mexc_signature(cfg.api_key, cfg.api_secret, ts, payload);
+    std::string url = cfg.base_url + endpoint;
+    if (method == "GET" && !payload.empty()) url += "?" + payload;
+    
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, ("ApiKey: " + cfg.api_key).c_str());
+    headers = curl_slist_append(headers, ("Request-Time: " + ts).c_str());
+    headers = curl_slist_append(headers, ("Signature: " + sig).c_str());
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    
+    std::string result = http_request(url, method, (method == "POST" ? payload : ""), headers);
+    curl_slist_free_all(headers);
     return result;
 }
 
-std::vector<symbolstruct> get_hyperliquid_top_symbols(int top_n) {
-    std::vector<symbolstruct> top_symbols;
-    CURL* curl = curl_easy_init();
-    std::string readBuffer;
-
-    if(0)if (curl) {
-        curl_easy_setopt(curl, CURLOPT_URL, "https://api.hyperliquid.xyz/info");
-        struct curl_slist* headers = NULL;
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "{\"type\":\"metaAndAssetCtxs\"}");
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
-
-        if (curl_easy_perform(curl) == CURLE_OK) {
-            cJSON* root = cJSON_Parse(readBuffer.c_str());
-            if (root != NULL) {
-                cJSON* meta = cJSON_GetArrayItem(root, 0);
-                cJSON* ctxs = cJSON_GetArrayItem(root, 1);
-
-                if (meta != NULL && ctxs != NULL) {
-                    cJSON* universe = cJSON_GetObjectItem(meta, "universe");
-                    if (universe != NULL && cJSON_IsArray(universe) && cJSON_IsArray(ctxs)) {
-                        struct AssetInfo { std::string name; double volume; };
-                        std::vector<AssetInfo> assets;
-
-                        int num_assets = std::min(cJSON_GetArraySize(universe), cJSON_GetArraySize(ctxs));
-                        for (int i = 0; i < num_assets; ++i) {
-                            cJSON* asset = cJSON_GetArrayItem(universe, i);
-                            cJSON* ctx = cJSON_GetArrayItem(ctxs, i);
-
-                            cJSON* name_item = cJSON_GetObjectItem(asset, "name");
-                            cJSON* vol_item = cJSON_GetObjectItem(ctx, "dayNtlVlm");
-
-                            if (cJSON_IsString(name_item) && (cJSON_IsString(vol_item) || cJSON_IsNumber(vol_item))) {
-                                std::string name = name_item->valuestring;
-                                double volume = 0.0;
-                                if (cJSON_IsString(vol_item)) {
-                                    volume = std::stod(vol_item->valuestring);
-                                } else if (cJSON_IsNumber(vol_item)) {
-                                    volume = vol_item->valuedouble;
-                                }
-                                assets.push_back({name, volume});
-                            }
-                        }
-
-                        std::sort(assets.begin(), assets.end(), [](const AssetInfo& a, const AssetInfo& b) {
-                            return a.volume > b.volume;
-                        });
-
-                        for (int i = 0; i < std::min((int)assets.size(), top_n); ++i) {
-                            top_symbols.push_back({assets[i].name + "_USDT"});
-                        }
-                    }
-                }
-                cJSON_Delete(root);
-            } else {
-                std::cerr << "Error parsing Hyperliquid API JSON.\n";
-            }
-        }
-        curl_easy_cleanup(curl);
-        curl_slist_free_all(headers);
-    }
-
-    if (top_symbols.empty()) {
-        top_symbols = {
-{"BTC_USDT"},{"ETH_USDT"},{"SOL_USDT"},{"BNB_USDT"},{"XRP_USDT"},
-{"DOGE_USDT"},{"AVAX_USDT"},{"SUI_USDT"},{"NEAR_USDT"},{"ADA_USDT"},
-{"TRX_USDT"},{"LINK_USDT"},{"PEPE_USDT"},{"SHIB_USDT"},{"WLD_USDT"},
-{"OP_USDT"},{"ARB_USDT"},{"FET_USDT"},{"HYPE_USDT"},{"ORDI_USDT"}
-};
-    }
-    return top_symbols;
+// ----------------------------------------------------------------------
+// Funções auxiliares da exchange
+// ----------------------------------------------------------------------
+static ExchangeConfig* get_exchange(Exchange e) {
+    for (auto& ex : exchanges) if (ex.exchange == e) return &ex;
+    return nullptr;
 }
 
-double calculate_atr(const std::vector<Candle>& candles, size_t index, size_t period = 14) {
-    if (index < period) return 0.0;
+static double get_current_price(Exchange e, const std::string& symbol) {
+    auto* cfg = get_exchange(e);
+    if (!cfg) return 0;
+    if (e == Exchange::MEXC) {
+        std::string resp = mexc_request(*cfg, "GET", "/api/v1/contract/ticker?symbol=" + symbol);
+        size_t p = resp.find("\"lastPrice\":");
+        if (p == std::string::npos) return 0;
+        p += 12;
+        size_t e2 = resp.find_first_of(",}", p);
+        if (e2 == std::string::npos) return 0;
+        try { return std::stod(resp.substr(p, e2 - p)); } catch(...) { return 0; }
+    }
+    return 0;
+}
+
+static std::vector<std::string> get_open_symbols(Exchange e) {
+    std::vector<std::string> syms;
+    auto* cfg = get_exchange(e);
+    if (!cfg) return syms;
+    if (e == Exchange::MEXC) {
+        std::string resp = mexc_request(*cfg, "GET", "/api/v1/private/position/open_positions");
+        size_t pos = 0;
+        while (true) {
+            size_t s = resp.find("\"symbol\":\"", pos);
+            if (s == std::string::npos) break;
+            s += 10;
+            size_t end = resp.find("\"", s);
+            if (end == std::string::npos) break;
+            std::string sym = resp.substr(s, end - s);
+            size_t hv = resp.find("\"holdVol\":", end);
+            if (hv == std::string::npos) break;
+            hv += 10;
+            size_t hvEnd = resp.find(",", hv);
+            if (hvEnd == std::string::npos) break;
+            double holdVol = std::stod(resp.substr(hv, hvEnd - hv));
+            if (holdVol > 0.0) syms.push_back(sym);
+            pos = end + 1;
+        }
+    }
+    return syms;
+}
+
+static ContractInfo get_contract_info(Exchange e, const std::string& symbol) {
+    auto* cfg = get_exchange(e);
+    if (!cfg || e != Exchange::MEXC) return {};
+    std::string resp = mexc_request(*cfg, "GET", "/api/v1/contract/detail?symbol=" + symbol);
+    auto extract = [&](const std::string& key) -> double {
+        std::string tag = "\"" + key + "\":";
+        size_t start = resp.find(tag);
+        if (start == std::string::npos) return 0;
+        start += tag.size();
+        size_t end = resp.find_first_of(",}", start);
+        if (end == std::string::npos) return 0;
+        return std::stod(resp.substr(start, end - start));
+    };
+    return {extract("priceScale"), extract("contractSize")};
+}
+
+static Balance get_balance(Exchange e) {
+    auto* cfg = get_exchange(e);
+    if (!cfg) return {0,0};
+    if (e == Exchange::MEXC) {
+        std::string resp = mexc_request(*cfg, "GET", "/api/v1/private/account/asset/USDT");
+        auto extract = [&](const std::string& key) -> double {
+            size_t p = resp.find("\"" + key + "\":");
+            if (p == std::string::npos) return 0;
+            p += key.size() + 3;
+            size_t e2 = resp.find_first_of(",}", p);
+            if (e2 == std::string::npos) return 0;
+            try { return std::stod(resp.substr(p, e2 - p)); } catch(...) { return 0; }
+        };
+        return {extract("equity"), extract("availableBalance")};
+    }
+    return {0,0};
+}
+
+static void cancel_all_orders(Exchange e) {
+    auto* cfg = get_exchange(e);
+    if (!cfg) return;
+    if (e == Exchange::MEXC) mexc_request(*cfg, "POST", "/api/v1/private/order/cancel_all", "{}");
+}
+
+static void execute_bracket(Exchange e, const std::string& symbol, const std::string& side,
+                              double qty, double entry, double sl, double tp, double& total_fees_paid) {
+    auto* cfg = get_exchange(e);
+    if (!cfg) return;
+    if (e == Exchange::MEXC) {
+        auto info = get_contract_info(e, symbol);
+        int contracts = (info.contractSize > 0) ? (int)std::floor(qty / info.contractSize) : 0;
+        if (contracts <= 0) return;
+        
+        const double maker_fee = 0.0008;
+        const double taker_fee = 0.0008;
+        
+        int sideInt = (side == "BUY") ? 1 : 3;
+        int bestLev = 1;
+        const double MMR = 0.004;
+        if (side == "BUY" && sl < entry) {
+            double maxLev = entry / (entry - sl + entry * MMR);
+            bestLev = std::min(50, (int)maxLev);
+        } else if (side == "SELL" && sl > entry) {
+            double maxLev = entry / (sl - entry + entry * MMR);
+            bestLev = std::min(50, (int)maxLev);
+        }
+        if (bestLev < 1) bestLev = 1;
+        
+        double notional = contracts * info.contractSize * entry;
+        double maker_fee_cost = notional * maker_fee;
+        double taker_fee_cost = notional * taker_fee;
+        total_fees_paid += maker_fee_cost + taker_fee_cost;
+        
+        double adjusted_entry = (side == "BUY") ? entry * (1.0 + maker_fee) : entry * (1.0 - maker_fee);
+        double adjusted_sl = (side == "BUY") ? sl * (1.0 - taker_fee) : sl * (1.0 + taker_fee);
+        double adjusted_tp = (side == "BUY") ? tp * (1.0 - taker_fee) : tp * (1.0 + taker_fee);
+        
+        std::stringstream order;
+        order << "{"
+              << "\"symbol\":\"" << symbol << "\","
+              << "\"price\":" << adjusted_entry << ","
+              << "\"vol\":" << contracts << ","
+              << "\"side\":" << sideInt << ","
+              << "\"type\":1,"
+              << "\"openType\":1,"
+              << "\"leverage\":" << bestLev << ","
+              << "\"stopLossPrice\":" << adjusted_sl << ","
+              << "\"takeProfitPrice\":" << adjusted_tp
+              << "}";
+        mexc_request(*cfg, "POST", "/api/v1/private/order/create", order.str());
+        std::cout << "EXECUTE [" << cfg->name() << ":" << symbol << "] " << side 
+                  << " qty=" << contracts << " entry=" << adjusted_entry 
+                  << " sl=" << adjusted_sl << " tp=" << adjusted_tp 
+                  << " lev=" << bestLev << "x fees=" << (maker_fee_cost+taker_fee_cost) << " USDT\n";
+    }
+}
+
+static void close_position_order(Exchange e, const std::string& symbol, const std::string& side, double qty) {
+    auto* cfg = get_exchange(e);
+    if (!cfg) return;
+    if (e == Exchange::MEXC) {
+        auto info = get_contract_info(e, symbol);
+        int contracts = (info.contractSize > 0) ? (int)std::floor(qty / info.contractSize) : 0;
+        if (contracts <= 0) return;
+        double price = get_current_price(e, symbol);
+        int closeSide = (side == "LONG") ? 4 : 2;
+        std::stringstream order;
+        order << "{" << "\"symbol\":\"" << symbol << "\",\"price\":" << price 
+              << ",\"vol\":" << contracts << ",\"side\":" << closeSide 
+              << ",\"type\":1,\"openType\":1}";
+        mexc_request(*cfg, "POST", "/api/v1/private/order/create", order.str());
+        std::stringstream cancel;
+        cancel << "{\"symbol\":\"" << symbol << "\"}";
+        mexc_request(*cfg, "POST", "/api/v1/private/planorder/cancel_all", cancel.str());
+    }
+}
+
+static void update_mexc_trailing_stop(Exchange e, const std::string& symbol,
+                                       const std::string& side, double qty,
+                                       double entry, double new_sl, double tp) {
+    auto* cfg = get_exchange(e);
+    if (!cfg || e != Exchange::MEXC) return;
+    std::string cancel_payload = "{\"symbol\":\"" + symbol + "\"}";
+    mexc_request(*cfg, "POST", "/api/v1/private/planorder/cancel_all", cancel_payload);
+    auto info = get_contract_info(e, symbol);
+    int contracts = (info.contractSize > 0) ? (int)std::floor(qty / info.contractSize) : 0;
+    if (contracts <= 0) return;
+    int exitSideInt = (side == "LONG") ? 4 : 2;
+    double slOrderPrice = (side == "LONG") ? new_sl * 0.995 : new_sl * 1.005;
+    int slTriggerType = (side == "LONG") ? 2 : 1;
+    std::stringstream sl;
+    sl << "{\"symbol\":\"" << symbol << "\",\"leverage\":1,\"openType\":1,"
+       << "\"triggerPrice\":" << new_sl << ",\"triggerType\":" << slTriggerType
+       << ",\"price\":" << slOrderPrice << ",\"vol\":" << contracts
+       << ",\"side\":" << exitSideInt << ",\"orderType\":1,\"executeCycle\":1,\"trend\":1}";
+    mexc_request(*cfg, "POST", "/api/v1/private/planorder/place/v2", sl.str());
+    if (tp > 0) {
+        int tpTriggerType = (side == "LONG") ? 1 : 2;
+        std::stringstream tp_stream;
+        tp_stream << "{\"symbol\":\"" << symbol << "\",\"leverage\":1,\"openType\":1,"
+                  << "\"triggerPrice\":" << tp << ",\"triggerType\":" << tpTriggerType
+                  << ",\"price\":" << tp << ",\"vol\":" << contracts
+                  << ",\"side\":" << exitSideInt << ",\"orderType\":1,\"executeCycle\":1,\"trend\":1}";
+        mexc_request(*cfg, "POST", "/api/v1/private/planorder/place/v2", tp_stream.str());
+    }
+}
+
+// ----------------------------------------------------------------------
+// Persistência do estado
+// ----------------------------------------------------------------------
+static bool load_state(BotState& s) {
+    std::string raw = read_file(STATE_FILE);
+    if (raw.empty()) return false;
+    cJSON* root = cJSON_Parse(raw.c_str());
+    if (!root) return false;
+    auto get_double = [](cJSON* obj, const char* key, double def = 0) {
+        cJSON* item = cJSON_GetObjectItem(obj, key);
+        return (item && cJSON_IsNumber(item)) ? item->valuedouble : def;
+    };
+    auto get_string = [](cJSON* obj, const char* key, const char* def = "") -> std::string {
+        cJSON* item = cJSON_GetObjectItem(obj, key);
+        return (item && cJSON_IsString(item)) ? item->valuestring : def;
+    };
+    s.equity = get_double(root, "equity", 1000.0);
+    s.starting_equity = get_double(root, "starting_equity", 1000.0);
+    s.peak_equity = get_double(root, "peak_equity", 1000.0);
+    s.total_fees_paid = get_double(root, "total_fees_paid");
+    s.trading_halted_until = (std::int64_t)get_double(root, "trading_halted_until");
+    s.last_run = (std::int64_t)get_double(root, "last_run");
+    
+    cJSON* pos_arr = cJSON_GetObjectItem(root, "positions");
+    if (cJSON_IsArray(pos_arr)) {
+        int n = cJSON_GetArraySize(pos_arr);
+        for (int i = 0; i < n; ++i) {
+            cJSON* item = cJSON_GetArrayItem(pos_arr, i);
+            OpenPos p;
+            p.symbol = get_string(item, "symbol");
+            p.side = get_string(item, "side");
+            p.strategy = get_string(item, "strategy");
+            p.exchange = get_string(item, "exchange", "MEXC");
+            p.quantity = get_double(item, "quantity");
+            p.entry_price = get_double(item, "entry_price");
+            p.sl = get_double(item, "sl");
+            p.tp = get_double(item, "tp");
+            p.trailing = get_double(item, "trailing");
+            p.timestamp = (std::int64_t)get_double(item, "timestamp");
+            if (!p.symbol.empty()) s.positions.push_back(p);
+        }
+    }
+    
+    cJSON* strat_arr = cJSON_GetObjectItem(root, "strategies");
+    if (cJSON_IsArray(strat_arr)) {
+        int n = cJSON_GetArraySize(strat_arr);
+        for (int i = 0; i < n; ++i) {
+            cJSON* item = cJSON_GetArrayItem(strat_arr, i);
+            StrategyCfg cfg;
+            cfg.name = get_string(item, "name");
+            cfg.symbol = get_string(item, "symbol");
+            cfg.exchange = (Exchange)(int)get_double(item, "exchange", (double)Exchange::MEXC);
+            cfg.active = (bool)get_double(item, "active", 1.0);
+            cfg.mc_ruin_prob = get_double(item, "mc_ruin_prob");
+            cfg.holdout_sharpe = get_double(item, "holdout_sharpe");
+            cfg.holdout_trades = (int)get_double(item, "holdout_trades");
+            cJSON* params = cJSON_GetObjectItem(item, "params");
+            if (cJSON_IsObject(params)) {
+                cJSON* child = params->child;
+                while (child) {
+                    if (cJSON_IsNumber(child)) cfg.params[child->string] = child->valuedouble;
+                    child = child->next;
+                }
+            }
+            if (!cfg.name.empty()) s.strategies.push_back(cfg);
+        }
+    }
+    
+    cJSON* rets = cJSON_GetObjectItem(root, "recent_trade_returns");
+    if (cJSON_IsArray(rets)) {
+        int n = cJSON_GetArraySize(rets);
+        for (int i = 0; i < n; ++i) {
+            cJSON* v = cJSON_GetArrayItem(rets, i);
+            if (cJSON_IsNumber(v)) s.recent_trade_returns.push_back(v->valuedouble);
+        }
+    }
+    cJSON* eqc = cJSON_GetObjectItem(root, "equity_curve");
+    if (cJSON_IsArray(eqc)) {
+        int n = cJSON_GetArraySize(eqc);
+        for (int i = 0; i < n; ++i) {
+            cJSON* v = cJSON_GetArrayItem(eqc, i);
+            if (cJSON_IsNumber(v)) s.equity_curve.push_back(v->valuedouble);
+        }
+    }
+    cJSON_Delete(root);
+    return true;
+}
+
+static void save_state(const BotState& s) {
+    cJSON* root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "equity", s.equity);
+    cJSON_AddNumberToObject(root, "starting_equity", s.starting_equity);
+    cJSON_AddNumberToObject(root, "peak_equity", s.peak_equity);
+    cJSON_AddNumberToObject(root, "total_fees_paid", s.total_fees_paid);
+    cJSON_AddNumberToObject(root, "trading_halted_until", (double)s.trading_halted_until);
+    cJSON_AddNumberToObject(root, "last_run", (double)s.last_run);
+    
+    cJSON* pos = cJSON_CreateArray();
+    for (auto& p : s.positions) {
+        cJSON* item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "symbol", p.symbol.c_str());
+        cJSON_AddStringToObject(item, "side", p.side.c_str());
+        cJSON_AddStringToObject(item, "strategy", p.strategy.c_str());
+        cJSON_AddStringToObject(item, "exchange", p.exchange.c_str());
+        cJSON_AddNumberToObject(item, "quantity", p.quantity);
+        cJSON_AddNumberToObject(item, "entry_price", p.entry_price);
+        cJSON_AddNumberToObject(item, "sl", p.sl);
+        cJSON_AddNumberToObject(item, "tp", p.tp);
+        cJSON_AddNumberToObject(item, "trailing", p.trailing);
+        cJSON_AddNumberToObject(item, "timestamp", (double)p.timestamp);
+        cJSON_AddItemToArray(pos, item);
+    }
+    cJSON_AddItemToObject(root, "positions", pos);
+    
+    cJSON* strats = cJSON_CreateArray();
+    for (auto& cfg : s.strategies) {
+        cJSON* item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "name", cfg.name.c_str());
+        cJSON_AddStringToObject(item, "symbol", cfg.symbol.c_str());
+        cJSON_AddNumberToObject(item, "exchange", (int)cfg.exchange);
+        cJSON_AddBoolToObject(item, "active", cfg.active);
+        cJSON_AddNumberToObject(item, "mc_ruin_prob", cfg.mc_ruin_prob);
+        cJSON_AddNumberToObject(item, "holdout_sharpe", cfg.holdout_sharpe);
+        cJSON_AddNumberToObject(item, "holdout_trades", cfg.holdout_trades);
+        cJSON* params = cJSON_CreateObject();
+        for (auto& kv : cfg.params) cJSON_AddNumberToObject(params, kv.first.c_str(), kv.second);
+        cJSON_AddItemToObject(item, "params", params);
+        cJSON_AddItemToArray(strats, item);
+    }
+    cJSON_AddItemToObject(root, "strategies", strats);
+    
+    cJSON* rets = cJSON_CreateArray();
+    for (double v : s.recent_trade_returns) cJSON_AddItemToArray(rets, cJSON_CreateNumber(v));
+    cJSON_AddItemToObject(root, "recent_trade_returns", rets);
+    
+    cJSON* eqc = cJSON_CreateArray();
+    for (double v : s.equity_curve) cJSON_AddItemToArray(eqc, cJSON_CreateNumber(v));
+    cJSON_AddItemToObject(root, "equity_curve", eqc);
+    
+    char* raw = cJSON_Print(root);
+    write_file(STATE_FILE, raw);
+    cJSON_free(raw);
+    cJSON_Delete(root);
+}
+
+// ----------------------------------------------------------------------
+// Indicadores & Monte Carlo
+// ----------------------------------------------------------------------
+static double calc_atr(const std::vector<Candle>& candles, size_t idx, size_t period = 14) {
+    if (idx < period) return 0.0;
     double sum = 0.0;
-    for (size_t i = index - period + 1; i <= index; ++i) {
-        sum += std::max({candles[i].high - candles[i].low, std::abs(candles[i].high - candles[i-1].close), std::abs(candles[i].low - candles[i-1].close)});
+    for (size_t i = idx - period + 1; i <= idx; ++i) {
+        double tr = std::max({candles[i].high - candles[i].low,
+                              std::abs(candles[i].high - candles[i-1].close),
+                              std::abs(candles[i].low - candles[i-1].close)});
+        sum += tr;
     }
     return sum / period;
 }
-double calculate_z_score(const std::vector<Candle>& candles, size_t idx, size_t period) {
+static double calc_zscore(const std::vector<Candle>& candles, size_t idx, size_t period) {
     if (idx < period) return 0.0;
-    double sum = 0.0, sq_sum = 0.0;
+    double sum = 0.0, sq = 0.0;
     for (size_t j = idx - period; j < idx; ++j) sum += candles[j].close;
     double mean = sum / period;
-    for (size_t j = idx - period; j < idx; ++j) sq_sum += (candles[j].close - mean) * (candles[j].close - mean);
-    double stdev = std::sqrt(sq_sum / period);
-    return stdev < 1e-9 ? 0.0 : (candles[idx].close - mean) / stdev;
+    for (size_t j = idx - period; j < idx; ++j) sq += (candles[j].close - mean)*(candles[j].close - mean);
+    double stdev = std::sqrt(sq / period);
+    return (stdev < 1e-9) ? 0.0 : (candles[idx].close - mean) / stdev;
 }
-double calculate_confidence(double z_score, double threshold, const TrendReading& trend, const std::string& regime, bool is_long) {
-    double score = std::min(30.0, (std::abs(z_score) - threshold) * 15.0);
-    score += (trend.bullish_votes == 3 && is_long) || (trend.bullish_votes == 0 && !is_long) ? 25.0 : 0.0;
-    score += (trend.bullish_votes == 2 && is_long) || (trend.bullish_votes == 1 && !is_long) ? 15.0 : 0.0;
-    if (trend.is_trending) score += 20.0;
-    score += trend.trend_strength * 15.0;
-    return std::max(0.0, std::min(100.0, score + (regime == "TRENDING" ? 15.0 : (regime == "VOLATILE" ? -15.0 : 0.0))));
+static double calc_ema(const std::vector<Candle>& candles, size_t idx, size_t period) {
+    if (idx < period) return candles[idx].close;
+    double k = 2.0 / (period + 1);
+    double ema = candles[0].close;
+    for (size_t i = 1; i <= idx; ++i) ema = candles[i].close * k + ema * (1.0 - k);
+    return ema;
 }
-struct EntryDecision { bool can_long, can_short; double stop_dist; };
-EntryDecision evaluate_entry(double price, double z, double atr, double threshold, double atr_mult, const TrendReading& trend) {
-    double stop_dist = std::max(atr * atr_mult, price * MIN_SL_PCT);
-    bool can_l = z < -threshold && trend.is_bullish && trend.is_trending && trend.bullish_votes >= 2;
-    bool can_s = z > threshold && !trend.is_bullish && trend.is_trending && trend.bullish_votes <= 1;
-    return {can_l, can_s, stop_dist};
-}
-Indicators precompute_indicators(const std::vector<Candle>& candles, size_t short_p = 20, size_t medium_p = 50, size_t long_p = 100) {
-    size_t n = candles.size(); Indicators ind; ind.atr.assign(n, 0.0); ind.trend.assign(n, TrendReading{}); ind.regime.assign(n, "UNKNOWN");
-    if (n == 0) return ind;
-    for (size_t i = 0; i < n; ++i) ind.atr[i] = calculate_atr(candles, i, 14);
-    double ema_s = candles[0].close, ema_m = candles[0].close, ema_l = candles[0].close;
-    const double k_s = 2.0 / (short_p + 1), k_m = 2.0 / (medium_p + 1), k_l = 2.0 / (long_p + 1);
-    for (size_t i = 1; i < n; ++i) {
-        ema_s = candles[i].close * k_s + ema_s * (1.0 - k_s); ema_m = candles[i].close * k_m + ema_m * (1.0 - k_m); ema_l = candles[i].close * k_l + ema_l * (1.0 - k_l);
-        if (i < long_p) continue;
-        TrendReading t{}; double price = candles[i].close; t.ema_short = ema_s; t.ema_medium = ema_m; t.ema_long = ema_l;
-        t.bullish_votes = (price > t.ema_short) + (price > t.ema_medium) + (price > t.ema_long); t.is_bullish = (t.bullish_votes >= 2);
-        t.is_trending = (t.ema_short > t.ema_medium && t.ema_medium > t.ema_long) || (t.ema_short < t.ema_medium && t.ema_medium < t.ema_long);
-        double atr = ind.atr[i]; if (atr > 0) t.trend_strength = std::min(1.0, std::abs(price - (t.ema_short + t.ema_medium + t.ema_long) / 3.0) / (atr * 3.0));
-        ind.trend[i] = t;
+static double calc_rsi(const std::vector<Candle>& candles, size_t idx, size_t period = 14) {
+    if (idx < period + 1) return 50.0;
+    double gain = 0, loss = 0;
+    for (size_t i = idx - period + 1; i <= idx; ++i) {
+        double diff = candles[i].close - candles[i-1].close;
+        if (diff > 0) gain += diff; else loss -= diff;
     }
-    for (size_t i = 0; i < n; ++i) {
-        if (i < 114) { ind.regime[i] = "UNKNOWN"; continue; }
-        double atr_pct = (ind.atr[i] / candles[i].close) * 100.0;
-        if (atr_pct > 3.5) { ind.regime[i] = "VOLATILE"; continue; }
-        ind.regime[i] = (ind.trend[i].is_trending && atr_pct < 2.5) ? "TRENDING" : "RANGING";
-    }
-    return ind;
+    if (loss == 0) return 100.0;
+    double rs = gain / loss;
+    return 100.0 - (100.0 / (1.0 + rs));
 }
-std::vector<double> precompute_zscore(const std::vector<Candle>& candles, size_t period) {
-    size_t n = candles.size(); std::vector<double> z(n, 0.0);
-    for (size_t i = 0; i < n; ++i) z[i] = calculate_z_score(candles, i, period);
-    return z;
-}
-
-BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyParams& params, const Indicators& ind, const std::vector<double>& z_scores, size_t start_idx, size_t end_idx, const FeeConfig& fees = FeeConfig{}) {
-    double capital = 1000.0, initial_capital = capital, position = 0.0, total_fees = 0.0, gross_wins = 0.0, gross_losses = 0.0;
-    double entry_price = 0.0, fixed_sl = 0.0, dynamic_tp = 0.0, peak_capital = capital, current_trade_fee = 0.0;
-    double current_trade_start_cap = capital; int long_trades = 0, short_trades = 0, winning_longs = 0, winning_shorts = 0;
-    PositionType pos_type = PositionType::NONE; std::map<std::string, double> daily_profit; std::vector<double> daily_returns; std::vector<double> trade_pcts; std::vector<std::string> trade_dirs;
-    auto log_daily = [&](long long ts, double pnl) {
-        time_t t = ts / 1000; char buf[11]; std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::gmtime(&t));
-        double net = pnl - current_trade_fee; daily_profit[buf] += net; daily_returns.push_back(net / initial_capital * 100.0); current_trade_fee = 0.0;
-    };
-    auto apply_fee = [&](double rate, double notional) { double fee = notional * rate; capital -= fee; total_fees += fee; current_trade_fee += fee; };
-    size_t real_start = std::max({(size_t)101, params.period + 1, start_idx}), real_end = std::min(candles.size(), end_idx);
-    for (size_t i = real_start; i < real_end; ++i) {
-        double price = candles[i].close, atr = ind.atr[i]; const TrendReading& trend = ind.trend[i];
-        if (pos_type != PositionType::NONE) apply_fee(fees.borrow_per_candle(), std::abs(position) * price);
-
-        if (pos_type == PositionType::NONE) {
-            EntryDecision dec = evaluate_entry(price, z_scores[i], atr, params.threshold, params.atr_mult, trend);
-            if (dec.can_long) {
-                current_trade_start_cap = capital; position = (capital * RISK_PER_TRADE) / dec.stop_dist; entry_price = price * (1.0 + SLIPPAGE_PCT);
-                pos_type = PositionType::LONG; fixed_sl = entry_price - dec.stop_dist; dynamic_tp = entry_price + dec.stop_dist * tp_factor; apply_fee(fees.maker_fee, position * entry_price);
-            } else if (dec.can_short) {
-                current_trade_start_cap = capital; position = (capital * RISK_PER_TRADE) / dec.stop_dist; entry_price = price * (1.0 - SLIPPAGE_PCT);
-                pos_type = PositionType::SHORT; fixed_sl = entry_price + dec.stop_dist; dynamic_tp = entry_price - dec.stop_dist * tp_factor; apply_fee(fees.maker_fee, position * entry_price);
-            }
-        } else {
-            bool is_l = (pos_type == PositionType::LONG), exit = false; double pnl = 0.0, exit_price = 0.0;
-
-            if (is_l) {
-                if (candles[i].low <= fixed_sl) { exit_price = fixed_sl * (1.0 - SLIPPAGE_PCT); exit = true; }
-                else if (candles[i].high >= dynamic_tp) { exit_price = dynamic_tp * (1.0 - SLIPPAGE_PCT); exit = true; } // TP fills slip too, not just SL
-            } else {
-                if (candles[i].high >= fixed_sl) { exit_price = fixed_sl * (1.0 + SLIPPAGE_PCT); exit = true; }
-                else if (candles[i].low <= dynamic_tp) { exit_price = dynamic_tp * (1.0 + SLIPPAGE_PCT); exit = true; } // TP fills slip too, not just SL
-            }
-
-            if (exit) {
-                pnl = position * (is_l ? exit_price - entry_price : entry_price - exit_price);
-                double net_pnl = pnl - current_trade_fee; capital += pnl; *(pnl >= 0 ? &gross_wins : &gross_losses) += std::abs(pnl);
-                apply_fee(fees.taker_fee, std::abs(position) * exit_price); log_daily(candles[i].timestamp, pnl);
-                trade_pcts.push_back(net_pnl / current_trade_start_cap);
-                trade_dirs.push_back(is_l ? "LONG" : "SHORT");
-                if (capital <= 0) capital = 0.01; pos_type = PositionType::NONE; (is_l ? long_trades : short_trades)++; if (pnl > 0) (is_l ? winning_longs : winning_shorts)++;
-            }
-        }
-        if (capital > peak_capital) peak_capital = capital;
-    }
-    int total_trades = long_trades + short_trades, wins = winning_longs + winning_shorts;
-    double win_rate = total_trades > 0 ? (double)wins / total_trades * 100.0 : 0.0, ret = (capital - initial_capital) / initial_capital * 100.0;
-    double max_dd = peak_capital > 0 ? (peak_capital - capital) / peak_capital * 100.0 : 0.0;
-    return {params, ret, capital - initial_capital, total_fees, gross_losses > 0 ? gross_wins / gross_losses : (gross_wins > 0 ? 99.0 : 0.0),
-            total_trades, long_trades, short_trades, winning_longs, winning_shorts, win_rate,
-            ret * (win_rate / 100.0) * std::log(total_trades + 1) * (1.0 - max_dd / 100.0 * 0.5), max_dd, daily_profit, daily_returns, trade_pcts, trade_dirs};
-}
-
-MonteCarloResult run_monte_carlo(const std::vector<double>& actual_trade_pcts, double start_capital, int iterations = 2000) {
-    if (actual_trade_pcts.empty()) return {0.0, 0.0, start_capital};
-    std::vector<double> final_equities; std::vector<double> max_drawdowns;
-    int ruin_count = 0;
-
-    static std::random_device rd;
-    static std::mt19937 g(rd());
-
-    for (int sim = 0; sim < iterations; ++sim) {
-        std::vector<double> shuffled_pcts = actual_trade_pcts;
-        std::shuffle(shuffled_pcts.begin(), shuffled_pcts.end(), g);
-        double sim_capital = start_capital, sim_peak = start_capital, sim_max_dd = 0.0;
-        bool ruined = false;
-
-        for (double pct : shuffled_pcts) {
-            sim_capital += (sim_capital * pct);
-            if (sim_capital <= 0.01) sim_capital = 0.01;
-
-            if (sim_capital > sim_peak) sim_peak = sim_capital;
-            double current_dd = (sim_peak - sim_capital) / sim_peak * 100.0;
-            if (current_dd > sim_max_dd) sim_max_dd = current_dd;
-
-            if (sim_capital <= (start_capital * 0.70)) ruined = true;
-        }
-        if (ruined) ruin_count++;
-        final_equities.push_back(sim_capital); max_drawdowns.push_back(sim_max_dd);
-    }
-    std::sort(final_equities.begin(), final_equities.end());
-    std::sort(max_drawdowns.begin(), max_drawdowns.end());
-
-    double prob_ruin = ((double)ruin_count / iterations) * 100.0;
-    size_t dd_95_idx = static_cast<size_t>(iterations * 0.95);
-    return { prob_ruin, max_drawdowns[dd_95_idx], final_equities[iterations / 2] };
-}
-
-struct WalkForwardResult { 
-    double avg_oos_return = -9999.0; 
-    int valid_folds = 0; 
-    double avg_oos_dd = 0.0; 
-    double avg_wins_per_day = 0.0;
-    double avg_test_days = 0.0;   // average duration of test folds
-    std::vector<double> pooled_trade_pcts; // trades pooled across all valid folds, for MC on TRAIN data only
-    std::vector<std::string> pooled_trade_dirs;
-};
-
-// data_end restricts folds to candles[0, data_end) so this function can be run purely
-// against the TRAIN slice, keeping the held-out TEST slice completely unseen during
-// both parameter selection and the outer SL/TP scan.
-WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, const StrategyParams& params,
-                                         const Indicators& ind, const std::vector<double>& z_scores,
-                                         size_t n_folds = 4, int min_trades_per_fold = 5,
-                                         size_t data_end = 0) {
-    WalkForwardResult wf;
-    size_t limit = (data_end == 0 || data_end > candles.size()) ? candles.size() : data_end;
-    if (limit < n_folds * 150) return wf;
-    size_t fold_size = limit / n_folds;
-    double total_ret = 0.0, total_dd = 0.0, total_wpd = 0.0, total_days = 0.0;
-    for (size_t f = 0; f + 2 <= n_folds; ++f) {
-        size_t test_start = fold_size * (f + 1);
-        size_t test_end = std::min(limit, fold_size * (f + 2));
-        if (test_start >= test_end) continue;
-        BacktestResult r = run_backtest(candles, params, ind, z_scores, test_start, test_end);
-        if (r.total_trades >= min_trades_per_fold) {
-            total_ret += r.total_return;
-            total_dd += r.max_drawdown;
-            long long fold_duration_ms = candles[test_end-1].timestamp - candles[test_start].timestamp;
-            double fold_days = std::max(1.0, fold_duration_ms / (1000.0 * 60.0 * 60.0 * 24.0));
-            total_days += fold_days;
-            double wins = r.winning_longs + r.winning_shorts;
-            total_wpd += wins / fold_days;
-            wf.valid_folds++;
-            wf.pooled_trade_pcts.insert(wf.pooled_trade_pcts.end(), r.trade_pcts.begin(), r.trade_pcts.end());
-            wf.pooled_trade_dirs.insert(wf.pooled_trade_dirs.end(), r.trade_dirs.begin(), r.trade_dirs.end());
-        }
-    }
-    if (wf.valid_folds >= 2) {
-        wf.avg_oos_return = total_ret / wf.valid_folds;
-        wf.avg_oos_dd = total_dd / wf.valid_folds;
-        wf.avg_wins_per_day = total_wpd / wf.valid_folds;
-        wf.avg_test_days = total_days / wf.valid_folds;
-    }
-    return wf;
-}
-
-LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, const StrategyParams& params, double free_margin, const Indicators& ind) {
-    LiveSignal sig{}; if (eval_idx < 101 || eval_idx >= candles.size()) return sig;
-    sig.trend = ind.trend[eval_idx]; sig.regime = ind.regime[eval_idx]; sig.atr = ind.atr[eval_idx]; sig.z_score = calculate_z_score(candles, eval_idx, params.period);
-    double price = candles[eval_idx].close;
-    EntryDecision dec = evaluate_entry(price, sig.z_score, sig.atr, params.threshold, params.atr_mult, sig.trend);
-    sig.stop_distance = dec.stop_dist; sig.risk_amount = free_margin * RISK_PER_TRADE;
-    sig.exact_position_btc = sig.order_size_btc = (dec.stop_dist > 0.0) ? (sig.risk_amount / dec.stop_dist) : 0.0;
-    sig.exact_position_usd = sig.order_size_usd = sig.exact_position_btc * price;
-    if (sig.trend.bullish_votes == 1 || sig.trend.bullish_votes == 2) sig.warnings += "[WARN] EMA split. ";
-    if (sig.regime == "VOLATILE") sig.warnings += "[WARN] Volatile. ";
-    if (!sig.trend.is_trending) sig.warnings += "[INFO] Ranging. ";
-    bool can_l = dec.can_long, can_s = dec.can_short;
-    sig.direction = can_l ? "LONG" : (can_s ? "SHORT" : "WAIT"); sig.entry = price;
-    sig.stop_loss = price + (can_l ? -1 : 1) * (can_l || can_s ? dec.stop_dist : 0);
-    sig.take_profit = price + (can_l ? 1 : -1) * (can_l || can_s ? dec.stop_dist * tp_factor : 0);
-    sig.confidence = (can_l || can_s) ? calculate_confidence(sig.z_score, params.threshold, sig.trend, sig.regime, can_l) : 0.0;
-    return sig;
-}
-
-std::vector<double> extractArray(const std::string& src, const std::string& key) {
-    std::vector<double> out; std::string tag = "\"" + key + "\":["; size_t start = src.find(tag); if (start == std::string::npos) return out;
-    start += tag.size(); size_t end = src.find("]", start); if (end == std::string::npos) return out;
-    std::string arr = src.substr(start, end - start); size_t pos = 0;
-    while (true) {
-        size_t comma = arr.find(",", pos); std::string num = (comma == std::string::npos) ? arr.substr(pos) : arr.substr(pos, comma - pos);
-        if (!num.empty()) out.push_back(std::stod(num));
-        if (comma == std::string::npos) break;
-        pos = comma + 1;
-    }
-    return out;
-}
-
-std::vector<double> compute_returns(const std::vector<Candle>& candles, size_t lookback = 200) {
+static std::vector<double> compute_returns(const std::vector<Candle>& candles, size_t lookback = 200) {
     std::vector<double> rets;
     if (candles.size() < 2) return rets;
-    size_t start = candles.size() > lookback ? candles.size() - lookback : 1;
-    for (size_t i = start; i < candles.size(); ++i) {
-        double prev = candles[i - 1].close;
-        if (prev != 0.0) rets.push_back((candles[i].close - prev) / prev);
-    }
+    size_t start = (candles.size() > lookback) ? candles.size() - lookback : 1;
+    for (size_t i = start; i < candles.size(); ++i)
+        rets.push_back((candles[i].close - candles[i-1].close) / candles[i-1].close);
     return rets;
 }
-
-double pearson_correlation(const std::vector<double>& a, const std::vector<double>& b) {
+static double pearson_corr(const std::vector<double>& a, const std::vector<double>& b) {
     size_t n = std::min(a.size(), b.size());
     if (n < 20) return 0.0;
-    double mean_a = 0.0, mean_b = 0.0;
-    for (size_t i = 0; i < n; ++i) { mean_a += a[a.size() - n + i]; mean_b += b[b.size() - n + i]; }
-    mean_a /= n; mean_b /= n;
-    double cov = 0.0, var_a = 0.0, var_b = 0.0;
+    double ma = 0.0, mb = 0.0;
+    for (size_t i = a.size()-n; i < a.size(); ++i) { ma += a[i]; mb += b[i]; }
+    ma /= n; mb /= n;
+    double cov = 0.0, va = 0.0, vb = 0.0;
     for (size_t i = 0; i < n; ++i) {
-        double da = a[a.size() - n + i] - mean_a, db = b[b.size() - n + i] - mean_b;
-        cov += da * db; var_a += da * da; var_b += db * db;
+        double da = a[a.size()-n+i] - ma, db = b[b.size()-n+i] - mb;
+        cov += da*db; va += da*da; vb += db*db;
     }
-    if (var_a < 1e-12 || var_b < 1e-12) return 0.0;
-    return cov / std::sqrt(var_a * var_b);
+    return (va < 1e-12 || vb < 1e-12) ? 0.0 : cov / std::sqrt(va * vb);
 }
-
- 
-std::vector<OpenPosition> parse_open_positions(const std::string& json_str) {
-    std::vector<OpenPosition> out;
-
-    cJSON* json = cJSON_Parse(json_str.c_str());
-    if (!json) {
-        std::cerr << "Error: Failed to parse positions JSON payload." << std::endl;
-        return out;
-    }
-
-    cJSON* data = cJSON_GetObjectItem(json, "data");
-    if (!data || !cJSON_IsArray(data)) {
-        cJSON_Delete(json);
-        return out;
-    }
-
-    int arraySize = cJSON_GetArraySize(data);
-    for (int i = 0; i < arraySize; ++i) {
-        cJSON* item = cJSON_GetArrayItem(data, i);
-        if (!item) continue;
-
-        // 1. Parse Volume (Check "holdVol", fallback to "vol")
-        double vol = 0.0;
-        cJSON* holdVolObj = cJSON_GetObjectItem(item, "holdVol");
-        if (holdVolObj) {
-            vol = holdVolObj->valuedouble;
-        } else {
-            cJSON* volObj = cJSON_GetObjectItem(item, "vol");
-            if (volObj) vol = volObj->valuedouble;
-        }
-
-        // Only bother evaluating further if there is an active volume balance
-        if (vol > 0.0) {
-            // 2. Parse Symbol
-            cJSON* symbolObj = cJSON_GetObjectItem(item, "symbol");
-            std::string symbol = symbolObj && symbolObj->valuestring ? symbolObj->valuestring : "";
-
-            if (symbol.empty()) continue;
-
-            // 3. Parse Direction (positionType: 1 = Long, 2 = Short)
-            std::string direction = "LONG";
-            cJSON* posTypeObj = cJSON_GetObjectItem(item, "positionType");
-            if (posTypeObj && posTypeObj->valueint == 2) {
-                direction = "SHORT";
-            }
-
-            // 4. Parse Average Entry Price (Check "openAvgPrice", fallback to "holdAvgPrice")
-            double avg_price = 0.0;
-            cJSON* openAvgPriceObj = cJSON_GetObjectItem(item, "openAvgPrice");
-            if (openAvgPriceObj) {
-                avg_price = openAvgPriceObj->valuedouble;
-            } else {
-                cJSON* holdAvgPriceObj = cJSON_GetObjectItem(item, "holdAvgPrice");
-                if (holdAvgPriceObj) avg_price = holdAvgPriceObj->valuedouble;
-            }
-
-            // 5. Package the data identically to your old parser logic, but null-safe:
-            // an unexpected/missing field from the exchange should not crash a live trading process.
-            double positionValue = std::abs(vol * avg_price);
-			cJSON* createTimeObj = cJSON_GetObjectItem(item, "createTime");
-			std::time_t rawTime = createTimeObj ? (std::time_t)(createTimeObj->valuedouble / 1000) : std::time(nullptr);
-			std::tm timeInfo{};
-			localtime_r(&rawTime, &timeInfo);
-			char buf[16];
-			std::strftime(buf, sizeof(buf), "%Y-%m-%d %H", &timeInfo);
-			std::string createTime(buf);
-
-			cJSON* pnlObj = cJSON_GetObjectItem(item, "unRealizedPnl");
-			float unrealized = pnlObj ? (float)pnlObj->valuedouble : 0.0f;
-			float entryPrice = (float)avg_price;
-
-            out.push_back({symbol, direction, positionValue, createTime, unrealized, entryPrice, 0, 0});
+static double monte_carlo_ruin_prob(const std::vector<double>& trade_returns, double capital = 1000.0, double ruin_threshold = 0.70) {
+    if (trade_returns.size() < 5) return 100.0;
+    int ruin_count = 0;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    for (int sim = 0; sim < MONTE_CARLO_ITERATIONS; ++sim) {
+        std::vector<double> shuffled = trade_returns;
+        std::shuffle(shuffled.begin(), shuffled.end(), gen);
+        double sim_cap = capital;
+        for (double ret : shuffled) {
+            sim_cap *= (1.0 + ret);
+            if (sim_cap <= 0.01) sim_cap = 0.01;
+            if (sim_cap <= capital * ruin_threshold) { ruin_count++; break; }
         }
     }
-
-    // Always free memory allocated by cJSON before exiting
-    cJSON_Delete(json);
+    return (double)ruin_count / MONTE_CARLO_ITERATIONS * 100.0;
+}
+static std::vector<Candle> fetch_candles(Exchange e, const std::string& symbol) {
+    std::vector<Candle> out;
+    auto* cfg = get_exchange(e);
+    if (!cfg) return out;
+    std::string url = cfg->base_url + "/api/v1/contract/kline/" + symbol + "?interval=Min60&limit=2000";
+    std::string resp = http_request(url);
+    if (resp.empty()) return out;
+    auto extract_arr = [&resp](const std::string& key) -> std::vector<double> {
+        std::vector<double> v;
+        std::string tag = "\"" + key + "\":[";
+        size_t start = resp.find(tag);
+        if (start == std::string::npos) return v;
+        start += tag.size();
+        size_t end = resp.find("]", start);
+        if (end == std::string::npos) return v;
+        std::string arr = resp.substr(start, end - start);
+        size_t pos = 0;
+        while (pos < arr.size()) {
+            size_t comma = arr.find(",", pos);
+            std::string num = (comma == std::string::npos) ? arr.substr(pos) : arr.substr(pos, comma - pos);
+            if (!num.empty()) v.push_back(std::stod(num));
+            if (comma == std::string::npos) break;
+            pos = comma + 1;
+        }
+        return v;
+    };
+    auto t = extract_arr("time");
+    auto h = extract_arr("high");
+    auto l = extract_arr("low");
+    auto c = extract_arr("close");
+    size_t n = std::min({t.size(), h.size(), l.size(), c.size()});
+    for (size_t i = 0; i < n; ++i)
+        out.push_back({(long long)(t[i]*1000), h[i], l[i], c[i]});
     return out;
 }
 
-double get_correlated_risk_committed(const std::string& candidate_symbol,
-                                      const std::vector<double>& candidate_returns,
-                                      const PortfolioState& portfolio,
-                                      const std::map<std::string, std::vector<double>>& returns_cache,
-                                      double equity) {
-    double committed = 0.0;
-    for (const auto& pos : portfolio.positions) {
-        if (pos.symbol == candidate_symbol) continue;
-        auto it = returns_cache.find(pos.symbol);
-        if (it == returns_cache.end()) continue;
-        double corr = pearson_correlation(candidate_returns, it->second);
-        if (std::abs(corr) >= CORRELATION_THRESHOLD) committed += RISK_PER_TRADE;
-    }
-    return committed;
-}
-
-std::vector<Candle> fetch_candles(const std::string& symbol) {
-    std::vector<Candle> candles;
-    CURL* curl = curl_easy_init();
-    std::string readBuffer;
-    if (curl) {
-        std::string url = "https://contract.mexc.com/api/v1/contract/kline/" + symbol + "?interval=Min60&limit=2000";
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L); curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback); curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
-        if (curl_easy_perform(curl) == CURLE_OK) {
-            std::vector<double> t = extractArray(readBuffer, "time"); std::vector<double> h = extractArray(readBuffer, "high");
-            std::vector<double> l = extractArray(readBuffer, "low"); std::vector<double> c = extractArray(readBuffer, "close");
-            size_t n = t.size(); candles.reserve(n);
-            for (size_t i = 0; i < n; ++i) candles.push_back({(long long)t[i] * 1000LL, h[i], l[i], c[i]});
-        }
-        curl_easy_cleanup(curl);
-    }
-    return candles;
-}
-
-AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle>& candles, bool verbose = true) {
-    AnalysisResult res;
-    string symbol = symbols[idsmb].mexc;
-    if (candles.size() < 150) return res;
-
-    // TRAIN / HOLDOUT split. Every fold, every grid-search candidate, and the outer
-    // SL/TP scan may only look at candles[0, train_end). candles[train_end, end) is
-    // touched exactly once below, after params are already locked in.
-    size_t train_end = static_cast<size_t>(candles.size() * (1.0 - TEST_FRACTION));
-    if (train_end < 150 || candles.size() - train_end < 40) {
-        if (verbose) std::cout << "  " << symbol << ": not enough history for a clean train/holdout split, skipping.\n";
-        return res;
-    }
-
-    size_t last_closed_idx = candles.size() - 2;
-    Indicators ind = precompute_indicators(candles); // indicator math has no fitted params, safe to run on full series
-    std::map<size_t, std::vector<double>> z_cache;
-
-    FeeConfig fees;
-    fees.borrow_daily = fetch_funding_rate(symbol);
-
-    StrategyParams best_params = {10, 1.0, 1.5};
-    double best_wf_score = -9999.0;
-    WalkForwardResult best_wf;
-    // Trimmed from the original 5x4x4=80 combos to 4x3x3=36 — still meaningfully fewer
-    // degrees of freedom than the original (less room to fit train-region noise), but not
-    // so few that a real edge in the data has nowhere to be found.
-    for (size_t p : {8, 10, 13, 20}) {
-        auto& z_scores = z_cache.try_emplace(p, precompute_zscore(candles, p)).first->second;
-        for (auto t : {0.6, 0.8, 1.0}) {
-            for (auto a : {1.4, 1.7, 2.0}) {
-                StrategyParams cand = {p, t, a};
-                // n_folds=4, min_trades_per_fold=5: same cadence as the original design
-                // (3 candidate folds, 2 must clear the bar), just now confined to the
-                // train region via data_end instead of spanning the whole series.
-                WalkForwardResult wf = evaluate_walk_forward(candles, cand, ind, z_scores, 4, 5, train_end);
-                if (wf.valid_folds < 2) continue;
-                double score = wf.avg_oos_return * (1.0 - wf.avg_oos_dd / 100.0) + 0.5 * wf.avg_wins_per_day;
-                if (score > best_wf_score) { best_wf_score = score; best_params = cand; best_wf = wf; }
-            }
-        }
-    }
-    if (best_wf.valid_folds < 2) {
-        if (verbose) std::cout << "  " << symbol << ": insufficient train-region walk-forward data, skipping.\n";
-        return res;
-    }
-
-    auto& best_z_scores = z_cache[best_params.period];
-
-    // MC and wins/day used for SELECTION/GATING must stay TRAIN-only, or the outer
-    // SL/TP scan would implicitly be fit against the same holdout it's meant to validate.
-    MonteCarloResult mc_res = run_monte_carlo(best_wf.pooled_trade_pcts, 1000.0, 2000);
-    double wf_daily_return = (best_wf.avg_test_days > 0) ? best_wf.avg_oos_return / best_wf.avg_test_days : 0.0;
-
-    // --- TRUE holdout: candles[train_end, end) was never seen above. One shot, no cherry-picking. ---
-    BacktestResult holdout = run_backtest(candles, best_params, ind, best_z_scores, train_end, candles.size() - 1, fees);
-    long long span_ms = candles.back().timestamp - candles[train_end].timestamp;
-    double holdout_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
-    double holdout_daily_return = holdout.total_return / holdout_days;
-
-    if (verbose) {
-        std::cout << "Best Params " << symbol << ": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult
-                  << " | funding(daily)=" << std::setprecision(4) << fees.borrow_daily * 100.0 << "%\n"
-                  << "TRAIN Walk-Forward Avg OOS: " << std::fixed << std::setprecision(2) << best_wf.avg_oos_return
-                  << "% over " << best_wf.valid_folds << " folds (wins/day: " << best_wf.avg_wins_per_day
-                  << ", daily return: " << wf_daily_return << "%) [in-sample — used for selection]\n"
-                  << "TRUE HOLDOUT (" << holdout_days << "d, never touched during fitting): "
-                  << holdout.total_return << "% | Drawdown: " << holdout.max_drawdown
-                  << "% | daily: " << holdout_daily_return << "% | trades: " << holdout.total_trades << "\n"
-                  << "Monte Carlo (train) -> Prob of Ruin: " << mc_res.prob_of_ruin << "% | Worst-Case DD: " << mc_res.worst_case_drawdown << "%\n\n";
-    }
-
-    res.oos_return = holdout.total_return;
-    res.oos_drawdown = holdout.max_drawdown;
-    res.oos_trades = holdout.total_trades;
-    res.oos_wins = holdout.winning_longs + holdout.winning_shorts;
-    res.oos_days = holdout_days;
-    res.holdout_daily_return = holdout_daily_return;
-    res.walk_forward_daily_return = wf_daily_return;
-    res.walk_forward_score = best_wf.avg_oos_return;
-    res.train_wins_per_day = best_wf.avg_wins_per_day;
-    res.oos_trade_pcts = holdout.trade_pcts;
-    res.oos_trade_dirs = holdout.trade_dirs;
-    res.signal = generate_signal(candles, last_closed_idx, best_params, equity, ind);
-    res.mc = mc_res;
-    res.recent_returns = compute_returns(candles, 200);
-    res.success = true;
-    return res;
-}
-
-struct RankedSymbol { size_t index; AnalysisResult analysis; };
-
-struct DeploymentResult {
-    double cumulative_oos = 0.0;           // sum of TRAIN walk‑forward avg OOS returns (in-sample, for combo selection only)
-    size_t slots_filled = 0;
-    double avg_wins_per_day = 0.0;
-    double projected_daily_return_wf = 0.0;      // sum of TRAIN walk-forward daily returns of deployed slots (in-sample)
-    double projected_daily_return_holdout = 0.0; // sum of TRUE HOLDOUT daily returns of deployed slots (out-of-sample; only meaningful when enforce_holdout_gate=true)
+// ======================================================================
+// ESTRATÉGIAS (6 completas, sem resumos)
+// ======================================================================
+class StrategyBase {
+public:
+    virtual ~StrategyBase() = default;
+    virtual std::string name() const = 0;
+    virtual bool validate(Exchange e, const std::vector<Candle>& candles, size_t train_end,
+                          std::map<std::string,double>& best_params,
+                          std::vector<double>& holdout_trade_rets,
+                          double& holdout_sharpe, int& holdout_trades,
+                          double& mc_ruin_prob) = 0;
+    virtual Signal generate(Exchange e, const std::string& symbol, const std::vector<Candle>& candles,
+                            size_t idx, double equity, const std::vector<OpenPos>& positions) = 0;
+    void set_params(const std::map<std::string,double>& p) { params_ = p; }
+protected:
+    std::map<std::string,double> params_;
+    virtual void backtest_slice(const std::vector<Candle>& candles, size_t start, size_t end,
+                                const std::map<std::string,double>& params,
+                                std::vector<double>& trades) = 0;
 };
 
-// enforce_holdout_gate should be false during the SL/TP scanning phase (so the scan never
-// touches holdout data) and true only for the final live pass, where a symbol whose true
-// holdout performance collapsed gets vetoed even though it looked fine on train data.
-DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
-                                      const std::map<std::string, std::vector<double>>& returns_cache,
-                                      double equity,
-                                      PortfolioState portfolio,
-                                      bool execute_orders,
-                                      bool verbose,
-                                      const std::vector<symbolstruct>& syms,
-                                      bool enforce_holdout_gate = false) {
-    DeploymentResult dr;
-    const size_t MAX_SIMULTANEOUS_ASSETS = 4;
-    PortfolioState working_portfolio = portfolio;
-
-    if (verbose) std::cout << "\n------------------ DEPLOYMENT MATRIX ------------------\n";
-    double total_wpd = 0.0;
-    double total_daily_return_wf = 0.0;
-    double total_daily_return_holdout = 0.0;
-    int accepted_count = 0;
-
-    for (const auto& item : pipeline) {
-        size_t idx = item.index;
-        const auto& report = item.analysis;
-        const std::string& sym = syms[idx].mexc;
-
-        if (dr.slots_filled >= MAX_SIMULTANEOUS_ASSETS) {
-            if (verbose) std::cout << "[SKIPPED] " << sym << " (WF: " << report.walk_forward_score << "%) - Exceeds portfolio limit slots.\n";
-            continue;
-        }
-        if (report.walk_forward_score <= 0.0) {
-            if (verbose) std::cout << "[FILTERED] " << sym << " (WF: " << report.walk_forward_score << "%) - No validated edge across folds.\n";
-            continue;
-        }
-        if (report.mc.worst_case_drawdown > 12) {
-            if (verbose) std::cout << "[RISK-REJECTED] " << sym << " | WF: " << report.walk_forward_score
-                      << "% but Monte Carlo Worst-Case DD: " << report.mc.worst_case_drawdown << "%\n";
-            continue;
-        }
-
-        // Wins/day gate uses TRAIN-derived frequency consistently, whether this is a scan
-        // pass or the final pass — using holdout wins/day here would let the SL/TP scan
-        // implicitly optimize against the holdout it's supposed to be blind to.
-        if (report.train_wins_per_day < MIN_WINS_PER_DAY) {
-            if (verbose) std::cout << "[LOW FREQ] " << sym << " | train wins/day=" << std::fixed << std::setprecision(3) << report.train_wins_per_day
-                      << " below threshold " << MIN_WINS_PER_DAY << ", skipping.\n";
-            continue;
-        }
-
-        // Holdout veto: only applied on the final live pass. A strategy that looked
-        // good on train but lost money on data it never saw gets pulled here, without
-        // that information ever having influenced parameter selection.
-        if (enforce_holdout_gate && report.oos_return <= 0.0) {
-            if (verbose) std::cout << "[HOLDOUT-REJECTED] " << sym << " | TRAIN WF looked fine (" << report.walk_forward_score
-                      << "%) but true holdout return was " << report.oos_return << "% over " << report.oos_days << "d — not deploying.\n";
-            continue;
-        }
-
-        double corr_risk = get_correlated_risk_committed(sym, report.recent_returns, working_portfolio, returns_cache, equity);
-        if (corr_risk + RISK_PER_TRADE > MAX_CORRELATED_RISK) {
-            if (verbose) std::cout << "[CORRELATION-REJECTED] " << sym << " | Correlated risk already committed: "
-                      << (corr_risk * 100.0) << "% of equity, adding this would exceed the "
-                      << (MAX_CORRELATED_RISK * 100.0) << "% correlated-bucket cap.\n";
-            continue;
-        }
-
-        dr.cumulative_oos += report.walk_forward_score;
-        total_wpd += report.train_wins_per_day;
-        total_daily_return_wf += report.walk_forward_daily_return;
-        total_daily_return_holdout += report.holdout_daily_return;
-        accepted_count++;
-
-        if (verbose) {
-            std::cout << ">>> [VALIDATED] Slot #" << (dr.slots_filled + 1) << ": Deploying to " << sym
-                      << " | TRAIN WF OOS: " << report.walk_forward_score << "% | train wins/day: " << std::fixed << std::setprecision(3) << report.train_wins_per_day
-                      << " | daily return (train WF): " << std::setprecision(3) << report.walk_forward_daily_return << "%"
-                      << " | daily return (TRUE holdout): " << report.holdout_daily_return << "%"
-                      << " | Signal: " << report.signal.direction << "\n";
-            std::cout << " -> Last Tested Trades (Holdout OOS): ";
-            if (report.oos_trade_pcts.empty()) {
-                std::cout << "None\n";
+// --- Estratégia 1: Trend Exhaustion ---
+class TrendExhaustion : public StrategyBase {
+public:
+    std::string name() const override { return "trend_exhaustion"; }
+    void backtest_slice(const std::vector<Candle>& candles, size_t start, size_t end,
+                        const std::map<std::string,double>& params,
+                        std::vector<double>& trades) override {
+        double cap = 1000.0, pos = 0, entry = 0;
+        size_t period = (size_t)params.at("period");
+        double th = params.at("threshold");
+        double am = params.at("atr_mult");
+        for (size_t i = start; i < end && i < candles.size(); ++i) {
+            if (i < period + 10) continue;
+            double z = calc_zscore(candles, i, period);
+            double atr = calc_atr(candles, i);
+            if (atr <= 0) continue;
+            if (pos == 0) {
+                if (z < -th) { pos = (cap * 0.02) / (atr * am); entry = candles[i].close; }
+                else if (z > th) { pos = -(cap * 0.02) / (atr * am); entry = candles[i].close; }
             } else {
-                int start = std::max(0, (int)report.oos_trade_pcts.size() - 10);
-                for (size_t t = start; t < report.oos_trade_pcts.size(); ++t) {
-                    std::string dir = report.oos_trade_dirs[t];
-                    double pct = report.oos_trade_pcts[t] * 100.0;
-                    std::cout << dir << "(";
-                    if (pct >= 0) std::cout << "+";
-                    std::cout << std::fixed << std::setprecision(2) << pct << "%) ";
-                }
-                std::cout << "\n";
+                double pnl = pos * (candles[i].close - entry);
+                double sl_dist = atr * am;
+                bool exit = (pos > 0 && candles[i].low <= entry - sl_dist) ||
+                            (pos < 0 && candles[i].high >= entry + sl_dist) ||
+                            (pos > 0 && candles[i].high >= entry + sl_dist * 2) ||
+                            (pos < 0 && candles[i].low <= entry - sl_dist * 2);
+                if (exit || i == end - 1) { cap += pnl; trades.push_back(pnl / 1000.0); pos = 0; }
             }
         }
-
-        if (report.signal.direction != "WAIT") {
-            double qty = report.signal.exact_position_btc;
-            double notional = qty * report.signal.entry;
-
-            if (qty > 0) {
-                if (execute_orders) {
-                    printf(" -> EXECUTE ORDER: %s %s | Qty: %f | Entry: %f | SL: %f | TP: %f\n",
-                           sym.c_str(), (report.signal.direction == "LONG" ? "BUY" : "SELL"),
-                           qty, report.signal.entry, report.signal.stop_loss, report.signal.take_profit);
-                    std::cout << " -> Required Leverage: " << (notional / equity) << "x\n";
-
-                    openAtomicBracketFuturesPosition(
-                        sym,
-                        report.signal.direction == "LONG" ? "BUY" : "SELL",
-                        qty,
-                        report.signal.entry,
-                        report.signal.stop_loss,
-                        report.signal.take_profit
-                    );
-                } else if (verbose) {
-                    std::cout << " -> [DRY RUN] Would execute " << report.signal.direction << " on " << sym << "\n";
-                }
-                working_portfolio.positions.push_back({sym, report.signal.direction, notional});
+    }
+    bool validate(Exchange e, const std::vector<Candle>& candles, size_t train_end,
+                  std::map<std::string,double>& bp, std::vector<double>& hrets,
+                  double& hsharpe, int& htrades, double& mc_ruin) override {
+        if (candles.size() < 200 || train_end < 200) return false;
+        std::vector<int> periods = {8,10,13,20};
+        std::vector<double> ths = {0.6,0.8,1.0,1.2};
+        std::vector<double> ams = {1.4,1.7,2.0,2.3};
+        double best_score = -1e9;
+        for (int p : periods) for (double th : ths) for (double am : ams) {
+            std::map<std::string,double> tp;
+            tp["period"] = p; tp["threshold"] = th; tp["atr_mult"] = am;
+            std::vector<double> fold_rets;
+            size_t fold_sz = train_end / 4;
+            for (size_t f = 0; f + 2 <= 4; ++f) {
+                size_t ts = fold_sz*(f+1), te = std::min(train_end, fold_sz*(f+2));
+                if (ts >= te) continue;
+                std::vector<double> st;
+                backtest_slice(candles, ts, te, tp, st);
+                fold_rets.insert(fold_rets.end(), st.begin(), st.end());
             }
-        } else if (verbose) {
-            std::cout << " -> Market pattern neutral. No live trade trigger generated.\n";
+            if (fold_rets.size() < 5) continue;
+            double avg = std::accumulate(fold_rets.begin(), fold_rets.end(), 0.0) / fold_rets.size();
+            if (avg * fold_rets.size() > best_score) { best_score = avg * fold_rets.size(); bp = tp; }
         }
-        dr.slots_filled++;
+        if (bp.empty()) return false;
+        hrets.clear();
+        backtest_slice(candles, train_end, candles.size()-1, bp, hrets);
+        htrades = hrets.size();
+        if (htrades < MIN_TRADES_HOLDOUT) return false;
+        double mean_ret = std::accumulate(hrets.begin(), hrets.end(), 0.0) / htrades;
+        double var = 0;
+        for (double r : hrets) var += (r - mean_ret)*(r - mean_ret);
+        double std_ret = std::sqrt(var / htrades);
+        hsharpe = (std_ret > 0) ? mean_ret / std_ret * std::sqrt(htrades) : 0;
+        mc_ruin = monte_carlo_ruin_prob(hrets);
+        return hsharpe >= MIN_HOLDOUT_SHARPE && mc_ruin <= MAX_MC_RUIN_PROB;
     }
-    if (accepted_count > 0) {
-        dr.avg_wins_per_day = total_wpd / accepted_count;
-        dr.projected_daily_return_wf = total_daily_return_wf;
-        dr.projected_daily_return_holdout = total_daily_return_holdout;
+    Signal generate(Exchange e, const std::string& symbol, const std::vector<Candle>& candles,
+                    size_t idx, double equity, const std::vector<OpenPos>& positions) override {
+        Signal s; s.strategy_name = name(); s.exchange = e;
+        if (idx < 101) return s;
+        double z = calc_zscore(candles, idx, (size_t)params_["period"]);
+        double atr = calc_atr(candles, idx);
+        if (z < -params_["threshold"]) s.direction = "LONG";
+        else if (z > params_["threshold"]) s.direction = "SHORT";
+        else return s;
+        double stop_dist = atr * params_["atr_mult"];
+        s.entry = get_current_price(e, symbol);
+        s.stop_loss = (s.direction=="LONG") ? s.entry - stop_dist : s.entry + stop_dist;
+        s.take_profit = (s.direction=="LONG") ? s.entry + stop_dist * 2 : s.entry - stop_dist * 2;
+        s.confidence = std::min(90.0, 40.0 + std::abs(z) * 10.0);
+        s.risk_percent = std::min(MAX_RISK_PER_TRADE, 0.02);
+        return s;
     }
-    if (verbose) std::cout << "--------------------------------------------------------\n";
-    return dr;
-}
+};
 
-int main() {
-    symbols = get_hyperliquid_top_symbols(20);
-    std::cout << "Successfully mapped " << symbols.size() << " top symbols by volume from Hyperliquid.\n\n";
-    money moneyei = getUsdtFuturesBalance();
-	getOpenPositionSymbols();
-    std::string openPositions = opened_positions;
-    std::cout << "Current Account Equity: " << moneyei.equity << " USDT\n";
-
-    PortfolioState base_portfolio;
-    base_portfolio.positions = parse_open_positions(openPositions);
-    std::cout << "Reconstructed " << base_portfolio.positions.size() << " open position(s) from exchange:\n";
-    for (const auto& p : base_portfolio.positions)
-        std::cout << "  " << p.symbol << " " << p.direction << " notional~" << p.notional_usd << " USDT "
-	<<" createTime:"<<p.createTime
-	<<" entry:"<<p.entry
-	<<" gain:"<<p.unRealizedPnl
-	<<"\n";
-
-    vector<std::string> gops = getOpenPositionSymbols();
-    cout << "Active Structural Positions: " << gops.size() << "\n\n";
-    for (size_t i = 0; i < gops.size(); i++) cout << "gops: " << gops[i] << "\n";
-	
-
-    std::cout << "--- Fetching candle history for " << symbols.size() << " symbols ---\n";
-    std::vector<std::vector<Candle>> candle_cache(symbols.size());
-    for (size_t i = 0; i < symbols.size(); i++) {
-        candle_cache[i] = fetch_candles(symbols[i].mexc);
-        std::cout << "  " << symbols[i].mexc << ": " << candle_cache[i].size() << " candles\n";
-    }
-
-	
-	cancelAllPendingOrders();
-
-    std::cout << "\n--- Scanning MIN_SL_PCT x tp_factor combinations ---\n";
-    double best_combo_sl = SL_CANDIDATES[0], best_combo_tp = TP_CANDIDATES[0];
-    double best_combo_score = -1e18;
-    for (double sl : SL_CANDIDATES) {
-        for (double tp : TP_CANDIDATES) {
-            MIN_SL_PCT = sl;
-            tp_factor = tp;
-
-            std::vector<RankedSymbol> pipeline;
-            std::map<std::string, std::vector<double>> returns_cache;
-            for (size_t i = 0; i < symbols.size(); i++) {
-                if (candle_cache[i].empty()) continue;
-                AnalysisResult report = analyze_symbol(i, moneyei.equity, candle_cache[i], /*verbose=*/false);
-                if (report.success) {
-                    returns_cache[symbols[i].mexc] = report.recent_returns;
-                    pipeline.push_back({i, report});
+// --- Estratégia 2: EMA Trend Follow ---
+class EMATrendFollow : public StrategyBase {
+public:
+    std::string name() const override { return "ema_trend"; }
+    void backtest_slice(const std::vector<Candle>& candles, size_t start, size_t end,
+                        const std::map<std::string,double>& params,
+                        std::vector<double>& trades) override {
+        double cap = 1000.0, pos = 0, entry = 0;
+        size_t fast = (size_t)params.at("fast_period"), slow = (size_t)params.at("slow_period");
+        double am = params.at("atr_mult");
+        for (size_t i = start; i < end && i < candles.size(); ++i) {
+            if (i < slow + 5) continue;
+            double ema_fast = calc_ema(candles, i, fast), ema_slow = calc_ema(candles, i, slow);
+            double atr = calc_atr(candles, i);
+            if (atr <= 0) continue;
+            if (pos == 0) {
+                if (ema_fast > ema_slow) { pos = (cap * 0.02) / (atr * am); entry = candles[i].close; }
+            } else {
+                double pnl = pos * (candles[i].close - entry);
+                double sl_dist = atr * am;
+                if (ema_fast < ema_slow || candles[i].low <= entry - sl_dist || i == end - 1 ||
+                    candles[i].high >= entry + sl_dist * 3) {
+                    cap += pnl; trades.push_back(pnl / 1000.0); pos = 0;
                 }
             }
-            std::sort(pipeline.begin(), pipeline.end(), [](const RankedSymbol& a, const RankedSymbol& b) {
-                return a.analysis.walk_forward_score > b.analysis.walk_forward_score;
-            });
+        }
+    }
+    bool validate(Exchange e, const std::vector<Candle>& candles, size_t train_end,
+                  std::map<std::string,double>& bp, std::vector<double>& hrets,
+                  double& hsharpe, int& htrades, double& mc_ruin) override {
+        if (candles.size() < 200 || train_end < 200) return false;
+        std::vector<std::pair<int,int>> periods = {{10,30},{20,50},{30,80},{40,100}};
+        std::vector<double> ams = {1.5,2.0,2.5};
+        double best_score = -1e9;
+        for (auto [f,s] : periods) for (double am : ams) {
+            std::map<std::string,double> tp;
+            tp["fast_period"]=f; tp["slow_period"]=s; tp["atr_mult"]=am;
+            std::vector<double> fold_rets;
+            size_t fold_sz = train_end / 4;
+            for (size_t fold=0; fold+2<=4; ++fold) {
+                size_t ts=fold_sz*(fold+1), te=std::min(train_end,fold_sz*(fold+2));
+                if(ts>=te) continue;
+                std::vector<double> st;
+                backtest_slice(candles,ts,te,tp,st);
+                fold_rets.insert(fold_rets.end(),st.begin(),st.end());
+            }
+            if(fold_rets.size()<5) continue;
+            double avg = std::accumulate(fold_rets.begin(),fold_rets.end(),0.0)/fold_rets.size();
+            if(avg*fold_rets.size()>best_score) { best_score=avg*fold_rets.size(); bp=tp; }
+        }
+        if(bp.empty()) return false;
+        hrets.clear();
+        backtest_slice(candles,train_end,candles.size()-1,bp,hrets);
+        htrades=hrets.size();
+        if(htrades<MIN_TRADES_HOLDOUT) return false;
+        double mean_ret = std::accumulate(hrets.begin(),hrets.end(),0.0)/htrades, var=0;
+        for(double r:hrets) var+=(r-mean_ret)*(r-mean_ret);
+        double std_ret=std::sqrt(var/htrades);
+        hsharpe=(std_ret>0)?mean_ret/std_ret*std::sqrt(htrades):0;
+        mc_ruin=monte_carlo_ruin_prob(hrets);
+        return hsharpe>=MIN_HOLDOUT_SHARPE && mc_ruin<=MAX_MC_RUIN_PROB;
+    }
+    Signal generate(Exchange e, const std::string& symbol, const std::vector<Candle>& candles,
+                    size_t idx, double equity, const std::vector<OpenPos>& positions) override {
+        Signal s; s.strategy_name=name(); s.exchange=e;
+        if(idx<60) return s;
+        double fast=calc_ema(candles,idx,(size_t)params_["fast_period"]);
+        double slow=calc_ema(candles,idx,(size_t)params_["slow_period"]);
+        if(fast<=slow) return s;
+        double atr=calc_atr(candles,idx), stop_dist=atr*params_["atr_mult"];
+        s.entry=get_current_price(e,symbol);
+        s.direction="LONG";
+        s.stop_loss=s.entry-stop_dist; s.take_profit=s.entry+stop_dist*3;
+        s.confidence=55+(fast-slow)/slow*100;
+        s.risk_percent=std::min(MAX_RISK_PER_TRADE,0.02);
+        return s;
+    }
+};
 
-            DeploymentResult dry = simulate_deployment(pipeline, returns_cache, moneyei.equity,
-                                                        base_portfolio, /*execute_orders=*/false,
-                                                        /*verbose=*/false, symbols);
-
-            double combo_score = dry.cumulative_oos;   // only walk‑forward OOS; no extra win‑rate term
-            std::cout << "  [SCAN] MIN_SL_PCT=" << (sl * 100.0) << "% tp_factor=" << tp
-                      << "x -> Cumulative WF OOS: " << std::fixed << std::setprecision(2)
-                      << dry.cumulative_oos << "% (slots=" << dry.slots_filled
-                      << ", avg wins/day=" << std::setprecision(3) << dry.avg_wins_per_day
-                      << ", combo_score=" << std::setprecision(2) << combo_score << ")\n";
-
-            if (dry.slots_filled > 0 && combo_score > best_combo_score) {
-                best_combo_score = combo_score;
-                best_combo_sl = sl;
-                best_combo_tp = tp;
+// --- Estratégia 3: RSI Mean Reversion ---
+class RSIMeanRev : public StrategyBase {
+public:
+    std::string name() const override { return "rsi_mean_rev"; }
+    void backtest_slice(const std::vector<Candle>& candles, size_t start, size_t end,
+                        const std::map<std::string,double>& params,
+                        std::vector<double>& trades) override {
+        double cap=1000.0,pos=0,entry=0;
+        size_t period=(size_t)params.at("rsi_period");
+        double oversold=params.at("oversold"), overbought=params.at("overbought"), am=params.at("atr_mult");
+        for(size_t i=start;i<end&&i<candles.size();++i) {
+            if(i<period+5) continue;
+            double rsi=calc_rsi(candles,i,period), atr=calc_atr(candles,i);
+            if(atr<=0) continue;
+            if(pos==0) {
+                if(rsi<oversold) { pos=(cap*0.02)/(atr*am); entry=candles[i].close; }
+                else if(rsi>overbought) { pos=-(cap*0.02)/(atr*am); entry=candles[i].close; }
+            } else {
+                double pnl=pos*(candles[i].close-entry), sl_dist=atr*am;
+                bool exit=(pos>0&&(rsi>50||candles[i].low<=entry-sl_dist))||
+                          (pos<0&&(rsi<50||candles[i].high>=entry+sl_dist))||
+                          (pos>0&&candles[i].high>=entry+sl_dist*2)||
+                          (pos<0&&candles[i].low<=entry-sl_dist*2);
+                if(exit||i==end-1) { cap+=pnl; trades.push_back(pnl/1000.0); pos=0; }
             }
         }
     }
-
-    if (best_combo_score <= -1e17) {
-        std::cout << "\nNo (MIN_SL_PCT, tp_factor) combination produced any validated slots. Defensive phase, no trades.\n";
-        return 0;
+    bool validate(Exchange e, const std::vector<Candle>& candles, size_t train_end,
+                  std::map<std::string,double>& bp, std::vector<double>& hrets,
+                  double& hsharpe, int& htrades, double& mc_ruin) override {
+        if(candles.size()<200||train_end<200) return false;
+        std::vector<int> periods={10,14,20};
+        std::vector<double> overs={25,30,35}, overs_b={65,70,75}, ams={1.5,2.0};
+        double best_score=-1e9;
+        for(int p:periods) for(double ov:overs) for(double ob:overs_b) for(double am:ams) {
+            std::map<std::string,double> tp;
+            tp["rsi_period"]=p; tp["oversold"]=ov; tp["overbought"]=ob; tp["atr_mult"]=am;
+            std::vector<double> fold_rets;
+            size_t fold_sz=train_end/4;
+            for(size_t f=0;f+2<=4;++f) {
+                size_t ts=fold_sz*(f+1), te=std::min(train_end,fold_sz*(f+2));
+                if(ts>=te) continue;
+                std::vector<double> st;
+                backtest_slice(candles,ts,te,tp,st);
+                fold_rets.insert(fold_rets.end(),st.begin(),st.end());
+            }
+            if(fold_rets.size()<5) continue;
+            double avg=std::accumulate(fold_rets.begin(),fold_rets.end(),0.0)/fold_rets.size();
+            if(avg*fold_rets.size()>best_score) { best_score=avg*fold_rets.size(); bp=tp; }
+        }
+        if(bp.empty()) return false;
+        hrets.clear();
+        backtest_slice(candles,train_end,candles.size()-1,bp,hrets);
+        htrades=hrets.size();
+        if(htrades<MIN_TRADES_HOLDOUT) return false;
+        double mean_ret=std::accumulate(hrets.begin(),hrets.end(),0.0)/htrades, var=0;
+        for(double r:hrets) var+=(r-mean_ret)*(r-mean_ret);
+        double std_ret=std::sqrt(var/htrades);
+        hsharpe=(std_ret>0)?mean_ret/std_ret*std::sqrt(htrades):0;
+        mc_ruin=monte_carlo_ruin_prob(hrets);
+        return hsharpe>=MIN_HOLDOUT_SHARPE && mc_ruin<=MAX_MC_RUIN_PROB;
     }
+    Signal generate(Exchange e, const std::string& symbol, const std::vector<Candle>& candles,
+                    size_t idx, double equity, const std::vector<OpenPos>& positions) override {
+        Signal s; s.strategy_name=name(); s.exchange=e;
+        if(idx<20) return s;
+        double rsi=calc_rsi(candles,idx,(size_t)params_["rsi_period"]), atr=calc_atr(candles,idx);
+        double stop_dist=atr*params_["atr_mult"];
+        s.entry=get_current_price(e,symbol);
+        if(rsi<params_["oversold"]) { s.direction="LONG"; s.stop_loss=s.entry-stop_dist; s.take_profit=s.entry+stop_dist*2; }
+        else if(rsi>params_["overbought"]) { s.direction="SHORT"; s.stop_loss=s.entry+stop_dist; s.take_profit=s.entry-stop_dist*2; }
+        else return s;
+        s.confidence=std::min(85.0,40.0+(rsi<30?30-rsi:rsi-70));
+        s.risk_percent=std::min(MAX_RISK_PER_TRADE,0.018);
+        return s;
+    }
+};
 
-    std::cout << "\n>>> Selected MIN_SL_PCT=" << (best_combo_sl * 100.0) << "% tp_factor=" << best_combo_tp
-              << "x with combo_score " << best_combo_score << "\n";
-    MIN_SL_PCT = best_combo_sl;
-    tp_factor = best_combo_tp;
-
-    std::vector<RankedSymbol> pipeline;
-    std::map<std::string, std::vector<double>> returns_cache;
-    std::cout << "\n--- Final Screening Pass (Selected Parameters) ---\n";
-    for (size_t i = 0; i < symbols.size(); i++) {
-        if (candle_cache[i].empty()) continue;
-        AnalysisResult report = analyze_symbol(i, moneyei.equity, candle_cache[i], /*verbose=*/true);
-        if (report.success) {
-            returns_cache[symbols[i].mexc] = report.recent_returns;
-            pipeline.push_back({i, report});
+// --- Estratégia 4: Bollinger Squeeze ---
+class BollingerSqueeze : public StrategyBase {
+public:
+    std::string name() const override { return "bollinger_squeeze"; }
+    void backtest_slice(const std::vector<Candle>& candles, size_t start, size_t end,
+                        const std::map<std::string,double>& params,
+                        std::vector<double>& trades) override {
+        double cap=1000.0,pos=0,entry=0;
+        size_t period=(size_t)params.at("period");
+        double std_mult=params.at("std_mult"), am=params.at("atr_mult");
+        for(size_t i=start;i<end&&i<candles.size();++i) {
+            if(i<period+5) continue;
+            double sum=0,sq=0;
+            for(size_t j=i-period;j<=i;++j) sum+=candles[j].close;
+            double mean=sum/(period+1);
+            for(size_t j=i-period;j<=i;++j) sq+=(candles[j].close-mean)*(candles[j].close-mean);
+            double std=std::sqrt(sq/(period+1));
+            double upper=mean+std*std_mult, lower=mean-std*std_mult;
+            double close=candles[i].close, atr=calc_atr(candles,i);
+            if(atr<=0) continue;
+            if(pos==0) {
+                if(close<lower) { pos=(cap*0.02)/(atr*am); entry=close; }
+                else if(close>upper) { pos=-(cap*0.02)/(atr*am); entry=close; }
+            } else {
+                double pnl=pos*(close-entry), sl_dist=atr*am;
+                bool exit=(pos>0&&close>=mean)||(pos<0&&close<=mean)||
+                          (pos>0&&candles[i].low<=entry-sl_dist)||(pos<0&&candles[i].high>=entry+sl_dist);
+                if(exit||i==end-1) { cap+=pnl; trades.push_back(pnl/1000.0); pos=0; }
+            }
         }
     }
-    std::sort(pipeline.begin(), pipeline.end(), [](const RankedSymbol& a, const RankedSymbol& b) {
-        return a.analysis.walk_forward_score > b.analysis.walk_forward_score;
-    });
-
-    DeploymentResult live = simulate_deployment(pipeline, returns_cache, moneyei.equity,
-                                                 base_portfolio, /*execute_orders=*/true,
-                                                 /*verbose=*/true, symbols, /*enforce_holdout_gate=*/true);
-
-    if (live.slots_filled > 0) {
-        cout << "\nPortfolio Deployed Slots: " << live.slots_filled << " / 4\n";
-        cout << "Cumulative TRAIN Walk-Forward OOS Return: " << live.cumulative_oos << "% [in-sample, used only for parameter selection]\n";
-        cout << "Average wins/day (train): " << live.avg_wins_per_day << "\n";
-        cout << "Projected daily return (TRAIN walk-forward, in-sample): " << live.projected_daily_return_wf << "% per day\n";
-        cout << "Projected daily return (TRUE HOLDOUT, out-of-sample, never used for fitting): "
-             << live.projected_daily_return_holdout << "% per day\n";
-        cout << "NOTE: the holdout figure above is a single ~" << (TEST_FRACTION * 100.0)
-             << "% window per symbol, not a statistically robust estimate. Apply an additional "
-             << "haircut for execution slippage, latency, and regime change not captured in any backtest — "
-             << "treat both numbers as upper bounds, not guarantees, and confirm with live paper-trading before sizing real capital.\n";
-    } else {
-        cout << "Defensive Phase: 0 Slots Allocated. All assets filtered out.\n";
+    bool validate(Exchange e, const std::vector<Candle>& candles, size_t train_end,
+                  std::map<std::string,double>& bp, std::vector<double>& hrets,
+                  double& hsharpe, int& htrades, double& mc_ruin) override {
+        if (candles.size() < 200 || train_end < 200) return false;
+        std::vector<int> periods = {15,20,25};
+        std::vector<double> std_mults = {1.5,2.0,2.5};
+        std::vector<double> ams = {1.5,2.0};
+        double best_score = -1e9;
+        for (int p : periods) for (double sm : std_mults) for (double am : ams) {
+            std::map<std::string,double> tp;
+            tp["period"] = p; tp["std_mult"] = sm; tp["atr_mult"] = am;
+            std::vector<double> fold_rets;
+            size_t fold_sz = train_end / 4;
+            for (size_t f = 0; f + 2 <= 4; ++f) {
+                size_t ts = fold_sz * (f+1), te = std::min(train_end, fold_sz * (f+2));
+                if (ts >= te) continue;
+                std::vector<double> st;
+                backtest_slice(candles, ts, te, tp, st);
+                fold_rets.insert(fold_rets.end(), st.begin(), st.end());
+            }
+            if (fold_rets.size() < 5) continue;
+            double avg = std::accumulate(fold_rets.begin(), fold_rets.end(), 0.0) / fold_rets.size();
+            if (avg * fold_rets.size() > best_score) { best_score = avg * fold_rets.size(); bp = tp; }
+        }
+        if (bp.empty()) return false;
+        hrets.clear();
+        backtest_slice(candles, train_end, candles.size()-1, bp, hrets);
+        htrades = hrets.size();
+        if (htrades < MIN_TRADES_HOLDOUT) return false;
+        double mean_ret = std::accumulate(hrets.begin(), hrets.end(), 0.0) / htrades;
+        double var = 0;
+        for (double r : hrets) var += (r - mean_ret) * (r - mean_ret);
+        double std_ret = std::sqrt(var / htrades);
+        hsharpe = (std_ret > 0) ? mean_ret / std_ret * std::sqrt(htrades) : 0;
+        mc_ruin = monte_carlo_ruin_prob(hrets);
+        return hsharpe >= MIN_HOLDOUT_SHARPE && mc_ruin <= MAX_MC_RUIN_PROB;
     }
+    Signal generate(Exchange e, const std::string& symbol, const std::vector<Candle>& candles,
+                    size_t idx, double equity, const std::vector<OpenPos>& positions) override {
+        Signal s; s.strategy_name = name(); s.exchange = e;
+        if (idx < 25) return s;
+        size_t period = (size_t)params_["period"];
+        double sum = 0, sq = 0;
+        for (size_t i = idx - period; i <= idx; ++i) sum += candles[i].close;
+        double mean = sum / (period + 1);
+        for (size_t i = idx - period; i <= idx; ++i) sq += (candles[i].close - mean) * (candles[i].close - mean);
+        double std = std::sqrt(sq / (period + 1));
+        double upper = mean + std * params_["std_mult"], lower = mean - std * params_["std_mult"];
+        double close = candles[idx].close, atr = calc_atr(candles, idx);
+        double stop_dist = atr * params_["atr_mult"];
+        s.entry = get_current_price(e, symbol);
+        if (close < lower) { s.direction = "LONG"; s.stop_loss = s.entry - stop_dist; s.take_profit = mean; }
+        else if (close > upper) { s.direction = "SHORT"; s.stop_loss = s.entry + stop_dist; s.take_profit = mean; }
+        else return s;
+        s.confidence = 50; s.risk_percent = std::min(MAX_RISK_PER_TRADE, 0.02);
+        return s;
+    }
+};
+
+// --- Estratégia 5: SuperTrend ---
+class SuperTrend : public StrategyBase {
+public:
+    std::string name() const override { return "supertrend"; }
+    void backtest_slice(const std::vector<Candle>& candles, size_t start, size_t end,
+                        const std::map<std::string,double>& params,
+                        std::vector<double>& trades) override {
+        double cap = 1000.0, pos = 0, entry = 0;
+        int atr_period = (int)params.at("atr_period");
+        double multiplier = params.at("multiplier");
+        double upper = 0, lower = 0;
+        bool uptrend = false;
+        for (size_t i = start; i < end && i < candles.size(); ++i) {
+            if (i < (size_t)atr_period + 1) continue;
+            double atr = calc_atr(candles, i, atr_period);
+            double hl2 = (candles[i].high + candles[i].low) / 2.0;
+            if (i == start + atr_period) {
+                double basic_upper = hl2 + multiplier * atr;
+                double basic_lower = hl2 - multiplier * atr;
+                upper = basic_upper; lower = basic_lower;
+                uptrend = (candles[i].close > upper);
+            } else {
+                double basic_upper = hl2 + multiplier * atr;
+                double basic_lower = hl2 - multiplier * atr;
+                upper = basic_upper < upper || candles[i-1].close > upper ? basic_upper : upper;
+                lower = basic_lower > lower || candles[i-1].close < lower ? basic_lower : lower;
+                if (candles[i].close > upper) uptrend = true;
+                else if (candles[i].close < lower) uptrend = false;
+            }
+            if (pos == 0) {
+                if (uptrend) { pos = (cap * 0.02) / (atr * multiplier); entry = candles[i].close; }
+            } else {
+                if (!uptrend) {
+                    double pnl = pos * (candles[i].close - entry);
+                    cap += pnl; trades.push_back(pnl / 1000.0); pos = 0;
+                }
+            }
+        }
+    }
+    bool validate(Exchange e, const std::vector<Candle>& candles, size_t train_end,
+                  std::map<std::string,double>& bp, std::vector<double>& hrets,
+                  double& hsharpe, int& htrades, double& mc_ruin) override {
+        if (candles.size() < 200 || train_end < 200) return false;
+        std::vector<int> atr_p = {10, 14};
+        std::vector<double> mults = {2.0, 3.0};
+        double best_score = -1e9;
+        for (int ap : atr_p) for (double m : mults) {
+            std::map<std::string,double> tp;
+            tp["atr_period"] = ap; tp["multiplier"] = m;
+            std::vector<double> fold_rets;
+            size_t fold_sz = train_end / 4;
+            for (size_t f = 0; f + 2 <= 4; ++f) {
+                size_t ts = fold_sz * (f+1), te = std::min(train_end, fold_sz * (f+2));
+                if (ts >= te) continue;
+                std::vector<double> st;
+                backtest_slice(candles, ts, te, tp, st);
+                fold_rets.insert(fold_rets.end(), st.begin(), st.end());
+            }
+            if (fold_rets.size() < 5) continue;
+            double avg = std::accumulate(fold_rets.begin(), fold_rets.end(), 0.0) / fold_rets.size();
+            if (avg * fold_rets.size() > best_score) { best_score = avg * fold_rets.size(); bp = tp; }
+        }
+        if (bp.empty()) return false;
+        hrets.clear();
+        backtest_slice(candles, train_end, candles.size()-1, bp, hrets);
+        htrades = hrets.size();
+        if (htrades < MIN_TRADES_HOLDOUT) return false;
+        double mean_ret = std::accumulate(hrets.begin(), hrets.end(), 0.0) / htrades;
+        double var = 0;
+        for (double r : hrets) var += (r - mean_ret)*(r - mean_ret);
+        double std_ret = std::sqrt(var / htrades);
+        hsharpe = (std_ret > 0) ? mean_ret / std_ret * std::sqrt(htrades) : 0;
+        mc_ruin = monte_carlo_ruin_prob(hrets);
+        return hsharpe >= MIN_HOLDOUT_SHARPE && mc_ruin <= MAX_MC_RUIN_PROB;
+    }
+    Signal generate(Exchange e, const std::string& symbol, const std::vector<Candle>& candles,
+                    size_t idx, double equity, const std::vector<OpenPos>& positions) override {
+        Signal s; s.strategy_name = name(); s.exchange = e;
+        if (idx < 20) return s;
+        int atr_period = (int)params_["atr_period"];
+        double multiplier = params_["multiplier"];
+        double atr = calc_atr(candles, idx, atr_period);
+        double hl2 = (candles[idx].high + candles[idx].low) / 2.0;
+        double basic_upper = hl2 + multiplier * atr;
+        if (candles[idx].close > basic_upper) {
+            s.direction = "LONG";
+            s.entry = get_current_price(e, symbol);
+            s.stop_loss = s.entry - atr * multiplier;
+            s.take_profit = s.entry + atr * multiplier * 3;
+            s.confidence = 60;
+            s.risk_percent = std::min(MAX_RISK_PER_TRADE, 0.02);
+        }
+        return s;
+    }
+};
+
+// --- Estratégia 6: Momentum Scalper ---
+class MomentumScalper : public StrategyBase {
+public:
+    std::string name() const override { return "momentum_scalper"; }
+    void backtest_slice(const std::vector<Candle>& candles, size_t start, size_t end,
+                        const std::map<std::string,double>& params,
+                        std::vector<double>& trades) override {
+        double cap = 1000.0, pos = 0, entry = 0;
+        int period = (int)params.at("momentum_period");
+        double am = params.at("atr_mult");
+        for (size_t i = start; i < end && i < candles.size(); ++i) {
+            if (i < (size_t)period + 2) continue;
+            double momentum = candles[i].close - candles[i - period].close;
+            double atr = calc_atr(candles, i, 7);
+            if (atr <= 0) continue;
+            if (pos == 0) {
+                if (momentum > 0) { pos = (cap * 0.015) / (atr * am); entry = candles[i].close; }
+            } else {
+                if (i - (size_t)entry > 3 || candles[i].close <= entry - atr * am || candles[i].close >= entry + atr * am * 1.5) {
+                    double pnl = pos * (candles[i].close - entry);
+                    cap += pnl; trades.push_back(pnl / 1000.0); pos = 0;
+                }
+            }
+        }
+    }
+    bool validate(Exchange e, const std::vector<Candle>& candles, size_t train_end,
+                  std::map<std::string,double>& bp, std::vector<double>& hrets,
+                  double& hsharpe, int& htrades, double& mc_ruin) override {
+        if (candles.size() < 200 || train_end < 200) return false;
+        std::vector<int> periods = {3,5,8};
+        std::vector<double> ams = {1.0,1.5};
+        double best_score = -1e9;
+        for (int p : periods) for (double am : ams) {
+            std::map<std::string,double> tp;
+            tp["momentum_period"] = p; tp["atr_mult"] = am;
+            std::vector<double> fold_rets;
+            size_t fold_sz = train_end / 4;
+            for (size_t f = 0; f + 2 <= 4; ++f) {
+                size_t ts = fold_sz * (f+1), te = std::min(train_end, fold_sz * (f+2));
+                if (ts >= te) continue;
+                std::vector<double> st;
+                backtest_slice(candles, ts, te, tp, st);
+                fold_rets.insert(fold_rets.end(), st.begin(), st.end());
+            }
+            if (fold_rets.size() < 5) continue;
+            double avg = std::accumulate(fold_rets.begin(), fold_rets.end(), 0.0) / fold_rets.size();
+            if (avg * fold_rets.size() > best_score) { best_score = avg * fold_rets.size(); bp = tp; }
+        }
+        if (bp.empty()) return false;
+        hrets.clear();
+        backtest_slice(candles, train_end, candles.size()-1, bp, hrets);
+        htrades = hrets.size();
+        if (htrades < MIN_TRADES_HOLDOUT) return false;
+        double mean_ret = std::accumulate(hrets.begin(), hrets.end(), 0.0) / htrades;
+        double var = 0;
+        for (double r : hrets) var += (r - mean_ret)*(r - mean_ret);
+        double std_ret = std::sqrt(var / htrades);
+        hsharpe = (std_ret > 0) ? mean_ret / std_ret * std::sqrt(htrades) : 0;
+        mc_ruin = monte_carlo_ruin_prob(hrets);
+        return hsharpe >= MIN_HOLDOUT_SHARPE && mc_ruin <= MAX_MC_RUIN_PROB;
+    }
+    Signal generate(Exchange e, const std::string& symbol, const std::vector<Candle>& candles,
+                    size_t idx, double equity, const std::vector<OpenPos>& positions) override {
+        Signal s; s.strategy_name = name(); s.exchange = e;
+        if (idx < 10) return s;
+        double momentum = candles[idx].close - candles[idx - (size_t)params_["momentum_period"]].close;
+        if (momentum <= 0) return s;
+        double atr = calc_atr(candles, idx, 7);
+        s.entry = get_current_price(e, symbol);
+        s.direction = "LONG";
+        s.stop_loss = s.entry - atr * params_["atr_mult"];
+        s.take_profit = s.entry + atr * params_["atr_mult"] * 1.5;
+        s.confidence = 50;
+        s.risk_percent = std::min(MAX_RISK_PER_TRADE, 0.015);
+        return s;
+    }
+};
+
+// ======================================================================
+// PortfolioManager
+// ======================================================================
+class PortfolioManager {
+    BotState* state_;
+    std::vector<std::unique_ptr<StrategyBase>> strats_;
+    std::map<std::string, std::vector<double>> returns_cache_;
+    
+    double compute_kelly_multiplier() const {
+        if (state_->recent_trade_returns.size() < KELLY_WINDOW) return 1.0;
+        std::vector<double> window(state_->recent_trade_returns.end() - KELLY_WINDOW,
+                                   state_->recent_trade_returns.end());
+        double mean = std::accumulate(window.begin(), window.end(), 0.0) / window.size();
+        double var = 0;
+        for (double r : window) var += (r - mean) * (r - mean);
+        double std = std::sqrt(var / window.size());
+        double sharpe = (std > 0) ? mean / std * std::sqrt(window.size()) : 0;
+        if (sharpe >= KELLY_SHARPE_MAX) return 2.5;
+        if (sharpe <= KELLY_SHARPE_MIN) return 0.5;
+        return 0.5 + (sharpe - KELLY_SHARPE_MIN) / (KELLY_SHARPE_MAX - KELLY_SHARPE_MIN) * 2.0;
+    }
+    
+    bool correlation_check(const std::string& new_symbol) const {
+        if (state_->positions.empty()) return true;
+        std::vector<std::pair<std::string, std::vector<double>>> series;
+        auto it = returns_cache_.find(new_symbol);
+        if (it == returns_cache_.end()) return true;
+        series.push_back({new_symbol, it->second});
+        for (auto& p : state_->positions) {
+            auto it2 = returns_cache_.find(p.symbol);
+            if (it2 != returns_cache_.end())
+                series.push_back({p.symbol, it2->second});
+        }
+        double sum_corr = 0; int count = 0;
+        for (size_t i = 0; i < series.size(); ++i) {
+            for (size_t j = i+1; j < series.size(); ++j) {
+                double corr = std::abs(pearson_corr(series[i].second, series[j].second));
+                sum_corr += corr; count++;
+                if (corr > 0.85) return false;
+            }
+        }
+        if (count == 0) return true;
+        return (sum_corr / count) <= CORRELATION_LIMIT;
+    }
+    
+public:
+    PortfolioManager(BotState* s) : state_(s) {
+        strats_.push_back(std::make_unique<TrendExhaustion>());
+        strats_.push_back(std::make_unique<EMATrendFollow>());
+        strats_.push_back(std::make_unique<RSIMeanRev>());
+        strats_.push_back(std::make_unique<BollingerSqueeze>());
+        strats_.push_back(std::make_unique<SuperTrend>());
+        strats_.push_back(std::make_unique<MomentumScalper>());
+    }
+    
+    void weekly_reoptimize() {
+        std::vector<std::string> symbols = {
+            "BTC_USDT","ETH_USDT","SOL_USDT","BNB_USDT","XRP_USDT",
+            "DOGE_USDT","AVAX_USDT","SUI_USDT","NEAR_USDT","ADA_USDT",
+            "TRX_USDT","LINK_USDT","PEPE_USDT","SHIB_USDT","WLD_USDT",
+            "OP_USDT","ARB_USDT","FET_USDT","HYPE_USDT","ORDI_USDT"
+        };
+        state_->strategies.clear();
+        for (auto& ex : exchanges) {
+            for (auto& sym : symbols) {
+                auto candles = fetch_candles(ex.exchange, sym);
+                if (candles.size() < 500) continue;
+                size_t train_end = (size_t)(candles.size() * (1.0 - TEST_FRACTION));
+                returns_cache_[sym] = compute_returns(candles, 200);
+                for (auto& strat : strats_) {
+                    std::map<std::string,double> best_params;
+                    std::vector<double> holdout_rets;
+                    double holdout_sharpe; int holdout_trades; double mc_ruin;
+                    if (strat->validate(ex.exchange, candles, train_end, best_params,
+                                        holdout_rets, holdout_sharpe, holdout_trades, mc_ruin)) {
+                        StrategyCfg cfg;
+                        cfg.name = strat->name();
+                        cfg.symbol = sym;
+                        cfg.exchange = ex.exchange;
+                        cfg.params = best_params;
+                        cfg.active = true;
+                        cfg.holdout_sharpe = holdout_sharpe;
+                        cfg.holdout_trades = holdout_trades;
+                        cfg.mc_ruin_prob = mc_ruin;
+                        state_->strategies.push_back(cfg);
+                        std::cout << "  [+] " << ex.name() << ":" << cfg.name << " on " << sym 
+                                  << " | Sharpe=" << holdout_sharpe << " | Trades=" << holdout_trades 
+                                  << " | MC Ruin=" << mc_ruin << "%\n";
+                    }
+                }
+            }
+        }
+        std::cout << "Weekly re-opt done. " << state_->strategies.size() << " active configs.\n";
+    }
+    
+    void hourly() {
+        sync_positions_with_exchange();
+        close_expired_positions();
+        update_trailing_stops();
+        
+        double kelly_mult = compute_kelly_multiplier();
+        
+        std::map<std::string, StrategyBase*> active_map;
+        for (auto& s : strats_)
+            for (auto& cfg : state_->strategies)
+                if (cfg.name == s->name() && cfg.active) {
+                    s->set_params(cfg.params);
+                    active_map[cfg.name] = s.get();
+                    break;
+                }
+        
+        std::set<std::string> symbols;
+        for (auto& cfg : state_->strategies) if (cfg.active) symbols.insert(cfg.symbol);
+        
+        std::map<std::string, std::vector<Candle>> candles_map;
+        for (auto& sym : symbols) {
+            for (auto& ex : exchanges) {
+                candles_map[sym] = fetch_candles(ex.exchange, sym);
+                if (!candles_map[sym].empty()) break;
+            }
+        }
+        
+        std::vector<std::pair<std::string, Signal>> raw_signals;
+        for (auto& cfg : state_->strategies) {
+            if (!cfg.active) continue;
+            auto it = active_map.find(cfg.name);
+            if (it == active_map.end()) continue;
+            auto& candles = candles_map[cfg.symbol];
+            if (candles.empty()) continue;
+            
+            bool has_position = false;
+            for (auto& p : state_->positions)
+                if (p.symbol == cfg.symbol) { has_position = true; break; }
+            if (has_position) continue;
+            
+            Signal sig = it->second->generate(cfg.exchange, cfg.symbol, candles, candles.size()-1,
+                                               state_->equity, state_->positions);
+            if (sig.direction != "WAIT") {
+                sig.risk_percent = std::min(MAX_RISK_PER_TRADE, sig.risk_percent * kelly_mult);
+                sig.risk_percent = std::max(MIN_RISK_PER_TRADE, sig.risk_percent);
+                raw_signals.push_back({cfg.symbol, sig});
+            }
+        }
+        
+        std::map<std::string, Signal> combined;
+        for (auto& [sym, sig] : raw_signals) {
+            auto& existing = combined[sym];
+            if (existing.direction == "WAIT" || sig.confidence > existing.confidence)
+                existing = sig;
+        }
+        
+        int slots_filled = state_->positions.size();
+        double total_notional = 0;
+        for (auto& p : state_->positions) total_notional += p.quantity * p.entry_price;
+        
+        for (auto& [sym, sig] : combined) {
+            if (slots_filled >= MAX_POSITIONS) break;
+            if (!correlation_check(sym)) continue;
+            
+            double price = sig.entry;
+            double stop_pct = std::abs(sig.entry - sig.stop_loss) / price;
+            if (stop_pct < 0.002) continue;
+            double risk_amount = state_->equity * sig.risk_percent;
+            double qty = risk_amount / (stop_pct * price);
+            double notional = qty * price;
+            if (total_notional + notional > state_->equity * MAX_PORTFOLIO_NOTIONAL) continue;
+            
+            auto* cfg = get_exchange(sig.exchange);
+            if (!cfg) continue;
+            
+            double trade_fee = 0.0;
+            execute_bracket(sig.exchange, sym, (sig.direction=="LONG"?"BUY":"SELL"),
+                            qty, sig.entry, sig.stop_loss, sig.take_profit, trade_fee);
+            state_->total_fees_paid += trade_fee;
+            
+            OpenPos pos;
+            pos.symbol = sym;
+            pos.side = sig.direction;
+            pos.strategy = sig.strategy_name;
+            pos.exchange = cfg->name();
+            pos.quantity = qty;
+            pos.entry_price = sig.entry;
+            pos.sl = sig.stop_loss;
+            pos.tp = sig.take_profit;
+            pos.trailing = (sig.direction=="LONG") ? sig.entry - (sig.stop_loss - sig.entry) : sig.entry + (sig.entry - sig.stop_loss);
+            pos.timestamp = now_epoch();
+            state_->positions.push_back(pos);
+            total_notional += notional;
+            slots_filled++;
+        }
+        
+        double total_equity = 0;
+        for (auto& ex : exchanges) total_equity += get_balance(ex.exchange).equity;
+        state_->equity = total_equity;
+        if (state_->equity > state_->peak_equity) state_->peak_equity = state_->equity;
+    }
+    
+    void close_expired_positions() {
+        auto now = now_epoch();
+        std::vector<OpenPos> surviving;
+        for (auto& p : state_->positions) {
+            if ((now - p.timestamp) > MAX_HOLD_HOURS * 3600) {
+                Exchange e = Exchange::MEXC;
+                for (auto& ex : exchanges) if (ex.name() == p.exchange) { e = ex.exchange; break; }
+                close_position_order(e, p.symbol, p.side, p.quantity);
+                double current = get_current_price(e, p.symbol);
+                double pnl = (p.side=="LONG" ? 1.0 : -1.0) * (current - p.entry_price) * p.quantity;
+                state_->recent_trade_returns.push_back(pnl / state_->equity);
+            } else {
+                surviving.push_back(p);
+            }
+        }
+        state_->positions = surviving;
+    }
+    
+    void update_trailing_stops() {
+        for (auto& p : state_->positions) {
+            Exchange e = Exchange::MEXC;
+            for (auto& ex : exchanges) if (ex.name() == p.exchange) { e = ex.exchange; break; }
+            double current = get_current_price(e, p.symbol);
+            if (current <= 0) continue;
+            bool moved = false;
+            if (p.side == "LONG" && current > p.entry_price) {
+                double orig_dist = p.entry_price - p.sl;
+                double new_sl = current - orig_dist;
+                if (new_sl > p.trailing) { p.trailing = new_sl; p.sl = new_sl; moved = true; }
+            } else if (p.side == "SHORT" && current < p.entry_price) {
+                double orig_dist = p.sl - p.entry_price;
+                double new_sl = current + orig_dist;
+                if (new_sl < p.trailing) { p.trailing = new_sl; p.sl = new_sl; moved = true; }
+            }
+            if (moved) {
+                update_mexc_trailing_stop(e, p.symbol, p.side, p.quantity, p.entry_price, p.sl, p.tp);
+            }
+        }
+    }
+    
+    void sync_positions_with_exchange() {
+        std::map<std::string, std::set<std::string>> open_map;
+        for (auto& ex : exchanges) {
+            auto syms = get_open_symbols(ex.exchange);
+            open_map[ex.name()] = std::set<std::string>(syms.begin(), syms.end());
+        }
+        std::vector<OpenPos> still_open;
+        for (auto& p : state_->positions) {
+            auto it = open_map.find(p.exchange);
+            if (it != open_map.end() && it->second.count(p.symbol))
+                still_open.push_back(p);
+            else {
+                Exchange e = Exchange::MEXC;
+                for (auto& ex : exchanges) if (ex.name() == p.exchange) { e = ex.exchange; break; }
+                double current = get_current_price(e, p.symbol);
+                double pnl = (p.side=="LONG" ? 1.0 : -1.0) * (current - p.entry_price) * p.quantity;
+                state_->recent_trade_returns.push_back(pnl / state_->equity);
+            }
+        }
+        state_->positions = still_open;
+    }
+    
+    void daily_update() {
+        double total_equity = 0;
+        for (auto& ex : exchanges) total_equity += get_balance(ex.exchange).equity;
+        state_->equity = total_equity;
+        state_->equity_curve.push_back(state_->equity);
+        if (state_->equity > state_->peak_equity) state_->peak_equity = state_->equity;
+        if (!state_->equity_curve.empty()) {
+            double peak = *std::max_element(state_->equity_curve.begin(), state_->equity_curve.end());
+            double dd = (peak - state_->equity) / peak;
+            if (dd > 0.20) {
+                state_->trading_halted_until = now_epoch() + 14 * 86400;
+                for (auto& ex : exchanges) cancel_all_orders(ex.exchange);
+                for (auto& p : state_->positions) {
+                    Exchange e = Exchange::MEXC;
+                    for (auto& ex : exchanges) if (ex.name() == p.exchange) { e = ex.exchange; break; }
+                    close_position_order(e, p.symbol, p.side, p.quantity);
+                }
+                state_->positions.clear();
+                std::cout << "!!! DRAWDOWN HALT !!! 20% DD. Pausing 14 days.\n";
+            }
+        }
+        if (state_->equity_curve.size() > 90) state_->equity_curve.erase(state_->equity_curve.begin());
+        if (state_->recent_trade_returns.size() > 100) state_->recent_trade_returns.erase(state_->recent_trade_returns.begin());
+    }
+};
+
+// ----------------------------------------------------------------------
+// Main
+// ----------------------------------------------------------------------
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: alpha_factory {hourly|daily|weekly}\n";
+        return 1;
+    }
+    std::string cmd = argv[1];
+    init_exchanges();
+    if (exchanges.empty()) {
+        std::cerr << "No exchanges configured. Set MEXC_API_KEY and MEXC_API_SECRET.\n";
+        return 1;
+    }
+    BotState state;
+    if (!load_state(state)) {
+        double total_equity = 0;
+        for (auto& ex : exchanges) total_equity += get_balance(ex.exchange).equity;
+        state.starting_equity = state.equity = state.peak_equity = total_equity;
+        save_state(state);
+    }
+    if (state.trading_halted_until > 0) {
+        if (now_epoch() < state.trading_halted_until) {
+            std::cout << "Trading halted. Skipping.\n";
+            return 0;
+        }
+        state.trading_halted_until = 0;
+    }
+    PortfolioManager pm(&state);
+    if (cmd == "hourly") pm.hourly();
+    else if (cmd == "daily") pm.daily_update();
+    else if (cmd == "weekly") pm.weekly_reoptimize();
+    state.last_run = now_epoch();
+    save_state(state);
     return 0;
 }
