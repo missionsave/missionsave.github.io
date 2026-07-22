@@ -3215,9 +3215,9 @@ void GenerateVolumeMesh(const TopoDS_Shape&       shape,
     gmsh::option::setNumber("General.NumThreads", num_threads);
 
     // Or fine-tune per-dimension if needed:
-    // gmsh::option::setNumber("Mesh.MaxNumThreads1D", num_threads);
-    // gmsh::option::setNumber("Mesh.MaxNumThreads2D", num_threads);
-    // gmsh::option::setNumber("Mesh.MaxNumThreads3D", num_threads);
+    gmsh::option::setNumber("Mesh.MaxNumThreads1D", num_threads);
+    gmsh::option::setNumber("Mesh.MaxNumThreads2D", num_threads);
+    gmsh::option::setNumber("Mesh.MaxNumThreads3D", num_threads);
 
     // CRITICAL: Choose a 2D/3D algorithm that supports parallel execution
     // 2D Algorithm 8: Frontal-Delaunay for quads (Parallelized)
@@ -4333,8 +4333,9 @@ TopoDS_Solid FindSolidOfFace(const TopoDS_Shape &compound,
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
 
-#include <AIS_ListIteratorOfListOfInteractive.hxx>
+// #include <AIS_ListIteratorOfListOfInteractive.hxx>
 #include <AIS_ListOfInteractive.hxx>
+typedef AIS_ListOfInteractive::Iterator AIS_ListIteratorOfListOfInteractive;
 
 #include <algorithm>
 #include <cmath>
@@ -5592,18 +5593,19 @@ void WriteBinarySTL(const TopoDS_Shape &shape, const std::string &filename) {
     if (triangulation.IsNull())
       continue;
 
-    // Get triangle array and loop over its bounds
-    const Poly_Array1OfTriangle &triArray = triangulation->Triangles();
-    for (Standard_Integer i = triArray.Lower(); i <= triArray.Upper(); ++i) {
-      Standard_Integer n1, n2, n3;
-      triArray(i).Get(n1, n2, n3);
-
-      gp_Pnt p1 = triangulation->Node(n1).Transformed(trsf);
-      gp_Pnt p2 = triangulation->Node(n2).Transformed(trsf);
-      gp_Pnt p3 = triangulation->Node(n3).Transformed(trsf);
-
-      triangles.push_back({p1, p2, p3});
-    }
+	  // OCCT 8.0.0: Percorrer triângulos diretamente por índice (base 1)
+	  Standard_Integer nbTriangles = triangulation->NbTriangles();
+	  for (Standard_Integer i = 1; i <= nbTriangles; ++i) {
+		Standard_Integer n1, n2, n3;
+		triangulation->Triangle(i).Get(n1, n2, n3);
+  
+		// No OCCT 8.0 o método chama-se Node(index)
+		gp_Pnt p1 = triangulation->Node(n1).Transformed(trsf);
+		gp_Pnt p2 = triangulation->Node(n2).Transformed(trsf);
+		gp_Pnt p3 = triangulation->Node(n3).Transformed(trsf);
+  
+		triangles.push_back({p1, p2, p3});
+	  }
   }
 
   uint32_t triCount = static_cast<uint32_t>(triangles.size());
@@ -17157,7 +17159,8 @@ void fill_menu() {
       },
       occv, 0);
 }
-
+#include <OSD_Parallel.hxx>
+#include <OSD_ThreadPool.hxx>
 // region main
 int main(int argc, char **argv) {
   // Fl::set_font(FL_HELVETICA, "DejaVu Sans");
@@ -17168,7 +17171,9 @@ int main(int argc, char **argv) {
   std::cout << "FLTK ABI version: " << FL_ABI_VERSION << std::endl;
   std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
   // OSD_Parallel::SetUseOcctThreads(1);
+  OSD_Parallel::SetUseOcctThreads(Standard_True);
   std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads()
+			<< "Total threads: " << OSD_ThreadPool::DefaultPool()->NbThreads()
             << std::endl;
 
   Fl::visual(FL_DOUBLE | FL_INDEX);

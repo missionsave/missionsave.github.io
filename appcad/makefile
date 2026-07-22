@@ -154,8 +154,8 @@ ifeq ($(OS_NAME), Linux)
 	LDFLAGS+= -ltbb
 	# dynamic
 # 	CXXFLAGS+= -I/usr/include/opencascade
-	CXXFLAGS+= -I/opt/occt-7_9_3/include/opencascade
-	LDFLAGS+= -L/opt/occt-7_9_3/lib
+	CXXFLAGS+= -I/opt/occt-8.0.0/include/opencascade
+	LDFLAGS+= -L/opt/occt-8.0.0/lib
 # 	LDFLAGS+= -lTKFillet -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKernel -lTKService -lTKGeomBase -lTKMath -lTKTopAlgo -lTKBRep -lTKOpenGl -lTKService -lTKV3d -lTKBRep -lTKPrim -lTKTopAlgo -lTKGeomBase -lTKGeomAlgo  -lTKG3d -lTKV3d -lTKOpenGl -lTKService -lTKernel -lTKHLR -lTKBO -lTKBRep -lTKXSBase -lTKShHealing -lTKBRep -lTKMesh -lTKOffset
 
 	LDFLAGS+= \
@@ -220,10 +220,10 @@ ifeq ($(OS_NAME), Linux)
 	# LDFLAGS+= -lfreetype
 	# LDFLAGS+=  -l:libstdc++.a
 
-	export LD_LIBRARY_PATH=/opt/gmsh-occ/lib/:/opt/occt-7_9_3/lib:$$LD_LIBRARY_PATH
-# 	export LD_LIBRARY_PATH=/opt/occt-7_9_3/lib:$$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=/opt/gmsh-occ/lib/:/opt/occt-8.0.0/lib:$$LD_LIBRARY_PATH
+# 	export LD_LIBRARY_PATH=/opt/occt-8.0.0/lib:$$LD_LIBRARY_PATH
 	
-# 	export LD_LIBRARY_PATH=/opt/occt-7_9_3/lib:/home/super/Downloads/gmsh-4.15.2-Linux64-sdk/lib/:$$LD_LIBRARY_PATH
+# 	export LD_LIBRARY_PATH=/opt/occt-8.0.0/lib:/home/super/Downloads/gmsh-4.15.2-Linux64-sdk/lib/:$$LD_LIBRARY_PATH
 
 endif
 ifeq ($(OS_NAME), Arm)

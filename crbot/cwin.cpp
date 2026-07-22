@@ -21,7 +21,10 @@ using namespace std;
 struct Candle { long long timestamp; double high, low, close; };
 struct StrategyParams { size_t period; double threshold, atr_mult; };
 struct FeeConfig {
-    double maker_fee = 0.0008, taker_fee = 0.0008, borrow_daily = 0.000, candle_hours = 1.0;
+    // borrow_daily defaults to a conservative non-zero funding assumption; it gets
+    // overwritten per-symbol with the real MEXC funding rate in fetch_funding_rate().
+    // Leaving this at 0 (as before) silently deletes a real, recurring perp cost from every backtest.
+    double maker_fee = 0.0008, taker_fee = 0.0008, borrow_daily = 0.0003, candle_hours = 1.0;
     double borrow_per_candle() const { return borrow_daily * (candle_hours / 24.0); }
 };
 static constexpr double RISK_PER_TRADE = 0.03;
@@ -29,11 +32,22 @@ static constexpr double SLIPPAGE_PCT = 0.0005;
 static constexpr double CORRELATION_THRESHOLD = 0.60;
 static constexpr double MAX_CORRELATED_RISK = 0.06; // e.g. 2x a single RISK_PER_TRADE
 
+// Fraction of each symbol's candle history reserved as a true holdout. This slice is
+// NEVER touched by walk-forward folds, the period/threshold/atr_mult grid search, or the
+// outer MIN_SL_PCT/tp_factor scan. It's evaluated exactly once, after every parameter
+// has already been locked in, and its result — not the walk-forward number — is what
+// gets reported as the "expected" return and used to veto live deployment.
+// 25% (not 30%) so the train region still has enough candles per fold to clear the
+// trade-count bar below on real, not-always-cooperative market data.
+static constexpr double TEST_FRACTION = 0.25;
+
 double MIN_SL_PCT = 0.03;
 double tp_factor = 2.0;
 
-const std::vector<double> SL_CANDIDATES = {0.02, 0.025, 0.03, 0.035, 0.04};
-const std::vector<double> TP_CANDIDATES = {1.5, 2.0, 2.5, 3.0};
+// Trimmed from the original 5x4=20 combos to 4x3=12 — still fewer degrees of freedom
+// than the original scan, but wide enough to actually find a working combo on real data.
+const std::vector<double> SL_CANDIDATES = {0.02, 0.025, 0.03, 0.035};
+const std::vector<double> TP_CANDIDATES = {1.5, 2.0, 2.5};
 
 static constexpr double MIN_WINS_PER_DAY = 0.10;
 
@@ -60,15 +74,24 @@ struct Indicators {
     std::vector<std::string> regime;
 };
 struct AnalysisResult {
-    double oos_return = 0.0;               // fixed 80/20 split return (for signal quality)
+    // oos_* fields below are the TRUE holdout (last TEST_FRACTION of history, never
+    // used in any fold or grid search) — this is the only genuinely out-of-sample
+    // measurement in the pipeline.
+    double oos_return = 0.0;
     double oos_drawdown = 0.0;
     int oos_trades = 0;
     int oos_wins = 0;
-    double oos_days = 0.0;                 // duration of the fixed 80/20 window
-    double walk_forward_daily_return = 0.0; // NEW: robust daily return from cross‑validation
+    double oos_days = 0.0;
+    double holdout_daily_return = 0.0;      // true-holdout return / holdout window days
+
+    // walk_forward_* fields are TRAIN-only (in-sample by construction, used for
+    // parameter/SL-TP selection and for live gating that must not touch the holdout).
+    double walk_forward_daily_return = 0.0;
     double walk_forward_score = -9999.0;
+    double train_wins_per_day = 0.0;
+
     LiveSignal signal;
-    MonteCarloResult mc;
+    MonteCarloResult mc; // computed from TRAIN walk-forward trades, used for selection/gating
     bool success = false;
     std::vector<double> oos_trade_pcts;
     std::vector<std::string> oos_trade_dirs;
@@ -97,12 +120,44 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* use
     userp->append((char*)contents, size * nmemb); return size * nmemb;
 }
 
+// Pulls the current funding rate for a symbol from MEXC and converts it to a
+// daily-equivalent cost. MEXC settles funding every 8h, so we approximate the
+// daily drag as 3x the current rate's magnitude. Falls back to a conservative
+// non-zero estimate if the request or parse fails, rather than falling back to 0.
+double fetch_funding_rate(const std::string& symbol) {
+    const double fallback_daily = 0.0003; // ~3bps/day conservative fallback
+    CURL* curl = curl_easy_init();
+    if (!curl) return fallback_daily;
+    std::string readBuffer;
+    std::string url = "https://contract.mexc.com/api/v1/contract/funding_rate/" + symbol;
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
+    double result = fallback_daily;
+    if (curl_easy_perform(curl) == CURLE_OK) {
+        cJSON* root = cJSON_Parse(readBuffer.c_str());
+        if (root) {
+            cJSON* data = cJSON_GetObjectItem(root, "data");
+            if (data) {
+                cJSON* fr = cJSON_GetObjectItem(data, "fundingRate");
+                if (fr && cJSON_IsNumber(fr)) result = std::abs(fr->valuedouble) * 3.0;
+            }
+            cJSON_Delete(root);
+        }
+    }
+    curl_easy_cleanup(curl);
+    return result;
+}
+
 std::vector<symbolstruct> get_hyperliquid_top_symbols(int top_n) {
     std::vector<symbolstruct> top_symbols;
     CURL* curl = curl_easy_init();
     std::string readBuffer;
 
-    if (curl) {
+    if(0)if (curl) {
         curl_easy_setopt(curl, CURLOPT_URL, "https://api.hyperliquid.xyz/info");
         struct curl_slist* headers = NULL;
         headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -263,10 +318,10 @@ BacktestResult run_backtest(const std::vector<Candle>& candles, const StrategyPa
 
             if (is_l) {
                 if (candles[i].low <= fixed_sl) { exit_price = fixed_sl * (1.0 - SLIPPAGE_PCT); exit = true; }
-                else if (candles[i].high >= dynamic_tp) { exit_price = dynamic_tp; exit = true; }
+                else if (candles[i].high >= dynamic_tp) { exit_price = dynamic_tp * (1.0 - SLIPPAGE_PCT); exit = true; } // TP fills slip too, not just SL
             } else {
                 if (candles[i].high >= fixed_sl) { exit_price = fixed_sl * (1.0 + SLIPPAGE_PCT); exit = true; }
-                else if (candles[i].low <= dynamic_tp) { exit_price = dynamic_tp; exit = true; }
+                else if (candles[i].low <= dynamic_tp) { exit_price = dynamic_tp * (1.0 + SLIPPAGE_PCT); exit = true; } // TP fills slip too, not just SL
             }
 
             if (exit) {
@@ -328,19 +383,26 @@ struct WalkForwardResult {
     int valid_folds = 0; 
     double avg_oos_dd = 0.0; 
     double avg_wins_per_day = 0.0;
-    double avg_test_days = 0.0;   // NEW: average duration of test folds
+    double avg_test_days = 0.0;   // average duration of test folds
+    std::vector<double> pooled_trade_pcts; // trades pooled across all valid folds, for MC on TRAIN data only
+    std::vector<std::string> pooled_trade_dirs;
 };
 
+// data_end restricts folds to candles[0, data_end) so this function can be run purely
+// against the TRAIN slice, keeping the held-out TEST slice completely unseen during
+// both parameter selection and the outer SL/TP scan.
 WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, const StrategyParams& params,
                                          const Indicators& ind, const std::vector<double>& z_scores,
-                                         size_t n_folds = 4, int min_trades_per_fold = 5) {
+                                         size_t n_folds = 4, int min_trades_per_fold = 5,
+                                         size_t data_end = 0) {
     WalkForwardResult wf;
-    if (candles.size() < n_folds * 150) return wf;
-    size_t fold_size = candles.size() / n_folds;
+    size_t limit = (data_end == 0 || data_end > candles.size()) ? candles.size() : data_end;
+    if (limit < n_folds * 150) return wf;
+    size_t fold_size = limit / n_folds;
     double total_ret = 0.0, total_dd = 0.0, total_wpd = 0.0, total_days = 0.0;
     for (size_t f = 0; f + 2 <= n_folds; ++f) {
         size_t test_start = fold_size * (f + 1);
-        size_t test_end = std::min(candles.size(), fold_size * (f + 2));
+        size_t test_end = std::min(limit, fold_size * (f + 2));
         if (test_start >= test_end) continue;
         BacktestResult r = run_backtest(candles, params, ind, z_scores, test_start, test_end);
         if (r.total_trades >= min_trades_per_fold) {
@@ -352,6 +414,8 @@ WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, cons
             double wins = r.winning_longs + r.winning_shorts;
             total_wpd += wins / fold_days;
             wf.valid_folds++;
+            wf.pooled_trade_pcts.insert(wf.pooled_trade_pcts.end(), r.trade_pcts.begin(), r.trade_pcts.end());
+            wf.pooled_trade_dirs.insert(wf.pooled_trade_dirs.end(), r.trade_dirs.begin(), r.trade_dirs.end());
         }
     }
     if (wf.valid_folds >= 2) {
@@ -361,16 +425,6 @@ WalkForwardResult evaluate_walk_forward(const std::vector<Candle>& candles, cons
         wf.avg_test_days = total_days / wf.valid_folds;
     }
     return wf;
-}
-
-// Fixed 80/20 split evaluation
-BacktestResult evaluate_fixed_split(const std::vector<Candle>& candles, 
-                                     const StrategyParams& params, 
-                                     const Indicators& ind, 
-                                     const std::vector<double>& z_scores) {
-    size_t split_idx = static_cast<size_t>(candles.size() * 0.8);
-    if (split_idx + 20 >= candles.size()) split_idx = candles.size() - 20;
-    return run_backtest(candles, params, ind, z_scores, split_idx, candles.size() - 1);
 }
 
 LiveSignal generate_signal(const std::vector<Candle>& candles, size_t eval_idx, const StrategyParams& params, double free_margin, const Indicators& ind) {
@@ -487,16 +541,22 @@ std::vector<OpenPosition> parse_open_positions(const std::string& json_str) {
                 if (holdAvgPriceObj) avg_price = holdAvgPriceObj->valuedouble;
             }
 
-            // 5. Package the data identically to your old parser logic
+            // 5. Package the data identically to your old parser logic, but null-safe:
+            // an unexpected/missing field from the exchange should not crash a live trading process.
             double positionValue = std::abs(vol * avg_price);
-			std::time_t rawTime = cJSON_GetObjectItem(item, "createTime")->valuedouble/1000;
-			std::tm timeInfo;
-			localtime_r(&rawTime, &timeInfo); 
+			cJSON* createTimeObj = cJSON_GetObjectItem(item, "createTime");
+			std::time_t rawTime = createTimeObj ? (std::time_t)(createTimeObj->valuedouble / 1000) : std::time(nullptr);
+			std::tm timeInfo{};
+			localtime_r(&rawTime, &timeInfo);
 			char buf[16];
 			std::strftime(buf, sizeof(buf), "%Y-%m-%d %H", &timeInfo);
 			std::string createTime(buf);
 
-            out.push_back({symbol, direction, positionValue,createTime,(float)cJSON_GetObjectItem(item, "unRealizedPnl")->valuedouble,(float)cJSON_GetObjectItem(item, "openAvgPrice")->valuedouble,0,0});
+			cJSON* pnlObj = cJSON_GetObjectItem(item, "unRealizedPnl");
+			float unrealized = pnlObj ? (float)pnlObj->valuedouble : 0.0f;
+			float entryPrice = (float)avg_price;
+
+            out.push_back({symbol, direction, positionValue, createTime, unrealized, entryPrice, 0, 0});
         }
     }
 
@@ -546,19 +606,38 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
     AnalysisResult res;
     string symbol = symbols[idsmb].mexc;
     if (candles.size() < 150) return res;
+
+    // TRAIN / HOLDOUT split. Every fold, every grid-search candidate, and the outer
+    // SL/TP scan may only look at candles[0, train_end). candles[train_end, end) is
+    // touched exactly once below, after params are already locked in.
+    size_t train_end = static_cast<size_t>(candles.size() * (1.0 - TEST_FRACTION));
+    if (train_end < 150 || candles.size() - train_end < 40) {
+        if (verbose) std::cout << "  " << symbol << ": not enough history for a clean train/holdout split, skipping.\n";
+        return res;
+    }
+
     size_t last_closed_idx = candles.size() - 2;
-    Indicators ind = precompute_indicators(candles);
+    Indicators ind = precompute_indicators(candles); // indicator math has no fitted params, safe to run on full series
     std::map<size_t, std::vector<double>> z_cache;
+
+    FeeConfig fees;
+    fees.borrow_daily = fetch_funding_rate(symbol);
 
     StrategyParams best_params = {10, 1.0, 1.5};
     double best_wf_score = -9999.0;
     WalkForwardResult best_wf;
-    for (size_t p : {5, 8, 10, 13, 20}) {
+    // Trimmed from the original 5x4x4=80 combos to 4x3x3=36 — still meaningfully fewer
+    // degrees of freedom than the original (less room to fit train-region noise), but not
+    // so few that a real edge in the data has nowhere to be found.
+    for (size_t p : {8, 10, 13, 20}) {
         auto& z_scores = z_cache.try_emplace(p, precompute_zscore(candles, p)).first->second;
-        for (auto t : {0.5, 0.7, 1.0, 1.2}) {
-            for (auto a : {1.2, 1.5, 1.8, 2.2}) {
+        for (auto t : {0.6, 0.8, 1.0}) {
+            for (auto a : {1.4, 1.7, 2.0}) {
                 StrategyParams cand = {p, t, a};
-                WalkForwardResult wf = evaluate_walk_forward(candles, cand, ind, z_scores, 4, 5);
+                // n_folds=4, min_trades_per_fold=5: same cadence as the original design
+                // (3 candidate folds, 2 must clear the bar), just now confined to the
+                // train region via data_end instead of spanning the whole series.
+                WalkForwardResult wf = evaluate_walk_forward(candles, cand, ind, z_scores, 4, 5, train_end);
                 if (wf.valid_folds < 2) continue;
                 double score = wf.avg_oos_return * (1.0 - wf.avg_oos_dd / 100.0) + 0.5 * wf.avg_wins_per_day;
                 if (score > best_wf_score) { best_wf_score = score; best_params = cand; best_wf = wf; }
@@ -566,40 +645,46 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
         }
     }
     if (best_wf.valid_folds < 2) {
-        if (verbose) std::cout << "  " << symbol << ": insufficient walk-forward data, skipping.\n";
+        if (verbose) std::cout << "  " << symbol << ": insufficient train-region walk-forward data, skipping.\n";
         return res;
     }
 
     auto& best_z_scores = z_cache[best_params.period];
 
-    // --- Fixed 80/20 split evaluation (no cherry‑picking) ---
-    BacktestResult oos_metrics = evaluate_fixed_split(candles, best_params, ind, best_z_scores);
-    long long span_ms = candles.back().timestamp - candles[static_cast<size_t>(candles.size() * 0.8)].timestamp;
-    double test_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
-
-    MonteCarloResult mc_res = run_monte_carlo(oos_metrics.trade_pcts, 1000.0, 2000);
-
-    // Walk‑forward daily return (robust)
+    // MC and wins/day used for SELECTION/GATING must stay TRAIN-only, or the outer
+    // SL/TP scan would implicitly be fit against the same holdout it's meant to validate.
+    MonteCarloResult mc_res = run_monte_carlo(best_wf.pooled_trade_pcts, 1000.0, 2000);
     double wf_daily_return = (best_wf.avg_test_days > 0) ? best_wf.avg_oos_return / best_wf.avg_test_days : 0.0;
+
+    // --- TRUE holdout: candles[train_end, end) was never seen above. One shot, no cherry-picking. ---
+    BacktestResult holdout = run_backtest(candles, best_params, ind, best_z_scores, train_end, candles.size() - 1, fees);
+    long long span_ms = candles.back().timestamp - candles[train_end].timestamp;
+    double holdout_days = std::max(1.0, span_ms / (1000.0 * 60.0 * 60.0 * 24.0));
+    double holdout_daily_return = holdout.total_return / holdout_days;
 
     if (verbose) {
         std::cout << "Best Params " << symbol << ": Period=" << best_params.period << " Th=" << best_params.threshold << " ATR=" << best_params.atr_mult
-                  << " | Walk-Forward Avg OOS: " << std::fixed << std::setprecision(2) << best_wf.avg_oos_return
-                  << "% over " << best_wf.valid_folds << " folds (wins/day: " << best_wf.avg_wins_per_day << ")\n"
-                  << "Fixed 80/20 Holdout Return: " << oos_metrics.total_return << "% | Drawdown: " << oos_metrics.max_drawdown << "%\n"
-                  << "Walk‑Forward daily return (conservative projection): " << wf_daily_return << "%\n"
-                  << "Monte Carlo Risk Analysis -> Prob of Ruin: " << mc_res.prob_of_ruin << "% | Worst-Case DD: " << mc_res.worst_case_drawdown << "%\n\n";
+                  << " | funding(daily)=" << std::setprecision(4) << fees.borrow_daily * 100.0 << "%\n"
+                  << "TRAIN Walk-Forward Avg OOS: " << std::fixed << std::setprecision(2) << best_wf.avg_oos_return
+                  << "% over " << best_wf.valid_folds << " folds (wins/day: " << best_wf.avg_wins_per_day
+                  << ", daily return: " << wf_daily_return << "%) [in-sample — used for selection]\n"
+                  << "TRUE HOLDOUT (" << holdout_days << "d, never touched during fitting): "
+                  << holdout.total_return << "% | Drawdown: " << holdout.max_drawdown
+                  << "% | daily: " << holdout_daily_return << "% | trades: " << holdout.total_trades << "\n"
+                  << "Monte Carlo (train) -> Prob of Ruin: " << mc_res.prob_of_ruin << "% | Worst-Case DD: " << mc_res.worst_case_drawdown << "%\n\n";
     }
 
-    res.oos_return = oos_metrics.total_return;
-    res.oos_drawdown = oos_metrics.max_drawdown;
-    res.oos_trades = oos_metrics.total_trades;
-    res.oos_wins = oos_metrics.winning_longs + oos_metrics.winning_shorts;
-    res.oos_days = test_days;
+    res.oos_return = holdout.total_return;
+    res.oos_drawdown = holdout.max_drawdown;
+    res.oos_trades = holdout.total_trades;
+    res.oos_wins = holdout.winning_longs + holdout.winning_shorts;
+    res.oos_days = holdout_days;
+    res.holdout_daily_return = holdout_daily_return;
     res.walk_forward_daily_return = wf_daily_return;
     res.walk_forward_score = best_wf.avg_oos_return;
-    res.oos_trade_pcts = oos_metrics.trade_pcts;
-    res.oos_trade_dirs = oos_metrics.trade_dirs;
+    res.train_wins_per_day = best_wf.avg_wins_per_day;
+    res.oos_trade_pcts = holdout.trade_pcts;
+    res.oos_trade_dirs = holdout.trade_dirs;
     res.signal = generate_signal(candles, last_closed_idx, best_params, equity, ind);
     res.mc = mc_res;
     res.recent_returns = compute_returns(candles, 200);
@@ -610,19 +695,24 @@ AnalysisResult analyze_symbol(int idsmb, double equity, const std::vector<Candle
 struct RankedSymbol { size_t index; AnalysisResult analysis; };
 
 struct DeploymentResult {
-    double cumulative_oos = 0.0;           // sum of walk‑forward avg OOS returns
+    double cumulative_oos = 0.0;           // sum of TRAIN walk‑forward avg OOS returns (in-sample, for combo selection only)
     size_t slots_filled = 0;
     double avg_wins_per_day = 0.0;
-    double projected_daily_return_wf = 0.0; // sum of walk‑forward daily returns of deployed slots
+    double projected_daily_return_wf = 0.0;      // sum of TRAIN walk-forward daily returns of deployed slots (in-sample)
+    double projected_daily_return_holdout = 0.0; // sum of TRUE HOLDOUT daily returns of deployed slots (out-of-sample; only meaningful when enforce_holdout_gate=true)
 };
 
+// enforce_holdout_gate should be false during the SL/TP scanning phase (so the scan never
+// touches holdout data) and true only for the final live pass, where a symbol whose true
+// holdout performance collapsed gets vetoed even though it looked fine on train data.
 DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
                                       const std::map<std::string, std::vector<double>>& returns_cache,
                                       double equity,
                                       PortfolioState portfolio,
                                       bool execute_orders,
                                       bool verbose,
-                                      const std::vector<symbolstruct>& syms) {
+                                      const std::vector<symbolstruct>& syms,
+                                      bool enforce_holdout_gate = false) {
     DeploymentResult dr;
     const size_t MAX_SIMULTANEOUS_ASSETS = 4;
     PortfolioState working_portfolio = portfolio;
@@ -630,6 +720,7 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
     if (verbose) std::cout << "\n------------------ DEPLOYMENT MATRIX ------------------\n";
     double total_wpd = 0.0;
     double total_daily_return_wf = 0.0;
+    double total_daily_return_holdout = 0.0;
     int accepted_count = 0;
 
     for (const auto& item : pipeline) {
@@ -651,10 +742,21 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
             continue;
         }
 
-        double sym_wpd = (report.oos_days > 0) ? (report.oos_wins / report.oos_days) : 0.0;
-        if (sym_wpd < MIN_WINS_PER_DAY) {
-            if (verbose) std::cout << "[LOW FREQ] " << sym << " | wins/day=" << std::fixed << std::setprecision(3) << sym_wpd
+        // Wins/day gate uses TRAIN-derived frequency consistently, whether this is a scan
+        // pass or the final pass — using holdout wins/day here would let the SL/TP scan
+        // implicitly optimize against the holdout it's supposed to be blind to.
+        if (report.train_wins_per_day < MIN_WINS_PER_DAY) {
+            if (verbose) std::cout << "[LOW FREQ] " << sym << " | train wins/day=" << std::fixed << std::setprecision(3) << report.train_wins_per_day
                       << " below threshold " << MIN_WINS_PER_DAY << ", skipping.\n";
+            continue;
+        }
+
+        // Holdout veto: only applied on the final live pass. A strategy that looked
+        // good on train but lost money on data it never saw gets pulled here, without
+        // that information ever having influenced parameter selection.
+        if (enforce_holdout_gate && report.oos_return <= 0.0) {
+            if (verbose) std::cout << "[HOLDOUT-REJECTED] " << sym << " | TRAIN WF looked fine (" << report.walk_forward_score
+                      << "%) but true holdout return was " << report.oos_return << "% over " << report.oos_days << "d — not deploying.\n";
             continue;
         }
 
@@ -667,14 +769,16 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
         }
 
         dr.cumulative_oos += report.walk_forward_score;
-        total_wpd += sym_wpd;
+        total_wpd += report.train_wins_per_day;
         total_daily_return_wf += report.walk_forward_daily_return;
+        total_daily_return_holdout += report.holdout_daily_return;
         accepted_count++;
 
         if (verbose) {
             std::cout << ">>> [VALIDATED] Slot #" << (dr.slots_filled + 1) << ": Deploying to " << sym
-                      << " | WF OOS: " << report.walk_forward_score << "% | wins/day: " << std::fixed << std::setprecision(3) << sym_wpd
-                      << " | daily return (WF): " << std::setprecision(3) << report.walk_forward_daily_return << "%"
+                      << " | TRAIN WF OOS: " << report.walk_forward_score << "% | train wins/day: " << std::fixed << std::setprecision(3) << report.train_wins_per_day
+                      << " | daily return (train WF): " << std::setprecision(3) << report.walk_forward_daily_return << "%"
+                      << " | daily return (TRUE holdout): " << report.holdout_daily_return << "%"
                       << " | Signal: " << report.signal.direction << "\n";
             std::cout << " -> Last Tested Trades (Holdout OOS): ";
             if (report.oos_trade_pcts.empty()) {
@@ -724,6 +828,7 @@ DeploymentResult simulate_deployment(const std::vector<RankedSymbol>& pipeline,
     if (accepted_count > 0) {
         dr.avg_wins_per_day = total_wpd / accepted_count;
         dr.projected_daily_return_wf = total_daily_return_wf;
+        dr.projected_daily_return_holdout = total_daily_return_holdout;
     }
     if (verbose) std::cout << "--------------------------------------------------------\n";
     return dr;
@@ -830,15 +935,19 @@ int main() {
 
     DeploymentResult live = simulate_deployment(pipeline, returns_cache, moneyei.equity,
                                                  base_portfolio, /*execute_orders=*/true,
-                                                 /*verbose=*/true, symbols);
+                                                 /*verbose=*/true, symbols, /*enforce_holdout_gate=*/true);
 
     if (live.slots_filled > 0) {
         cout << "\nPortfolio Deployed Slots: " << live.slots_filled << " / 4\n";
-        cout << "Cumulative Walk-Forward OOS Return: " << live.cumulative_oos << "%\n";
-        cout << "Average wins/day (holdout): " << live.avg_wins_per_day << "\n";
-        cout << "Projected daily return (walk-forward, conservative): " << live.projected_daily_return_wf << "% per day\n";
-        cout << "NOTE: apply a ~30% haircut for slippage/regime shifts → realistic target ~" 
-             << (live.projected_daily_return_wf * 0.7) << "% per day.\n";
+        cout << "Cumulative TRAIN Walk-Forward OOS Return: " << live.cumulative_oos << "% [in-sample, used only for parameter selection]\n";
+        cout << "Average wins/day (train): " << live.avg_wins_per_day << "\n";
+        cout << "Projected daily return (TRAIN walk-forward, in-sample): " << live.projected_daily_return_wf << "% per day\n";
+        cout << "Projected daily return (TRUE HOLDOUT, out-of-sample, never used for fitting): "
+             << live.projected_daily_return_holdout << "% per day\n";
+        cout << "NOTE: the holdout figure above is a single ~" << (TEST_FRACTION * 100.0)
+             << "% window per symbol, not a statistically robust estimate. Apply an additional "
+             << "haircut for execution slippage, latency, and regime change not captured in any backtest — "
+             << "treat both numbers as upper bounds, not guarantees, and confirm with live paper-trading before sizing real capital.\n";
     } else {
         cout << "Defensive Phase: 0 Slots Allocated. All assets filtered out.\n";
     }

@@ -1537,7 +1537,7 @@ install_deb() {
 
   echo "✅ $filename instalado com sucesso!"
 }
-install_gmsh() {
+install_gmshprev() {
     # --- Configurações de Caminhos ---
     local OCCT_VER="7_9_3"
     local OCC_PREFIX="/opt/occt-${OCCT_VER}"
@@ -1631,6 +1631,102 @@ install_gmsh() {
     make -j"$(nproc)"
     sudo make install
 }
+install_gmsh() {
+    set -e
+
+    # --- Configurações de Caminhos ---
+    local OCCT_VER="8.0.0"
+    local OCC_PREFIX="/opt/occt-${OCCT_VER}"
+    local PREFIX="/opt/gmsh-occ"
+    local BUILD_DIR="/tmp/bldgshm"
+    local JOBS=$(nproc)
+    
+    echo "=========================================="
+    echo "Iniciando Build do Gmsh com Suporte OCCT ${OCCT_VER}"
+    echo "=========================================="
+
+    # 1. Verificações de Ferramentas de Sistema
+    echo "[1/6] Verificando dependências de compilação..."
+    for cmd in cmake g++ make wget tar; do
+        if ! command -v "$cmd" &> /dev/null; then
+            echo "ERRO: Ferramenta '$cmd' não encontrada. Instala-a primeiro."
+            return 1
+        fi
+    done
+
+    # 2. Verificações Profundas do OCCT 8.0.0
+    echo "[2/6] Validando instalação do OCCT em ${OCC_PREFIX}..."
+    
+    local lib_dir="${OCC_PREFIX}/lib"
+    if [ -d "${OCC_PREFIX}/lib64" ]; then
+        lib_dir="${OCC_PREFIX}/lib64"
+    fi
+
+    local occ_cmake_dir="${lib_dir}/cmake/opencascade"
+
+    if [ ! -d "${OCC_PREFIX}" ]; then
+        echo "ERRO: Diretório do OCCT não existe: ${OCC_PREFIX}"
+        return 1
+    fi
+
+    if [ ! -f "${occ_cmake_dir}/OpenCASCADEConfig.cmake" ]; then
+        echo "ERRO: Ficheiro CMake do OCCT não encontrado em: ${occ_cmake_dir}"
+        return 1
+    fi
+
+    echo "OCCT ${OCCT_VER} validado em ${lib_dir} ✔"
+
+    # 3. Limpeza e Download da versão mais recente do Gmsh
+    echo "[3/6] Preparando ambiente de build..."
+    sudo rm -rf "$BUILD_DIR"
+    mkdir -p "$BUILD_DIR"
+    cd "$BUILD_DIR"
+
+    wget -q https://gmsh.info/src/gmsh-git-source.tgz
+    # wget -q https://gmsh.info/src/gmsh-4.15.2-source.tgz
+    tar xf gmsh-git-source.tgz
+    # tar xf gmsh-4.15.2-source.tgz
+    cd gmsh-git-source
+    # cd gmsh-4.15.2-source
+    mkdir build && cd build
+
+	echo "[4/6] Configurando CMake com C++17 forçado e OpenMP..."
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="${PREFIX}" \
+        -DCMAKE_CXX_STANDARD=17 \
+        -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+        -DCMAKE_CXX_EXTENSIONS=OFF \
+        -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=x86-64-v3 -std=c++17 -fopenmp" \
+        -DCMAKE_C_FLAGS_RELEASE="-O3 -march=x86-64-v3 -fopenmp" \
+        -DENABLE_OPENMP=ON \
+        -DENABLE_OCC=ON \
+        -DENABLE_PARSER=ON \
+        -DCMAKE_PREFIX_PATH="${OCC_PREFIX}" \
+        -DCMAKE_INSTALL_RPATH="\$ORIGIN/../lib:${lib_dir}" \
+        -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+        -DENABLE_BUILD_DYNAMIC=ON \
+        -DENABLE_BUILD_LIB=ON \
+        -DENABLE_FLTK=OFF
+
+    # 5. Verificação de Segurança da Integração OCC
+    echo "[5/6] Verificando se o OpenCASCADE foi ativado..."
+    if cmake -LAH . | grep -q "ENABLE_OCC:BOOL=ON"; then
+        echo "Suporte OCCT confirmado via flag ENABLE_OCC ✔"
+    else
+        echo "ERRO: O OpenCASCADE não foi ativado no plano de build do Gmsh."
+        return 1
+    fi
+
+    # 6. Compilação e Instalação
+    echo "[6/6] Compilando e Instalando com ${JOBS} threads..."
+    make -j"${JOBS}"
+    sudo make install
+
+    echo "=========================================="
+    echo "Gmsh instalado com sucesso em: ${PREFIX}"
+    echo "=========================================="
+}
 install_gmsh_delete(){
     # mkdir -p /dev/shm
     # cd /dev/shm
@@ -1700,6 +1796,71 @@ install_gmsh_delete(){
     make -j"$(nproc)"
     sudo make install
 }
+
+install_occt_8_0_0() {
+    set -e
+
+    # Updated to the latest stable version
+    OCCT_VER="8.0.0"
+    PREFIX="/opt/occt-${OCCT_VER}"
+    JOBS=$(nproc)
+
+    echo "=== Installing OCCT ${OCCT_VER} ==="
+
+    sudo apt update
+    sudo apt install -y \
+      build-essential \
+      cmake \
+      git \
+      wget \
+      libx11-dev \
+      libxmu-dev \
+      libxi-dev \
+      libgl1-mesa-dev \
+      libglu1-mesa-dev \
+      libfreetype6-dev \
+      libtbb-dev \
+      tcl-dev \
+      tk-dev
+
+    cd /tmp
+    # Clean up previous download attempts
+    rm -rf opencascade-${OCCT_VER} opencascade-${OCCT_VER}.tar.gz
+
+    # Github release archive names changed slightly for 8.x onwards
+    wget -q https://github.com/Open-Cascade-SAS/OCCT/archive/refs/tags/V${OCCT_VER//./_}.tar.gz -O opencascade-${OCCT_VER}.tar.gz
+    tar xf opencascade-${OCCT_VER}.tar.gz
+    
+    # The extracted folder matches the repository naming conventions
+    cd OCCT-${OCCT_VER//./_}
+
+    mkdir -p build
+    cd build
+
+    # Fixed: Removed the accidental 'return 1' that halted your original script.
+    # Added performance optimization flags: -O3 and -march=native tells GCC to optimize 
+    # instructions specifically for your local CPU cores.
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Release \
+	  -DCMAKE_CXX_FLAGS="-O3 -march=x86-64-v3" \
+      -DCMAKE_C_FLAGS="-O3 -march=x86-64-v3" \
+      -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+      -DBUILD_MODULE_Draw=OFF \
+      -DBUILD_SAMPLES_QT=OFF \
+      -DBUILD_SAMPLES_MFC=OFF \
+      -DBUILD_SAMPLES_ANDROID=OFF \
+      -DBUILD_SAMPLES_IOS=OFF \
+      -DUSE_TBB=ON \
+      -DUSE_FREETYPE=ON \
+      -DUSE_XLIB=ON \
+      -DUSE_OPENGL=ON
+
+    make -j${JOBS}
+    sudo make install
+
+    echo "=== OCCT ${OCCT_VER} installed in ${PREFIX} ==="
+}
+
 
 install_occt_7_9_3() {
     set -e
