@@ -114,7 +114,7 @@ crbot/*6h_1000.json
 !crbot/cwin
 !crbot/cwin.cpp
 !crbot/cmexc.cpp
-crbot/state.json
+!crbot/state.json
 
 !docs
 !docs/**/**
