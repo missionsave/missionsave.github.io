@@ -20,6 +20,8 @@ jobs:
   run-bot:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    permissions:
+      contents: write      # <-- ESSENCIAL para o push funcionar
 
     steps:
       - name: Checkout only needed files
@@ -29,7 +31,6 @@ jobs:
             crbot/cwin
             crbot/state.json
           sparse-checkout-cone-mode: false
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Make binary executable
         run: chmod +x crbot/cwin
