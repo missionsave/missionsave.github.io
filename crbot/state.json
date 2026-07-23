@@ -1,10 +1,10 @@
 {
-	"equity":	44.85213923,
+	"equity":	45.71318971,
 	"starting_equity":	41.65862249,
-	"peak_equity":	45.32589716,
+	"peak_equity":	45.71318971,
 	"total_fees_paid":	1.05328448,
 	"trading_halted_until":	0,
-	"last_run":	1784772026,
+	"last_run":	1784775627,
 	"positions":	[{
 			"symbol":	"ETH_USDT",
 			"side":	"LONG",
@@ -23,13 +23,13 @@
 			"side":	"SHORT",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	16.275007956912066,
+			"quantity":	8.1375039784560332,
 			"entry_price":	6.611,
-			"sl":	6.6667,
+			"sl":	6.611,
 			"tp":	6.4996,
-			"trailing":	6.5553,
+			"trailing":	6.611,
 			"timestamp":	1784746822,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0
 		}, {
 			"symbol":	"ARB_USDT",
