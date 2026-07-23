@@ -2181,6 +2181,10 @@ int main(int argc, char* argv[]) {
     }
     PortfolioManager pm(&state);
     if (cmd == "") {
+		double total_equity=0;
+		for (auto& ex : exchanges) total_equity += get_balance(ex.exchange).equity;
+        state.equity = total_equity;
+
         pm.sync_positions_with_exchange();
         display_portfolio(state);
         return 0;
