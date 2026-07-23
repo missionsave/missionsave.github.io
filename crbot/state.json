@@ -1,10 +1,10 @@
 {
-	"equity":	45.96128971,
+	"equity":	45.82914816,
 	"starting_equity":	41.65862249,
 	"peak_equity":	45.97443971,
 	"total_fees_paid":	1.05328448,
 	"trading_halted_until":	0,
-	"last_run":	1784779227,
+	"last_run":	1784782825,
 	"positions":	[{
 			"symbol":	"ETH_USDT",
 			"side":	"LONG",
@@ -36,13 +36,13 @@
 			"side":	"SHORT",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	595.788310947931,
+			"quantity":	297.8941554739655,
 			"entry_price":	0.09076,
-			"sl":	0.092258,
+			"sl":	0.09076,
 			"tp":	0.087764,
-			"trailing":	0.089262,
+			"trailing":	0.09076,
 			"timestamp":	1784768432,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.0014979999999999993
 		}, {
 			"symbol":	"LINK_USDT",
