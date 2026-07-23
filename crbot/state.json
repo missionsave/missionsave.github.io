@@ -4,7 +4,7 @@
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	1.851873536,
 	"trading_halted_until":	0,
-	"last_run":	1784826023,
+	"last_run":	1784828816,
 	"positions":	[{
 			"symbol":	"ETH_USDT",
 			"side":	"LONG",
@@ -64,37 +64,24 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.39358387556779734,
-			"holdout_trades":	45,
+			"holdout_sharpe":	0.84358865352042,
+			"holdout_trades":	21,
 			"params":	{
-				"atr_mult":	1.4,
-				"period":	20,
-				"threshold":	0.8
+				"atr_mult":	2.3,
+				"period":	10,
+				"threshold":	1
 			}
 		}, {
-			"name":	"carry_harvest",
+			"name":	"supertrend",
 			"symbol":	"BTC_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
+			"holdout_sharpe":	0.45542620169957371,
+			"holdout_trades":	6,
 			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"volatility_breakout",
-			"symbol":	"BTC_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.71040809759861279,
-			"holdout_trades":	13,
-			"params":	{
-				"atr_mult":	2,
-				"period":	30
+				"atr_period":	10,
+				"multiplier":	3
 			}
 		}, {
 			"name":	"trend_exhaustion",
@@ -102,694 +89,130 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.33794767152154959,
-			"holdout_trades":	22,
-			"params":	{
-				"atr_mult":	2,
-				"period":	8,
-				"threshold":	1
-			}
-		}, {
-			"name":	"ema_trend",
-			"symbol":	"ETH_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.66423239352771279,
-			"holdout_trades":	14,
-			"params":	{
-				"atr_mult":	2,
-				"fast_period":	40,
-				"slow_period":	100
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"ETH_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"volatility_breakout",
-			"symbol":	"ETH_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.567918894719595,
-			"holdout_trades":	15,
-			"params":	{
-				"atr_mult":	2,
-				"period":	20
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"SOL_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"BNB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.76323760050856548,
-			"holdout_trades":	15,
-			"params":	{
-				"atr_mult":	2.3,
-				"period":	8,
-				"threshold":	1
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"BNB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.43748923294268383,
-			"holdout_trades":	14,
-			"params":	{
-				"atr_mult":	2,
-				"overbought":	65,
-				"oversold":	25,
-				"rsi_period":	20
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"BNB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2747831258110156,
-			"holdout_trades":	25,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"BNB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"XRP_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"volatility_breakout",
-			"symbol":	"XRP_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.595916770578027,
-			"holdout_trades":	12,
-			"params":	{
-				"atr_mult":	2.5,
-				"period":	30
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"DOGE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.40150185857446774,
-			"holdout_trades":	22,
-			"params":	{
-				"atr_mult":	2,
-				"period":	8,
-				"threshold":	0.6
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"DOGE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.75289796990419333,
-			"holdout_trades":	38,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	65,
-				"oversold":	35,
-				"rsi_period":	14
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"DOGE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.89760185701240547,
-			"holdout_trades":	30,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"DOGE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"AVAX_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.3186609612098261,
-			"holdout_trades":	14,
-			"params":	{
-				"atr_mult":	2.3,
-				"period":	13,
-				"threshold":	0.8
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"AVAX_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.6737199732035171,
-			"holdout_trades":	34,
-			"params":	{
-				"atr_mult":	2,
-				"overbought":	70,
-				"oversold":	25,
-				"rsi_period":	10
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"AVAX_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"SUI_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.063495029087179,
-			"holdout_trades":	31,
-			"params":	{
-				"atr_mult":	1.7,
-				"period":	13,
-				"threshold":	1
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"SUI_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.67770993279145,
-			"holdout_trades":	43,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	65,
-				"oversold":	25,
-				"rsi_period":	10
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"SUI_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.7182974808807479,
-			"holdout_trades":	29,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"SUI_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"NEAR_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.78935071661733447,
-			"holdout_trades":	26,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"NEAR_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"volatility_breakout",
-			"symbol":	"NEAR_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.48318920502116991,
-			"holdout_trades":	16,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	30
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"ADA_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"ema_trend",
-			"symbol":	"TRX_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.61406135657602046,
-			"holdout_trades":	16,
-			"params":	{
-				"atr_mult":	2,
-				"fast_period":	30,
-				"slow_period":	80
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"TRX_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.338521018807,
-			"holdout_trades":	26,
-			"params":	{
-				"atr_mult":	2,
-				"overbought":	70,
-				"oversold":	25,
-				"rsi_period":	14
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"TRX_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.712607625705499,
-			"holdout_trades":	27,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"TRX_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"ema_trend",
-			"symbol":	"LINK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.96083227280003158,
-			"holdout_trades":	14,
-			"params":	{
-				"atr_mult":	2,
-				"fast_period":	40,
-				"slow_period":	100
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"LINK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.0874805287009219,
-			"holdout_trades":	47,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	70,
-				"oversold":	35,
-				"rsi_period":	10
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"LINK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"ema_trend",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.1655161881412379,
-			"holdout_trades":	19,
-			"params":	{
-				"atr_mult":	1.5,
-				"fast_period":	30,
-				"slow_period":	80
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.622164835680984,
-			"holdout_trades":	53,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	65,
-				"oversold":	30,
-				"rsi_period":	10
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.49416344301589221,
-			"holdout_trades":	27,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"SHIB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"WLD_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.8583113794482362,
-			"holdout_trades":	14,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	75,
-				"oversold":	30,
-				"rsi_period":	20
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"WLD_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"OP_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"ARB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.5353891831016551,
-			"holdout_trades":	40,
-			"params":	{
-				"atr_mult":	1.4,
-				"period":	20,
-				"threshold":	0.6
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"ARB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.733924012904914,
-			"holdout_trades":	44,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	65,
-				"oversold":	25,
-				"rsi_period":	10
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"ARB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"FET_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	2.0326730332519625,
-			"holdout_trades":	16,
-			"params":	{
-				"atr_mult":	2.3,
-				"period":	8,
-				"threshold":	1
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"FET_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.98242871252181219,
-			"holdout_trades":	10,
-			"params":	{
-				"atr_mult":	2,
-				"overbought":	75,
-				"oversold":	30,
-				"rsi_period":	20
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"FET_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.895321730181376,
-			"holdout_trades":	23,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"FET_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
-			}
-		}, {
-			"name":	"volatility_breakout",
-			"symbol":	"FET_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.646509329055465,
+			"holdout_sharpe":	0.52602994961812444,
 			"holdout_trades":	17,
 			"params":	{
-				"atr_mult":	1.5,
-				"period":	20
-			}
-		}, {
-			"name":	"carry_harvest",
-			"symbol":	"HYPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
-			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
+				"atr_mult":	2.3,
+				"period":	8,
+				"threshold":	0.6
 			}
 		}, {
 			"name":	"trend_exhaustion",
-			"symbol":	"ORDI_USDT",
+			"symbol":	"DOGE_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.42951124697966314,
-			"holdout_trades":	32,
+			"holdout_sharpe":	1.1159598388414005,
+			"holdout_trades":	19,
 			"params":	{
-				"atr_mult":	1.4,
+				"atr_mult":	2.3,
+				"period":	13,
+				"threshold":	0.8
+			}
+		}, {
+			"name":	"trend_exhaustion",
+			"symbol":	"PEPE_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.52077974661864956,
+			"holdout_trades":	22,
+			"params":	{
+				"atr_mult":	2,
 				"period":	13,
 				"threshold":	1.2
 			}
 		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"ORDI_USDT",
+			"name":	"ema_trend",
+			"symbol":	"PEPE_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.3567034273040017,
-			"holdout_trades":	26,
+			"holdout_sharpe":	0.577611741442905,
+			"holdout_trades":	6,
+			"params":	{
+				"atr_mult":	2.5,
+				"fast_period":	40,
+				"slow_period":	100
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"PEPE_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.39245338552747377,
+			"holdout_trades":	17,
 			"params":	{
 				"atr_mult":	1.5,
 				"period":	20,
-				"std_mult":	2
+				"std_mult":	2.5
 			}
 		}, {
-			"name":	"carry_harvest",
-			"symbol":	"ORDI_USDT",
+			"name":	"trend_exhaustion",
+			"symbol":	"BNB_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.2,
-			"holdout_trades":	7,
+			"holdout_sharpe":	0.83789505840222822,
+			"holdout_trades":	16,
 			"params":	{
-				"funding_threshold":	0.0005,
-				"max_hold_hours":	8,
-				"stop_atr_mult":	1.5
+				"atr_mult":	2.3,
+				"period":	8,
+				"threshold":	1
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"BNB_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	3.01452181900406,
+			"holdout_trades":	13,
+			"params":	{
+				"atr_mult":	1.5,
+				"period":	20,
+				"std_mult":	2.5
+			}
+		}, {
+			"name":	"rsi_mean_rev",
+			"symbol":	"SUI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	1.1300534893148004,
+			"holdout_trades":	45,
+			"params":	{
+				"atr_mult":	1.5,
+				"overbought":	65,
+				"oversold":	25,
+				"rsi_period":	10
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"SUI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.48199797919795262,
+			"holdout_trades":	29,
+			"params":	{
+				"atr_mult":	1.5,
+				"period":	15,
+				"std_mult":	2
+			}
+		}, {
+			"name":	"trend_exhaustion",
+			"symbol":	"AVAX_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	1.172604635106572,
+			"holdout_trades":	14,
+			"params":	{
+				"atr_mult":	2.3,
+				"period":	13,
+				"threshold":	0.8
 			}
 		}],
 	"recent_trade_returns":	[0.039438945570287584, 0.011697755875728889, 0.0045456414267222483, 0, -0.002648340420491242, -0.0034276571084478373, 0.00092538185181343454, 0.002608294363569161, -0.00020396445606669255, 0.019181297382651532, 0.022675919830541565, -0.018803303769944508, -0.023615414330279024, -0.013282816239209242, -0.012168508735095248],
