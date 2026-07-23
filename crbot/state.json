@@ -1,10 +1,10 @@
 {
-	"equity":	42.26230214,
+	"equity":	41.50171214,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	1.851873536,
 	"trading_halted_until":	0,
-	"last_run":	1784822429,
+	"last_run":	1784826023,
 	"positions":	[{
 			"symbol":	"ETH_USDT",
 			"side":	"LONG",
