@@ -1852,11 +1852,17 @@ public:
     
     void weekly_reoptimize() {
         std::vector<std::string> symbols = {
-            "BTC_USDT","ETH_USDT","SOL_USDT","BNB_USDT","XRP_USDT",
-            "DOGE_USDT","AVAX_USDT","SUI_USDT","NEAR_USDT","ADA_USDT",
-            "TRX_USDT","LINK_USDT","PEPE_USDT","SHIB_USDT","WLD_USDT",
-            "OP_USDT","ARB_USDT","FET_USDT","HYPE_USDT","ORDI_USDT"
-        };
+			"BTC_USDT",
+			"ETH_USDT",
+			"SOL_USDT",
+			"XRP_USDT",
+			"DOGE_USDT",
+			"PEPE_USDT",
+			"BNB_USDT",
+			"SUI_USDT",
+			"LINK_USDT",
+			"AVAX_USDT"
+		};
         state_->strategies.clear();
         for (auto& ex : exchanges) {
             for (auto& sym : symbols) {
