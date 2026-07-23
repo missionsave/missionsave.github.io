@@ -4,7 +4,7 @@
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	1.851873536,
 	"trading_halted_until":	0,
-	"last_run":	1784847616,
+	"last_run":	1784848365,
 	"positions":	[{
 			"symbol":	"ETH_USDT",
 			"side":	"LONG",
@@ -64,7 +64,7 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.84358865352042,
+			"holdout_sharpe":	0.71842282488245135,
 			"holdout_trades":	21,
 			"params":	{
 				"atr_mult":	2.3,
@@ -72,42 +72,43 @@
 				"threshold":	1
 			}
 		}, {
-			"name":	"supertrend",
-			"symbol":	"BTC_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.45542620169957371,
-			"holdout_trades":	6,
-			"params":	{
-				"atr_period":	10,
-				"multiplier":	3
-			}
-		}, {
-			"name":	"trend_exhaustion",
+			"name":	"range_grid",
 			"symbol":	"ETH_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.52602994961812444,
+			"holdout_sharpe":	0.563752503902164,
 			"holdout_trades":	17,
 			"params":	{
-				"atr_mult":	2.3,
-				"period":	8,
-				"threshold":	0.6
+				"grid_spacing":	1,
+				"max_grids":	3,
+				"range_lookback":	20
 			}
 		}, {
 			"name":	"trend_exhaustion",
-			"symbol":	"DOGE_USDT",
+			"symbol":	"SOL_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.1159598388414005,
-			"holdout_trades":	19,
+			"holdout_sharpe":	0.40384858089389214,
+			"holdout_trades":	16,
 			"params":	{
 				"atr_mult":	2.3,
-				"period":	13,
+				"period":	8,
 				"threshold":	0.8
+			}
+		}, {
+			"name":	"range_grid",
+			"symbol":	"XRP_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.35975235370768482,
+			"holdout_trades":	15,
+			"params":	{
+				"grid_spacing":	1,
+				"max_grids":	5,
+				"range_lookback":	20
 			}
 		}, {
 			"name":	"trend_exhaustion",
@@ -115,7 +116,7 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.52077974661864956,
+			"holdout_sharpe":	0.50265746627726,
 			"holdout_trades":	22,
 			"params":	{
 				"atr_mult":	2,
@@ -128,38 +129,12 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.577611741442905,
-			"holdout_trades":	6,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast_period":	40,
-				"slow_period":	100
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.39245338552747377,
+			"holdout_sharpe":	0.49808520290959241,
 			"holdout_trades":	17,
 			"params":	{
 				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2.5
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"BNB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.83789505840222822,
-			"holdout_trades":	16,
-			"params":	{
-				"atr_mult":	2.3,
-				"period":	8,
-				"threshold":	1
+				"fast_period":	30,
+				"slow_period":	80
 			}
 		}, {
 			"name":	"bollinger_squeeze",
@@ -167,7 +142,7 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	3.01452181900406,
+			"holdout_sharpe":	3.3111166381488664,
 			"holdout_trades":	13,
 			"params":	{
 				"atr_mult":	1.5,
@@ -175,13 +150,26 @@
 				"std_mult":	2.5
 			}
 		}, {
+			"name":	"trend_exhaustion",
+			"symbol":	"SUI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.544443524539812,
+			"holdout_trades":	19,
+			"params":	{
+				"atr_mult":	2.3,
+				"period":	10,
+				"threshold":	1.2
+			}
+		}, {
 			"name":	"rsi_mean_rev",
 			"symbol":	"SUI_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.1300534893148004,
-			"holdout_trades":	45,
+			"holdout_sharpe":	1.0966415943877315,
+			"holdout_trades":	44,
 			"params":	{
 				"atr_mult":	1.5,
 				"overbought":	65,
@@ -194,12 +182,38 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.48199797919795262,
-			"holdout_trades":	29,
+			"holdout_sharpe":	0.49146974505103541,
+			"holdout_trades":	30,
 			"params":	{
 				"atr_mult":	1.5,
 				"period":	15,
 				"std_mult":	2
+			}
+		}, {
+			"name":	"range_grid",
+			"symbol":	"SUI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	1.4335056136880413,
+			"holdout_trades":	10,
+			"params":	{
+				"grid_spacing":	1,
+				"max_grids":	5,
+				"range_lookback":	20
+			}
+		}, {
+			"name":	"range_grid",
+			"symbol":	"LINK_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	2.489860949991912,
+			"holdout_trades":	16,
+			"params":	{
+				"grid_spacing":	1,
+				"max_grids":	5,
+				"range_lookback":	20
 			}
 		}, {
 			"name":	"trend_exhaustion",
@@ -207,12 +221,24 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.172604635106572,
+			"holdout_sharpe":	0.4628181409719177,
 			"holdout_trades":	14,
 			"params":	{
 				"atr_mult":	2.3,
-				"period":	13,
+				"period":	10,
 				"threshold":	0.8
+			}
+		}, {
+			"name":	"atr_breakout",
+			"symbol":	"AVAX_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.83473049096236218,
+			"holdout_trades":	5,
+			"params":	{
+				"atr_mult":	1,
+				"lookback":	30
 			}
 		}],
 	"recent_trade_returns":	[0.039438945570287584, 0.011697755875728889, 0.0045456414267222483, 0, -0.002648340420491242, -0.0034276571084478373, 0.00092538185181343454, 0.002608294363569161, -0.00020396445606669255, 0.019181297382651532, 0.022675919830541565, -0.018803303769944508, -0.023615414330279024, -0.013282816239209242, -0.012168508735095248],
