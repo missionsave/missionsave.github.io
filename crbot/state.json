@@ -1,10 +1,10 @@
 {
-	"equity":	44.62454449,
+	"equity":	44.80332453,
 	"starting_equity":	41.65862249,
 	"peak_equity":	45.32589716,
-	"total_fees_paid":	0.8256128,
+	"total_fees_paid":	1.00733568,
 	"trading_halted_until":	0,
-	"last_run":	1784764834,
+	"last_run":	1784768434,
 	"positions":	[{
 			"symbol":	"ETH_USDT",
 			"side":	"LONG",
@@ -32,44 +32,44 @@
 			"partial_taken":	false,
 			"orig_risk_distance":	0
 		}, {
-			"symbol":	"LINK_USDT",
-			"side":	"LONG",
-			"strategy":	"ema_trend",
-			"exchange":	"MEXC",
-			"quantity":	3.4412286347071359,
-			"entry_price":	8.623,
-			"sl":	8.623,
-			"tp":	9.0181428571428572,
-			"trailing":	8.623,
-			"timestamp":	1784746823,
-			"partial_taken":	true,
-			"orig_risk_distance":	0
-		}, {
 			"symbol":	"ORDI_USDT",
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	18.27657143548392,
+			"quantity":	9.13828571774196,
 			"entry_price":	3.56,
-			"sl":	3.5104,
+			"sl":	3.56,
 			"tp":	3.6592,
-			"trailing":	3.6096,
+			"trailing":	3.56,
 			"timestamp":	1784746824,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0
 		}, {
-			"symbol":	"PEPE_USDT",
+			"symbol":	"ARB_USDT",
+			"side":	"SHORT",
+			"strategy":	"trend_exhaustion",
+			"exchange":	"MEXC",
+			"quantity":	595.788310947931,
+			"entry_price":	0.09076,
+			"sl":	0.092258,
+			"tp":	0.087764,
+			"trailing":	0.089262,
+			"timestamp":	1784768432,
+			"partial_taken":	false,
+			"orig_risk_distance":	0.0014979999999999993
+		}, {
+			"symbol":	"LINK_USDT",
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	8621773.9163043443,
-			"entry_price":	2.8771e-06,
-			"sl":	2.8771e-06,
-			"tp":	3.0348142857142861e-06,
-			"trailing":	2.8771e-06,
-			"timestamp":	1784746825,
-			"partial_taken":	true,
-			"orig_risk_distance":	0
+			"quantity":	6.9108807838496125,
+			"entry_price":	8.634,
+			"sl":	8.5048571428571442,
+			"tp":	9.02142857142857,
+			"trailing":	8.7631428571428565,
+			"timestamp":	1784768433,
+			"partial_taken":	false,
+			"orig_risk_distance":	0.12914285714285612
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
@@ -805,6 +805,6 @@
 				"stop_atr_mult":	1.5
 			}
 		}],
-	"recent_trade_returns":	[0.039438945570287584, 0.011697755875728889, 0.0045456414267222483, 0, -0.002648340420491242, -0.0034276571084478373],
+	"recent_trade_returns":	[0.039438945570287584, 0.011697755875728889, 0.0045456414267222483, 0, -0.002648340420491242, -0.0034276571084478373, 0.00092538185181343454, 0.002608294363569161],
 	"equity_curve":	[41.62942249]
 }
