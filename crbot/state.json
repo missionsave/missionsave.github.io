@@ -1,10 +1,10 @@
 {
-	"equity":	41.95229436,
+	"equity":	42.29428436,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	1.921927776,
 	"trading_halted_until":	0,
-	"last_run":	1784854818,
+	"last_run":	1784858416,
 	"positions":	[{
 			"symbol":	"WLD_USDT",
 			"side":	"LONG",
