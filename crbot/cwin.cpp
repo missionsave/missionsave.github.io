@@ -2539,9 +2539,9 @@ public:
     
     void weekly_reoptimize() {
         std::vector<std::string> symbols = {
-            "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT","DOGE_USDT",
-            "PEPE_USDT","BNB_USDT","SUI_USDT","LINK_USDT","AVAX_USDT"
-        };
+            "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT"};//,"DOGE_USDT",
+        //     "PEPE_USDT","BNB_USDT","SUI_USDT","LINK_USDT","AVAX_USDT"
+        // };
         state_->strategies.clear();
         for (auto& ex : exchanges) {
             for (auto& sym : symbols) {
@@ -2946,7 +2946,237 @@ static void display_portfolio(BotState& state) {
     }
     std::cout << "└────────────────────────────────────────┘\n" << std::endl;
 }
-
+// ----------------------------------------------------------------------
+// DISPLAY PORTFOLIO - Direct from MEXC (no state dependency)
+// ----------------------------------------------------------------------
+static void display_portfolio_live() {
+    if (exchanges.empty()) {
+        std::cout << "No exchanges configured.\n";
+        return;
+    }
+    
+    // Use first MEXC exchange
+    auto* cfg = get_exchange(Exchange::MEXC);
+    if (!cfg) {
+        std::cout << "MEXC exchange not found.\n";
+        return;
+    }
+    
+    std::cout << "\n┌────────────── PORTFOLIO (LIVE) ──────────────┐\n";
+    
+    // ── Fetch account balance ──
+    Balance bal = get_balance(Exchange::MEXC);
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "│ Equity:     " << std::setw(12) << bal.equity << " USDT\n";
+    std::cout << "│ Available:  " << std::setw(12) << bal.available << " USDT\n";
+    
+    // ── Fetch open positions from MEXC API ──
+    std::string resp = mexc_request(*cfg, "GET", "/api/v1/private/position/open_positions");
+    
+    struct LivePosition {
+        std::string symbol;
+        std::string side;      // LONG or SHORT
+        double quantity = 0;   // in contracts
+        double avg_price = 0;
+        double mark_price = 0;
+        double unrealized_pnl = 0;
+        double pnl_pct = 0;
+        double leverage = 0;
+        double liquidation = 0;
+        double margin = 0;
+    };
+    
+    std::vector<LivePosition> live_positions;
+    
+    // Parse JSON array of positions
+    cJSON* root = cJSON_Parse(resp.c_str());
+    if (root) {
+        cJSON* data = cJSON_GetObjectItem(root, "data");
+        if (cJSON_IsArray(data)) {
+            int n = cJSON_GetArraySize(data);
+            for (int i = 0; i < n; ++i) {
+                cJSON* item = cJSON_GetArrayItem(data, i);
+                
+                // Skip positions with zero volume
+                cJSON* holdVol = cJSON_GetObjectItem(item, "holdVol");
+                if (!holdVol || holdVol->valuedouble <= 0) continue;
+                
+                LivePosition pos;
+                
+                cJSON* sym = cJSON_GetObjectItem(item, "symbol");
+                if (sym && cJSON_IsString(sym)) pos.symbol = sym->valuestring;
+                
+                cJSON* posType = cJSON_GetObjectItem(item, "positionType");
+                if (posType) pos.side = (posType->valueint == 1) ? "LONG" : "SHORT";
+                
+                cJSON* qty = cJSON_GetObjectItem(item, "holdVol");
+                if (qty) pos.quantity = qty->valuedouble;
+                
+                cJSON* avg = cJSON_GetObjectItem(item, "holdAvgPrice");
+                if (avg) pos.avg_price = avg->valuedouble;
+                
+                cJSON* mark = cJSON_GetObjectItem(item, "markPrice");
+                if (mark) pos.mark_price = mark->valuedouble;
+                
+                cJSON* upnl = cJSON_GetObjectItem(item, "unrealizedPnl");
+                if (upnl) pos.unrealized_pnl = upnl->valuedouble;
+                
+                cJSON* lev = cJSON_GetObjectItem(item, "leverage");
+                if (lev) pos.leverage = lev->valuedouble;
+                
+                cJSON* liq = cJSON_GetObjectItem(item, "liquidationPrice");
+                if (liq) pos.liquidation = liq->valuedouble;
+                
+                cJSON* im = cJSON_GetObjectItem(item, "im");
+                if (im) pos.margin = im->valuedouble;
+                
+                // Calculate PnL %
+                double notional = pos.quantity * pos.avg_price;
+                if (notional > 0) {
+                    pos.pnl_pct = (pos.unrealized_pnl / pos.margin) * 100.0;
+                }
+                
+                live_positions.push_back(pos);
+            }
+        }
+        cJSON_Delete(root);
+    }
+    
+    // ── Fetch open orders (plan orders / stop orders) ──
+    std::string orders_resp = mexc_request(*cfg, "GET", "/api/v1/private/planorder/list?page=1&page_size=50");
+    
+    struct LiveOrder {
+        std::string symbol;
+        std::string type;      // STOP_LOSS, TAKE_PROFIT, LIMIT
+        std::string side;      // BUY/SELL
+        double trigger_price = 0;
+        double order_price = 0;
+        double quantity = 0;
+        std::string status;
+    };
+    
+    std::vector<LiveOrder> live_orders;
+    
+    cJSON* ord_root = cJSON_Parse(orders_resp.c_str());
+    if (ord_root) {
+        cJSON* ord_data = cJSON_GetObjectItem(ord_root, "data");
+        if (cJSON_IsArray(ord_data)) {
+            int n = cJSON_GetArraySize(ord_data);
+            for (int i = 0; i < n; ++i) {
+                cJSON* item = cJSON_GetArrayItem(ord_data, i);
+                
+                LiveOrder ord;
+                
+                cJSON* sym = cJSON_GetObjectItem(item, "symbol");
+                if (sym && cJSON_IsString(sym)) ord.symbol = sym->valuestring;
+                
+                cJSON* otype = cJSON_GetObjectItem(item, "orderType");
+                if (otype) {
+                    int t = otype->valueint;
+                    if (t == 1) ord.type = "LIMIT";
+                    else if (t == 2) ord.type = "STOP_MARKET";
+                    else if (t == 3) ord.type = "STOP_LIMIT";
+                    else ord.type = "OTHER";
+                }
+                
+                cJSON* trPrice = cJSON_GetObjectItem(item, "triggerPrice");
+                if (trPrice) ord.trigger_price = trPrice->valuedouble;
+                
+                cJSON* price = cJSON_GetObjectItem(item, "price");
+                if (price) ord.order_price = price->valuedouble;
+                
+                cJSON* vol = cJSON_GetObjectItem(item, "vol");
+                if (vol) ord.quantity = vol->valuedouble;
+                
+                cJSON* s = cJSON_GetObjectItem(item, "side");
+                if (s) ord.side = (s->valueint == 1 || s->valueint == 3) ? "BUY" : "SELL";
+                
+                cJSON* st = cJSON_GetObjectItem(item, "state");
+                if (st) {
+                    int state = st->valueint;
+                    if (state == 1) ord.status = "PENDING";
+                    else if (state == 2) ord.status = "EXECUTED";
+                    else if (state == 3) ord.status = "CANCELLED";
+                    else if (state == 4) ord.status = "FAILED";
+                    else ord.status = "UNKNOWN";
+                }
+                
+                if (ord.status == "PENDING") {
+                    live_orders.push_back(ord);
+                }
+            }
+        }
+        cJSON_Delete(ord_root);
+    }
+    
+    // ── Display positions ──
+    std::cout << "├────────────────────────────────────────────┤\n";
+    if (live_positions.empty()) {
+        std::cout << "│ No open positions                          │\n";
+    } else {
+        std::cout << "│ Positions: " << live_positions.size() << "\n";
+        std::cout << "├────────────────────────────────────────────┤\n";
+        
+        for (size_t i = 0; i < live_positions.size(); ++i) {
+            auto& p = live_positions[i];
+            
+            std::string pnl_sign = (p.unrealized_pnl >= 0) ? "+" : "";
+            std::string pnl_color = (p.unrealized_pnl >= 0) ? "▲" : "▼";
+            
+            std::cout << "│ " << pnl_color << " " << p.symbol << " " << p.side 
+                      << " " << std::fixed << std::setprecision(1) << p.leverage << "x\n";
+            std::cout << std::setprecision(6);
+            std::cout << "│ Entry:  " << p.avg_price;
+            std::cout << "  Mark: " << p.mark_price << "\n";
+            std::cout << std::setprecision(4);
+            std::cout << "│ Qty:    " << p.quantity;
+            std::cout << "  Margin: " << std::fixed << std::setprecision(2) << p.margin << " USDT\n";
+            std::cout << "│ PnL:    " << pnl_sign << p.unrealized_pnl << " USDT";
+            std::cout << " (" << pnl_sign << std::setprecision(2) << p.pnl_pct << "%)\n";
+            std::cout << std::setprecision(6);
+            std::cout << "│ Liq:    " << p.liquidation << "\n";
+            
+            if (i < live_positions.size() - 1) {
+                std::cout << "├────────────────────────────────────────────┤\n";
+            }
+        }
+    }
+    
+    // ── Display pending orders ──
+    if (!live_orders.empty()) {
+        std::cout << "├────────────────────────────────────────────┤\n";
+        std::cout << "│ Pending Orders: " << live_orders.size() << "\n";
+        std::cout << "├────────────────────────────────────────────┤\n";
+        
+        for (size_t i = 0; i < live_orders.size(); ++i) {
+            auto& o = live_orders[i];
+            
+            std::cout << "│ " << o.symbol << " " << o.type << " " << o.side << "\n";
+            std::cout << std::setprecision(6);
+            if (o.trigger_price > 0) {
+                std::cout << "│ Trigger: " << o.trigger_price;
+            }
+            if (o.order_price > 0) {
+                std::cout << "  Price: " << o.order_price;
+            }
+            std::cout << "\n";
+            std::cout << std::setprecision(4);
+            std::cout << "│ Qty: " << o.quantity << "  [" << o.status << "]\n";
+            
+            if (i < live_orders.size() - 1) {
+                std::cout << "├────────────────────────────────────────────┤\n";
+            }
+        }
+    }
+    
+    // ── Summary ──
+    std::cout << "├────────────────────────────────────────────┤\n";
+    double total_upnl = 0;
+    for (auto& p : live_positions) total_upnl += p.unrealized_pnl;
+    std::cout << "│ Total uPnL: " << (total_upnl >= 0 ? "+" : "") 
+              << std::fixed << std::setprecision(2) << total_upnl << " USDT\n";
+    std::cout << "└────────────────────────────────────────────┘\n" << std::endl;
+}
 // ----------------------------------------------------------------------
 // Main
 // ----------------------------------------------------------------------
@@ -2971,11 +3201,12 @@ int main(int argc, char* argv[]) {
     }
     PortfolioManager pm(&state);
     if (cmd == "") {
-        double total_equity=0;
-        for (auto& ex : exchanges) total_equity += get_balance(ex.exchange).equity;
-        state.equity = total_equity;
-        pm.sync_positions_with_exchange();
-        display_portfolio(state);
+		display_portfolio_live();
+        // double total_equity=0;
+        // for (auto& ex : exchanges) total_equity += get_balance(ex.exchange).equity;
+        // state.equity = total_equity;
+        // pm.sync_positions_with_exchange();
+        // display_portfolio(state);
         return 0;
     }
     if (cmd == "hourly") pm.hourly();
