@@ -2539,7 +2539,10 @@ public:
     
     void weekly_reoptimize() {
         std::vector<std::string> symbols = {
-            "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT"};//,"DOGE_USDT",
+            "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT","BNB_USDT",
+			"AVAX_USDT","NEAR_USDT","APT_USDT","SUI_USDT","SEI_USDT","INJ_USDT","TIA_USDT","DOT_USDT","ADA_USDT","MATIC"
+		};
+            // "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT"};//,"DOGE_USDT",
         //     "PEPE_USDT","BNB_USDT","SUI_USDT","LINK_USDT","AVAX_USDT"
         // };
         state_->strategies.clear();
