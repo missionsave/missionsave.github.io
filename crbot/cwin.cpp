@@ -2539,9 +2539,80 @@ public:
     
     void weekly_reoptimize() {
         std::vector<std::string> symbols = {
-            "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT","BNB_USDT",
-			"AVAX_USDT","NEAR_USDT","APT_USDT","SUI_USDT","SEI_USDT","INJ_USDT","TIA_USDT","DOT_USDT","ADA_USDT","MATIC"
+			// ======================================================================
+			// IDEAL 50-SYMBOL UNIVERSE (for multi-account scaling)
+			// ======================================================================
+
+			// ── BLUE CHIPS (5): Highest liquidity, trending leaders ──
+			"BTC_USDT",     // Bitcoin - market leader, trend following
+			"ETH_USDT",     // Ethereum - high correlation with BTC but different vol
+			"SOL_USDT",     // Solana - high beta L1, momentum plays
+			"XRP_USDT",     // Ripple - medium liquidity, often ranges
+			"BNB_USDT",     // Binance Coin - exchange token, different drivers
+
+			// ── L1s (10): Layer 1 blockchains, independent price action ──
+			"AVAX_USDT",    // Avalanche - SOL competitor, different ecosystem
+			"NEAR_USDT",    // Near Protocol - sharded L1, AI narrative
+			"APT_USDT",     // Aptos - Move-based L1, new ecosystem
+			"SUI_USDT",     // Sui - Move-based L1, gaming focus
+			"SEI_USDT",     // Sei - trading-focused L1, high throughput
+			"INJ_USDT",     // Injective - DeFi L1, volatile moves
+			"TIA_USDT",     // Celestia - modular blockchain, new narrative
+			"DOT_USDT",     // Polkadot - interoperability, different cycle
+			"ADA_USDT",     // Cardano - large community, slow mover
+			"MATIC_USDT",   // Polygon - L2 scaling, ETH correlation
+
+			// ── L2s (8): Layer 2 solutions, high growth potential ──
+			"OP_USDT",      // Optimism - ETH L2, airdrop narrative
+			"ARB_USDT",     // Arbitrum - largest ETH L2, DeFi ecosystem
+			"STRK_USDT",    // Starknet - ZK-rollup, new token
+			"METIS_USDT",   // Metis - decentralized sequencer, low cap
+			"ZKS_USDT",     // ZKsync - ZK-rollup, fresh volatility
+			"CANTO_USDT",   // Canto - Cosmos L1, DeFi focus
+			"MANTA_USDT",   // Manta - ZK L2, privacy narrative
+			"BLAST_USDT",   // Blast - new L2, yield narrative
+
+			// ── MEMES (8): Meme coins, zero correlation with fundamentals ──
+			"DOGE_USDT",    // Dogecoin - original meme, Elon correlation
+			"PEPE_USDT",    // Pepe - pure meme, extreme volatility
+			"WLD_USDT",     // Worldcoin - AI + meme, controversial
+			"BONK_USDT",    // Bonk - Solana meme, ecosystem play
+			"WIF_USDT",     // Dogwifhat - pure meme, viral potential
+			"FLOKI_USDT",   // Floki - meme + utility narrative
+			"SHIB_USDT",    // Shiba Inu - large community, low price
+			"MEME_USDT",    // Memecoin - generic meme, low cap
+
+			// ── AI (5): Artificial intelligence tokens, narrative-driven ──
+			"FET_USDT",     // Fetch.ai - autonomous agents, AI leader
+			"RNDR_USDT",    // Render - GPU computing, AI infrastructure
+			"AGIX_USDT",    // SingularityNET - AI marketplace, volatile
+			"OCEAN_USDT",   // Ocean Protocol - data economy, AI data
+			"AKT_USDT",     // Akash - decentralized cloud, AI compute
+
+			// ── DEFI (7): Decentralized finance, different value drivers ──
+			"LINK_USDT",    // Chainlink - oracle, essential infrastructure
+			"UNI_USDT",     // Uniswap - DEX leader, governance
+			"AAVE_USDT",    // Aave - lending protocol, DeFi blue chip
+			"MKR_USDT",     // Maker - stablecoin protocol, high price
+			"CRV_USDT",     // Curve - stablecoin DEX, yield wars
+			"GMX_USDT",     // GMX - perp DEX, real yield
+			"PENDLE_USDT",  // Pendle - yield trading, new DeFi primitive
+
+			// ── GAMING (4): Gaming/metaverse tokens ──
+			"IMX_USDT",     // Immutable X - gaming L2, partnerships
+			"BEAM_USDT",    // Beam - gaming ecosystem, Merit Circle
+			"PRIME_USDT",   // Echelon Prime - gaming ecosystem, low cap
+			"SAND_USDT",    // Sandbox - metaverse, legacy gaming token
+
+			// ── INFRA (3): Infrastructure and middleware ──
+			"PYTH_USDT",    // Pyth - oracle competitor, Solana ecosystem
+			"JTO_USDT",     // Jito - MEV infrastructure, Solana
+			"JUP_USDT"      // Jupiter - DEX aggregator, Solana DeFi
 		};
+        // std::vector<std::string> symbols = {
+        //     "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT","BNB_USDT",
+		// 	"AVAX_USDT","NEAR_USDT","APT_USDT","SUI_USDT","SEI_USDT","INJ_USDT","TIA_USDT","DOT_USDT","ADA_USDT","MATIC"
+		// };
             // "BTC_USDT","ETH_USDT","SOL_USDT","XRP_USDT"};//,"DOGE_USDT",
         //     "PEPE_USDT","BNB_USDT","SUI_USDT","LINK_USDT","AVAX_USDT"
         // };
