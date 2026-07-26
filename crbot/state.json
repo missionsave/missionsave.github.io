@@ -1,10 +1,10 @@
 {
-	"equity":	40.2836,
+	"equity":	40.5642337,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	3.309156048,
 	"trading_halted_until":	0,
-	"last_run":	1785049278,
+	"last_run":	1785052871,
 	"positions":	[{
 			"symbol":	"MANTA_USDT",
 			"side":	"SHORT",
