@@ -1,10 +1,10 @@
 {
-	"equity":	40.06433186,
+	"equity":	40.1621344,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	3.285668048,
 	"trading_halted_until":	0,
-	"last_run":	1785042078,
+	"last_run":	1785045671,
 	"positions":	[{
 			"symbol":	"INJ_USDT",
 			"side":	"SHORT",
