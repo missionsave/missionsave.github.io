@@ -1,22 +1,22 @@
 {
-	"equity":	40.07480535,
+	"equity":	40.97359031,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	5.154736704,
 	"trading_halted_until":	0,
-	"last_run":	1785265281,
+	"last_run":	1785268883,
 	"positions":	[{
 			"symbol":	"AVAX_USDT",
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	8.32809884057968,
+			"quantity":	4.16404942028984,
 			"entry_price":	6.42,
-			"sl":	6.26475,
+			"sl":	6.42,
 			"tp":	6.7305,
-			"trailing":	6.57525,
+			"trailing":	6.42,
 			"timestamp":	1785193299,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.15525000000000055
 		}, {
 			"symbol":	"BTC_USDT",
