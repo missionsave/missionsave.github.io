@@ -1,10 +1,10 @@
 {
-	"equity":	40.00329974,
+	"equity":	38.26522542,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	5.154736704,
 	"trading_halted_until":	0,
-	"last_run":	1785294790,
+	"last_run":	1785297685,
 	"positions":	[{
 			"symbol":	"AVAX_USDT",
 			"side":	"LONG",
