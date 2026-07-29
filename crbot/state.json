@@ -1,10 +1,10 @@
 {
-	"equity":	38.92054514,
+	"equity":	40.19028086,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	5.241443904,
 	"trading_halted_until":	0,
-	"last_run":	1785315679,
+	"last_run":	1785319289,
 	"positions":	[{
 			"symbol":	"AVAX_USDT",
 			"side":	"LONG",
@@ -23,13 +23,13 @@
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	0.0013307946505373559,
+			"quantity":	0.000665397325268678,
 			"entry_price":	63685.1,
-			"sl":	62713.54714285714,
+			"sl":	63685.1,
 			"tp":	65628.205714285723,
-			"trailing":	64656.652857142857,
+			"trailing":	63685.1,
 			"timestamp":	1785193300,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	971.55285714285856
 		}, {
 			"symbol":	"FLOKI_USDT",
@@ -62,13 +62,13 @@
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	12.047522246176866,
+			"quantity":	6.0237611230884331,
 			"entry_price":	4.516,
-			"sl":	4.4207142857142854,
+			"sl":	4.516,
 			"tp":	4.70657142857143,
-			"trailing":	4.6112857142857147,
+			"trailing":	4.516,
 			"timestamp":	1785301282,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.09528571428571464
 		}],
 	"strategies":	[{
