@@ -1,10 +1,10 @@
 {
-	"equity":	38.75560552,
+	"equity":	39.19705192,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.361055248,
 	"trading_halted_until":	0,
-	"last_run":	1785495655,
+	"last_run":	1785499269,
 	"positions":	[{
 			"symbol":	"AVAX_USDT",
 			"side":	"SHORT",
@@ -23,13 +23,13 @@
 			"side":	"SHORT",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	5.1459293660521528,
+			"quantity":	2.5729646830260764,
 			"entry_price":	5.027,
-			"sl":	5.15925,
+			"sl":	5.027,
 			"tp":	4.7625,
-			"trailing":	4.89475,
+			"trailing":	5.027,
 			"timestamp":	1785459660,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.13225
 		}, {
 			"symbol":	"CRV_USDT",
