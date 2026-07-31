@@ -1,10 +1,10 @@
 {
-	"equity":	38.37476286,
+	"equity":	39.11896919,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.265389008,
 	"trading_halted_until":	0,
-	"last_run":	1785463254,
+	"last_run":	1785466857,
 	"positions":	[{
 			"symbol":	"CRV_USDT",
 			"side":	"LONG",
@@ -49,13 +49,13 @@
 			"side":	"SHORT",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	0.00183090246169315,
+			"quantity":	0.000915451230846575,
 			"entry_price":	64975.2,
-			"sl":	65601.72,
+			"sl":	64975.2,
 			"tp":	63722.159999999989,
-			"trailing":	64348.68,
+			"trailing":	64975.2,
 			"timestamp":	1785420058,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	626.520000000004
 		}, {
 			"symbol":	"INJ_USDT",
