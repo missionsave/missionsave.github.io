@@ -1,10 +1,10 @@
 {
-	"equity":	40.23974507,
+	"equity":	40.29740084,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.500564528,
 	"trading_halted_until":	0,
-	"last_run":	1785596443,
+	"last_run":	1785600039,
 	"positions":	[{
 			"symbol":	"CRV_USDT",
 			"side":	"LONG",
