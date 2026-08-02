@@ -1,10 +1,10 @@
 {
-	"equity":	41.22145322,
+	"equity":	41.47090322,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.694665104,
 	"trading_halted_until":	0,
-	"last_run":	1785643239,
+	"last_run":	1785646854,
 	"positions":	[{
 			"symbol":	"JUP_USDT",
 			"side":	"SHORT",
@@ -23,13 +23,13 @@
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	144.2873687365724,
+			"quantity":	72.1436843682862,
 			"entry_price":	0.2015,
-			"sl":	0.19870714285714286,
+			"sl":	0.2015,
 			"tp":	0.20708571428571429,
-			"trailing":	0.20429285714285716,
+			"trailing":	0.2015,
 			"timestamp":	1785603645,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.0027928571428571525
 		}, {
 			"symbol":	"FLOKI_USDT",
