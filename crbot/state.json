@@ -1,10 +1,10 @@
 {
-	"equity":	41.81897139,
+	"equity":	41.83090939,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.715765904,
 	"trading_halted_until":	0,
-	"last_run":	1785661233,
+	"last_run":	1785664844,
 	"positions":	[{
 			"symbol":	"CRV_USDT",
 			"side":	"LONG",
@@ -36,13 +36,13 @@
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	4.0118583740690816,
+			"quantity":	2.0059291870345408,
 			"entry_price":	4.854,
-			"sl":	4.7532928571428572,
+			"sl":	4.854,
 			"tp":	5.055414285714285,
-			"trailing":	4.954707142857143,
+			"trailing":	4.854,
 			"timestamp":	1785610840,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.10070714285714288
 		}, {
 			"symbol":	"BTC_USDT",
