@@ -1,10 +1,10 @@
 {
-	"equity":	41.78763173,
+	"equity":	42.00375173,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.786125616,
 	"trading_halted_until":	0,
-	"last_run":	1785733242,
+	"last_run":	1785736838,
 	"positions":	[{
 			"symbol":	"FLOKI_USDT",
 			"side":	"LONG",
