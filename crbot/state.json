@@ -1,10 +1,10 @@
 {
-	"equity":	42.41546572,
+	"equity":	43.3729241,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.855027376,
 	"trading_halted_until":	0,
-	"last_run":	1785762046,
+	"last_run":	1785765652,
 	"positions":	[{
 			"symbol":	"BTC_USDT",
 			"side":	"SHORT",
@@ -36,13 +36,13 @@
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	56.399224645666749,
+			"quantity":	28.199612322833374,
 			"entry_price":	0.5594,
-			"sl":	0.5504135714285715,
+			"sl":	0.5594,
 			"tp":	0.577372857142857,
-			"trailing":	0.56838642857142851,
+			"trailing":	0.5594,
 			"timestamp":	1785722444,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.0089864285714285064
 		}, {
 			"symbol":	"ADA_USDT",
@@ -62,13 +62,13 @@
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	451.79418477873372,
+			"quantity":	225.89709238936686,
 			"entry_price":	0.06925,
-			"sl":	0.068328357142857149,
+			"sl":	0.06925,
 			"tp":	0.0710932857142857,
-			"trailing":	0.070171642857142863,
+			"trailing":	0.06925,
 			"timestamp":	1785744041,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.000921642857142857
 		}],
 	"strategies":	[{
