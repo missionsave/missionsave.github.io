@@ -1,10 +1,10 @@
 {
-	"equity":	41.8496166,
+	"equity":	41.80408173,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	6.786125616,
 	"trading_halted_until":	0,
-	"last_run":	1785727756,
+	"last_run":	1785729637,
 	"positions":	[{
 			"symbol":	"FLOKI_USDT",
 			"side":	"LONG",
@@ -23,13 +23,13 @@
 			"side":	"SHORT",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	0.00082265206476844484,
+			"quantity":	0.00041132603238422242,
 			"entry_price":	63468.2,
-			"sl":	63969.37,
+			"sl":	63468.2,
 			"tp":	62465.86,
-			"trailing":	62967.03,
+			"trailing":	63468.2,
 			"timestamp":	1785643239,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	501.16999999999825
 		}, {
 			"symbol":	"AVAX_USDT",
