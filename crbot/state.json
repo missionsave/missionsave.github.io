@@ -1,22 +1,22 @@
 {
-	"equity":	41.36374297,
+	"equity":	42.52044097,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	7.817984016,
 	"trading_halted_until":	0,
-	"last_run":	1786024886,
+	"last_run":	1786028489,
 	"positions":	[{
 			"symbol":	"ADA_USDT",
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	161.70636445261272,
+			"quantity":	80.853182226306359,
 			"entry_price":	0.1898,
-			"sl":	0.18371071428571428,
+			"sl":	0.1898,
 			"tp":	0.20806785714285711,
-			"trailing":	0.19588928571428571,
+			"trailing":	0.1898,
 			"timestamp":	1785945688,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.0060892857142857137
 		}, {
 			"symbol":	"APT_USDT",
