@@ -1,10 +1,10 @@
 {
-	"equity":	42.33660278,
+	"equity":	42.45420278,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	8.108035664,
 	"trading_halted_until":	0,
-	"last_run":	1786161651,
+	"last_run":	1786165257,
 	"positions":	[{
 			"symbol":	"ADA_USDT",
 			"side":	"LONG",
