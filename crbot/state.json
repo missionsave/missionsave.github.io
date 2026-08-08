@@ -1,10 +1,10 @@
 {
-	"equity":	40.80339129,
+	"equity":	40.96684129,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	8.39926192,
+	"total_fees_paid":	8.46305416,
 	"trading_halted_until":	0,
-	"last_run":	1786212054,
+	"last_run":	1786215652,
 	"positions":	[{
 			"symbol":	"UNI_USDT",
 			"side":	"SHORT",
@@ -57,6 +57,19 @@
 			"timestamp":	1786201257,
 			"partial_taken":	false,
 			"orig_risk_distance":	0.010974285714285714
+		}, {
+			"symbol":	"MEME_USDT",
+			"side":	"SHORT",
+			"strategy":	"rsi_mean_rev",
+			"exchange":	"MEXC",
+			"quantity":	78521.990111341,
+			"entry_price":	0.0005079,
+			"sl":	0.00051309642857142856,
+			"tp":	0.000497507142857143,
+			"trailing":	0.00050270357142857152,
+			"timestamp":	1786215652,
+			"partial_taken":	false,
+			"orig_risk_distance":	5.1964285714285177e-06
 		}],
 	"strategies":	[{
 			"name":	"range_grid",
