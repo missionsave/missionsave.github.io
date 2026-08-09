@@ -4,7 +4,7 @@
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	8.49824616,
 	"trading_halted_until":	0,
-	"last_run":	1786248054,
+	"last_run":	1786249407,
 	"positions":	[{
 			"symbol":	"DOT_USDT",
 			"side":	"LONG",
@@ -72,43 +72,44 @@
 			"orig_risk_distance":	0.079185714285714859
 		}],
 	"strategies":	[{
+			"name":	"trend_exhaustion",
+			"symbol":	"BTC_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.758794047624537,
+			"holdout_trades":	17,
+			"params":	{
+				"atr_mult":	2.3,
+				"period":	13,
+				"threshold":	1
+			}
+		}, {
+			"name":	"rsi_mean_rev",
+			"symbol":	"BTC_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.393385984287407,
+			"holdout_trades":	20,
+			"params":	{
+				"atr_mult":	2,
+				"overbought":	75,
+				"oversold":	30,
+				"rsi_period":	14
+			}
+		}, {
 			"name":	"range_grid",
 			"symbol":	"BTC_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	2.3909786670969337,
-			"holdout_trades":	18,
+			"holdout_sharpe":	0.47963008241322541,
+			"holdout_trades":	25,
 			"params":	{
-				"grid_spacing":	1,
+				"grid_spacing":	0.5,
 				"max_grids":	5,
 				"range_lookback":	20
-			}
-		}, {
-			"name":	"supertrend",
-			"symbol":	"ETH_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.0636762316176944,
-			"holdout_trades":	6,
-			"params":	{
-				"atr_period":	14,
-				"multiplier":	3
-			}
-		}, {
-			"name":	"macd_zero_lag",
-			"symbol":	"ETH_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.48769726690809412,
-			"holdout_trades":	27,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast":	12,
-				"signal":	9,
-				"slow":	26
 			}
 		}, {
 			"name":	"range_grid",
@@ -116,39 +117,25 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.57855598737115477,
-			"holdout_trades":	18,
+			"holdout_sharpe":	0.329746986132453,
+			"holdout_trades":	20,
 			"params":	{
 				"grid_spacing":	1,
 				"max_grids":	3,
 				"range_lookback":	20
 			}
 		}, {
-			"name":	"trend_exhaustion",
+			"name":	"range_grid",
 			"symbol":	"XRP_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.851025669698353,
-			"holdout_trades":	20,
+			"holdout_sharpe":	1.0439193493809369,
+			"holdout_trades":	17,
 			"params":	{
-				"atr_mult":	2.3,
-				"period":	10,
-				"threshold":	0.8
-			}
-		}, {
-			"name":	"macd_zero_lag",
-			"symbol":	"XRP_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.34085206114865613,
-			"holdout_trades":	22,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast":	12,
-				"signal":	9,
-				"slow":	26
+				"grid_spacing":	1,
+				"max_grids":	5,
+				"range_lookback":	20
 			}
 		}, {
 			"name":	"range_grid",
@@ -156,39 +143,36 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.5556588344185431,
-			"holdout_trades":	7,
+			"holdout_sharpe":	2.43175371115922,
+			"holdout_trades":	8,
 			"params":	{
 				"grid_spacing":	1,
 				"max_grids":	3,
 				"range_lookback":	20
 			}
 		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"APT_USDT",
+			"name":	"atr_breakout",
+			"symbol":	"AVAX_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.4182589015567329,
-			"holdout_trades":	30,
+			"holdout_sharpe":	0.36936424995466177,
+			"holdout_trades":	6,
 			"params":	{
-				"atr_mult":	2,
-				"period":	13,
-				"threshold":	0.8
+				"atr_mult":	1,
+				"lookback":	40
 			}
 		}, {
-			"name":	"macd_zero_lag",
-			"symbol":	"APT_USDT",
+			"name":	"atr_breakout",
+			"symbol":	"NEAR_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.75490527535875573,
-			"holdout_trades":	36,
+			"holdout_sharpe":	0.35763901884812466,
+			"holdout_trades":	5,
 			"params":	{
-				"atr_mult":	2.5,
-				"fast":	8,
-				"signal":	5,
-				"slow":	21
+				"atr_mult":	1,
+				"lookback":	30
 			}
 		}, {
 			"name":	"rsi_mean_rev",
@@ -196,7 +180,204 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.0548271110686793,
+			"holdout_sharpe":	0.61959429847181535,
+			"holdout_trades":	40,
+			"params":	{
+				"atr_mult":	1.5,
+				"overbought":	65,
+				"oversold":	25,
+				"rsi_period":	10
+			}
+		}, {
+			"name":	"rsi_mean_rev",
+			"symbol":	"SEI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.30159191841268884,
+			"holdout_trades":	7,
+			"params":	{
+				"atr_mult":	1.5,
+				"overbought":	75,
+				"oversold":	25,
+				"rsi_period":	20
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"SEI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.69411545087256055,
+			"holdout_trades":	28,
+			"params":	{
+				"atr_mult":	1.5,
+				"period":	15,
+				"std_mult":	2
+			}
+		}, {
+			"name":	"range_grid",
+			"symbol":	"SEI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.79306686944005222,
+			"holdout_trades":	37,
+			"params":	{
+				"grid_spacing":	1,
+				"max_grids":	5,
+				"range_lookback":	20
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"INJ_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.85176431405248243,
+			"holdout_trades":	28,
+			"params":	{
+				"atr_mult":	1.5,
+				"period":	15,
+				"std_mult":	2
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"TIA_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.62892658987525363,
+			"holdout_trades":	10,
+			"params":	{
+				"atr_mult":	1.5,
+				"period":	25,
+				"std_mult":	2.5
+			}
+		}, {
+			"name":	"supertrend",
+			"symbol":	"DOT_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.71343682471269676,
+			"holdout_trades":	5,
+			"params":	{
+				"atr_period":	10,
+				"multiplier":	3
+			}
+		}, {
+			"name":	"macd_zero_lag",
+			"symbol":	"DOT_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	1.1285263227135083,
+			"holdout_trades":	27,
+			"params":	{
+				"atr_mult":	2.5,
+				"fast":	10,
+				"signal":	8,
+				"slow":	30
+			}
+		}, {
+			"name":	"trend_exhaustion",
+			"symbol":	"ADA_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.3972014377113473,
+			"holdout_trades":	20,
+			"params":	{
+				"atr_mult":	2.3,
+				"period":	10,
+				"threshold":	1
+			}
+		}, {
+			"name":	"ema_trend",
+			"symbol":	"ADA_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.44943898504721835,
+			"holdout_trades":	26,
+			"params":	{
+				"atr_mult":	1.5,
+				"fast_period":	30,
+				"slow_period":	80
+			}
+		}, {
+			"name":	"supertrend",
+			"symbol":	"ADA_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	2.221566520606169,
+			"holdout_trades":	10,
+			"params":	{
+				"atr_period":	14,
+				"multiplier":	2
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"OP_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.32975401896593054,
+			"holdout_trades":	22,
+			"params":	{
+				"atr_mult":	2,
+				"period":	25,
+				"std_mult":	2
+			}
+		}, {
+			"name":	"range_grid",
+			"symbol":	"OP_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.45964304072327877,
+			"holdout_trades":	13,
+			"params":	{
+				"grid_spacing":	0.5,
+				"max_grids":	3,
+				"range_lookback":	20
+			}
+		}, {
+			"name":	"macd_zero_lag",
+			"symbol":	"STRK_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.513101897739898,
+			"holdout_trades":	25,
+			"params":	{
+				"atr_mult":	2.5,
+				"fast":	10,
+				"signal":	8,
+				"slow":	30
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"MANTA_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	2.6926280412092241,
+			"holdout_trades":	16,
+			"params":	{
+				"atr_mult":	1.5,
+				"period":	15,
+				"std_mult":	2.5
+			}
+		}, {
+			"name":	"rsi_mean_rev",
+			"symbol":	"BLAST_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.58686626083882132,
 			"holdout_trades":	41,
 			"params":	{
 				"atr_mult":	1.5,
@@ -205,65 +386,39 @@
 				"rsi_period":	10
 			}
 		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"SUI_USDT",
+			"name":	"trend_exhaustion",
+			"symbol":	"DOGE_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.442469723364255,
-			"holdout_trades":	33,
+			"holdout_sharpe":	0.33212930098889221,
+			"holdout_trades":	17,
 			"params":	{
-				"atr_mult":	1.5,
-				"period":	15,
-				"std_mult":	2
+				"atr_mult":	2.3,
+				"period":	13,
+				"threshold":	1.2
 			}
 		}, {
 			"name":	"trend_exhaustion",
-			"symbol":	"SEI_USDT",
+			"symbol":	"WLD_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.617838922362986,
-			"holdout_trades":	22,
+			"holdout_sharpe":	0.49243534723121618,
+			"holdout_trades":	17,
 			"params":	{
-				"atr_mult":	2,
+				"atr_mult":	2.3,
 				"period":	8,
 				"threshold":	1.2
 			}
 		}, {
-			"name":	"range_grid",
-			"symbol":	"SEI_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	2.3603387789842034,
-			"holdout_trades":	37,
-			"params":	{
-				"grid_spacing":	1,
-				"max_grids":	5,
-				"range_lookback":	20
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"INJ_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.99476142001259527,
-			"holdout_trades":	17,
-			"params":	{
-				"atr_mult":	2.3,
-				"period":	20,
-				"threshold":	1.2
-			}
-		}, {
 			"name":	"rsi_mean_rev",
-			"symbol":	"INJ_USDT",
+			"symbol":	"WLD_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.84069021913170339,
-			"holdout_trades":	17,
+			"holdout_sharpe":	1.3086622950526117,
+			"holdout_trades":	13,
 			"params":	{
 				"atr_mult":	1.5,
 				"overbought":	75,
@@ -271,473 +426,186 @@
 				"rsi_period":	20
 			}
 		}, {
-			"name":	"supertrend",
-			"symbol":	"INJ_USDT",
+			"name":	"range_grid",
+			"symbol":	"WLD_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.336697944449527,
-			"holdout_trades":	6,
+			"holdout_sharpe":	2.6547629882046966,
+			"holdout_trades":	22,
+			"params":	{
+				"grid_spacing":	0.5,
+				"max_grids":	3,
+				"range_lookback":	20
+			}
+		}, {
+			"name":	"range_grid",
+			"symbol":	"WIF_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	7.2084282205024,
+			"holdout_trades":	14,
+			"params":	{
+				"grid_spacing":	0.5,
+				"max_grids":	3,
+				"range_lookback":	20
+			}
+		}, {
+			"name":	"supertrend",
+			"symbol":	"SHIB_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.76133510408782734,
+			"holdout_trades":	5,
 			"params":	{
 				"atr_period":	14,
 				"multiplier":	3
 			}
 		}, {
 			"name":	"range_grid",
-			"symbol":	"INJ_USDT",
+			"symbol":	"SHIB_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.89995586164311581,
-			"holdout_trades":	7,
+			"holdout_sharpe":	0.96556676925806351,
+			"holdout_trades":	11,
 			"params":	{
 				"grid_spacing":	1,
 				"max_grids":	3,
 				"range_lookback":	20
 			}
 		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"DOT_USDT",
+			"name":	"rsi_mean_rev",
+			"symbol":	"MEME_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.37207246735305971,
-			"holdout_trades":	24,
+			"holdout_sharpe":	1.0340871591685181,
+			"holdout_trades":	16,
 			"params":	{
-				"atr_mult":	2,
-				"period":	10,
-				"threshold":	0.6
+				"atr_mult":	1.5,
+				"overbought":	65,
+				"oversold":	30,
+				"rsi_period":	20
+			}
+		}, {
+			"name":	"bollinger_squeeze",
+			"symbol":	"MEME_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.37000313662007966,
+			"holdout_trades":	12,
+			"params":	{
+				"atr_mult":	1.5,
+				"period":	25,
+				"std_mult":	2.5
 			}
 		}, {
 			"name":	"macd_zero_lag",
-			"symbol":	"DOT_USDT",
+			"symbol":	"FET_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.867184833945614,
-			"holdout_trades":	27,
+			"holdout_sharpe":	0.54151683108723181,
+			"holdout_trades":	25,
 			"params":	{
 				"atr_mult":	2.5,
-				"fast":	10,
-				"signal":	8,
-				"slow":	30
-			}
-		}, {
-			"name":	"range_grid",
-			"symbol":	"DOT_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.1183072258565794,
-			"holdout_trades":	18,
-			"params":	{
-				"grid_spacing":	1,
-				"max_grids":	5,
-				"range_lookback":	20
+				"fast":	12,
+				"signal":	9,
+				"slow":	26
 			}
 		}, {
 			"name":	"ema_trend",
-			"symbol":	"ADA_USDT",
+			"symbol":	"AKT_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.87081049013356582,
-			"holdout_trades":	7,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast_period":	40,
-				"slow_period":	100
-			}
-		}, {
-			"name":	"supertrend",
-			"symbol":	"ADA_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.45739463144676135,
+			"holdout_sharpe":	0.5838864953442835,
 			"holdout_trades":	6,
 			"params":	{
-				"atr_period":	10,
-				"multiplier":	3
+				"atr_mult":	2.5,
+				"fast_period":	20,
+				"slow_period":	50
 			}
 		}, {
 			"name":	"macd_zero_lag",
-			"symbol":	"STRK_USDT",
+			"symbol":	"AKT_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.863338927475477,
-			"holdout_trades":	26,
+			"holdout_sharpe":	0.95806822812265036,
+			"holdout_trades":	24,
 			"params":	{
 				"atr_mult":	2.5,
-				"fast":	10,
-				"signal":	8,
-				"slow":	30
-			}
-		}, {
-			"name":	"atr_breakout",
-			"symbol":	"STRK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.947927742233366,
-			"holdout_trades":	7,
-			"params":	{
-				"atr_mult":	1,
-				"lookback":	20
+				"fast":	12,
+				"signal":	9,
+				"slow":	26
 			}
 		}, {
 			"name":	"vol_mean_rev",
-			"symbol":	"STRK_USDT",
+			"symbol":	"AKT_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.1173796730934853,
-			"holdout_trades":	6,
+			"holdout_sharpe":	0.84117658279711882,
+			"holdout_trades":	5,
 			"params":	{
 				"atr_period":	14,
 				"mean_rev_period":	40,
 				"vol_threshold":	1.5
 			}
 		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"METIS_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.61724499548915368,
-			"holdout_trades":	8,
-			"params":	{
-				"atr_mult":	2,
-				"overbought":	70,
-				"oversold":	25,
-				"rsi_period":	20
-			}
-		}, {
 			"name":	"range_grid",
-			"symbol":	"METIS_USDT",
+			"symbol":	"LINK_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	2.81901853899821,
-			"holdout_trades":	14,
+			"holdout_sharpe":	1.9276640295027057,
+			"holdout_trades":	19,
 			"params":	{
 				"grid_spacing":	1,
 				"max_grids":	3,
 				"range_lookback":	20
 			}
 		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"MANTA_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.8094169835309275,
-			"holdout_trades":	7,
-			"params":	{
-				"atr_mult":	2,
-				"period":	25,
-				"std_mult":	2.5
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"DOGE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.8112314995234058,
-			"holdout_trades":	17,
-			"params":	{
-				"atr_mult":	2.3,
-				"period":	10,
-				"threshold":	0.6
-			}
-		}, {
-			"name":	"atr_breakout",
-			"symbol":	"DOGE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.7066291412563426,
-			"holdout_trades":	5,
-			"params":	{
-				"atr_mult":	1,
-				"lookback":	30
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.914583070416283,
-			"holdout_trades":	24,
-			"params":	{
-				"atr_mult":	2,
-				"period":	13,
-				"threshold":	1.2
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.898688340370057,
-			"holdout_trades":	41,
-			"params":	{
-				"atr_mult":	2,
-				"period":	20,
-				"std_mult":	1.5
-			}
-		}, {
 			"name":	"supertrend",
-			"symbol":	"PEPE_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.4362523881843159,
-			"holdout_trades":	5,
-			"params":	{
-				"atr_period":	14,
-				"multiplier":	3
-			}
-		}, {
-			"name":	"trend_exhaustion",
-			"symbol":	"WLD_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.9092321502892734,
-			"holdout_trades":	18,
-			"params":	{
-				"atr_mult":	2.3,
-				"period":	13,
-				"threshold":	0.8
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"WLD_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.523082416970587,
-			"holdout_trades":	14,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	75,
-				"oversold":	30,
-				"rsi_period":	20
-			}
-		}, {
-			"name":	"macd_zero_lag",
-			"symbol":	"WLD_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.35993604803029455,
-			"holdout_trades":	28,
-			"params":	{
-				"atr_mult":	1.5,
-				"fast":	10,
-				"signal":	8,
-				"slow":	30
-			}
-		}, {
-			"name":	"range_grid",
-			"symbol":	"WLD_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.5297166300323308,
-			"holdout_trades":	15,
-			"params":	{
-				"grid_spacing":	0.5,
-				"max_grids":	3,
-				"range_lookback":	20
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"WIF_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.56428038772842659,
-			"holdout_trades":	13,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	20,
-				"std_mult":	2.5
-			}
-		}, {
-			"name":	"ema_trend",
-			"symbol":	"SHIB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.56909241575569047,
-			"holdout_trades":	6,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast_period":	30,
-				"slow_period":	80
-			}
-		}, {
-			"name":	"range_grid",
-			"symbol":	"SHIB_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.39211198708183809,
-			"holdout_trades":	16,
-			"params":	{
-				"grid_spacing":	1,
-				"max_grids":	3,
-				"range_lookback":	20
-			}
-		}, {
-			"name":	"rsi_mean_rev",
-			"symbol":	"MEME_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.47499807052284909,
-			"holdout_trades":	9,
-			"params":	{
-				"atr_mult":	1.5,
-				"overbought":	70,
-				"oversold":	30,
-				"rsi_period":	20
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"MEME_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.515015056826589,
-			"holdout_trades":	14,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	25,
-				"std_mult":	2.5
-			}
-		}, {
-			"name":	"range_grid",
-			"symbol":	"MEME_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.681467606920084,
-			"holdout_trades":	8,
-			"params":	{
-				"grid_spacing":	0.5,
-				"max_grids":	3,
-				"range_lookback":	20
-			}
-		}, {
-			"name":	"supertrend",
-			"symbol":	"AKT_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.41799724800325283,
-			"holdout_trades":	5,
-			"params":	{
-				"atr_period":	10,
-				"multiplier":	3
-			}
-		}, {
-			"name":	"macd_zero_lag",
-			"symbol":	"AKT_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.7132281752740322,
-			"holdout_trades":	22,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast":	12,
-				"signal":	9,
-				"slow":	26
-			}
-		}, {
-			"name":	"vol_mean_rev",
-			"symbol":	"AKT_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.4712154665367065,
-			"holdout_trades":	5,
-			"params":	{
-				"atr_period":	14,
-				"mean_rev_period":	20,
-				"vol_threshold":	1.5
-			}
-		}, {
-			"name":	"ema_trend",
-			"symbol":	"LINK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.9118868584866856,
-			"holdout_trades":	11,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast_period":	10,
-				"slow_period":	30
-			}
-		}, {
-			"name":	"supertrend",
-			"symbol":	"LINK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.3301970524303355,
-			"holdout_trades":	6,
-			"params":	{
-				"atr_period":	10,
-				"multiplier":	3
-			}
-		}, {
-			"name":	"macd_zero_lag",
-			"symbol":	"LINK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.92964207788965658,
-			"holdout_trades":	23,
-			"params":	{
-				"atr_mult":	2.5,
-				"fast":	12,
-				"signal":	9,
-				"slow":	26
-			}
-		}, {
-			"name":	"range_grid",
-			"symbol":	"LINK_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	2.489860949991912,
-			"holdout_trades":	16,
-			"params":	{
-				"grid_spacing":	1,
-				"max_grids":	5,
-				"range_lookback":	20
-			}
-		}, {
-			"name":	"trend_exhaustion",
 			"symbol":	"UNI_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.1692777458585961,
-			"holdout_trades":	30,
+			"holdout_sharpe":	0.34858274242442844,
+			"holdout_trades":	6,
 			"params":	{
-				"atr_mult":	1.7,
-				"period":	20,
-				"threshold":	0.8
+				"atr_period":	14,
+				"multiplier":	3
+			}
+		}, {
+			"name":	"range_grid",
+			"symbol":	"UNI_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.814776996704303,
+			"holdout_trades":	14,
+			"params":	{
+				"grid_spacing":	1,
+				"max_grids":	3,
+				"range_lookback":	20
+			}
+		}, {
+			"name":	"supertrend",
+			"symbol":	"AAVE_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.30261696657888543,
+			"holdout_trades":	6,
+			"params":	{
+				"atr_period":	10,
+				"multiplier":	3
 			}
 		}, {
 			"name":	"macd_zero_lag",
@@ -745,8 +613,8 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.185052660821329,
-			"holdout_trades":	20,
+			"holdout_sharpe":	0.43750494489505459,
+			"holdout_trades":	24,
 			"params":	{
 				"atr_mult":	2,
 				"fast":	12,
@@ -755,29 +623,16 @@
 			}
 		}, {
 			"name":	"trend_exhaustion",
-			"symbol":	"CRV_USDT",
+			"symbol":	"GMX_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.716831033403665,
-			"holdout_trades":	21,
+			"holdout_sharpe":	0.83564295713525261,
+			"holdout_trades":	19,
 			"params":	{
-				"atr_mult":	2,
-				"period":	8,
+				"atr_mult":	2.3,
+				"period":	10,
 				"threshold":	0.8
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"CRV_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.9825068655034247,
-			"holdout_trades":	16,
-			"params":	{
-				"atr_mult":	1.5,
-				"period":	15,
-				"std_mult":	2.5
 			}
 		}, {
 			"name":	"rsi_mean_rev",
@@ -785,7 +640,7 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	2.0454473575693619,
+			"holdout_sharpe":	3.0010112396869761,
 			"holdout_trades":	13,
 			"params":	{
 				"atr_mult":	1.5,
@@ -794,16 +649,30 @@
 				"rsi_period":	14
 			}
 		}, {
-			"name":	"supertrend",
-			"symbol":	"GMX_USDT",
+			"name":	"bollinger_squeeze",
+			"symbol":	"PENDLE_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.66751878314712054,
-			"holdout_trades":	7,
+			"holdout_sharpe":	0.92567841039051546,
+			"holdout_trades":	48,
 			"params":	{
-				"atr_period":	10,
-				"multiplier":	3
+				"atr_mult":	1.5,
+				"period":	15,
+				"std_mult":	1.5
+			}
+		}, {
+			"name":	"trend_exhaustion",
+			"symbol":	"SAND_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.57468155682341326,
+			"holdout_trades":	22,
+			"params":	{
+				"atr_mult":	2,
+				"period":	13,
+				"threshold":	0.6
 			}
 		}, {
 			"name":	"macd_zero_lag",
@@ -811,8 +680,8 @@
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.343058490334073,
-			"holdout_trades":	26,
+			"holdout_sharpe":	0.447225046971215,
+			"holdout_trades":	27,
 			"params":	{
 				"atr_mult":	2.5,
 				"fast":	10,
@@ -824,9 +693,9 @@
 			"symbol":	"PYTH_USDT",
 			"exchange":	0,
 			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.99665339644721451,
-			"holdout_trades":	40,
+			"mc_ruin_prob":	0.05,
+			"holdout_sharpe":	1.1068707475854356,
+			"holdout_trades":	41,
 			"params":	{
 				"atr_mult":	1.4,
 				"period":	8,
@@ -834,29 +703,29 @@
 			}
 		}, {
 			"name":	"trend_exhaustion",
+			"symbol":	"JTO_USDT",
+			"exchange":	0,
+			"active":	true,
+			"mc_ruin_prob":	0,
+			"holdout_sharpe":	0.54291922389724068,
+			"holdout_trades":	22,
+			"params":	{
+				"atr_mult":	2.3,
+				"period":	8,
+				"threshold":	1
+			}
+		}, {
+			"name":	"trend_exhaustion",
 			"symbol":	"JUP_USDT",
 			"exchange":	0,
 			"active":	true,
 			"mc_ruin_prob":	0,
-			"holdout_sharpe":	1.0541191189432273,
-			"holdout_trades":	21,
+			"holdout_sharpe":	1.8194462295100995,
+			"holdout_trades":	22,
 			"params":	{
 				"atr_mult":	2,
 				"period":	20,
 				"threshold":	1.2
-			}
-		}, {
-			"name":	"bollinger_squeeze",
-			"symbol":	"JUP_USDT",
-			"exchange":	0,
-			"active":	true,
-			"mc_ruin_prob":	0,
-			"holdout_sharpe":	0.46960120612467432,
-			"holdout_trades":	39,
-			"params":	{
-				"atr_mult":	2,
-				"period":	20,
-				"std_mult":	1.5
 			}
 		}],
 	"recent_trade_returns":	[0, -0.002648340420491242, -0.0034276571084478373, 0.00092538185181343454, 0.002608294363569161, -0.00020396445606669255, 0.019181297382651532, 0.022675919830541565, -0.018803303769944508, -0.023615414330279024, -0.013282816239209242, -0.012168508735095248, -0.045060522499589667, -0.030084609037936666, 0.014962899579677107, -0.021317246559618638, 0.024457209196828943, -0.015126796531431475, 0.0002529338239447527, 0.0187329349364003, -0.016944822308703211, -0.017490229649056672, -0.014088497488659646, -0.0222895633698228, 0.020740414765298459, -0.017282282762829719, 0.01018364547732142, 0.023218520835385285, 0.45400188806451275, -0.68993531057842539, 0.75575005899996262, 2.514712317101802, 0.54128487392824853, 0, -0.030573546117453946, 0, 0, 0, 0.055233925122072883, 0.042074507947304857, 0, -0.0478237320285998, -0.035861241808832663, -0.036820510208903423, -0.033331523302864673, 0.032832906972540814, -0.02102755322404708, -0.025804687553365652, -0.0015538428109451016, 0.012714484726314446, -0.020685506064956782, -0.00049463795628513542, 0.018799302020551283, 0.0077262790385454029, 0.0024904760486541486, -0.037907659883794055, 0.033103150152052854, -0.00040076759274478268, 0.0220203079276089, 0.017662689101237975, -0.037870273405878487, -0.016274608130665377, 0.00636217145756032, 0.00986017666492676, 0.03086627331497243, -0.00672732806398481, -0.015516661212402449, 0.018148672008413864, 0.0010202103160744111, 0.00744996371641463, 0.013252203854234165, -0.030884210387832275, 0.013026247002450989, -0.0023235432463617955, 0.00579239409441906, -0.00359897164111813, 0.010312488838671719, -0.00086356828311218744, -0.0098605158196035658, 0.0016330304621822338, -0.0021760605239382878, 0.00061457662469517583, 0.011291885858995989, -0.013343182805553638, 0.012147849934810079, 0.0057183679451420933, -0.0030450650851434379, 0.0081467144906354934, -0.0007630976292023827, 0.01057343232221401, -0.00731419894091621, -0.0087681285248011245, -0.019575260667476207, 0.00196862601146163, -0.011527887344949408, -0.0261991453998966, -0.010905434282786189, 0.010725435070231465, -0.00318446979403797, -0.004445605773841327, 0.027952244887706361, -0.0070188816451182724, -0.0059409285560753358, -0.0045347444681083943, -0.010032974144994459, 0.0063931606904694838, -0.0035115565776725711, 0.0062856487838776134, -0.00917234518820565, 0.010026313653658738, -0.0044265135041599846, -0.013881339167642757, -0.019615292270934562, -0.00909621587101497, 0.0097296020631328257, 0.0043333937543294518],
