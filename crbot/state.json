@@ -1,10 +1,10 @@
 {
-	"equity":	40.95857684,
+	"equity":	40.99745888,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	8.46305416,
 	"trading_halted_until":	0,
-	"last_run":	1786230050,
+	"last_run":	1786233649,
 	"positions":	[{
 			"symbol":	"UNI_USDT",
 			"side":	"SHORT",
