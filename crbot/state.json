@@ -1,10 +1,10 @@
 {
-	"equity":	40.45592902,
+	"equity":	40.37863302,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	8.783302448,
 	"trading_halted_until":	0,
-	"last_run":	1786334452,
+	"last_run":	1786338053,
 	"positions":	[{
 			"symbol":	"AKT_USDT",
 			"side":	"LONG",
@@ -36,13 +36,13 @@
 			"side":	"LONG",
 			"strategy":	"bollinger_squeeze",
 			"exchange":	"MEXC",
-			"quantity":	7.4876528026613078,
+			"quantity":	3.7438264013306539,
 			"entry_price":	4.29,
-			"sl":	4.2363214285714283,
+			"sl":	4.29,
 			"tp":	4.415125,
-			"trailing":	4.3436785714285717,
+			"trailing":	4.29,
 			"timestamp":	1786320057,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.053678571428571686
 		}],
 	"strategies":	[{
