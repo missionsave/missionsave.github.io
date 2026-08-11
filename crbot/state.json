@@ -1,22 +1,22 @@
 {
-	"equity":	40.9444201,
+	"equity":	40.94536038,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	8.99172,
 	"trading_halted_until":	0,
-	"last_run":	1786420854,
+	"last_run":	1786424450,
 	"positions":	[{
 			"symbol":	"SAND_USDT",
 			"side":	"SHORT",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	461.99808947368439,
+			"quantity":	230.99904473684219,
 			"entry_price":	0.04185,
-			"sl":	0.042724,
+			"sl":	0.04185,
 			"tp":	0.040102,
-			"trailing":	0.040976,
+			"trailing":	0.04185,
 			"timestamp":	1786341654,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.00087399999999999978
 		}, {
 			"symbol":	"AKT_USDT",
