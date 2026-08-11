@@ -1,10 +1,10 @@
 {
-	"equity":	40.77309038,
+	"equity":	40.83562269,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	8.99172,
 	"trading_halted_until":	0,
-	"last_run":	1786431656,
+	"last_run":	1786435253,
 	"positions":	[{
 			"symbol":	"SAND_USDT",
 			"side":	"SHORT",
