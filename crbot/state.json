@@ -1,10 +1,10 @@
 {
-	"equity":	40.59611125,
+	"equity":	40.9444201,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	8.99172,
 	"trading_halted_until":	0,
-	"last_run":	1786417248,
+	"last_run":	1786420854,
 	"positions":	[{
 			"symbol":	"SAND_USDT",
 			"side":	"SHORT",
@@ -23,13 +23,13 @@
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	55.268640570596872,
+			"quantity":	27.634320285298436,
 			"entry_price":	0.4914,
-			"sl":	0.48403928571428573,
+			"sl":	0.4914,
 			"tp":	0.513482142857143,
-			"trailing":	0.49876071428571428,
+			"trailing":	0.4914,
 			"timestamp":	1786377654,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.007360714285714276
 		}, {
 			"symbol":	"BTC_USDT",
