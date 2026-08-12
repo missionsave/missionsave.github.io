@@ -1,10 +1,10 @@
 {
-	"equity":	41.42856577,
+	"equity":	41.63358217,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	9.4016184,
+	"total_fees_paid":	9.4349256,
 	"trading_halted_until":	0,
-	"last_run":	1786572057,
+	"last_run":	1786575652,
 	"positions":	[{
 			"symbol":	"GMX_USDT",
 			"side":	"LONG",
@@ -44,6 +44,19 @@
 			"timestamp":	1786546859,
 			"partial_taken":	false,
 			"orig_risk_distance":	536.162857142852
+		}, {
+			"symbol":	"DOGE_USDT",
+			"side":	"LONG",
+			"strategy":	"trend_exhaustion",
+			"exchange":	"MEXC",
+			"quantity":	350.241498055557,
+			"entry_price":	0.06939,
+			"sl":	0.068207142857142855,
+			"tp":	0.07175571428571427,
+			"trailing":	0.070572857142857132,
+			"timestamp":	1786575651,
+			"partial_taken":	false,
+			"orig_risk_distance":	0.0011828571428571383
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
