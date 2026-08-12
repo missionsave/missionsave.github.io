@@ -1,22 +1,22 @@
 {
-	"equity":	41.08691372,
+	"equity":	41.33234815,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	9.274198688,
 	"trading_halted_until":	0,
-	"last_run":	1786525256,
+	"last_run":	1786528857,
 	"positions":	[{
 			"symbol":	"BTC_USDT",
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
-			"quantity":	0.00084892481050591545,
+			"quantity":	0.00042446240525295773,
 			"entry_price":	63538.6,
-			"sl":	63059.033571428568,
+			"sl":	63538.6,
 			"tp":	64497.732857142852,
-			"trailing":	64018.166428571429,
+			"trailing":	63538.6,
 			"timestamp":	1786464058,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	479.56642857143015
 		}, {
 			"symbol":	"DOGE_USDT",
