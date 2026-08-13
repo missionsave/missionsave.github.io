@@ -1,10 +1,10 @@
 {
-	"equity":	41.85374795,
+	"equity":	42.14776795,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	9.4349256,
 	"trading_halted_until":	0,
-	"last_run":	1786579252,
+	"last_run":	1786582860,
 	"positions":	[{
 			"symbol":	"GMX_USDT",
 			"side":	"LONG",
@@ -23,13 +23,13 @@
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	32.965559318643976,
+			"quantity":	16.482779659321988,
 			"entry_price":	0.5208,
-			"sl":	0.508157142857143,
+			"sl":	0.5208,
 			"tp":	0.55872857142857157,
-			"trailing":	0.53344285714285722,
+			"trailing":	0.5208,
 			"timestamp":	1786546857,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.012642857142857178
 		}, {
 			"symbol":	"BTC_USDT",
