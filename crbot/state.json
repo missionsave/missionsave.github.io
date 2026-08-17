@@ -1,10 +1,10 @@
 {
-	"equity":	39.80072095,
+	"equity":	39.54124574,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	10.36748296,
 	"trading_halted_until":	0,
-	"last_run":	1786978854,
+	"last_run":	1786982447,
 	"positions":	[{
 			"symbol":	"APT_USDT",
 			"side":	"LONG",
