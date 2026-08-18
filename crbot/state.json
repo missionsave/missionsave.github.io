@@ -1,10 +1,10 @@
 {
-	"equity":	39.20551109,
+	"equity":	39.39019173,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	10.50155784,
+	"total_fees_paid":	10.54448904,
 	"trading_halted_until":	0,
-	"last_run":	1787018453,
+	"last_run":	1787022052,
 	"positions":	[{
 			"symbol":	"DOGE_USDT",
 			"side":	"SHORT",
@@ -31,6 +31,19 @@
 			"timestamp":	1786993254,
 			"partial_taken":	false,
 			"orig_risk_distance":	586.845000000001
+		}, {
+			"symbol":	"AVAX_USDT",
+			"side":	"LONG",
+			"strategy":	"bollinger_squeeze",
+			"exchange":	"MEXC",
+			"quantity":	4.33552255339653,
+			"entry_price":	6.24,
+			"sl":	6.14957142857143,
+			"tp":	6.3306538461538464,
+			"trailing":	6.3304285714285715,
+			"timestamp":	1787022052,
+			"partial_taken":	false,
+			"orig_risk_distance":	0.0904285714285713
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
