@@ -1,10 +1,10 @@
 {
-	"equity":	39.50381093,
+	"equity":	39.64037093,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	10.59224904,
 	"trading_halted_until":	0,
-	"last_run":	1787054487,
+	"last_run":	1787058084,
 	"positions":	[{
 			"symbol":	"DOGE_USDT",
 			"side":	"SHORT",
