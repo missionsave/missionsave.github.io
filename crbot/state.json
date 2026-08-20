@@ -1,22 +1,22 @@
 {
-	"equity":	38.23040765,
+	"equity":	38.25384765,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.103432016,
 	"trading_halted_until":	0,
-	"last_run":	1787205684,
+	"last_run":	1787209289,
 	"positions":	[{
 			"symbol":	"CRV_USDT",
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	39.494858197449858,
+			"quantity":	19.747429098724929,
 			"entry_price":	0.2593,
-			"sl":	0.24949642857142854,
+			"sl":	0.2593,
 			"tp":	0.28871071428571426,
-			"trailing":	0.26910357142857144,
+			"trailing":	0.2593,
 			"timestamp":	1787173295,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.00980357142857144
 		}, {
 			"symbol":	"GMX_USDT",
