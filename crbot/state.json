@@ -1,10 +1,10 @@
 {
-	"equity":	39.27552349,
+	"equity":	39.49239928,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	11.156748608,
+	"total_fees_paid":	11.180211712,
 	"trading_halted_until":	0,
-	"last_run":	1787281284,
+	"last_run":	1787284893,
 	"positions":	[{
 			"symbol":	"GMX_USDT",
 			"side":	"LONG",
@@ -31,6 +31,19 @@
 			"timestamp":	1787281284,
 			"partial_taken":	false,
 			"orig_risk_distance":	0.034625000000000017
+		}, {
+			"symbol":	"SAND_USDT",
+			"side":	"SHORT",
+			"strategy":	"trend_exhaustion",
+			"exchange":	"MEXC",
+			"quantity":	332.96435076904527,
+			"entry_price":	0.04417,
+			"sl":	0.045349571428571427,
+			"tp":	0.04181085714285715,
+			"trailing":	0.042990428571428575,
+			"timestamp":	1787284893,
+			"partial_taken":	false,
+			"orig_risk_distance":	0.0011795714285714257
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
