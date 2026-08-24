@@ -1,10 +1,10 @@
 {
-	"equity":	38.65268136,
+	"equity":	38.91628136,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.433828688,
 	"trading_halted_until":	0,
-	"last_run":	1787572913,
+	"last_run":	1787576497,
 	"positions":	[{
 			"symbol":	"AAVE_USDT",
 			"side":	"LONG",
@@ -23,13 +23,13 @@
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	21.030346601556431,
+			"quantity":	10.515173300778216,
 			"entry_price":	0.5521,
-			"sl":	0.53374285714285719,
+			"sl":	0.5521,
 			"tp":	0.6071714285714287,
-			"trailing":	0.570457142857143,
+			"trailing":	0.5521,
 			"timestamp":	1787551304,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	0.01835714285714285
 		}],
 	"strategies":	[{
