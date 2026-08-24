@@ -1,10 +1,10 @@
 {
-	"equity":	38.92975416,
+	"equity":	38.86795416,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.433828688,
 	"trading_halted_until":	0,
-	"last_run":	1787587309,
+	"last_run":	1787590906,
 	"positions":	[{
 			"symbol":	"AAVE_USDT",
 			"side":	"LONG",
