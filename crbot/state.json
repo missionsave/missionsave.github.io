@@ -1,10 +1,10 @@
 {
-	"equity":	38.99738237,
+	"equity":	39.11828237,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.456299088,
 	"trading_halted_until":	0,
-	"last_run":	1787634099,
+	"last_run":	1787637704,
 	"positions":	[{
 			"symbol":	"AKT_USDT",
 			"side":	"LONG",
@@ -23,13 +23,13 @@
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
-			"quantity":	0.024865760095412869,
+			"quantity":	0.012432880047706435,
 			"entry_price":	702.2,
-			"sl":	686.62857142857149,
+			"sl":	702.2,
 			"tp":	748.91428571428582,
-			"trailing":	717.7714285714286,
+			"trailing":	702.2,
 			"timestamp":	1787612487,
-			"partial_taken":	false,
+			"partial_taken":	true,
 			"orig_risk_distance":	15.571428571428555
 		}],
 	"strategies":	[{
