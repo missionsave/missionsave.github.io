@@ -1,10 +1,10 @@
 {
-	"equity":	37.6676913,
+	"equity":	37.93181542,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.79238072,
 	"trading_halted_until":	0,
-	"last_run":	1787792499,
+	"last_run":	1787796091,
 	"positions":	[{
 			"symbol":	"BTC_USDT",
 			"side":	"LONG",
