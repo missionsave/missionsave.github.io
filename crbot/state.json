@@ -1,10 +1,10 @@
 {
-	"equity":	36.53269318,
+	"equity":	36.51169318,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.87885144,
 	"trading_halted_until":	0,
-	"last_run":	1787936507,
+	"last_run":	1787940099,
 	"positions":	[{
 			"symbol":	"JUP_USDT",
 			"side":	"LONG",
