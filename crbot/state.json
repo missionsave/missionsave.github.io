@@ -1,10 +1,10 @@
 {
-	"equity":	37.63739089,
+	"equity":	37.52885089,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.82622072,
 	"trading_halted_until":	0,
-	"last_run":	1787904093,
+	"last_run":	1787907695,
 	"positions":	[{
 			"symbol":	"BLAST_USDT",
 			"side":	"LONG",
