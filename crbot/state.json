@@ -1,10 +1,10 @@
 {
-	"equity":	36.38239878,
+	"equity":	36.37639878,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	11.89513144,
 	"trading_halted_until":	0,
-	"last_run":	1787950904,
+	"last_run":	1787954483,
 	"positions":	[{
 			"symbol":	"GMX_USDT",
 			"side":	"LONG",
