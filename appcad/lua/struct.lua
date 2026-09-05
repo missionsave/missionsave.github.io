@@ -355,9 +355,9 @@ Part "Mosaics"
 Rec(1200,600)
 Rotatelx(-90)
 Extrude(10)
-Movel(30,120*2+tunel_height+20,-fcompartment-50)
-Rotatelz(-(100/360*2))
-Mirrorlx(container_width/2-30/2,1)
+--Movel(30,120*2+tunel_height+20,-fcompartment-50)
+--Rotatelz(-(100/360*2))
+--Mirrorlx(container_width/2-30/2,1)
 
 do return end
 

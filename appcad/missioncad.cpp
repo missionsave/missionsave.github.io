@@ -2,6 +2,24 @@
 #include "fl_scintilla.hpp"
 #include "general.hpp"
 #include "includes.hpp"
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <GC_MakeArcOfCircle.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BOPAlgo_Tools.hxx>
+#include <TopExp.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <cmath>
+#include <string>
+#include <vector>
 class FixedHeightWindow : public Fl_Window {
 public:
   int fixed_height;
@@ -75,6 +93,8 @@ gp_Pnt vertexPnt; // highlight ball
 struct luadraw;
 luadraw *lua_detected(Handle(SelectMgr_EntityOwner) entOwner);
 void inteligentSet(luadraw *current_part);
+
+TopoDS_Shape helpWire();
 
 // region Global handles
 Handle(Aspect_DisplayConnection) m_display_connection;
@@ -5147,7 +5167,7 @@ static gp_Pnt to3d(const gp_Pnt2d &P) { return gp_Pnt(P.X(), P.Y(), 0.0); }
 // Main: one function to build a ring‐shaped face offset by dist
 // pts: must form a closed loop (first==last) or will close
 // automatically dist: positive→expand outward; negative→shrink inward
-TopoDS_Face MakeOffsetRingFace(const std::vector<gp_Pnt2d> &pts, double dist) {
+TopoDS_Face MakeOffsetRingFace1(const std::vector<gp_Pnt2d> &pts, double dist) {
   // need at least 3 distinct points
   if (pts.size() < 3)
     return TopoDS_Face();
@@ -5223,13 +5243,1262 @@ TopoDS_Face MakeOffsetRingFace(const std::vector<gp_Pnt2d> &pts, double dist) {
   faceMaker.Add(holeLoop);
   return faceMaker.Face();
 }
+// Builds a ring-shaped face between the input closed TopoDS_Wire and an offset wire.
+// dist: positive -> inward offset (hole); negative -> outward offset (outer boundary)
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepGProp.hxx> 
+#include <GProp_GProps.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <GeomAbs_JoinType.hxx>
 
-// Builds a closed, one‐sided offset wire around the input polyline.
-// vpoints: the “spine” as 2D points.
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <cmath>
+
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <cmath>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BRep_Tool.hxx>
+#include <GC_MakeArcOfCircle.hxx>
+#include <Geom2d_Circle.hxx>
+#include <Geom2d_Curve.hxx>
+#include <Geom2d_TrimmedCurve.hxx>
+#include <Geom_Circle.hxx>
+#include <Geom_Curve.hxx>
+#include <Geom_TrimmedCurve.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Vec2d.hxx>
+#include <algorithm>
+#include <cmath>
+#include <vector>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BRep_Tool.hxx>
+#include <GC_MakeArcOfCircle.hxx>
+#include <Geom2d_Circle.hxx>
+#include <Geom2d_Curve.hxx>
+#include <Geom2d_TrimmedCurve.hxx>
+#include <Geom_Circle.hxx>
+#include <Geom_Curve.hxx>
+#include <Geom_TrimmedCurve.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Vec2d.hxx>
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <cmath>
+
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepTools.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <GeomAbs_JoinType.hxx>
+#include <cmath>
+
+struct OffsetSegment {
+    bool isArc = false;
+    bool isFullCircle = false;
+    bool isArcCCW = true;
+
+    gp_Pnt2d pStartOrig;
+    gp_Pnt2d pEndOrig;
+
+    gp_Vec2d dirStart;
+    gp_Vec2d dirEnd;
+
+    gp_Vec2d normStart;
+    gp_Vec2d normEnd;
+
+    gp_Pnt2d lineP0;
+    gp_Vec2d lineDir;
+
+    gp_Pnt2d arcCenter;
+
+    double arcRadius = 0.0;
+    double arcRadiusOff = 0.0;
+
+    double arcStartAngle = 0.0;
+    double arcEndAngle = 0.0;
+    double arcSweep = 0.0;
+
+    gp_Pnt pMidOff;
+};
+
+
+// ------------------------------------------------------------
+// Detect circle
+// ------------------------------------------------------------
+
+static bool DetectArcGeometry(
+    const TopoDS_Edge& edge,
+    gp_Pnt2d& centerOut,
+    double& radiusOut)
+{
+    if (edge.IsNull())
+        return false;
+
+    BRepAdaptor_Curve adaptor(edge);
+
+    if (adaptor.GetType() != GeomAbs_Circle)
+        return false;
+
+    gp_Circ circ = adaptor.Circle();
+
+    gp_Pnt c = circ.Location();
+
+    centerOut = gp_Pnt2d(
+        c.X(),
+        c.Y()
+    );
+
+    radiusOut = circ.Radius();
+
+    return true;
+}
+
+
+static bool DetectArcGeometry(
+    const TopoDS_Edge& edge,
+    gp_Pnt2d& centerOut)
+{
+    double r = 0.0;
+
+    return DetectArcGeometry(
+        edge,
+        centerOut,
+        r
+    );
+}
+
+
+// ------------------------------------------------------------
+// Detect whether circular edge is a FULL circle
+// ------------------------------------------------------------
+
+static bool IsFullCircle(
+    const TopoDS_Edge& edge)
+{
+    if (edge.IsNull())
+        return false;
+
+    BRepAdaptor_Curve adaptor(edge);
+
+    if (adaptor.GetType() != GeomAbs_Circle)
+        return false;
+
+    double f = adaptor.FirstParameter();
+    double l = adaptor.LastParameter();
+
+    double sweep = std::abs(l - f);
+
+    return sweep >= (2.0 * M_PI - 1e-7);
+}
+
+
+// ------------------------------------------------------------
+// Evaluate point + tangent
+// ------------------------------------------------------------
+
+static bool EvaluateEdgePointAndTangent(
+    const TopoDS_Edge& edge,
+    double u,
+    gp_Pnt2d& p2d,
+    gp_Vec2d& dir2d,
+    gp_Pnt& p3d)
+{
+    Standard_Real f = 0.0;
+    Standard_Real l = 0.0;
+
+    Handle(Geom_Curve) c3d =
+        BRep_Tool::Curve(
+            edge,
+            f,
+            l
+        );
+
+    if (!c3d.IsNull()) {
+
+        gp_Vec v3d;
+
+        c3d->D1(
+            u,
+            p3d,
+            v3d
+        );
+
+        p2d = gp_Pnt2d(
+            p3d.X(),
+            p3d.Y()
+        );
+
+        dir2d = gp_Vec2d(
+            v3d.X(),
+            v3d.Y()
+        );
+    }
+    else {
+
+        Handle(Geom2d_Curve) c2d;
+        Handle(Geom_Surface) surf;
+        TopLoc_Location loc;
+
+        BRep_Tool::CurveOnSurface(
+            edge,
+            c2d,
+            surf,
+            loc,
+            f,
+            l
+        );
+
+        if (c2d.IsNull())
+            return false;
+
+        gp_Pnt2d p;
+        gp_Vec2d v;
+
+        c2d->D1(
+            u,
+            p,
+            v
+        );
+
+        p2d = p;
+        dir2d = v;
+
+        p3d = gp_Pnt(
+            p2d.X(),
+            p2d.Y(),
+            0.0
+        );
+    }
+
+    if (dir2d.SquareMagnitude() < 1e-20)
+        return false;
+
+    dir2d.Normalize();
+
+    if (edge.Orientation() == TopAbs_REVERSED)
+        dir2d.Reverse();
+
+    return true;
+}
+
+
+// ------------------------------------------------------------
+// Miter
+// ------------------------------------------------------------
+
+static gp_Pnt2d ComputeMiterPoint(
+    gp_Pnt2d V,
+    gp_Vec2d n1,
+    gp_Vec2d n2,
+    double dist)
+{
+    if (n1.SquareMagnitude() < 1e-20)
+        return V;
+
+    if (n2.SquareMagnitude() < 1e-20)
+        return V.Translated(n1 * dist);
+
+    n1.Normalize();
+    n2.Normalize();
+
+    gp_Vec2d nSum = n1 + n2;
+
+    double len = nSum.Magnitude();
+
+    if (len < 1e-8)
+        return V.Translated(n1 * dist);
+
+    gp_Vec2d nBisect =
+        nSum / len;
+
+    double denom =
+        n1.Dot(nBisect);
+
+    if (std::abs(denom) < 1e-8)
+        return V.Translated(n1 * dist);
+
+    double k =
+        dist / denom;
+
+    double maxK =
+        std::max(
+            1.0,
+            std::abs(dist) * 1000.0
+        );
+
+    if (std::abs(k) > maxK)
+        k = k > 0.0 ? maxK : -maxK;
+
+    return V.Translated(
+        nBisect * k
+    );
+}
+
+
+// ------------------------------------------------------------
+// Line-line
+// ------------------------------------------------------------
+
+static gp_Pnt2d IntersectLineLine(
+    gp_Pnt2d p1,
+    gp_Vec2d d1,
+    gp_Pnt2d p2,
+    gp_Vec2d d2,
+    gp_Pnt2d fallback)
+{
+    if (d1.SquareMagnitude() < 1e-20 ||
+        d2.SquareMagnitude() < 1e-20)
+        return fallback;
+
+    d1.Normalize();
+    d2.Normalize();
+
+    double cross =
+        d1.X() * d2.Y() -
+        d1.Y() * d2.X();
+
+    if (std::abs(cross) < 1e-10)
+        return fallback;
+
+    double dx =
+        p2.X() - p1.X();
+
+    double dy =
+        p2.Y() - p1.Y();
+
+    double t =
+        (dx * d2.Y() -
+         dy * d2.X()) / cross;
+
+    return gp_Pnt2d(
+        p1.X() + d1.X() * t,
+        p1.Y() + d1.Y() * t
+    );
+}
+
+
+// ------------------------------------------------------------
+// Line-circle
+// ------------------------------------------------------------
+
+static gp_Pnt2d IntersectLineCircle(
+    gp_Pnt2d pL,
+    gp_Vec2d dL,
+    gp_Pnt2d c,
+    double r,
+    gp_Pnt2d refP)
+{
+    if (r <= 0.0 ||
+        dL.SquareMagnitude() < 1e-20)
+        return refP;
+
+    dL.Normalize();
+
+    gp_Vec2d v =
+        c.XY() - pL.XY();
+
+    double tProj =
+        v.Dot(dL);
+
+    gp_Pnt2d pProj(
+        pL.X() + dL.X() * tProj,
+        pL.Y() + dL.Y() * tProj
+    );
+
+    double distSq =
+        pProj.SquareDistance(c);
+
+    double rSq = r * r;
+
+    if (distSq > rSq + 1e-10)
+        return refP;
+
+    double h =
+        std::sqrt(
+            std::max(
+                0.0,
+                rSq - distSq
+            )
+        );
+
+    gp_Pnt2d sol1(
+        pProj.X() + dL.X() * h,
+        pProj.Y() + dL.Y() * h
+    );
+
+    gp_Pnt2d sol2(
+        pProj.X() - dL.X() * h,
+        pProj.Y() - dL.Y() * h
+    );
+
+    return
+        sol1.SquareDistance(refP) <=
+        sol2.SquareDistance(refP)
+        ? sol1
+        : sol2;
+}
+
+
+// ------------------------------------------------------------
+// Circle-circle
+// ------------------------------------------------------------
+
+static gp_Pnt2d IntersectCircleCircle(
+    gp_Pnt2d c1,
+    double r1,
+    gp_Pnt2d c2,
+    double r2,
+    gp_Pnt2d refP)
+{
+    double d =
+        c1.Distance(c2);
+
+    // Coincident circles have infinitely many
+    // intersections.
+    if (d < 1e-10)
+        return refP;
+
+    if (d > r1 + r2 + 1e-10)
+        return refP;
+
+    if (d < std::abs(r1 - r2) - 1e-10)
+        return refP;
+
+    double a =
+        (r1 * r1 -
+         r2 * r2 +
+         d * d) /
+        (2.0 * d);
+
+    double hSq =
+        r1 * r1 -
+        a * a;
+
+    double h =
+        std::sqrt(
+            std::max(
+                0.0,
+                hSq
+            )
+        );
+
+    gp_Vec2d dir =
+        (c2.XY() - c1.XY()) / d;
+
+    gp_Pnt2d base(
+        c1.X() + a * dir.X(),
+        c1.Y() + a * dir.Y()
+    );
+
+    gp_Vec2d n(
+        -dir.Y(),
+         dir.X()
+    );
+
+    gp_Pnt2d sol1(
+        base.X() + h * n.X(),
+        base.Y() + h * n.Y()
+    );
+
+    gp_Pnt2d sol2(
+        base.X() - h * n.X(),
+        base.Y() - h * n.Y()
+    );
+
+    return
+        sol1.SquareDistance(refP) <=
+        sol2.SquareDistance(refP)
+        ? sol1
+        : sol2;
+}
+
+
+// ------------------------------------------------------------
+// Primitive intersection
+// ------------------------------------------------------------
+
+static gp_Pnt2d IntersectPrimitives(
+    const OffsetSegment& s1,
+    const OffsetSegment& s2,
+    gp_Pnt2d refP)
+{
+    // A full circle does not have a joint.
+    if (s1.isFullCircle ||
+        s2.isFullCircle)
+        return refP;
+
+    if (!s1.isArc && !s2.isArc) {
+
+        return IntersectLineLine(
+            s1.lineP0,
+            s1.lineDir,
+            s2.lineP0,
+            s2.lineDir,
+            refP
+        );
+    }
+
+    if (!s1.isArc && s2.isArc) {
+
+        return IntersectLineCircle(
+            s1.lineP0,
+            s1.lineDir,
+            s2.arcCenter,
+            s2.arcRadiusOff,
+            refP
+        );
+    }
+
+    if (s1.isArc && !s2.isArc) {
+
+        return IntersectLineCircle(
+            s2.lineP0,
+            s2.lineDir,
+            s1.arcCenter,
+            s1.arcRadiusOff,
+            refP
+        );
+    }
+
+    return IntersectCircleCircle(
+        s1.arcCenter,
+        s1.arcRadiusOff,
+        s2.arcCenter,
+        s2.arcRadiusOff,
+        refP
+    );
+}
+
+
+// ------------------------------------------------------------
+// FULL CIRCLE OFFSET
+// ------------------------------------------------------------
+
+static TopoDS_Edge MakeFullCircleOffset(
+    const OffsetSegment& s)
+{
+    if (!s.isFullCircle ||
+        s.arcRadiusOff <= 1e-9)
+        return TopoDS_Edge();
+
+    gp_Pnt center(
+        s.arcCenter.X(),
+        s.arcCenter.Y(),
+        0.0
+    );
+
+    gp_Ax2 axis(
+        center,
+        gp_Dir(0.0, 0.0, 1.0)
+    );
+
+    gp_Circ circle(
+        axis,
+        s.arcRadiusOff
+    );
+
+    TopoDS_Edge e =
+        BRepBuilderAPI_MakeEdge(
+            circle
+        );
+
+    if (e.IsNull())
+        return TopoDS_Edge();
+
+    // Preserve wire orientation.
+    if (!s.isArcCCW)
+        e.Reverse();
+
+    return e;
+}
+
+
+// ------------------------------------------------------------
+// CLOSED OFFSET WIRE
+// ------------------------------------------------------------
+
+TopoDS_Wire MakeClosedOffsetWire(
+    const TopoDS_Wire& spineWire,
+    double dist)
+{
+    if (spineWire.IsNull())
+        return TopoDS_Wire();
+
+    std::vector<TopoDS_Edge> spineEdges;
+    std::vector<OffsetSegment> segs;
+
+    // --------------------------------------------------------
+    // Extract segments
+    // --------------------------------------------------------
+
+    for (BRepTools_WireExplorer exp(spineWire);
+         exp.More();
+         exp.Next())
+    {
+        TopoDS_Edge edge =
+            exp.Current();
+
+        if (edge.IsNull() ||
+            BRep_Tool::Degenerated(edge))
+            continue;
+
+        Standard_Real f = 0.0;
+        Standard_Real l = 0.0;
+
+        Handle(Geom_Curve) c3d =
+            BRep_Tool::Curve(
+                edge,
+                f,
+                l
+            );
+
+        if (c3d.IsNull()) {
+
+            Handle(Geom2d_Curve) c2d;
+            Handle(Geom_Surface) surf;
+            TopLoc_Location loc;
+
+            BRep_Tool::CurveOnSurface(
+                edge,
+                c2d,
+                surf,
+                loc,
+                f,
+                l
+            );
+
+            if (c2d.IsNull())
+                continue;
+        }
+
+        bool reversed =
+            edge.Orientation() ==
+            TopAbs_REVERSED;
+
+        double uStart =
+            reversed ? l : f;
+
+        double uEnd =
+            reversed ? f : l;
+
+        double uMid =
+            0.5 * (uStart + uEnd);
+
+        gp_Pnt2d pStart;
+        gp_Pnt2d pEnd;
+        gp_Pnt2d pMid;
+
+        gp_Vec2d dirStart;
+        gp_Vec2d dirEnd;
+        gp_Vec2d dirMid;
+
+        gp_Pnt pStart3d;
+        gp_Pnt pEnd3d;
+        gp_Pnt pMid3d;
+
+        if (!EvaluateEdgePointAndTangent(
+                edge,
+                uStart,
+                pStart,
+                dirStart,
+                pStart3d))
+            continue;
+
+        if (!EvaluateEdgePointAndTangent(
+                edge,
+                uEnd,
+                pEnd,
+                dirEnd,
+                pEnd3d))
+            continue;
+
+        if (!EvaluateEdgePointAndTangent(
+                edge,
+                uMid,
+                pMid,
+                dirMid,
+                pMid3d))
+            continue;
+
+        dirStart.Normalize();
+        dirEnd.Normalize();
+        dirMid.Normalize();
+
+        gp_Vec2d nStart(
+            -dirStart.Y(),
+             dirStart.X()
+        );
+
+        gp_Vec2d nEnd(
+            -dirEnd.Y(),
+             dirEnd.X()
+        );
+
+        gp_Vec2d nMid(
+            -dirMid.Y(),
+             dirMid.X()
+        );
+
+        nStart.Normalize();
+        nEnd.Normalize();
+        nMid.Normalize();
+
+        OffsetSegment seg;
+
+        seg.pStartOrig = pStart;
+        seg.pEndOrig = pEnd;
+
+        seg.dirStart = dirStart;
+        seg.dirEnd = dirEnd;
+
+        seg.normStart = nStart;
+        seg.normEnd = nEnd;
+
+        seg.lineP0 =
+            pStart.Translated(
+                nStart * dist
+            );
+
+        seg.lineDir =
+            dirStart;
+
+        // ----------------------------------------------------
+        // Circle?
+        // ----------------------------------------------------
+
+        gp_Pnt2d center;
+        double radius = 0.0;
+
+        if (DetectArcGeometry(
+                edge,
+                center,
+                radius))
+        {
+            seg.isArc = true;
+            seg.arcCenter = center;
+            seg.arcRadius = radius;
+
+            // ------------------------------------------------
+            // Detect traversal direction.
+            // ------------------------------------------------
+
+            gp_Vec2d radial =
+                pMid.XY() -
+                center.XY();
+
+            double cross =
+                radial.X() * dirMid.Y() -
+                radial.Y() * dirMid.X();
+
+            seg.isArcCCW =
+                cross > 0.0;
+
+            // ------------------------------------------------
+            // FULL CIRCLE
+            // ------------------------------------------------
+
+            seg.isFullCircle =
+                IsFullCircle(edge);
+
+            if (seg.isFullCircle) {
+
+                // Left-hand offset convention:
+                //
+                // CCW -> left is inward
+                // CW  -> left is outward
+                //
+                // This preserves your original semantics.
+
+                seg.arcRadiusOff =
+                    seg.isArcCCW
+                        ? radius - dist
+                        : radius + dist;
+
+                if (seg.arcRadiusOff <= 1e-9)
+                    return TopoDS_Wire();
+
+                spineEdges.push_back(edge);
+                segs.push_back(seg);
+
+                continue;
+            }
+
+            // ------------------------------------------------
+            // Normal circular ARC
+            // ------------------------------------------------
+
+            seg.arcRadiusOff =
+                seg.isArcCCW
+                    ? radius - dist
+                    : radius + dist;
+
+            if (seg.arcRadiusOff <= 1e-9)
+                return TopoDS_Wire();
+
+            seg.arcStartAngle =
+                std::atan2(
+                    pStart.Y() - center.Y(),
+                    pStart.X() - center.X()
+                );
+
+            seg.arcEndAngle =
+                std::atan2(
+                    pEnd.Y() - center.Y(),
+                    pEnd.X() - center.X()
+                );
+
+            double a1 =
+                seg.arcStartAngle;
+
+            double a2 =
+                seg.arcEndAngle;
+
+            if (seg.isArcCCW) {
+
+                while (a2 < a1)
+                    a2 += 2.0 * M_PI;
+
+            } else {
+
+                while (a2 > a1)
+                    a2 -= 2.0 * M_PI;
+            }
+
+            seg.arcSweep =
+                a2 - a1;
+
+            // Correct tiny/invalid sweep.
+            if (std::abs(seg.arcSweep) < 1e-10)
+                seg.arcSweep =
+                    seg.isArcCCW
+                        ? 2.0 * M_PI
+                        : -2.0 * M_PI;
+
+            double aMid =
+                a1 +
+                seg.arcSweep * 0.5;
+
+            seg.pMidOff =
+                gp_Pnt(
+                    center.X() +
+                        seg.arcRadiusOff *
+                        std::cos(aMid),
+
+                    center.Y() +
+                        seg.arcRadiusOff *
+                        std::sin(aMid),
+
+                    0.0
+                );
+        }
+        else {
+
+            seg.isArc = false;
+        }
+
+        spineEdges.push_back(edge);
+        segs.push_back(seg);
+    }
+
+    const size_t N =
+        segs.size();
+
+    if (N == 0)
+        return TopoDS_Wire();
+
+    // --------------------------------------------------------
+    // SPECIAL CASE:
+    // one plain circle
+    // --------------------------------------------------------
+
+    if (N == 1 &&
+        segs[0].isFullCircle)
+    {
+        TopoDS_Edge e =
+            MakeFullCircleOffset(
+                segs[0]
+            );
+
+        if (e.IsNull())
+            return TopoDS_Wire();
+
+        BRepBuilderAPI_MakeWire maker;
+
+        maker.Add(e);
+
+        if (!maker.IsDone())
+            return TopoDS_Wire();
+
+        TopoDS_Wire wire =
+            maker.Wire();
+
+        wire.Closed(Standard_True);
+
+        return wire;
+    }
+
+    // --------------------------------------------------------
+    // Joint points
+    // --------------------------------------------------------
+
+    std::vector<gp_Pnt2d> offp(N);
+
+    for (size_t i = 0; i < N; ++i) {
+
+        size_t prev =
+            (i == 0)
+                ? N - 1
+                : i - 1;
+
+        // Full circles don't participate in joints.
+        if (segs[i].isFullCircle) {
+            offp[i] =
+                segs[i].pStartOrig;
+            continue;
+        }
+
+        if (segs[prev].isFullCircle) {
+            offp[i] =
+                segs[i].pStartOrig
+                    .Translated(
+                        segs[i].normStart * dist
+                    );
+            continue;
+        }
+
+        gp_Pnt2d ref =
+            ComputeMiterPoint(
+                segs[i].pStartOrig,
+                segs[prev].normEnd,
+                segs[i].normStart,
+                dist
+            );
+
+        offp[i] =
+            IntersectPrimitives(
+                segs[prev],
+                segs[i],
+                ref
+            );
+    }
+
+    // --------------------------------------------------------
+    // Build offset wire
+    // --------------------------------------------------------
+
+    BRepBuilderAPI_MakeWire maker;
+
+    for (size_t i = 0; i < N; ++i) {
+
+        size_t next =
+            (i + 1) % N;
+
+        TopoDS_Edge e;
+
+        // ----------------------------------------------------
+        // Full circle
+        // ----------------------------------------------------
+
+        if (segs[i].isFullCircle) {
+
+            e =
+                MakeFullCircleOffset(
+                    segs[i]
+                );
+        }
+
+        // ----------------------------------------------------
+        // Normal arc
+        // ----------------------------------------------------
+
+        else if (segs[i].isArc) {
+
+            gp_Pnt2d a =
+                offp[i];
+
+            gp_Pnt2d b =
+                offp[next];
+
+            gp_Pnt2d c =
+                segs[i].arcCenter;
+
+            double a1 =
+                std::atan2(
+                    a.Y() - c.Y(),
+                    a.X() - c.X()
+                );
+
+            double a2 =
+                std::atan2(
+                    b.Y() - c.Y(),
+                    b.X() - c.X()
+                );
+
+            double sweep;
+
+            if (segs[i].isArcCCW) {
+
+                sweep = a2 - a1;
+
+                while (sweep < 0.0)
+                    sweep += 2.0 * M_PI;
+
+            } else {
+
+                sweep = a2 - a1;
+
+                while (sweep > 0.0)
+                    sweep -= 2.0 * M_PI;
+            }
+
+            if (std::abs(sweep) < 1e-10)
+                sweep =
+                    segs[i].isArcCCW
+                        ? 2.0 * M_PI
+                        : -2.0 * M_PI;
+
+            double am =
+                a1 + sweep * 0.5;
+
+            gp_Pnt pA(
+                c.X() +
+                    segs[i].arcRadiusOff *
+                    std::cos(a1),
+
+                c.Y() +
+                    segs[i].arcRadiusOff *
+                    std::sin(a1),
+
+                0.0
+            );
+
+            gp_Pnt pM(
+                c.X() +
+                    segs[i].arcRadiusOff *
+                    std::cos(am),
+
+                c.Y() +
+                    segs[i].arcRadiusOff *
+                    std::sin(am),
+
+                0.0
+            );
+
+            gp_Pnt pB(
+                c.X() +
+                    segs[i].arcRadiusOff *
+                    std::cos(a2),
+
+                c.Y() +
+                    segs[i].arcRadiusOff *
+                    std::sin(a2),
+
+                0.0
+            );
+
+            GC_MakeArcOfCircle arc(
+                pA,
+                pM,
+                pB
+            );
+
+            if (arc.IsDone())
+                e =
+                    BRepBuilderAPI_MakeEdge(
+                        arc.Value()
+                    );
+        }
+
+        // ----------------------------------------------------
+        // Line
+        // ----------------------------------------------------
+
+        if (e.IsNull()) {
+
+            gp_Pnt pA(
+                offp[i].X(),
+                offp[i].Y(),
+                0.0
+            );
+
+            gp_Pnt pB(
+                offp[next].X(),
+                offp[next].Y(),
+                0.0
+            );
+
+            if (pA.Distance(pB) > 1e-9) {
+
+                e =
+                    BRepBuilderAPI_MakeEdge(
+                        pA,
+                        pB
+                    );
+            }
+        }
+
+        if (e.IsNull())
+            return TopoDS_Wire();
+
+        maker.Add(e);
+    }
+
+    if (!maker.IsDone())
+        return TopoDS_Wire();
+
+    TopoDS_Wire result =
+        maker.Wire();
+
+    result.Closed(Standard_True);
+
+    return result;
+}
+
+
+// ------------------------------------------------------------
+// RING FACE
+// ------------------------------------------------------------
+
+TopoDS_Face MakeOffsetRingFace(
+    const TopoDS_Wire& spineWire,
+    double dist)
+{
+    if (spineWire.IsNull())
+        return TopoDS_Face();
+
+    TopoDS_Wire offsetWire =
+        MakeClosedOffsetWire(
+            spineWire,
+            dist
+        );
+
+    if (offsetWire.IsNull())
+        return TopoDS_Face();
+
+    BRepBuilderAPI_MakeFace origMaker(
+        spineWire
+    );
+
+    BRepBuilderAPI_MakeFace offMaker(
+        offsetWire
+    );
+
+    if (!origMaker.IsDone() ||
+        !offMaker.IsDone())
+        return TopoDS_Face();
+
+    TopoDS_Face origFace =
+        origMaker.Face();
+
+    TopoDS_Face offFace =
+        offMaker.Face();
+
+    GProp_GProps gOrig;
+    GProp_GProps gOff;
+
+    BRepGProp::SurfaceProperties(
+        origFace,
+        gOrig
+    );
+
+    BRepGProp::SurfaceProperties(
+        offFace,
+        gOff
+    );
+
+    TopoDS_Wire outerWire;
+    TopoDS_Wire innerWire;
+
+    if (gOff.Mass() > gOrig.Mass()) {
+        outerWire = offsetWire;
+        innerWire = spineWire;
+    }
+    else {
+        outerWire = spineWire;
+        innerWire = offsetWire;
+    }
+
+    BRepBuilderAPI_MakeFace ringMaker(
+        outerWire
+    );
+
+    if (!ringMaker.IsDone())
+        return TopoDS_Face();
+
+    ringMaker.Add(
+        TopoDS::Wire(
+            innerWire.Reversed()
+        )
+    );
+
+    if (!ringMaker.IsDone())
+        return TopoDS_Face();
+
+    return ringMaker.Face();
+}
+
+
+
+  // Builds a closed, one‐sided offset wire around the input polyline.
+
+  // vpoints: the “spine” as 2D points.
 // dist:    offset distance.
 // outward: true→offset on the left side of each segment..(negative
 // number does the same, so no need)
-TopoDS_Wire MakeOneSidedOffsetWire(const std::vector<gp_Pnt2d> &vpoints,
+TopoDS_Wire MakeOneSidedOffsetWire1(const std::vector<gp_Pnt2d> &vpoints,
                                    double dist) {
   // bool closed = ((vpoints[0].X() == vpoints.back().X()) &&
   // 			   (vpoints[0].Y() == vpoints.back().Y()));
@@ -5315,6 +6584,212 @@ TopoDS_Wire MakeOneSidedOffsetWire(const std::vector<gp_Pnt2d> &vpoints,
 
   return wireMaker.Wire();
 }
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BRep_Tool.hxx>
+#include <GC_MakeArcOfCircle.hxx>
+#include <Geom2d_Circle.hxx>
+#include <Geom2d_Curve.hxx>
+#include <Geom2d_TrimmedCurve.hxx>
+#include <Geom_Circle.hxx>
+#include <Geom_Curve.hxx>
+#include <Geom_TrimmedCurve.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Wire.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Vec2d.hxx>
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+
+TopoDS_Wire MakeOneSidedOffsetWire(const TopoDS_Wire &spineWire, double dist) {
+  if (spineWire.IsNull()) return TopoDS_Wire();
+
+  std::vector<TopoDS_Edge> spineEdges;
+  std::vector<OffsetSegment> segs;
+
+  // 1. Extract wire edges and evaluate segment geometry safely
+  for (BRepTools_WireExplorer exp(spineWire); exp.More(); exp.Next()) {
+    TopoDS_Edge edge = exp.Current();
+    if (edge.IsNull() || BRep_Tool::Degenerated(edge)) continue;
+
+    Standard_Real f = 0.0, l = 0.0;
+    Handle(Geom_Curve) c3d = BRep_Tool::Curve(edge, f, l);
+    if (c3d.IsNull()) {
+      Handle(Geom2d_Curve) c2d; Handle(Geom_Surface) surf; TopLoc_Location loc;
+      BRep_Tool::CurveOnSurface(edge, c2d, surf, loc, f, l);
+      if (c2d.IsNull()) continue;
+    }
+
+    bool isReversed = (edge.Orientation() == TopAbs_REVERSED);
+    double uStart = isReversed ? l : f;
+    double uEnd   = isReversed ? f : l;
+    double uMid   = (uStart + uEnd) * 0.5;
+
+    gp_Pnt2d pStartOrig, pEndOrig, pMidOrig;
+    gp_Vec2d dirStart, dirEnd, dirMid;
+    gp_Pnt pStart3d, pEnd3d, pMid3d;
+
+    if (!EvaluateEdgePointAndTangent(edge, uStart, pStartOrig, dirStart, pStart3d)) continue;
+    if (!EvaluateEdgePointAndTangent(edge, uEnd, pEndOrig, dirEnd, pEnd3d)) continue;
+    if (!EvaluateEdgePointAndTangent(edge, uMid, pMidOrig, dirMid, pMid3d)) continue;
+
+    gp_Vec2d normStart(-dirStart.Y(), dirStart.X());
+    gp_Vec2d normEnd(-dirEnd.Y(), dirEnd.X());
+    gp_Vec2d normMid(-dirMid.Y(), dirMid.X());
+
+    gp_Pnt2d pStartOff = pStartOrig.Translated(normStart * dist);
+    gp_Pnt2d pEndOff   = pEndOrig.Translated(normEnd * dist);
+    gp_Pnt2d pMidOff2d = pMidOrig.Translated(normMid * dist);
+
+    OffsetSegment seg;
+    seg.pStartOrig = pStartOrig;
+    seg.pEndOrig   = pEndOrig;
+    seg.dirStart   = dirStart;
+    seg.dirEnd     = dirEnd;
+    seg.lineP0     = pStartOff;
+    seg.lineDir    = dirStart; // Valid for both lines and arcs
+
+    gp_Pnt2d center;
+    if (DetectArcGeometry(edge, center)) {
+      seg.isArc = true;
+      seg.arcCenter = center;
+      seg.arcRadiusOff = pMidOff2d.Distance(center);
+      seg.pMidOff = gp_Pnt(pMidOff2d.X(), pMidOff2d.Y(), pMid3d.Z());
+    } else {
+      seg.isArc = false;
+    }
+
+    spineEdges.push_back(edge);
+    segs.push_back(seg);
+  }
+
+  const size_t N = segs.size();
+  if (N == 0) return TopoDS_Wire();
+
+  // 2. Compute exact joint intersections
+  std::vector<gp_Pnt2d> offp(N + 1);
+
+  // Start Cap
+  {
+    gp_Vec2d dir0 = segs[0].dirStart;
+    gp_Vec2d norm0(-dir0.Y(), dir0.X());
+    OffsetSegment startCapLine;
+    startCapLine.isArc = false;
+    startCapLine.lineP0 = segs[0].pStartOrig;
+    startCapLine.lineDir = norm0;
+    offp[0] = IntersectPrimitives(startCapLine, segs[0], segs[0].lineP0);
+  }
+
+  // Internal Joints
+  for (size_t i = 1; i < N; ++i) {
+    offp[i] = IntersectPrimitives(segs[i - 1], segs[i], segs[i].pStartOrig);
+  }
+
+  // End Cap
+  {
+    const auto &lastSeg = segs[N - 1];
+    gp_Vec2d dirEnd = lastSeg.dirEnd;
+    gp_Vec2d normEnd(-dirEnd.Y(), dirEnd.X());
+    OffsetSegment endCapLine;
+    endCapLine.isArc = false;
+    endCapLine.lineP0 = lastSeg.pEndOrig;
+    endCapLine.lineDir = normEnd;
+    offp[N] = IntersectPrimitives(lastSeg, endCapLine, lastSeg.pEndOrig.Translated(normEnd * dist));
+  }
+
+  // 3. Generate offset edges (3-point arc construction preserves orientation)
+  std::vector<TopoDS_Edge> offsetEdges;
+  for (size_t i = 0; i < N; ++i) {
+    gp_Pnt pA(offp[i].X(), offp[i].Y(), 0.0);
+    gp_Pnt pB(offp[i + 1].X(), offp[i + 1].Y(), 0.0);
+
+    TopoDS_Edge eOff;
+    if (segs[i].isArc) {
+      GC_MakeArcOfCircle arcMaker(pA, segs[i].pMidOff, pB);
+      if (arcMaker.IsDone()) {
+        eOff = BRepBuilderAPI_MakeEdge(arcMaker.Value());
+      }
+    }
+
+    if (eOff.IsNull()) {
+      eOff = BRepBuilderAPI_MakeEdge(pA, pB);
+    }
+
+    offsetEdges.push_back(eOff);
+  }
+
+  // 4. Assemble closed ribbon wire
+  BRepBuilderAPI_MakeWire wireMaker;
+
+  for (const auto &e : spineEdges) {
+    wireMaker.Add(e);
+  }
+
+  gp_Pnt pSpineEnd(segs[N - 1].pEndOrig.X(), segs[N - 1].pEndOrig.Y(), 0.0);
+  gp_Pnt pOffEnd(offp[N].X(), offp[N].Y(), 0.0);
+  wireMaker.Add(BRepBuilderAPI_MakeEdge(pSpineEnd, pOffEnd));
+
+  for (int i = (int)N - 1; i >= 0; --i) {
+    wireMaker.Add(TopoDS::Edge(offsetEdges[i].Reversed()));
+  }
+
+  gp_Pnt pOffStart(offp[0].X(), offp[0].Y(), 0.0);
+  gp_Pnt pSpineStart(segs[0].pStartOrig.X(), segs[0].pStartOrig.Y(), 0.0);
+  wireMaker.Add(BRepBuilderAPI_MakeEdge(pOffStart, pSpineStart));
+
+  if (!wireMaker.IsDone()) return TopoDS_Wire();
+
+  return wireMaker.Wire();
+}
+
+
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BRep_Tool.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
+#include <GC_MakeArcOfCircle.hxx>
+#include <Geom2d_Curve.hxx>
+#include <Geom_Curve.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <gp_Vec2d.hxx>
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+
+
+// Computes the outward miter point to use as a candidate reference
+// static gp_Pnt2d ComputeMiterPoint(gp_Pnt2d V, gp_Vec2d n1, gp_Vec2d n2, double dist) {
+//   gp_Vec2d nSum = n1 + n2;
+//   double len = nSum.Magnitude();
+//   if (len < 1e-6) return V.Translated(n1 * dist);
+
+//   gp_Vec2d nBisect = nSum / len;
+//   double denom = n1.Dot(nBisect);
+//   if (std::abs(denom) < 1e-4) return V.Translated(n1 * dist);
+
+//   double k = dist / denom;
+//   return V.Translated(nBisect * k);
+// }
+
+ 
+
+
 
 TopoDS_Compound
 CleanCompound_RemoveWiresFacesEdgesBeforeSolid(const TopoDS_Compound &src) {
@@ -5740,31 +7215,96 @@ void mergeShape(TopoDS_Compound &target, TopoDS_Shape &toAdd) {
   // trsf.Invert();
   // vtrsf.push_back(trsf);
 }
-void CreateWire(const std::vector<gp_Vec2d> &points, bool closed = false) {
-  current_part->vpoints.push_back(points);
-  BRepBuilderAPI_MakePolygon poly;
-  for (auto &v : points) {
-    poly.Add(gp_Pnt(v.X(), v.Y(), 0));
-  }
-  if (closed && points.size() > 2)
-    poly.Close();
-  TopoDS_Wire wire = poly.Wire();
-  if (points.size() > 2) {
-    // Make a planar face from that wire
-    TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
-    BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
-    // mergeShape(current_part->cshape, face);
-    // current_part->shape = face;
-    face.Location(current_part->shape.Location().Transformation());
-    inteligentmerge(face, 0);
-  } else {
-    // current_part->shape = wire;
-    wire.Location(current_part->shape.Location().Transformation());
-    inteligentmerge(wire, 0);
-    // mergeShape(current_part->cshape, wire);
-  }
-  // current_part->shape.Location(current_part->shape.Location().Transformation());
-  // current_part->shape.Location(current_part->current_location);
+struct WirePoint {
+    gp_Vec2d pt;
+    double radius = 0.0; // 0 = line
+    bool inverted = false; // false = minor arc (default), true = major arc (;ir)
+};
+
+void CreateWire(const std::vector<WirePoint> &points, bool closed = false) {
+    if (points.empty()) return;
+
+    std::vector<gp_Vec2d> raw_pts;
+    for (const auto &wp : points) raw_pts.push_back(wp.pt);
+    current_part->vpoints.push_back(raw_pts);
+
+    BRepBuilderAPI_MakeWire wireBuilder;
+
+    for (size_t i = 1; i < points.size(); ++i) {
+        gp_Vec2d p1 = points[i - 1].pt;
+        gp_Vec2d p2 = points[i].pt;
+        double r = points[i].radius;
+        bool inverted = points[i].inverted;
+
+        TopoDS_Edge edge;
+
+        if (std::abs(r) > 1e-6) {
+            double d = (p2 - p1).Magnitude();
+            if (std::abs(r) >= d / 2.0 && d > 1e-6) {
+                gp_Vec2d mid = (p1 + p2) * 0.5;
+                gp_Vec2d dir = (p2 - p1) / d;
+                gp_Vec2d normal(-dir.Y(), dir.X()); // Perpendicular unit normal
+
+                double h = std::sqrt(r * r - (d * 0.5) * (d * 0.5));
+                double sign = (r > 0.0) ? 1.0 : -1.0;
+
+                gp_Vec2d pMid;
+                if (inverted) {
+                    // Major arc: Midpoint extends to the far side of the circle
+                    double s = std::abs(r) + h;
+                    pMid = mid - normal * (sign * s);
+                } else {
+                    // Minor arc: Standard sagitta
+                    double s = std::abs(r) - h;
+                    pMid = mid + normal * (sign * s);
+                }
+
+                GC_MakeArcOfCircle arcMaker(
+                    gp_Pnt(p1.X(), p1.Y(), 0.0),
+                    gp_Pnt(pMid.X(), pMid.Y(), 0.0),
+                    gp_Pnt(p2.X(), p2.Y(), 0.0)
+                );
+
+                if (arcMaker.IsDone()) {
+                    edge = BRepBuilderAPI_MakeEdge(arcMaker.Value());
+                }
+            }
+        }
+
+        if (edge.IsNull()) {
+            edge = BRepBuilderAPI_MakeEdge(
+                gp_Pnt(p1.X(), p1.Y(), 0.0),
+                gp_Pnt(p2.X(), p2.Y(), 0.0)
+            );
+        }
+
+        wireBuilder.Add(edge);
+    }
+
+    bool is_coincident = (points.front().pt - points.back().pt).Magnitude() < 1e-6;
+
+    if (closed && !is_coincident && points.size() > 2) {
+        TopoDS_Edge closingEdge = BRepBuilderAPI_MakeEdge(
+            gp_Pnt(points.back().pt.X(), points.back().pt.Y(), 0.0),
+            gp_Pnt(points.front().pt.X(), points.front().pt.Y(), 0.0)
+        );
+        wireBuilder.Add(closingEdge);
+    }
+
+    if (!wireBuilder.IsDone()) return;
+
+    TopoDS_Wire wire = wireBuilder.Wire();
+    bool is_closed = closed || is_coincident || wire.Closed();
+
+    if (is_closed && points.size() > 2) {
+        TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
+        BRepMesh_IncrementalMesh mesher(face, 0.5, true, 0.5, true);
+        face.Location(current_part->shape.Location().Transformation());
+        inteligentmerge(face, 0);
+    } else {
+        wire.Location(current_part->shape.Location().Transformation());
+        inteligentmerge(wire, 0);
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -9473,6 +11013,8 @@ luadraw* Part(const std::string &_name){
   obj->name = new_name;
   (*G)[obj->name] =
       obj; // same as: name = obj in Lua, now  part names are luadraw
+
+  obj->shape=TopoDS_Shape();//
   current_part = obj;
   Originl();
 
@@ -10272,6 +11814,638 @@ void Mirrortry(luadraw *original, float offset = 0.0f, int x = 0, int y = 0,
 
   inteligentmerge(inverted, 0);
 }
+#include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopTools_HSequenceOfShape.hxx>
+#include <ShapeAnalysis_FreeBounds.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <BRepLib.hxx>
+#include <Precision.hxx>
+#include <BRep_Builder.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopTools_HSequenceOfShape.hxx>
+#include <ShapeAnalysis_FreeBounds.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepLib.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <Precision.hxx>
+#include <BOPAlgo_Tools.hxx>
+#include <ShapeFix_Wire.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepLib.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <Geom_Plane.hxx>
+#include <gp_Pln.hxx>
+#include <ShapeAnalysis.hxx>
+#include <ShapeFix_Shape.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <GCPnts_AbscissaPoint.hxx>
+
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepLib.hxx>
+#include <BRep_Tool.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <Geom_Plane.hxx>
+#include <GeomAPI_ProjectPointOnSurf.hxx>
+#include <ShapeFix_Wire.hxx>
+#include <ShapeFix_Shape.hxx>
+#include <TopExp_Explorer.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+
+// ------------------------------------------------------------------
+// Project a wire onto a plane and rebuild it
+// ------------------------------------------------------------------
+static TopoDS_Wire ProjectWireToPlane(const TopoDS_Wire& wire, const gp_Pln& plane, Standard_Real tol)
+{
+  Handle(Geom_Plane) geomPlane = new Geom_Plane(plane);
+  BRepBuilderAPI_MakeWire mkWire;
+
+  for (TopExp_Explorer exp(wire, TopAbs_EDGE); exp.More(); exp.Next())
+  {
+    TopoDS_Edge edge = TopoDS::Edge(exp.Current());
+
+    Standard_Real first, last;
+    Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, first, last);
+    if (curve.IsNull())
+      continue;
+
+    // Sample the curve and project points
+    const int nbSamples = 20;
+    std::vector<gp_Pnt> points;
+    points.reserve(nbSamples + 1);
+
+    for (int i = 0; i <= nbSamples; ++i)
+    {
+      Standard_Real t = first + (last - first) * i / nbSamples;
+      gp_Pnt p = curve->Value(t);
+
+      GeomAPI_ProjectPointOnSurf proj(p, geomPlane);
+      if (proj.NbPoints() > 0)
+        points.push_back(proj.NearestPoint());
+      else
+        points.push_back(p);
+    }
+
+    // Rebuild the edge as a polyline on the plane (simple & robust)
+    for (size_t i = 1; i < points.size(); ++i)
+    {
+      if (points[i-1].Distance(points[i]) > tol * 0.1)
+      {
+        TopoDS_Edge newEdge = BRepBuilderAPI_MakeEdge(points[i-1], points[i]);
+        mkWire.Add(newEdge);
+      }
+    }
+  }
+
+  if (!mkWire.IsDone())
+    return wire;   // fallback
+
+  TopoDS_Wire projected = mkWire.Wire();
+
+  // Heal the projected wire
+  Handle(ShapeFix_Wire) fix = new ShapeFix_Wire;
+  fix->Load(projected);
+  fix->SetPrecision(tol);
+  fix->SetMaxTolerance(tol * 100.);
+  fix->ClosedWireMode() = Standard_True;
+  fix->FixReorder();
+  fix->FixConnected(tol);
+  fix->FixClosed(tol);
+  fix->FixLacking(Standard_True);
+
+  return fix->Wire();
+}
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopExp_Explorer.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRep_Tool.hxx>
+#include <BRepLib.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+#include <Precision.hxx>
+#include <ShapeFix_Face.hxx>
+#include <ShapeFix_Shape.hxx>
+#include <ShapeFix_Wire.hxx>
+#include <BRepCheck_Analyzer.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <BRepLib.hxx>
+#include <BOPAlgo_Tools.hxx>
+#include <ShapeAnalysis_FreeBounds.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopTools_HSequenceOfShape.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Pnt.hxx>
+
+// ------------------------------------------------------------------
+// Reset/normalize a face's orientation so its wire(s) are consistent
+// with the surface, regardless of upstream mirror/reversal issues.
+// ------------------------------------------------------------------
+static TopoDS_Face FixFaceOrientation(const TopoDS_Face& face)
+{
+  if (face.IsNull())
+    return face;
+
+  Handle(ShapeFix_Face) fix = new ShapeFix_Face(face);
+  fix->FixOrientation();
+  TopoDS_Face fixed = fix->Face();
+  return fixed.IsNull() ? face : fixed;
+}
+
+// Optional: force the normal to match a known target direction
+// (use only if you have a reference direction; otherwise skip this).
+static TopoDS_Face EnforceNormal(const TopoDS_Face& face, const gp_Dir& targetNormal)
+{
+  if (face.IsNull())
+    return face;
+
+  BRepAdaptor_Surface surf(face);
+  Standard_Real u = (surf.FirstUParameter() + surf.LastUParameter()) * 0.5;
+  Standard_Real v = (surf.FirstVParameter() + surf.LastVParameter()) * 0.5;
+
+  gp_Pnt p;
+  gp_Vec d1u, d1v;
+  surf.D1(u, v, p, d1u, d1v);
+  gp_Vec n = d1u.Crossed(d1v);
+  if (face.Orientation() == TopAbs_REVERSED)
+    n.Reverse();
+
+  if (n.Dot(gp_Vec(targetNormal)) < 0.0)
+    return TopoDS::Face(face.Reversed());
+
+  return face;
+}
+
+// Bake a shape only if it is reversed
+static TopoDS_Shape BakeIfReversed(const TopoDS_Shape& shape)
+{
+  if (shape.IsNull() || shape.Orientation() != TopAbs_REVERSED)
+    return shape;
+
+  gp_Trsf trsf = shape.Location().Transformation();
+  BRepBuilderAPI_Transform baker(shape, trsf, Standard_True);
+  if (!baker.IsDone())
+    return shape;
+
+  TopoDS_Shape baked = baker.Shape();
+  baked.Orientation(TopAbs_FORWARD);
+  baked.Location(TopLoc_Location());
+  return baked;
+}
+
+// ------------------------------------------------------------------
+// Strong planar face creation
+// ------------------------------------------------------------------
+static TopoDS_Face MakePlanarFace(const TopoDS_Wire& wire, Standard_Real tol = 1.e-4)
+{
+  gp_Pnt p1, p2, p3;
+  bool ok = false;
+
+  TopExp_Explorer exp(wire, TopAbs_VERTEX);
+  if (exp.More()) { p1 = BRep_Tool::Pnt(TopoDS::Vertex(exp.Current())); exp.Next(); }
+  if (exp.More()) { p2 = BRep_Tool::Pnt(TopoDS::Vertex(exp.Current())); exp.Next(); }
+  if (exp.More()) { p3 = BRep_Tool::Pnt(TopoDS::Vertex(exp.Current())); ok = true; }
+
+  if (!ok)
+    return TopoDS_Face();
+
+  gp_Vec v1(p1, p2), v2(p1, p3);
+  gp_Vec n = v1.Crossed(v2);
+  if (n.Magnitude() < 1e-10)
+    return TopoDS_Face();
+
+  gp_Pln plane(p1, n);
+
+  TopoDS_Wire projectedWire = ProjectWireToPlane(wire, plane, tol);
+
+  BRepBuilderAPI_MakeFace mkFace(plane, projectedWire, Standard_True);
+  if (!mkFace.IsDone())
+    return TopoDS_Face();
+
+  TopoDS_Face face = mkFace.Face();
+
+  // Normalize orientation/normal BEFORE healing
+  face = FixFaceOrientation(face);
+
+  // Final healing of the face
+  {
+    Handle(ShapeFix_Shape) fix = new ShapeFix_Shape(face);
+    fix->SetPrecision(tol);
+    fix->SetMaxTolerance(tol * 100.);
+    fix->Perform();
+    face = TopoDS::Face(fix->Shape());
+  }
+
+  BRepCheck_Analyzer ana(face);
+  if (ana.IsValid())
+    return face;
+
+  return TopoDS_Face();
+}
+// Unconditionally bake a shape's Location + Orientation into real geometry.
+// No detection logic — every shape gets normalized to identity location,
+// forward orientation. This is the simple, no-edge-cases reset.
+static TopoDS_Shape BakeShape(const TopoDS_Shape& shape)
+{
+  if (shape.IsNull())
+    return shape;
+
+  gp_Trsf trsf = shape.Location().Transformation();
+  BRepBuilderAPI_Transform baker(shape, trsf, Standard_True);
+  if (!baker.IsDone())
+    return shape;
+
+  TopoDS_Shape baked = baker.Shape();
+  baked.Orientation(TopAbs_FORWARD);
+  baked.Location(TopLoc_Location());
+  return baked;
+}
+
+/**
+ * Collects all edges from the input shape, connects them into the longest
+ * possible wire(s) and returns:
+ *   - a Face          if a single closed wire was obtained and a valid face could be built
+ *   - a single Wire   otherwise
+ *
+ * @param theShape  Input shape (compound of wires / edges, etc.)
+ * @param theTol    Geometric tolerance used for connecting edges/wires
+ */
+TopoDS_Shape FuseWiresInCompoundbest(const TopoDS_Shape& theShape,
+                                 Standard_Real theTol = 1.e-5)
+{
+  if (theShape.IsNull())
+    return TopoDS_Shape();
+
+  // If the input is already a single wire, bypass complex edge-to-wire conversion
+  if (theShape.ShapeType() == TopAbs_WIRE)
+  {
+    TopoDS_Wire resultWire = TopoDS::Wire(theShape);
+    
+    // Heal the wire safely without forcing closure if it's open
+    Handle(ShapeFix_Wire) fix = new ShapeFix_Wire;
+    fix->Load(resultWire);
+    fix->SetPrecision(theTol);
+    fix->SetMaxTolerance(theTol * 10.);
+    
+    Standard_Boolean isClosed = resultWire.Closed();
+    fix->ClosedWireMode() = isClosed;
+
+    fix->FixReorder();
+    fix->FixConnected();
+    if (isClosed)
+      fix->FixClosed();
+
+    resultWire = fix->Wire();
+    BRepLib::BuildCurves3d(resultWire);
+
+    if (BRep_Tool::IsClosed(resultWire))
+    {
+      BRepBuilderAPI_MakeFace mkFace(resultWire, Standard_False);
+      if (mkFace.IsDone())
+      {
+        TopoDS_Face face = FixFaceOrientation(mkFace.Face());
+        if (BRepCheck_Analyzer(face).IsValid())
+          return face;
+      }
+    }
+
+    TopoDS_Face face = MakePlanarFace(resultWire, theTol);
+    if (!face.IsNull())
+      return face;
+
+    return resultWire;
+  }
+
+  // ------------------------------------------------------------------
+  // 1. Collect ALL edges
+  // ------------------------------------------------------------------
+  Handle(TopTools_HSequenceOfShape) edges = new TopTools_HSequenceOfShape;
+  for (TopExp_Explorer exp(theShape, TopAbs_EDGE); exp.More(); exp.Next()){
+    edges->Append(BakeShape(exp.Current()));
+  }
+
+  if (edges->Length() == 0)
+    return TopoDS_Shape();
+
+  // If there is only 1 edge, build a wire directly to prevent algorithm crashes
+  if (edges->Length() == 1)
+  {
+    BRepBuilderAPI_MakeWire mkWire(TopoDS::Edge(edges->Value(1)));
+    if (mkWire.IsDone())
+    {
+      TopoDS_Wire singleWire = mkWire.Wire();
+      // Proceed with healing/face creation for this single wire...
+      Handle(ShapeFix_Wire) fix = new ShapeFix_Wire;
+      fix->Load(singleWire);
+      fix->SetPrecision(theTol);
+      fix->FixReorder();
+      fix->FixConnected();
+      singleWire = fix->Wire();
+      
+      TopoDS_Face face = MakePlanarFace(singleWire, theTol);
+      if (!face.IsNull()) return face;
+      return singleWire;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 2. Preferred modern method: BOPAlgo_Tools::EdgesToWires
+  // ------------------------------------------------------------------
+  TopoDS_Compound edgeComp;
+  BRep_Builder().MakeCompound(edgeComp);
+  for (Standard_Integer i = 1; i <= edges->Length(); ++i)
+    BRep_Builder().Add(edgeComp, edges->Value(i));
+
+  TopoDS_Shape wiresShape;
+  Handle(TopTools_HSequenceOfShape) wires = new TopTools_HSequenceOfShape;
+
+  if (BOPAlgo_Tools::EdgesToWires(edgeComp, wiresShape,
+                                  /*shared=*/Standard_False,
+                                  /*angTol=*/1.e-8) == 0
+      && !wiresShape.IsNull())
+  {
+    for (TopExp_Explorer exp(wiresShape, TopAbs_WIRE); exp.More(); exp.Next())
+      wires->Append(exp.Current());
+  }
+
+  // ------------------------------------------------------------------
+  // 3. Fallback – classic ConnectEdgesToWires
+  // ------------------------------------------------------------------
+  if (wires->Length() == 0)
+  {
+    ShapeAnalysis_FreeBounds::ConnectEdgesToWires(edges, theTol,
+                                                  /*shared=*/Standard_False,
+                                                  wires);
+  }
+
+  if (wires->Length() == 0)
+    return TopoDS_Shape();
+
+  // ------------------------------------------------------------------
+  // 4. Glue remaining wires together if more than one
+  // ------------------------------------------------------------------
+  if (wires->Length() > 1)
+  {
+    Handle(TopTools_HSequenceOfShape) glued = new TopTools_HSequenceOfShape;
+    ShapeAnalysis_FreeBounds::ConnectWiresToWires(wires, theTol,
+                                                  /*shared=*/Standard_False,
+                                                  glued);
+    if (glued->Length() > 0)
+      wires = glued;
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Last resort – force everything into one MakeWire
+  // ------------------------------------------------------------------
+  if (wires->Length() > 1)
+  {
+    BRepBuilderAPI_MakeWire mkWire;
+    for (Standard_Integer i = 1; i <= wires->Length(); ++i)
+      mkWire.Add(TopoDS::Wire(wires->Value(i)));
+
+    if (mkWire.IsDone())
+    {
+      wires->Clear();
+      wires->Append(mkWire.Wire());
+    }
+  }
+
+  TopoDS_Wire resultWire = TopoDS::Wire(wires->Value(1));
+  Standard_Boolean isClosed = resultWire.Closed() || BRep_Tool::IsClosed(resultWire);
+
+  // ------------------------------------------------------------------
+  // 6. Heal the wire safely
+  // ------------------------------------------------------------------
+  {
+    Handle(ShapeFix_Wire) fix = new ShapeFix_Wire;
+    fix->Load(resultWire);
+    fix->SetPrecision(theTol);
+    fix->SetMaxTolerance(theTol * 10.);
+    fix->ClosedWireMode() = isClosed;
+
+    fix->FixReorder();
+    fix->FixConnected();
+    if (isClosed)
+      fix->FixClosed();
+
+    resultWire = fix->Wire();
+  }
+
+  BRepLib::BuildCurves3d(resultWire);
+
+  // ------------------------------------------------------------------
+  // 7. Closed wire → try to build a Face + oriented normal
+  // ------------------------------------------------------------------
+  if (isClosed)
+  {
+    BRepBuilderAPI_MakeFace mkFace(resultWire, /*OnlyPlane=*/Standard_False);
+    if (mkFace.IsDone())
+    {
+      TopoDS_Face face = mkFace.Face();
+      face = FixFaceOrientation(face);
+
+      BRepCheck_Analyzer ana(face);
+      if (ana.IsValid())
+        return face;
+    }
+  }
+
+  TopoDS_Face face = MakePlanarFace(resultWire, theTol);
+  if (!face.IsNull())
+    return face;
+
+  return resultWire;   // fallback
+}
+ 
+
+// Helper to bake internal TopLoc_Location transformations directly into 3D geometry
+TopoDS_Shape BakeAndResetLocation(const TopoDS_Shape& theShape)
+{
+  gp_Trsf aTrsf = theShape.Location().Transformation();
+  TopoDS_Shape aShapeNoLoc = theShape.Located(TopLoc_Location());
+  
+  // theCopyGeom = true modifies vertex coordinates and underlying curves
+  BRepBuilderAPI_Transform aTransformer(aShapeNoLoc, aTrsf, Standard_True);
+  return aTransformer.Shape();
+}
+
+// Main logic implementation
+TopoDS_Shape FuseWiresInCompound(const TopoDS_Shape& theShape,
+                                 Standard_Real theTol = 1.e-5)
+{
+  if (theShape.IsNull())
+    return TopoDS_Shape();
+
+  // ------------------------------------------------------------------
+  // 1. Collect and Bake ALL edges into absolute space
+  // ------------------------------------------------------------------
+  Handle(TopTools_HSequenceOfShape) edges = new TopTools_HSequenceOfShape;
+  for (TopExp_Explorer exp(theShape, TopAbs_EDGE); exp.More(); exp.Next()) {
+    edges->Append(BakeAndResetLocation(exp.Current()));
+  }
+
+  if (edges->Length() == 0)
+    return TopoDS_Shape();
+
+  // ------------------------------------------------------------------
+  // 2. Preferred modern method: BOPAlgo_Tools::EdgesToWires
+  //    (Expects a TopoDS_Shape compound containing the edges)
+  // ------------------------------------------------------------------
+  TopoDS_Compound edgeComp;
+  BRep_Builder().MakeCompound(edgeComp);
+  for (Standard_Integer i = 1; i <= edges->Length(); ++i) {
+    BRep_Builder().Add(edgeComp, edges->Value(i));
+  }
+
+  TopoDS_Shape wiresShape;
+  Handle(TopTools_HSequenceOfShape) wires = new TopTools_HSequenceOfShape;
+
+  // BOPAlgo_Tools::EdgesToWires accepts (const TopoDS_Shape& theEdges, TopoDS_Shape& theWires...)
+  if (BOPAlgo_Tools::EdgesToWires(edgeComp, wiresShape,
+                                  /*theShared=*/Standard_False,
+                                  /*theAngTol=*/1.e-8) == 0
+      && !wiresShape.IsNull())
+  {
+    for (TopExp_Explorer exp(wiresShape, TopAbs_WIRE); exp.More(); exp.Next()) {
+      wires->Append(exp.Current());
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // 3. Fallback – classic ConnectEdgesToWires
+  // ------------------------------------------------------------------
+  if (wires->Length() == 0)
+  {
+    ShapeAnalysis_FreeBounds::ConnectEdgesToWires(edges, theTol,
+                                                  /*shared=*/Standard_False,
+                                                  wires);
+  }
+
+  if (wires->Length() == 0)
+    return TopoDS_Shape();
+
+  // ------------------------------------------------------------------
+  // 4. Glue remaining wires together if more than one
+  // ------------------------------------------------------------------
+  if (wires->Length() > 1)
+  {
+    Handle(TopTools_HSequenceOfShape) glued = new TopTools_HSequenceOfShape;
+    ShapeAnalysis_FreeBounds::ConnectWiresToWires(wires, theTol,
+                                                  /*shared=*/Standard_False,
+                                                  glued);
+    if (glued->Length() > 0)
+      wires = glued;
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Build/Verify Output
+  //    If multiple disconnected wires remain, we pack them into a 
+  //    Compound rather than breaking MakeWire connectivity rules.
+  // ------------------------------------------------------------------
+  if (wires->Length() > 1)
+  {
+    TopoDS_Compound multiWireComp;
+    BRep_Builder().MakeCompound(multiWireComp);
+    for (Standard_Integer i = 1; i <= wires->Length(); ++i) {
+      BRep_Builder().Add(multiWireComp, wires->Value(i));
+    }
+    return multiWireComp; 
+  }
+
+  TopoDS_Wire resultWire = TopoDS::Wire(wires->Value(1));
+
+  // Count the edges in the wire to handle single-edge cases safely
+  Standard_Integer edgeCount = 0;
+  for (TopExp_Explorer expE(resultWire, TopAbs_EDGE); expE.More(); expE.Next()) {
+    edgeCount++;
+  }
+
+  // ------------------------------------------------------------------
+  // 6. Heal the structural topology of the wire
+  // ------------------------------------------------------------------
+  if (edgeCount > 1)
+  {
+    Handle(ShapeFix_Wire) fix = new ShapeFix_Wire;
+    fix->Load(resultWire);
+    fix->SetPrecision(theTol);
+    fix->SetMaxTolerance(theTol * 10.);
+    fix->ClosedWireMode() = Standard_True;
+
+    fix->FixReorder();
+    fix->FixConnected();
+    fix->FixClosed();
+
+    resultWire = fix->Wire();
+  }
+  else if (edgeCount == 1)
+  {
+    // For a single-edge wire, skip reordering/connecting and only fix edge curves if necessary
+    Handle(ShapeFix_Wire) fix = new ShapeFix_Wire;
+    fix->Load(resultWire);
+    fix->SetPrecision(theTol);
+    fix->FixEdgeCurves();
+    resultWire = fix->Wire();
+  }
+
+  // Ensure 3D curves are up-to-date right before face construction
+  BRepLib::BuildCurves3d(resultWire);
+
+  // ------------------------------------------------------------------
+  // 7. Closed wire → try to build a Face
+  // ------------------------------------------------------------------
+  if (BRep_Tool::IsClosed(resultWire))
+  {
+    BRepBuilderAPI_MakeFace mkFace(resultWire, /*OnlyPlane=*/Standard_False);
+    if (mkFace.IsDone())
+    {
+      TopoDS_Face face = mkFace.Face();
+      
+      // Verification
+      BRepCheck_Analyzer ana(face);
+      if (ana.IsValid()) {
+        return face;
+      }
+    }
+  }
+
+  return resultWire;   // fallback to a single valid wire if face fails
+}
+
 void Mirror(luadraw *original, float offset = 0.0f, int x = 0, int y = 0, int z = 0, bool keep_original=0) {
   TopoDS_Shape toinvert =
       (original == 0) ? current_part->shape : original->fshape;
@@ -10363,8 +12537,19 @@ void Mirror(luadraw *original, float offset = 0.0f, int x = 0, int y = 0, int z 
 
   // inverted=RebaseLocation(inverted,TopLoc_Location().Transformation());
   // SetReferenceLocationWithoutMoving(inverted,TopLoc_Location().Transformation());
-  if(keep_original)
+  if(keep_original){
+	// BRep_Builder b;
+    // TopoDS_Compound out;
+    // b.MakeCompound(out);
+	// b.Add(out, current_part->shape);
+	// b.Add(out, inverted);
+  	// inteligentmerge(inverted);
+	// inverted.Reverse();
   	inteligentmerge(inverted);
+  	// inteligentmerge(TopoDS_Compound());
+	//   current_part->shape=FuseWiresInCompound(out);
+	//   current_part->cshape=TopoDS_Compound();
+  }
   else
   	current_part->shape=inverted;
 }
@@ -10527,144 +12712,180 @@ void Mirrorrobustactual(luadraw *original, float offset = 0.0f, int x = 0,
   // current_part->cshape=CleanCompound_RemoveWiresFacesBeforeSolid(current_part->cshape);
 }
 void Pl(const std::string &coords) {
-  if (!current_part)
-    luaL_error((*G).lua_state(), "No current part. Call Part(name) first.");
+    if (!current_part)
+        luaL_error((*G).lua_state(), "No current part. Call Part(name) first.");
 
-  sol::state &L = *G; // usa o estado Lua global
+    sol::state &L = *G;
 
-  int currentline = -1;
-  lua_Debug ar;
-  if (lua_getstack(L, 1, &ar)) { // level 1 = caller of this function
-    lua_getinfo(L, "l", &ar);    // S = source, l = current line
-    currentline = ar.currentline;
-  }
-  auto eval = [&](const std::string &expr, int line) {
-    std::string chunk = "return " + expr;
-    std::string name = "Pl:" + std::to_string(line);
-
-    sol::load_result lr = L.load(chunk, name);
-    if (!lr.valid()) {
-      sol::error e = lr;
-      luaL_error(L.lua_state(), "%s", e.what());
+    int currentline = -1;
+    lua_Debug ar;
+    if (lua_getstack(L, 1, &ar)) {
+        lua_getinfo(L, "l", &ar);
+        currentline = ar.currentline;
     }
 
-    sol::protected_function pf = lr;
-    sol::protected_function_result r = pf();
-    if (!r.valid()) {
-      sol::error e = r;
-      luaL_error(L.lua_state(), "%s", e.what());
+    auto eval = [&](const std::string &expr, int line) {
+        std::string chunk = "return " + expr;
+        std::string name = "Pl:" + std::to_string(line);
+
+        sol::load_result lr = L.load(chunk, name);
+        if (!lr.valid()) {
+            sol::error e = lr;
+            luaL_error(L.lua_state(), "%s", e.what());
+        }
+
+        sol::protected_function pf = lr;
+        sol::protected_function_result r = pf();
+        if (!r.valid()) {
+            sol::error e = r;
+            luaL_error(L.lua_state(), "%s", e.what());
+        }
+
+        return r.get<double>();
+    };
+
+    std::vector<WirePoint> out;
+    double lastX = 0.0;
+    double lastY = 0.0;
+    bool have_last = false;
+
+    std::istringstream ss(coords);
+    std::string token;
+
+    while (ss >> token) {
+        bool relative = false;
+        double radius = 0.0;
+        bool inverted = false;
+
+        // Check for arc modifier ;ir<expr> or ;r<expr>
+        const auto semiPos = token.find(';');
+        if (semiPos != std::string::npos) {
+            std::string arcSpec = token.substr(semiPos + 1);
+            token = token.substr(0, semiPos);
+
+            if (arcSpec.size() >= 2 && (arcSpec[0] == 'i' || arcSpec[0] == 'I') &&
+                (arcSpec[1] == 'r' || arcSpec[1] == 'R')) {
+                inverted = true;
+                std::string rExpr = arcSpec.substr(2);
+                if (!rExpr.empty()) radius = eval(rExpr, currentline);
+            } else if (!arcSpec.empty() && (arcSpec[0] == 'r' || arcSpec[0] == 'R')) {
+                std::string rExpr = arcSpec.substr(1);
+                if (!rExpr.empty()) radius = eval(rExpr, currentline);
+            }
+        }
+
+        // Relative coordinates (@dx,dy)
+        if (!token.empty() && token.front() == '@') {
+            relative = true;
+            token.erase(0, 1);
+        }
+
+        const auto commaPos = token.find(',');
+        if (commaPos == std::string::npos)
+            continue;
+
+        std::string xs = token.substr(0, commaPos);
+        std::string ys = token.substr(commaPos + 1);
+
+        double x = eval(xs, currentline);
+        double y = eval(ys, currentline);
+
+        if (relative) {
+            if (have_last) {
+                lastX += x;
+                lastY += y;
+            } else {
+                lastX = x;
+                lastY = y;
+                have_last = true;
+            }
+        } else {
+            lastX = x;
+            lastY = y;
+            have_last = true;
+        }
+
+        out.push_back({ gp_Vec2d(lastX, lastY), radius, inverted });
     }
 
-    return r.get<double>();
-  };
-
-  std::vector<gp_Vec2d> out;
-  double lastX = 0.0;
-  double lastY = 0.0;
-  bool have_last = false;
-
-  std::istringstream ss(coords);
-  std::string token;
-
-  while (ss >> token) {
-    bool relative = false;
-
-    // Detecta forma relativa: "@dx,dy"
-    if (!token.empty() && token.front() == '@') {
-      relative = true;
-      token.erase(0, 1);
-    }
-
-    // Divide "x,y"
-    const auto commaPos = token.find(',');
-    if (commaPos == std::string::npos)
-      continue;
-
-    std::string xs = token.substr(0, commaPos);
-    std::string ys = token.substr(commaPos + 1);
-
-    // Avalia cada expressão no Lua
-    // double x = L.script("return " + xs);
-    // double y = L.script("return " + ys);
-    double x = eval(xs, currentline);
-    double y = eval(ys, currentline);
-
-    if (relative) {
-      if (have_last) {
-        lastX += x;
-        lastY += y;
-      } else {
-        lastX = x;
-        lastY = y;
-        have_last = true;
-      }
-    } else {
-      lastX = x;
-      lastY = y;
-      have_last = true;
-    }
-
-    out.emplace_back(lastX, lastY);
-  }
-
-  // Cria o wire com os pontos calculados
-  CreateWire(out, false);
-
-  // inteligentmerge()
-  inteligentset();
-
-  // ShowTrihedronAtLocation(ctx,current_part->current_location);
-
-  // current_part->ashape->Set(current_part->shape); //important when moves and
-  // changes....upd
-  // current_part->current_location=LastShapeLocation(current_part->cshape);
+    CreateWire(out, false);
+    inteligentset();
 }
 
 void Offset(double distance) {
 	if(current_part->shape.IsNull())return;
-	TopAbs_ShapeEnum st = current_part->shape.ShapeType();
-	// bool hasShape =
-	// 	(st == TopAbs_WIRE) ||
-	// 	(st == TopAbs_FACE) ||
-	// 	(st == TopAbs_EDGE);
+	// TopAbs_ShapeEnum st = current_part->shape.ShapeType();
+	// // bool hasShape =
+	// // 	(st == TopAbs_WIRE) ||
+	// // 	(st == TopAbs_FACE) ||
+	// // 	(st == TopAbs_EDGE);
 
-	bool hasPoints = current_part->vpoints.size()>0;
-	cotm(current_part->vpoints.size());
-	if(!hasPoints) {
-		lua_error_with_where("No points constructed Pl");
-	}
+	// bool hasPoints = current_part->vpoints.size()>0;
+	// cotm(current_part->vpoints.size());
+	// if(!hasPoints) {
+	// 	lua_error_with_where("No points constructed Pl");
+	// }
 
 
 
-TopExp_Explorer ex(current_part->shape, TopAbs_EDGE);
-for (; ex.More(); ex.Next()) {
-    TopoDS_Edge e = TopoDS::Edge(ex.Current());
+// TopExp_Explorer ex(current_part->shape, TopAbs_EDGE);
+// for (; ex.More(); ex.Next()) {
+//     TopoDS_Edge e = TopoDS::Edge(ex.Current());
 
-    Standard_Real f, l;
-    Handle(Geom_Curve) c = BRep_Tool::Curve(e, f, l);
+//     Standard_Real f, l;
+//     Handle(Geom_Curve) c = BRep_Tool::Curve(e, f, l);
 
-    if (!c.IsNull() && !Handle(Geom_Circle)::DownCast(c).IsNull()) {
-		lua_error_with_where("No Circle suported yet");
-        // std::cout << "Found a circular edge\n";
-    }
-}
+//     if (!c.IsNull() && !Handle(Geom_Circle)::DownCast(c).IsNull()) {
+// 		lua_error_with_where("No Circle suported yet");
+//         // std::cout << "Found a circular edge\n";
+//     }
+// }
 
 
 
   TopLoc_Location preserve = current_part->shape.Location();
-  vector<gp_Pnt2d> ppoints;
-  ConvertVec2dToPnt2d(current_part->vpoints.back(), ppoints);
+//   vector<gp_Pnt2d> ppoints;
+//   ConvertVec2dToPnt2d(current_part->vpoints.back(), ppoints);
 
-  bool closed = ((current_part->vpoints.back()[0].X() ==
-                  current_part->vpoints.back().back().X()) &&
-                 (current_part->vpoints.back()[0].Y() ==
-                  current_part->vpoints.back().back().Y()));
+//   bool closed = ((current_part->vpoints.back()[0].X() ==
+                //   current_part->vpoints.back().back().X()) &&
+                //  (current_part->vpoints.back()[0].Y() ==
+                //   current_part->vpoints.back().back().Y()));
+
+				
+				
+
   TopoDS_Face f;
+  TopoDS_Shape face=helpWire();
+//   TopoDS_Face face=TopoDS::Face(helpWire());
+  TopoDS_Wire wire;
+  cotm(89);
+//   wire=TopoDS::Wire(face);
+int edgeCount = 0;
+for (TopExp_Explorer ex(current_part->cshape, TopAbs_WIRE); ex.More(); ex.Next()) {
+	edgeCount++; 
+}
+cotm(edgeCount)
+// if(edgeCount==0){
+  for (TopExp_Explorer exp(face, TopAbs_WIRE); exp.More(); exp.Next()) {
+//   for (TopExp_Explorer exp(current_part->shape, TopAbs_WIRE); exp.More(); exp.Next()) {
+	wire=TopoDS::Wire(exp.Current());
+  }
+// }else{
+// 	wire=TopoDS::Wire(helpWire());
+// }
+cotm(90)
+  bool closed = wire.Closed();
+  cotm(closed);
   if (closed) {
-    f = TopoDS::Face(MakeOffsetRingFace(ppoints, -distance)); // well righ
-  } else {
-    TopoDS_Wire wOff =
-        TopoDS::Wire(MakeOneSidedOffsetWire(ppoints, distance)); // well profile
+
+    f = TopoDS::Face(MakeOffsetRingFace(wire, distance)); // well righ
+	// f = BRepBuilderAPI_MakeFace(wOff);
+    // f = TopoDS::Face(MakeOffsetRingFace(ppoints, -distance)); // well righ
+  } else 
+  {
+    TopoDS_Wire wOff = TopoDS::Wire(MakeOneSidedOffsetWire(wire, distance)); // well profile
+    // TopoDS_Wire wOff = TopoDS::Wire(MakeOneSidedOffsetWire(ppoints, distance)); // well profile
     if (distance < 0)
       wOff.Reverse(); // <--- FIX for the normal not be reversed becaus it was
                       // contructed clockwise
@@ -11672,6 +13893,324 @@ void Extrudev1(float val = 0) {
 //   inteligentmerge(extruded, 0);
 //   inteligentset();
 }
+#include <BRepTools_WireExplorer.hxx>
+#include <BRepTools.hxx>
+#include <TopoDS_Vertex.hxx>
+#include <BRep_Tool.hxx>
+#include <gp_XYZ.hxx>
+
+// Robust outward normal computed straight from the wire's actual 3D
+// winding order (Newell's method). Independent of how the underlying
+// surface/plane was built, so it's correct for mirrored geometry too.
+static bool ComputeWireNormal(const TopoDS_Wire& wire, gp_Dir& outNormal)
+{
+  gp_XYZ n(0, 0, 0);
+  gp_Pnt first, prev;
+  bool havePrev = false, haveFirst = false;
+
+  for (BRepTools_WireExplorer wexp(wire); wexp.More(); wexp.Next())
+  {
+    TopoDS_Vertex v = wexp.CurrentVertex();
+    gp_Pnt p = BRep_Tool::Pnt(v);
+
+    if (!haveFirst) { first = p; haveFirst = true; }
+    if (havePrev)
+    {
+      n.SetX(n.X() + (prev.Y() - p.Y()) * (prev.Z() + p.Z()));
+      n.SetY(n.Y() + (prev.Z() - p.Z()) * (prev.X() + p.X()));
+      n.SetZ(n.Z() + (prev.X() - p.X()) * (prev.Y() + p.Y()));
+    }
+    prev = p;
+    havePrev = true;
+  }
+
+  if (haveFirst && havePrev)
+  {
+    n.SetX(n.X() + (prev.Y() - first.Y()) * (prev.Z() + first.Z()));
+    n.SetY(n.Y() + (prev.Z() - first.Z()) * (prev.X() + first.X()));
+    n.SetZ(n.Z() + (prev.X() - first.X()) * (prev.Y() + first.Y()));
+  }
+
+  if (n.Modulus() < 1e-12)
+    return false;
+
+  outNormal = gp_Dir(n);
+  return true;
+}
+#include <TopoDS_Face.hxx>
+#include <ShapeFix_Face.hxx>
+#include <BRepTools.hxx>
+
+TopoDS_Face FixIndividualFace(const TopoDS_Face& originalFace) {
+    // 1. Instanciar o corretor para a face
+    Handle(ShapeFix_Face) faceFixer = new ShapeFix_Face();
+    
+    // 2. Inicializar com a face original
+    faceFixer->Init(originalFace);
+    
+    // 3. Executar as correções geométricas e topológicas
+    faceFixer->Perform();
+    
+    // 4. Obter a face resultante (corrigida)
+    TopoDS_Face fixedFace = faceFixer->Face();
+    
+    // Opcional: Verificar se houve modificações
+    if (faceFixer->Status(ShapeExtend_DONE)) {
+        // A face foi modificada e corrigida com sucesso
+    }
+    
+    return fixedFace;
+}
+// Bakes any non-identity Location into real geometry, so the returned
+// shape always has an identity Location and its coordinates are the
+// true world coordinates. Safe to call on an already-identity shape.
+static TopoDS_Shape NormalizeLocation(const TopoDS_Shape& shape)
+{
+  if (shape.IsNull() || shape.Location().IsIdentity())
+    return shape;
+
+  gp_Trsf trsf = shape.Location().Transformation();
+  BRepBuilderAPI_Transform baker(shape, trsf, Standard_True);
+  if (!baker.IsDone())
+    return shape;
+
+  TopoDS_Shape baked = baker.Shape();
+//   baked.Location(TopLoc_Location());
+  return baked;
+}
+void Extrudetry(float val = 0) {
+	if (val == 0)
+	  lua_error_with_where("Extrude must have a value.");
+	if (!current_part)
+	  lua_error_with_where("No shape to extrude.");
+  
+	// Normalize immediately: work entirely in real world coordinates
+	// from here on, no saved/reapplied Location needed anywhere below.
+	TopoDS_Shape baseShape = NormalizeLocation(current_part->shape);
+  
+	TopoDS_Face face;
+	if (baseShape.IsNull())
+	  lua_error_with_where("Input shape is null.");
+  
+	if (baseShape.ShapeType() == TopAbs_COMPOUND) {
+	  BakeInstantLocation(baseShape);
+	  if (baseShape.IsNull() || baseShape.ShapeType() != TopAbs_FACE)
+		lua_error_with_where("Failed to get face.");
+	  face = TopoDS::Face(baseShape);
+	}
+	else if (baseShape.ShapeType() == TopAbs_FACE) {
+	  face = TopoDS::Face(baseShape);
+	}
+	else if (baseShape.ShapeType() == TopAbs_WIRE) {
+	  BRep_Builder b;
+	  TopoDS_Compound out;
+	  b.MakeCompound(out);
+	  b.Add(out, NormalizeLocation(current_part->shape));
+	  b.Add(out, NormalizeLocation(current_part->cshape));
+  
+	  face = TopoDS::Face(FuseWiresInCompound(out));
+	  current_part->cshape = TopoDS_Compound();
+	}
+	else {
+	  lua_error_with_where("Extrude requires a face or planar wire.");
+	}
+  
+	BRepAdaptor_Surface surf(face);
+	if (surf.GetType() != GeomAbs_Plane)
+	  lua_error_with_where("Extrude only supports planar faces.");
+  
+	gp_Pln plane = surf.Plane();
+	gp_Dir normal = plane.Axis().Direction();
+	if (face.Orientation() == TopAbs_REVERSED)
+	  normal.Reverse();
+  
+	gp_Vec extrusionVec(normal);
+	extrusionVec *= val;
+  
+	BRepPrimAPI_MakePrism prism(face, extrusionVec, Standard_False);
+	prism.Build();
+	if (!prism.IsDone())
+	  lua_error_with_where("Extrusion failed.");
+  
+	// No Location reapplication needed — everything was already
+	// normalized to world coordinates before the prism was built.
+	current_part->shape = prism.Shape();
+	current_part->Extrude_val = std::abs(val);
+  }
+  #include <TopoDS_Shape.hxx>
+  #include <TopoDS_Solid.hxx>
+  #include <TopoDS_Shell.hxx>
+  #include <TopoDS_Face.hxx>
+  #include <TopoDS_Wire.hxx>
+  #include <TopoDS_Edge.hxx>
+  #include <TopoDS_Vertex.hxx>
+  
+  #include <TopExp_Explorer.hxx>
+  #include <TopExp.hxx>
+  
+  #include <BRep_Tool.hxx>
+  #include <BRepCheck_Analyzer.hxx>
+  #include <BRepTools.hxx>
+  
+  #include <ShapeAnalysis_Wire.hxx>
+  
+  #include <Geom_Curve.hxx>
+  #include <Geom2d_Curve.hxx>
+  
+  #include <gp_Pnt.hxx>
+  
+  #include <cmath>
+  
+  
+  // ------------------------------------------------------------
+  // Fast detector for shapes which are likely to benefit from
+  // ShapeFix_Shape.
+  //
+  // Designed for extruded faces / solids containing lines, arcs,
+  // circles and normal planar wires.
+  //
+  // Returns true ONLY when a problem worth healing is detected.
+  // ------------------------------------------------------------
+  #include <TopoDS.hxx>
+  #include <TopoDS_Face.hxx>
+  #include <TopoDS_Wire.hxx>
+  #include <TopoDS_Edge.hxx>
+  #include <TopoDS_Vertex.hxx>
+  
+  #include <TopExp.hxx>
+  #include <TopExp_Explorer.hxx>
+  
+  #include <BRep_Tool.hxx>
+  
+  #include <gp_Pnt.hxx>
+  
+  #include <cmath>
+  
+  static bool FaceNeedsHealing(const TopoDS_Face& face,
+							   double tol = 1e-7)
+  {
+	  if (face.IsNull())
+		  return true;
+  
+	  // ---------------------------------------------------------
+	  // Only test actual wire connectivity.
+	  //
+	  // No BRepCheck_Analyzer.
+	  // No ShapeAnalysis_Wire.
+	  // No CheckSmall.
+	  // No self-intersection tests.
+	  // ---------------------------------------------------------
+  
+	  for (TopExp_Explorer wx(face, TopAbs_WIRE);
+		   wx.More();
+		   wx.Next())
+	  {
+		  const TopoDS_Wire& wire =
+			  TopoDS::Wire(wx.Current());
+  
+		  TopoDS_Vertex first;
+		  TopoDS_Vertex previous;
+  
+		  bool haveEdge = false;
+  
+		  for (TopExp_Explorer ex(wire, TopAbs_EDGE);
+			   ex.More();
+			   ex.Next())
+		  {
+			  const TopoDS_Edge& edge =
+				  TopoDS::Edge(ex.Current());
+  
+			  TopoDS_Vertex v1, v2;
+			  TopExp::Vertices(edge, v1, v2);
+  
+			  if (v1.IsNull() || v2.IsNull())
+				  return true;
+  
+			  if (!haveEdge)
+			  {
+				  first = v1;
+				  previous = v2;
+				  haveEdge = true;
+				  continue;
+			  }
+  
+			  // Exact topological connection.
+			  if (!previous.IsSame(v1))
+			  {
+				  if (!previous.IsSame(v2))
+					  return true;
+  
+				  previous = v1;
+			  }
+			  else
+			  {
+				  previous = v2;
+			  }
+		  }
+  
+		  if (!haveEdge)
+			  return true;
+  
+		  // Closed wire must finish at its first vertex.
+		  if (!previous.IsSame(first))
+		  {
+			  // Only use geometric distance as a fallback.
+			  // This catches duplicated vertices at the same position.
+			  gp_Pnt p1 = BRep_Tool::Pnt(previous);
+			  gp_Pnt p2 = BRep_Tool::Pnt(first);
+  
+			  if (p1.SquareDistance(p2) > tol * tol)
+				  return true;
+		  }
+	  }
+  
+	  return false;
+  }
+  TopoDS_Shape helpWire(){
+	TopoDS_Compound cleanCompound;
+	BRep_Builder builder;
+	builder.MakeCompound(cleanCompound); 
+
+	cotm(77777)
+	current_part->builder.Add(current_part->cshape,current_part->shape);
+	// AddToCompound(current_part->cshape,current_part->shape);
+	// current_part->shape=TopoDS::Face(FuseWiresInCompound(current_part->cshape));
+
+
+	int edgeCount = 0;
+	for (TopExp_Explorer ex(current_part->cshape, TopAbs_WIRE); ex.More(); ex.Next()) {
+		edgeCount++; 
+	}
+	cotm(edgeCount);
+
+	TopoDS_Shape face;
+	// if(edgeCount<=1){
+	// 	// //   for (TopExp_Explorer exp(face, TopAbs_WIRE); exp.More(); exp.Next()) {
+	// 	// 	  for (TopExp_Explorer exp(current_part->shape, TopAbs_WIRE); exp.More(); exp.Next()) {
+	// 	// 		face=TopoDS::Face((exp.Current()));
+	// 	// 		// face=TopoDS::Face(TopoDS::Wire(exp.Current()));
+	// 	// 	  }
+	// 	// // face=TopoDS::Face(current_part->shape);
+	// 	// return face;
+	// 	// face= TopoDS::Face(current_part->shape);
+	// }else{
+		face=(FuseWiresInCompound(current_part->cshape));
+	// }
+	// TopoDS_Face face=TopoDS::Face(FuseWiresInCompound(current_part->cshape));
+	
+cotm(777778)
+	// Iterar diretamente sobre os sub-elementos do compound
+	for (TopoDS_Iterator it(current_part->cshape); it.More(); it.Next()) {
+		if (it.Value().ShapeType() != TopAbs_WIRE) {
+			// Mantém o que não for wire no novo compound
+			builder.Add(cleanCompound, it.Value());
+		}
+	} 
+	// Atualiza o compound da peça, agora sem os wires soltos
+	current_part->cshape = cleanCompound;
+	cotm(99999999)
+	return face;
+}
 void Extrude(float val = 0) {
   // cotm(99999);
   if (val == 0)
@@ -11681,6 +14220,8 @@ void Extrude(float val = 0) {
     lua_error_with_where("No shape to extrude.");
   }
 
+  bool enablefix=0;
+
   TopoDS_Shape baseShape = current_part->shape;
 
   // 1) Save transform
@@ -11688,10 +14229,13 @@ void Extrude(float val = 0) {
 
   // 2) Remove transform
   TopoDS_Shape localShape = baseShape;
-  localShape.Location(TopLoc_Location());
+//   localShape.Location(TopLoc_Location());
 
   // 3) Ensure we have a face
   TopoDS_Face face;
+  if (localShape.IsNull()) {
+    lua_error_with_where("Input shape is null.");
+}
   if (localShape.ShapeType() == TopAbs_COMPOUND){
 	cotm(1)
 	BakeInstantLocation(localShape);
@@ -11702,20 +14246,52 @@ void Extrude(float val = 0) {
 	cotm(3)
   }
   else if (localShape.ShapeType() == TopAbs_FACE) {
+	cotm(33)
     face = TopoDS::Face(localShape);
   } else {
+	cotm(888);
     // Try to build a face from wire
     if (localShape.ShapeType() == TopAbs_WIRE) {
-      BRepBuilderAPI_MakeFace mf(TopoDS::Wire(localShape));
-      if (!mf.IsDone())
-        lua_error_with_where("Failed to create face from wire.");
-      face = mf.Face();
+
+
+		// BRep_Builder b;
+		// TopoDS_Compound out;
+		// b.MakeCompound(out);
+
+	 
+		
+		face=TopoDS::Face(helpWire());
+		
+
+
+
+
+		// b.Add(out, current_part->shape);
+		// b.Add(out, current_part->cshape);
+
+
+
+
+		// 		face=TopoDS::Face(FuseWiresInCompound(out));
+
+		// 		enablefix=1;
+				
+				// current_part->cshape=TopoDS_Compound();
+
+				
+				// face=MakePlanarFace(TopoDS::Wire(face));
+    //   BRepBuilderAPI_MakeFace mf(TopoDS::Wire(localShape));
+    // //   BRepBuilderAPI_MakeFace mf(TopoDS::Wire(localShape));
+    //   if (!mf.IsDone())
+    //     lua_error_with_where("Failed to create face from wire.");
+    //   face = mf.Face();
     } else {
       lua_error_with_where("Extrude requires a face or planar wire.");
     }
   }
-
+  cotm(99999);
   // 4) Compute geometric normal
+//   face=FixIndividualFace(face);
   BRepAdaptor_Surface surf(face);
   if (surf.GetType() != GeomAbs_Plane)
     lua_error_with_where("Extrude only supports planar faces.");
@@ -11730,24 +14306,56 @@ void Extrude(float val = 0) {
   gp_Vec extrusionVec(normal);
   extrusionVec *= val;
 
+
+
   // 5) Extrude
   BRepPrimAPI_MakePrism prism(face, extrusionVec, Standard_False);
   prism.Build();
 
+  
+
   if (!prism.IsDone())
     lua_error_with_where("Extrusion failed.");
 
-  TopoDS_Shape extrudedLocal = prism.Shape();
+	TopoDS_Shape extrudedLocal = prism.Shape();
+
+	// BRepCheck_Analyzer solidAna(extrudedLocal);
+	// std::cout << "solid valid: " << solidAna.IsValid() << "\n";
+	
+	// // check for free (unshared) edges — indicates a non-watertight / open solid
+	// ShapeAnalysis_FreeBounds fb(extrudedLocal);
+	// TopoDS_Compound freeEdges = fb.GetClosedWires();
+	// TopoDS_Compound openEdges = fb.GetOpenWires();
+	// int nOpen = 0;
+	// for (TopExp_Explorer e(openEdges, TopAbs_EDGE); e.More(); e.Next()) nOpen++;
+	// std::cout << "open (unshared) edges in extruded solid: " << nOpen << "\n";
 
   // 6) Restore transform
   TopoDS_Shape extruded = extrudedLocal;
-  extruded.Location(savedLoc);
+//   extruded.Location(savedLoc);
+//   extruded.Location(savedLoc * extrudedLocal.Location());
+ 
+
+  if (enablefix) 
+  {
+	  // Apenas executa a cura se a forma tiver erros topológicos detetados
+	//   ShapeFix_Shape fixer(extruded);
+	//   fixer.Perform();
+	//   extruded = fixer.Shape();
+  }
+
+//   extruded.Location(plane.Location());
+// extruded.Location(savedLoc * extrudedLocal.Location());
 
   // 7) Update
   current_part->Extrude_val = abs(val);
+//   current_part->shape=extrudedLocal; //clear the 2d shape...
   current_part->shape=extruded; //clear the 2d shape...
+//   current_part->shape=face; //clear the 2d shape...
 //   inteligentmerge(extruded, 0);
 //   inteligentset();
+SetReferenceLocationInstant(current_part->shape, savedLoc);
+
 }
 
 
@@ -11755,10 +14363,11 @@ void createPlanet(){
 	if (current_part->shape.IsNull()) { 
 		TopoDS_Shape s;
 		// s=BRepBuilderAPI_MakeVertex(gp_Pnt(0,0,0));
-		// BRep_Builder builder;
-		// TopoDS_Compound comp;
-		// builder.MakeCompound(comp);
-		inteligentmerge(s);
+		BRep_Builder builder;
+		TopoDS_Compound comp;
+		builder.MakeCompound(comp);
+		inteligentmerge(comp);
+		// inteligentmerge(s);
 		// current_part->shape = comp;
 		// current_part->showPlanet=1;
     }
@@ -12812,7 +15421,7 @@ void CommonAndSubtractbadspeedup(bool iscommon = false) {
     current_part->shape = result;
     SetReferenceLocationInstant(current_part->shape, preserve);
 }
-void CommonAndSubtract(bool iscommon = 0) {
+void CommonAndSubtractnww(int iscommon = 0) {
     if (!current_part)
         lua_error_with_where("No current part. Call Part(name) first.");
 
@@ -12893,7 +15502,236 @@ void CommonAndSubtract(bool iscommon = 0) {
     {
         BOPAlgo_BOP bop;
 
-        bop.SetOperation(iscommon ? BOPAlgo_COMMON : BOPAlgo_CUT);
+		// BOPAlgo_COMMON , BOPAlgo_FUSE , BOPAlgo_CUT
+		if(iscommon==0) bop.SetOperation(BOPAlgo_Operation::BOPAlgo_COMMON);
+		if(iscommon==1) bop.SetOperation(BOPAlgo_Operation::BOPAlgo_FUSE);
+		if(iscommon==2) bop.SetOperation(BOPAlgo_Operation::BOPAlgo_CUT);
+        // bop.SetOperation(iscommon ? BOPAlgo_COMMON : BOPAlgo_CUT);
+
+        TopTools_ListOfShape args;
+        args.Append(object);
+
+        TopTools_ListOfShape tools;
+        tools.Append(tool);
+
+        bop.SetArguments(args);
+        bop.SetTools(tools);
+
+        // --- performance critical ---
+        // bop.SetNonDestructive(Standard_True);   // avoid geometry duplication (slower!!!!)
+        // bop.SetGlue(BOPAlgo_GlueShift);         // 🔴 big speedup for aligned faces (failling!!!)
+        // bop.SetFuzzyValue(1e-6);
+
+        // parallel only if worth it
+        // if (shapeVec.size() > 2)
+            bop.SetRunParallel(Standard_True);
+
+        bop.Perform();
+
+        if (bop.HasErrors()) {
+            lua_error_with_where("Boolean operation failed.");
+        }
+
+        result = bop.Shape();
+    }
+
+    if (result.IsNull()) {
+        lua_error_with_where("Boolean operation produced null shape.");
+    }
+
+    // ------------------------------------------------------------------
+    // 🔴 LIGHTER cleanup (avoid always running expensive unify)
+    // ------------------------------------------------------------------
+    if (is3D) {
+        ShapeUpgrade_UnifySameDomain unifier(result, true, true, true);
+        unifier.Build();
+        if (!unifier.Shape().IsNull()) {
+            result = unifier.Shape();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Rebuild compound: keep all except last, add result
+    // (same behavior as your working version)
+    // ------------------------------------------------------------------
+    TopoDS_Compound newCompound;
+    BRep_Builder builder;
+    builder.MakeCompound(newCompound);
+
+    for (size_t i = 0; i < shapeVec.size() - 1; ++i) {
+        builder.Add(newCompound, shapeVec[i]);
+    }
+
+    current_part->cshape = newCompound;
+
+    // ------------------------------------------------------------------
+    // Keep your original shape assignment logic
+    // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 2D / wire path – fuse edges into maximal wires, then face if closed
+    // ------------------------------------------------------------------
+    if (is2D) {
+        TopoDS_Shape finalShape = result;
+
+        // --------------------------------------------------------------
+        // 1. Collect every edge produced by the boolean and rebuild
+        //    the longest possible wires (this is the real “fuse wires”)
+        // --------------------------------------------------------------
+        {
+            TopoDS_Shape wires;
+            // theShared = true  →  BOP already intersected/shared the edges
+            Standard_Integer err = BOPAlgo_Tools::EdgesToWires(
+                result, wires, /*theShared=*/Standard_True, /*angTol=*/1.e-7);
+
+            if (err == 0 && !wires.IsNull()) {
+                finalShape = wires;          // now we have proper wire(s)
+            }
+        }
+
+        // --------------------------------------------------------------
+        // 2. Prefer a single wire when possible
+        // --------------------------------------------------------------
+        {
+            TopExp_Explorer ex(finalShape, TopAbs_WIRE);
+            if (ex.More()) {
+                TopoDS_Wire first = TopoDS::Wire(ex.Current());
+                ex.Next();
+                if (!ex.More()) {
+                    // exactly one wire → keep it
+                    finalShape = first;
+                }
+                // else leave the compound of several wires
+            }
+        }
+
+        // --------------------------------------------------------------
+        // 3. Closed wire → turn into a face (your original request)
+        // --------------------------------------------------------------
+        if (finalShape.ShapeType() == TopAbs_WIRE) {
+            TopoDS_Wire wire = TopoDS::Wire(finalShape);
+            if (wire.Closed()) {
+                BRepBuilderAPI_MakeFace mkFace(wire, /*OnlyPlane=*/Standard_True);
+                if (mkFace.IsDone() && !mkFace.Face().IsNull()) {
+                    finalShape = mkFace.Face();
+                }
+            }
+        }
+        else if (finalShape.ShapeType() == TopAbs_COMPOUND) {
+            // several wires – try to convert the closed ones to faces
+            TopoDS_Compound faces;
+            BRep_Builder b;
+            b.MakeCompound(faces);
+            bool anyFace = false;
+
+            for (TopExp_Explorer ex(finalShape, TopAbs_WIRE); ex.More(); ex.Next()) {
+                TopoDS_Wire w = TopoDS::Wire(ex.Current());
+                if (!w.Closed()) continue;
+
+                BRepBuilderAPI_MakeFace mk(w, Standard_True);
+                if (mk.IsDone() && !mk.Face().IsNull()) {
+                    b.Add(faces, mk.Face());
+                    anyFace = true;
+                }
+            }
+            if (anyFace)
+                finalShape = faces;
+        }
+
+        current_part->shape = finalShape;
+        SetReferenceLocationInstant(current_part->shape, preserve);
+    }
+    else {
+        current_part->shape = result;
+        cotm(0);
+        SetReferenceLocationInstant(current_part->shape, preserve);
+    }
+}
+void CommonAndSubtract(int iscommon = 0) {
+    if (!current_part)
+        lua_error_with_where("No current part. Call Part(name) first.");
+
+    TopLoc_Location preserve = current_part->shape.Location();
+
+    TopoDS_Compound &compound = current_part->cshape;
+    if (compound.IsNull()) {
+        lua_error_with_where("Current part's compound is null.");
+    }
+
+    // ------------------------------------------------------------------
+    // preserve top-level shapes (NO flattening)
+    // ------------------------------------------------------------------
+    std::vector<TopoDS_Shape> shapeVec;
+    for (TopoDS_Iterator it(compound); it.More(); it.Next()) {
+        shapeVec.push_back(it.Value());
+    }
+
+    if (shapeVec.size() < 1) {
+        lua_error_with_where("Subtract requires at least two objects.");
+    }
+
+    TopoDS_Shape object = shapeVec.back();
+    TopoDS_Shape tool   = current_part->shape;
+	{
+		// cotm("benfica");
+		// if (tool.ShapeType() == TopAbs_COMPOUND) {
+		// 	TopTools_ListOfShape lst;
+		// 	for (TopoDS_Iterator it(tool); it.More(); it.Next())
+		// 		lst.Append(it.Value());
+
+		// 	BOPAlgo_BOP bop;
+		// 	bop.SetOperation(BOPAlgo_FUSE);
+		// 	bop.SetArguments(lst);
+		// 	bop.Perform();
+
+		// 	if (!bop.HasErrors())
+		// 		tool = bop.Shape();
+		// 	cotm("fs");
+		// }
+	}
+
+    // ------------------------------------------------------------------
+    // Detect 2D / 3D (unchanged logic)
+    // ------------------------------------------------------------------
+    bool is3D = false;
+    bool is2D = true;
+
+    for (TopExp_Explorer ex(tool, TopAbs_SOLID); ex.More(); ex.Next()) {
+        is3D = true;
+        is2D = false;
+        break;
+    }
+	cotm(is2D,shapeVec.size());
+    // ------------------------------------------------------------------
+    // 🔴 FAST REJECTION (huge win if no intersection)
+    // ------------------------------------------------------------------
+    {
+        Bnd_Box b1, b2;
+        BRepBndLib::Add(object, b1);
+        BRepBndLib::Add(tool, b2);
+
+        if (b1.IsOut(b2)) {
+			//error to implement
+			return;
+            // no intersection → result is original object
+            current_part->shape = object;
+            SetReferenceLocationInstant(current_part->shape, preserve);
+            return;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 🔴 OPTIMIZED BOOLEAN (BOPAlgo)
+    // ------------------------------------------------------------------
+    TopoDS_Shape result;
+
+    {
+        BOPAlgo_BOP bop;
+
+		// BOPAlgo_COMMON , BOPAlgo_FUSE , BOPAlgo_CUT
+		if(iscommon==0) bop.SetOperation(BOPAlgo_Operation::BOPAlgo_COMMON);
+		if(iscommon==1) bop.SetOperation(BOPAlgo_Operation::BOPAlgo_FUSE);
+		if(iscommon==2) bop.SetOperation(BOPAlgo_Operation::BOPAlgo_CUT);
+        // bop.SetOperation(iscommon ? BOPAlgo_COMMON : BOPAlgo_CUT);
 
         TopTools_ListOfShape args;
         args.Append(object);
@@ -15130,6 +17968,170 @@ void Fuseactual() {
   // intelligentmerge handles adding the 'fused' result back to the system
   inteligentmerge(fused);
 }
+void Fusenww() {
+	if (!current_part)
+	  lua_error_with_where("No current part. Call Part(name) first.");
+	if (current_part->shape.IsNull())
+	  lua_error_with_where("No current shape. Call after doing shapes.");
+  
+	// Add the most recent shape to the compound before processing
+	TopLoc_Location preserve = current_part->shape.Location();
+  
+	AddToCompound(current_part->cshape, current_part->shape);
+  
+	const TopoDS_Compound &c = current_part->cshape;
+  
+	// Collect solids, faces, and wires (using ToAvoid to skip sub-shapes)
+	TopTools_ListOfShape solids, faces, wires;
+	for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next())
+	  solids.Append(ex.Current());
+	for (TopExp_Explorer ex(c, TopAbs_FACE, TopAbs_SOLID); ex.More(); ex.Next())
+	  faces.Append(ex.Current());
+	for (TopExp_Explorer ex(c, TopAbs_WIRE, TopAbs_FACE); ex.More(); ex.Next())
+	  wires.Append(ex.Current());
+  
+	const bool has3D = solids.Extent() >= 2;
+	const bool has2D = (!has3D && faces.Extent() >= 2);
+	const bool has1D = (!has3D && !has2D && wires.Extent() >= 2);
+  
+	if (!has3D && !has2D && !has1D) {
+	  lua_error_with_where(
+		  "Need at least two shapes of the same type (Solids, Faces, or Wires) to fuse.");
+	}
+  
+	TopoDS_Shape fused;
+  
+	// 3D fuse (solids)
+	if (has3D) {
+	  TopTools_ListOfShape arguments, tools;
+	  auto it = solids.begin();
+	  arguments.Append(*it);
+	  for (++it; it != solids.end(); ++it)
+		tools.Append(*it);
+  
+	  BRepAlgoAPI_Fuse fuseOp;
+	  fuseOp.SetArguments(arguments);
+	  fuseOp.SetTools(tools);
+	  fuseOp.SetFuzzyValue(1e-5);
+	  fuseOp.Build();
+	  if (!fuseOp.IsDone())
+		lua_error_with_where("3D solid fuse operation failed.");
+	  fused = fuseOp.Shape();
+  
+	  // Unify same domain
+	  ShapeUpgrade_UnifySameDomain unify(fused, true, true, false);
+	  unify.SetLinearTolerance(1e-5);
+	  unify.Build();
+	  if (!unify.Shape().IsNull())
+		fused = unify.Shape();
+  
+	  current_part->start_location = fused.Location();
+	}
+  
+	// 2D fuse (faces)
+	else if (has2D) {
+	  std::vector<TopoDS_Face> ex = ExtractFaces(c);
+	  fused = UniteFaceVector(ex);
+	  fused = ExtractFaces(fused)[0];
+	}
+  
+	// 1D fuse (wires)
+	else if (has1D) {
+		TopTools_ListOfShape edges;
+	
+		for (TopTools_ListIteratorOfListOfShape it(wires);
+			 it.More(); it.Next()) {
+	
+			const TopoDS_Wire& w = TopoDS::Wire(it.Value());
+	
+			for (TopExp_Explorer ex(w, TopAbs_EDGE);
+				 ex.More(); ex.Next()) {
+	
+				edges.Append(ex.Current());
+			}
+		}
+	
+		if (edges.IsEmpty())
+			lua_error_with_where("No edges found.");
+	
+		Handle(TopTools_HSequenceOfShape) edgeSeq =
+			new TopTools_HSequenceOfShape();
+	
+		for (TopTools_ListIteratorOfListOfShape it(edges);
+			 it.More(); it.Next()) {
+			edgeSeq->Append(it.Value());
+		}
+	
+		Handle(TopTools_HSequenceOfShape) wireSeq =
+			new TopTools_HSequenceOfShape();
+	
+		ShapeAnalysis_FreeBounds::ConnectEdgesToWires(
+			edgeSeq,
+			1e-7,
+			Standard_False,
+			wireSeq
+		);
+	
+		if (wireSeq.IsNull() || wireSeq->Length() == 0)
+			lua_error_with_where("Could not connect edges into wires.");
+	
+		if (wireSeq->Length() != 1)
+			lua_error_with_where(
+				"Edges form multiple disconnected wires."
+			);
+	
+		TopoDS_Wire wire =
+			TopoDS::Wire(wireSeq->Value(1));
+	
+		// Repair/reorder the wire.
+		ShapeFix_Wire fixWire;
+		fixWire.Load(wire);
+		fixWire.SetPrecision(1e-7);
+		fixWire.SetMaxTolerance(1e-5);
+		fixWire.FixReorder();
+		fixWire.FixConnected();
+		fixWire.FixClosed();
+		fixWire.Perform();
+	
+		wire = fixWire.Wire();
+	
+		if (!BRep_Tool::IsClosed(wire))
+			lua_error_with_where("Wire is not closed.");
+	
+		// Convert the actual connected wire to a face.
+		BRepBuilderAPI_MakeFace mf(wire, Standard_True);
+	
+		if (!mf.IsDone())
+			lua_error_with_where(
+				"Could not create face from closed wire."
+			);
+	
+		TopoDS_Face face = mf.Face();
+	
+		// Validate BEFORE passing it to intelligentmerge/extrusion.
+		BRepCheck_Analyzer check(face, Standard_True);
+	
+		if (!check.IsValid())
+			lua_error_with_where(
+				"Generated face has invalid BRep topology."
+			);
+	
+		fused = face;
+		current_part->start_location = fused.Location();
+	}
+  
+	// Finalize: Clear compound and set the fused result
+	current_part->cshape = TopoDS_Compound();
+	current_part->builder = BRep_Builder();
+	current_part->builder.MakeCompound(current_part->cshape);
+	current_part->shape.Nullify();
+  
+	// intelligentmerge handles adding the 'fused' result back to the system
+	inteligentmerge(fused);
+	SetReferenceLocationInstant(current_part->shape, preserve);
+  }
+
+  
 void Fuse() {
   if (!current_part)
     lua_error_with_where("No current part. Call Part(name) first.");
@@ -16180,6 +19182,12 @@ void Mloc(sol::optional<float> _x,
 
 	  if (!current_part)
     return;
+	if (current_part->shape.IsNull()) {
+		createPlanet();
+		
+		// return;
+	  }
+	  cotm("Mloc",x);
 
   const float dx = rx * M_PI / 180.0;
   const float dy = ry * M_PI / 180.0;
@@ -16276,8 +19284,11 @@ void luainit() {
 	}));
 //   lua.set_function("Originl", &Originl);
   lua.set_function("Pl", sol::protect(&Pl));
-  lua.set_function("Circle", &Circle);
-  lua.set_function("Rec", &Rec);
+  lua.set_function("Circle", sol::protect( &Circle));
+  lua.set_function("Rec", sol::protect([&](sol::variadic_args va) {
+    Rec(arg(float,1,0),arg(float,2,0));
+	}));
+//   lua.set_function("Rec", sol::protect(&Rec));
   lua.set_function("Extrude", sol::protect(&Extrude));
   lua.set_function("Offset",sol::protect(&Offset));
   lua.set_function("Clone", sol::protect(&Clone));
@@ -16334,8 +19345,9 @@ void luainit() {
 //                    [&](float offset) { Invert(0, offset, 0, 1, 0); });
 //   lua.set_function("Invertlz",
 //                    [&](float offset) { Invert(0, offset, 0, 0, 1); });
-  lua.set_function("Subtract", [&]() { CommonAndSubtract(0); });
-  lua.set_function("Common", [&]() { CommonAndSubtract(1); });
+  lua.set_function("Subtract", sol::protect( [&]() { CommonAndSubtract(2); }));
+  lua.set_function("Common", [&]() { CommonAndSubtract(0); });
+//   lua.set_function("Fuse", [&]() { CommonAndSubtract(1); });
   lua.set_function("Fuse", &Fuse);
   lua.set_function("Movel", sol::protect([&](sol::variadic_args va) {
     Movel(arg(float,1,0), arg(float,2,0), arg(float,3,0), 0);

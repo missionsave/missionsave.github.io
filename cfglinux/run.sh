@@ -103,6 +103,35 @@ install_ncnn() {
 
 
 
+qemu_xp(){
+	# \\10.0.2.4\qemu
+	# genisoimage -J -r -joliet-long -o acad2004.iso /mnt/windows/desk/acad2004
+	qemu-system-i386 \
+	-enable-kvm \
+	-cpu qemu32 \
+	-smp 2 \
+	-m 1024 \
+	-drive file=windows_xp.qcow2,format=qcow2,cache=writeback \
+	-cdrom acad2004.iso \
+	-netdev user,id=n1,hostfwd=tcp::13389-:3389,smb=/mnt/windows/desk/ \
+	-device rtl8139,netdev=n1 \
+	-vga cirrus
+
+	sleep 2
+	sed -i '/\[global\]/a server min protocol = NT1\nlanman auth = yes\nntlm auth = yes' /tmp/qemu-smb.*/smb.conf
+	#   -net user,smb=/mnt/windows/desk/ \
+}
+
+
+
+
+
+
+
+
+
+
+
 # --- Dispatcher ---
 func="$1"
 shift

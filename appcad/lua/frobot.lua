@@ -11,7 +11,7 @@ Pl "0,0 220,0 @0,170 @-220,0 0,0"
 
 Part "robot_body"
 Clone (sketch_body)
-Offset (-6)
+Offset (6)
 Extrude (-100)
 Clone (sketch_body)
 Extrude (-6)
@@ -28,7 +28,7 @@ Pl "0,0 220,0 @0,100 @-220,0 0,0"
 Part "robot_bucket"
 --Visible(0)
 Clone (sketch_bucket,0)
-Offset (-5.2)
+Offset (5.2)
 Extrude (170-50)
 Rotatelx(90)
 Movel(0,170-50,1)

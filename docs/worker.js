@@ -1,6 +1,11 @@
+import { EmailMessage } from "cloudflare:email";
+
+
 const ALLOWED_ORIGINS = [
   "https://missionsave.github.io",
   "https://missionsave.org",
+  "https://www.missionsave.org",
+  "https://superdb-api.superbem.workers.dev",
   "http://127.0.0.1:8080"
 ];
 
@@ -85,6 +90,89 @@ export default {
         });
       }
     }
+
+
+
+
+
+// --- EMAILSENDTOME ENDPOINT (Resend) ---
+if (url.pathname === "/emailsendtome" && request.method === "POST") {
+  try {
+    const data = await request.json().catch(() => null);
+
+    if (!data) {
+      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...cors({}, request) }
+      });
+    }
+
+    const name = (data.name || "").trim();
+    const email = (data.email || "").trim();
+    const message = (data.message || "").trim();
+
+    if (!name || !email || !message) {
+      return new Response(JSON.stringify({ error: "Missing fields" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...cors({}, request) }
+      });
+    }
+
+    if (!env.MYEMAIL) {
+      return new Response(JSON.stringify({ error: "MYEMAIL not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...cors({}, request) }
+      });
+    }
+
+    const domain = env.MYEMAIL.includes("@")
+      ? env.MYEMAIL.split("@")[1]
+      : "example.com";
+
+    const payload = {
+      from: `Contact Form <no-reply@${domain}>`,
+      to: env.MYEMAIL,
+      subject: `Contact form: ${name}`,
+      text: `From: ${name} <${email}>\n\n${message}`
+    };
+
+    const resendRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const txt = await resendRes.text();
+
+    if (!resendRes.ok) {
+      return new Response(JSON.stringify({ error: "Send failed", details: txt }), {
+        status: 502,
+        headers: { "Content-Type": "application/json", ...cors({}, request) }
+      });
+    }
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...cors({}, request) }
+    });
+
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...cors({}, request) }
+    });
+  }
+}
+
+
+
+
+
+
+
 
 
 
@@ -199,7 +287,7 @@ if (url.pathname === "/gethtml") {
     // 👇 manual trigger route
     if (url.pathname === "/trigger-github") {
       const resp = await fetch(
-        "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/botrecent.yaml/dispatches",
+        "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/cwin.yaml/dispatches",
         {
           method: "POST",
           headers: {
@@ -424,35 +512,213 @@ if (url.pathname === "/clean-doc") {
 
 
 // --- Proxy everything else to GitHub Pages ---
-let path = url.pathname;
+// Global variables for caching
+let MAP_CACHE = null;
+let LAST_FETCH = 0;
 
-// If path looks like a "directory" (no extension, not just "/"), add trailing slash
-if (!path.endsWith("/") && !path.includes(".")) {
-  path = path + "/";
+
+
+    // 1. Helper for slugs
+    const getSlug = (s) => s.toLowerCase().trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+
+    // 2. Load + Cache JSON
+    try {
+      if (!MAP_CACHE || (Date.now() - LAST_FETCH > 300000)) {
+        const r = await fetch("https://missionsave.github.io/tdoc.json", {
+          cf: { cacheTtl: 300 }
+        });
+        if (r.ok) {
+          const j = await r.json();
+          MAP_CACHE = new Map();
+          for (const [cat, arr] of Object.entries(j)) {
+            MAP_CACHE.set(cat, cat);
+            if (Array.isArray(arr)) {
+              for (const it of arr) {
+                if (it.title) {
+                  MAP_CACHE.set(`${cat}/${getSlug(it.title)}`, it.title);
+                }
+              }
+            }
+          }
+          LAST_FETCH = Date.now();
+        }
+      }
+    } catch (e) {}
+
+    // 3. Resolve path/title
+    //let p = url.searchParams.get("p") || "";
+  let p = url.searchParams.get("p");
+    // If no ?p= exists, derive it from the path
+if (!p) {
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments.length > 0) p = segments[0];
+}
+if (!p) p="";
+
+    if (url.pathname.startsWith("/og/")) {
+      p = url.pathname.replace("/og/", "").replace(/\.(png|svg)$/, "");
+    }
+    p = p.replace(/^\/+|\/+$/g, "");
+
+    let ogTitle = "MissionSave";
+    if (MAP_CACHE) {
+      ogTitle = MAP_CACHE.get(p) || MAP_CACHE.get(p.split("/")[0]) || "MissionSave";
+    }
+
+    
+    // 4. ROUTE: Serve SVG directly
+    function svgWrappedText(
+  text,
+  x = "80",
+  y = "440",
+  fill = "#38bdf8",
+  fontSize = "40",
+  fontFamily = "sans-serif",
+  maxCharsPerLine = 48,
+  lineHeightMultiplier = 1.2
+) {
+  const fs = Number(fontSize); // convert for arithmetic
+  const lineHeight = fs * lineHeightMultiplier;
+
+  const words = text.split(" ");
+  let lines = [];
+  let line = "";
+
+  for (const w of words) {
+    if ((line + w).length > maxCharsPerLine) {
+      lines.push(line.trim());
+      line = "";
+    }
+    line += w + " ";
+  }
+  if (line.trim()) lines.push(line.trim());
+
+  const tspans = lines
+    .map((ln, i) =>
+      `<tspan x="${x}" dy="${i === 0 ? 0 : lineHeight}">${ln}</tspan>`
+    )
+    .join("");
+
+  return `
+<text x="${x}" y="${y}" fill="${fill}" font-size="${fontSize}" font-family="${fontFamily}">
+  ${tspans}
+</text>`;
 }
 
-const targetUrl = "https://missionsave.github.io" + path + url.search;
 
-const response = await fetch(targetUrl, {
-  method: request.method,
-  headers: request.headers,
-  body: request.method !== "GET" && request.method !== "HEAD"
-    ? await request.clone().arrayBuffer()
-    : undefined,
-  redirect: "manual"
-});
 
-return new Response(response.body, {
-  status: response.status,
-  headers: response.headers
-});
+    if (url.pathname.endsWith(".svg")) {
+      const block = svgWrappedText(
+  "40 fresh raw meals a day — from each autonomous, 40' container-sized greenhouse."
+);
+      const safeTitle = ogTitle.replace(/[<>&"]/g, "");
+      const svg = `<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#0f172a"/>
+        <text x="80" y="100" fill="#38bd08" font-size="40" font-family="sans-serif">MissionSave</text>
+        <text x="80" y="240" fill="white" font-size="80" font-family="sans-serif" font-weight="bold">${safeTitle}</text>
+        ${block}
+      </svg>`;
+      
+      return new Response(svg, {
+        headers: { 
+          "Content-Type": "image/svg+xml", 
+          "Cache-Control": "public, max-age=86400",
+          "Access-Control-Allow-Origin": "*" 
+        }
+      });
+    }
+
+    // 5. ROUTE: PNG Proxy (Server-side fetch prevents loops)
+// Replace Section 5 with this "Cache-First" version
+if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
+  const cache = caches.default;
+  let response = await cache.match(request);
+
+  // If we have it in the Cloudflare cache, return it immediately!
+  if (response) return response;
+
+  const svgUrl = url.origin + url.pathname.replace(".png", ".svg");
+  const converterUrl = `https://wsrv.nl/?url=${encodeURIComponent(svgUrl)}&output=png&w=1200&h=630`;
+
+  try {
+    const imgRes = await fetch(converterUrl, {
+      headers: { "User-Agent": "MissionSave-Worker/1.0" },
+      cf: { cacheTtl: 8888 } // Tells Cloudflare to cache this fetch result
+    });
+
+    if (imgRes.ok) {
+      // Reconstruct the response to make it "Cacheable"
+      response = new Response(imgRes.body, {
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=8888",
+          "X-Cache-Status": "MISS"
+        }
+      });
+
+      // Store it in the edge cache
+      await cache.put(request, response.clone());
+      return response;
+    }
+  } catch (err) {
+    return Response.redirect(svgUrl, 302);
+  }
+}
+
+    // 6. Proxy to GitHub Pages
+    let path = url.pathname;
+    if (!path.endsWith("/") && !path.includes(".")) path += "/";
+    //const targetUrl = "https://missionsave.github.io" + path + url.search;
+    
+    let targetUrl;
+
+if (p) {
+//targetUrl = "https://missionsave.github.io/?p=Prototype";
+targetUrl = "https://missionsave.github.io/?p=" + encodeURIComponent(p);
+} else {
+  targetUrl = "https://missionsave.github.io" + path + url.search;
+}
+
+    const response = await fetch(targetUrl, { redirect: "manual" });
+    if (response.status === 301 || response.status === 302) return response;
+
+    // 7. Inject Meta Tags
+    const safeP = p || "default";
+    const ogImage = `${url.origin}/og/${safeP}.png`;
+
+    return new HTMLRewriter()
+      .on("head", {
+        element(h) {
+          h.append(`
+            <meta property="og:title" content="${ogTitle}">
+            <meta property="og:image" content="${ogImage}?v=1">
+            <meta property="og:image:width" content="1200">
+            <meta property="og:image:height" content="630">
+            <meta property="og:type" content="website">
+            <meta name="twitter:card" content="summary_large_image">
+          `, { html: true });
+        }
+      })
+      .transform(response);
+    
+
+
+  
+
+  
+
 
   },
+
+
+
 
   // --- CRON trigger here ---
  async scheduled(event, env, ctx) {
     ctx.waitUntil(fetch(
-      "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/botrecent.yaml/dispatches",
+      "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/cwin.yaml/dispatches",
       {
         method: "POST",
         headers: {

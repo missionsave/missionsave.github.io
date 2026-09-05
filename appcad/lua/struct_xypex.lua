@@ -313,7 +313,7 @@ Extrude(-1000)
 
 
 Part "test,scc"
-Rec(300)
+Rec(300,300)
 Rotatelx(-90)
 Extrude(2000*2)
 Mirrorlz(-15000/2,1)
