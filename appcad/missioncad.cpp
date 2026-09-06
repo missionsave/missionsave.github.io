@@ -17,6 +17,7 @@
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Vertex.hxx>
 #include <GeomAbs_JoinType.hxx>
+#include <TopAbs.hxx>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -12874,11 +12875,18 @@ cotm(edgeCount)
 // }else{
 // 	wire=TopoDS::Wire(helpWire());
 // }
-cotm(90)
+// cotm(90)
   bool closed = wire.Closed();
   cotm(closed);
-  if (closed) {
+  if (closed) { 
+	for (TopExp_Explorer exp(face, TopAbs_WIRE); exp.More(); exp.Next()) {
+	  wire=TopoDS::Wire(exp.Current());
+	}
+	// for (TopExp_Explorer exp(current_part->shape, TopAbs_WIRE); exp.More(); exp.Next()) {
+	//   wire=TopoDS::Wire(exp.Current());
+	// }
 
+    // f = TopoDS::Face(MakeOffsetRingFace(BRepTools::OuterWire(TopoDS::Face(face)), distance)); // well righ
     f = TopoDS::Face(MakeOffsetRingFace(wire, distance)); // well righ
 	// f = BRepBuilderAPI_MakeFace(wOff);
     // f = TopoDS::Face(MakeOffsetRingFace(ppoints, -distance)); // well righ
@@ -14166,10 +14174,20 @@ void Extrudetry(float val = 0) {
   
 	  return false;
   }
-  TopoDS_Shape helpWire(){
+TopoDS_Shape helpWire(){
 	TopoDS_Compound cleanCompound;
 	BRep_Builder builder;
 	builder.MakeCompound(cleanCompound); 
+
+	for (TopExp_Explorer ex(current_part->shape, TopAbs_FACE); ex.More(); ex.Next()) {
+		return current_part->shape;
+	}
+	cotm(TopAbs::ShapeTypeToString(current_part->shape.ShapeType()));
+	if(current_part->shape.ShapeType() == TopAbs_FACE){
+		cotm("FACE");
+		return current_part->shape;
+	}
+
 
 	cotm(77777)
 	current_part->builder.Add(current_part->cshape,current_part->shape);
@@ -14201,7 +14219,8 @@ void Extrudetry(float val = 0) {
 cotm(777778)
 	// Iterar diretamente sobre os sub-elementos do compound
 	for (TopoDS_Iterator it(current_part->cshape); it.More(); it.Next()) {
-		if (it.Value().ShapeType() != TopAbs_WIRE) {
+		if (it.Value().ShapeType() != TopAbs_WIRE && it.Value().ShapeType() != TopAbs_FACE) {
+		// if (it.Value().ShapeType() != TopAbs_WIRE) {
 			// Mantém o que não for wire no novo compound
 			builder.Add(cleanCompound, it.Value());
 		}
@@ -19531,19 +19550,24 @@ void lua_str(const string &str, bool isfile) {
     string lerror = "";
     if (status == LUA_OK) {
       if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
+		// lua_error_with_where("error");
+        std::cerr << "Lua error 1 " << std::endl;
         stringstream strm;
         strm << lua_tostring(L, -1);
         help.error = strm.str();
         help.upd();
-        lerror = lua_tostring(L, -1);
-        std::cerr << "runtimer error: " << lerror << std::endl;
-        lua_pop(L, 1);
+		// try{
+        // lerror = lua_tostring(L, -1);
+        // std::cerr << "runtimer error: " << lerror << std::endl;
+        // lua_pop(L, 1);
+		// }catch(...){}
       }
       perf("lua");
       if (lerror.find("Breakpoint hit") == std::string::npos)
         Fl::awake(fillbrowser);
 
     } else {
+		std::cerr << "Lua error 2 " << std::endl;
     //   Fl::awake(fillbrowser);
       stringstream strm;
       strm << lua_tostring(L, -1);

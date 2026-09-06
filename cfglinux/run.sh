@@ -115,7 +115,8 @@ qemu_xp(){
 	-cdrom acad2004.iso \
 	-netdev user,id=n1,hostfwd=tcp::13389-:3389,smb=/mnt/windows/desk/ \
 	-device rtl8139,netdev=n1 \
-	-vga cirrus
+	-vga cirrus \
+	&
 
 	sleep 2
 	sed -i '/\[global\]/a server min protocol = NT1\nlanman auth = yes\nntlm auth = yes' /tmp/qemu-smb.*/smb.conf

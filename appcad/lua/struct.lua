@@ -104,6 +104,7 @@ local extrudelen=(-compart_len-120+crn_long)
 if (compartments==1) then
 	extrudelen=-container_long+crn_long*2
 end
+print(extrudelen)
 Extrude(extrudelen)
 --Circle(10)
 Clone(multi_screw_M8)
@@ -358,6 +359,11 @@ Extrude(10)
 --Movel(30,120*2+tunel_height+20,-fcompartment-50)
 --Rotatelz(-(100/360*2))
 --Mirrorlx(container_width/2-30/2,1)
+
+Part "test"
+Clone(sketch_profile)
+Extrude (100)
+
 
 do return end
 

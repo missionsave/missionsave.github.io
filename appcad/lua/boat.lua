@@ -1,26 +1,40 @@
 radious=(3670)/2
 
--- Part "test"
--- Rec(100)
--- Offset(10)
+ Part "test"
+ Rec(100)
+ Offset(10)
 -- Extrude(100)
 
 Part "test"
-Pl "0,0 -100,0 @50,50 @-50,50;r80 @0,200 @100,0"
+Pl "0,0 -100,0 @50,50 @-50,50;r50 @0,200 @100,0 "
 --Rotatelx(-90)
 --Pl "0,300 0,0"
 Mirrorlx(100,1)
+--Movel(-30,-30)
+--Subtract()
 --Fuse()
 --Join()
-Offset(10)
+Offset(6)
 Extrude(100)
+--Fuse()
 --Rec(50)
--- error()
---do return end
+--  error()
+do return end
+
+Part "ctest"
+Mloc(-110,-20)
+Circle(220,360)
+--Rec(220,360)
+Extrude(100)
+--Clone(test)
+--Subtract()
+
+
 Part "casco"
 --Circle(10)
 --Rec(10)
 --Offset(2)
+
 
 
 
