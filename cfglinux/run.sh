@@ -109,8 +109,8 @@ qemu_xp(){
 	qemu-system-i386 \
 	-enable-kvm \
 	-cpu qemu32 \
-	-smp 2 \
-	-m 1024 \
+	-smp 1 \
+	-m 256 \
 	-drive file=windows_xp.qcow2,format=qcow2,cache=writeback \
 	-cdrom acad2004.iso \
 	-netdev user,id=n1,hostfwd=tcp::13389-:3389,smb=/mnt/windows/desk/ \

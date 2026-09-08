@@ -1,25 +1,36 @@
 radious=(3670)/2
+length=11000
 
- Part "test"
- Rec(100)
- Offset(10)
+ --Part "test"
+ --Rec(100)
+ --Offset(10)
 -- Extrude(100)
 
 Part "test"
-Pl "0,0 -100,0 @50,50 @-50,50;r50 @0,200 @100,0 "
+Pl "0,0 -100,0 @50,50 @-50,50;r-40 @0,200 @100,0 0,0"
 --Rotatelx(-90)
 --Pl "0,300 0,0"
-Mirrorlx(100,1)
---Movel(-30,-30)
---Subtract()
+--Mirrorlx(100,1)
 --Fuse()
---Join()
-Offset(6)
-Extrude(100)
+
+--Part "test"
+--Clone(test)
+----Movel(-30,-30)
+----Subtract()
+----Fuse()
+----Join()
+--Offset(6)
+--Extrude(100)
+----Fuse()
+----Rec(50)
+----  error()
+----do return end
+
+
+--Clone(test)
+--Offset(2)
+--Extrude(9)
 --Fuse()
---Rec(50)
---  error()
-do return end
 
 Part "ctest"
 Mloc(-110,-20)
@@ -42,7 +53,7 @@ Part "casco"
 --Circle(radious)
 Pl "-100,0 @0,400 @2438+200,0;ir-radious @0,-400"
 Offset(-100)
-Extrude(-12000)
+Extrude(-length)
 Movel(0,-310)
 
 --Part "tampa"
@@ -58,7 +69,7 @@ Movel(0,-310)
 --Circle(radious)
 --Subtract()
 --Movel(2438/2,2591/2+300+200)
- --Extrude(-12000)
+ --Extrude(-length)
 --Pl "0,0 60,60"
 --Pl "0,0 @10,0.0;r-60 @0,70  "
 --Offset(100)
@@ -67,15 +78,22 @@ Movel(0,-310)
 --Mloc(100)
 --Join()
 
+Part "circle"
+Circle(radious)
+Extrude(length)
 --Circle (50)
 --Movel(50,0)
 --Mloc(1219,1295.5,0)
 --Mloc(0)
 --Rotatelz(88)
 
+Part "latlastro"
+Pl "-100,90 -100,2591;rradious -100,90"
+Extrude(length)
+
 Part "cabine"
 Rec(2438,2591)
-Extrude(-12000)
+Extrude(-length)
 
 Part "clat"
 Clone(casco)

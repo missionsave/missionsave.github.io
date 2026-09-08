@@ -230,6 +230,31 @@ TopoDS_Shape sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
 //     return msg;
 // }
 
+#include <TopoDS_Solid.hxx>
+#include <BRepCheck_Analyzer.hxx>
+
+/**
+ * @brief Verifica rapidamente se um sólido precisa de "healing".
+ * @param theSolid O sólido a ser analisado.
+ * @return true se o sólido tiver falhas e precisar de healing; false se estiver OK.
+ */
+bool DoesSolidNeedHealFast(const TopoDS_Solid& theSolid)
+{
+    // Se o formato estiver vazio ou nulo, precisa de tratamento/reparação imediata.
+    if (theSolid.IsNull()) {
+        return true; 
+    }
+
+    // Parâmetro 2 (GeomControls) = Standard_False -> Ignora cálculos geométricos dispendiosos
+    // (ex: desvios pcurve 2D/3D) e foca-se puramente na integridade e conectividade topológica.
+    // Parâmetro 3 (theIsParallel) = Standard_True -> Ativa a execução em paralelo (OCCT 7.6+ / V8).
+    BRepCheck_Analyzer aChecker(theSolid, Standard_False, Standard_True);
+
+    // Retorna true se a estrutura topológica básica for inválida
+    return !aChecker.IsValid();
+}
+
+
 
 void ToggleAutoCutPlanefast(
     const Handle(AIS_InteractiveContext)& ctx,
@@ -14353,16 +14378,21 @@ void Extrude(float val = 0) {
   TopoDS_Shape extruded = extrudedLocal;
 //   extruded.Location(savedLoc);
 //   extruded.Location(savedLoc * extrudedLocal.Location());
- 
+ perf1();
+BRepCheck_Analyzer aChecker(extruded, Standard_False, Standard_True);
+if(!aChecker.IsValid())
+  lua_error_with_where("No logic shape to extrude");
+// //   cotm(98989898);
 
-  if (enablefix) 
-  {
-	  // Apenas executa a cura se a forma tiver erros topológicos detetados
-	//   ShapeFix_Shape fixer(extruded);
-	//   fixer.Perform();
-	//   extruded = fixer.Shape();
-  }
 
+// //   if (enablefix) 
+//   {
+// 	  // Apenas executa a cura se a forma tiver erros topológicos detetados
+// 	  ShapeFix_Shape fixer(extruded);
+// 	  fixer.Perform();
+// 	  extruded = fixer.Shape();
+//   }
+//   perf1("ac");
 //   extruded.Location(plane.Location());
 // extruded.Location(savedLoc * extrudedLocal.Location());
 
