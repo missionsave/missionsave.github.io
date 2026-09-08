@@ -7,11 +7,19 @@ length=11000
 -- Extrude(100)
 
 Part "test"
+Mloc(900,0,0)
 Pl "0,0 -100,0 @50,50 @-50,50;r-40 @0,200 @100,0 0,0"
 --Rotatelx(-90)
---Pl "0,300 0,0"
---Mirrorlx(100,1)
+--Pl "0,300 0,100"
+--Pl "0,0 0,100"
 --Fuse()
+Mirrorlx(100,1)
+Fuse()
+
+
+--Circle(100)
+--Rec(-50)
+
 
 --Part "test"
 --Clone(test)
@@ -19,18 +27,27 @@ Pl "0,0 -100,0 @50,50 @-50,50;r-40 @0,200 @100,0 0,0"
 ----Subtract()
 ----Fuse()
 ----Join()
---Offset(6)
---Extrude(100)
+Offset(6)
+Extrude(100)
 ----Fuse()
 ----Rec(50)
 ----  error()
-----do return end
+do return end
+
+Part "test"
+--Mloc(150,0,0,0,-45)
+--Pl "0,0 40,0 @0,40 @-40,0 0,0"
+--Rec(40)
+Rotatelx(-90)
+-- Extrude(90)
+--Fuse()
 
 
 --Clone(test)
 --Offset(2)
---Extrude(9)
+Extrude(9)
 --Fuse()
+do return end
 
 Part "ctest"
 Mloc(-110,-20)

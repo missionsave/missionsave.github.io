@@ -7241,6 +7241,101 @@ void mergeShape(TopoDS_Compound &target, TopoDS_Shape &toAdd) {
   // trsf.Invert();
   // vtrsf.push_back(trsf);
 }
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopLoc_Location.hxx>
+#include <gp_Trsf.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Vec.hxx>
+#include <BRep_Tool.hxx>
+#include <Geom_Line.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
+#include <TopExp_Explorer.hxx>
+#include <Standard_Boolean.hxx>
+
+TopoDS_Wire OrientWireToLocation(const TopoDS_Wire& originalWire, const TopLoc_Location& targetLocation)
+{
+    // 1. Extract target axes from the TopLoc_Location
+    gp_Trsf trsf = targetLocation.Transformation();
+    gp_Dir targetNormal = gp_Dir(0.0, 0.0, 1.0).Transformed(trsf); // Local Z
+    gp_Dir targetX      = gp_Dir(1.0, 0.0, 0.0).Transformed(trsf); // Local X
+
+    // 2. Grab the first valid edge to track geometric flow
+    TopoDS_Edge sampleEdge;
+    TopExp_Explorer edgeExp(originalWire, TopAbs_EDGE);
+    if (edgeExp.More())
+    {
+        sampleEdge = TopoDS::Edge(edgeExp.Current());
+    }
+    else
+    {
+        return originalWire;
+    }
+
+    // 3. Extract the curve and evaluate its midpoint tangent
+    Standard_Real firstParam, lastParam;
+    Handle(Geom_Curve) curve3d = BRep_Tool::Curve(sampleEdge, firstParam, lastParam);
+    if (curve3d.IsNull()) return originalWire;
+
+    Standard_Real midParam = firstParam + (lastParam - firstParam) * 0.5;
+    gp_Pnt samplePoint;
+    gp_Vec actualTangent;
+    curve3d->D1(midParam, samplePoint, actualTangent);
+
+    // Correct for topological flip on the edge
+    if (sampleEdge.Orientation() == TopAbs_REVERSED)
+    {
+        actualTangent.Reverse();
+    }
+
+    Standard_Boolean alignsWithLocation = Standard_True;
+
+    // 4. Safely handle straight versus curved topology
+    Handle(Geom_Line) straightLine = Handle(Geom_Line)::DownCast(curve3d);
+    if (!straightLine.IsNull())
+    {
+        // FALLBACK FOR STRAIGHT OPEN WIRES: 
+        // A straight line has no rotation around a center. We align its tangent 
+        // directly with the target local X axis vector.
+        alignsWithLocation = (actualTangent.Dot(targetX) >= 0.0);
+    }
+    else
+    {
+        // LOGIC FOR CURVED/CLOSED WIRES:
+        GProp_GProps linearProps;
+        BRepGProp::LinearProperties(originalWire, linearProps);
+        gp_Pnt centerOfWire = linearProps.CentreOfMass();
+
+        gp_Vec centerToPointVec(centerOfWire, samplePoint);
+
+        // Explicitly check for zero norm to prevent crash if a curved edge evaluates poorly
+        if (centerToPointVec.SquareMagnitude() > Precision::SquareConfusion())
+        {
+            gp_Vec expectedCcwTangent = targetNormal.Crossed(centerToPointVec);
+            alignsWithLocation = (actualTangent.Dot(expectedCcwTangent) >= 0.0);
+        }
+        else
+        {
+            // Absolute fallback alignment option
+            alignsWithLocation = (actualTangent.Dot(targetX) >= 0.0);
+        }
+    }
+
+    // 5. Output transformed wire element 
+    TopoDS_Wire resultWire = originalWire;
+    if (!alignsWithLocation)
+    {
+        resultWire.Reverse();
+    }
+
+    return resultWire;
+}
+
+
+
 struct WirePoint {
     gp_Vec2d pt;
     double radius = 0.0; // 0 = line
@@ -7321,6 +7416,10 @@ void CreateWire(const std::vector<WirePoint> &points, bool closed = false) {
 
     TopoDS_Wire wire = wireBuilder.Wire();
     bool is_closed = closed || is_coincident || wire.Closed();
+
+	// if (wire.Orientation() == TopAbs_REVERSED)
+    // wire.Reverse();
+	wire=OrientWireToLocation(wire,current_part->shape.Location());
 
     if (is_closed && points.size() > 2) {
         TopoDS_Face face = BRepBuilderAPI_MakeFace(wire);
@@ -12371,6 +12470,7 @@ TopoDS_Shape FuseWiresInCompound(const TopoDS_Shape& theShape,
       wires->Append(exp.Current());
     }
   }
+  
 
   // ------------------------------------------------------------------
   // 3. Fallback – classic ConnectEdgesToWires
@@ -12414,6 +12514,7 @@ TopoDS_Shape FuseWiresInCompound(const TopoDS_Shape& theShape,
   }
 
   TopoDS_Wire resultWire = TopoDS::Wire(wires->Value(1));
+  
 
   // Count the edges in the wire to handle single-edge cases safely
   Standard_Integer edgeCount = 0;
@@ -12447,6 +12548,11 @@ TopoDS_Shape FuseWiresInCompound(const TopoDS_Shape& theShape,
     fix->FixEdgeCurves();
     resultWire = fix->Wire();
   }
+
+  
+
+  resultWire=OrientWireToLocation(resultWire,current_part->shape.Location());
+  cotm("wl");
 
   // Ensure 3D curves are up-to-date right before face construction
   BRepLib::BuildCurves3d(resultWire);
@@ -12737,6 +12843,7 @@ void Mirrorrobustactual(luadraw *original, float offset = 0.0f, int x = 0,
 
   // current_part->cshape=CleanCompound_RemoveWiresFacesBeforeSolid(current_part->cshape);
 }
+
 void Pl(const std::string &coords) {
     if (!current_part)
         luaL_error((*G).lua_state(), "No current part. Call Part(name) first.");
@@ -12869,7 +12976,7 @@ void Offset(double distance) {
 
 
 
-  TopLoc_Location preserve = current_part->shape.Location();
+//   TopLoc_Location preserve = current_part->shape.Location();
 //   vector<gp_Pnt2d> ppoints;
 //   ConvertVec2dToPnt2d(current_part->vpoints.back(), ppoints);
 
@@ -12927,7 +13034,7 @@ cotm(edgeCount)
   BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5,
                                   true); // adjust deflection/angle
   current_part->shape = f;
-  current_part->shape.Location(preserve);
+//   current_part->shape.Location(preserve);
   // mergeShape(current_part->cshape, f);
   // inteligentmerge(f);
   // inteligentset();
@@ -14200,6 +14307,7 @@ void Extrudetry(float val = 0) {
 	  return false;
   }
 TopoDS_Shape helpWire(){
+	return current_part->shape;
 	TopoDS_Compound cleanCompound;
 	BRep_Builder builder;
 	builder.MakeCompound(cleanCompound); 
@@ -14259,10 +14367,51 @@ void Extrude(float val = 0) {
   // cotm(99999);
   if (val == 0)
     lua_error_with_where("Extrude must have a value.");
+	
+	if (!current_part) { // || current_part->shape.IsNull()){
+	  lua_error_with_where("No shape to extrude.");
+	}
+	if (current_part->shape.IsNull()) { // || current_part->shape.IsNull()){
+	  lua_error_with_where("No shape to extrude.");
+	}
+	auto ex=ExtractFaces(current_part->shape);
+	
+	if (ex.size()==0) { 
+	  lua_error_with_where("No face to extrude.");
+	}
+	TopoDS_Face face=ex.back();
+	
+	BRepAdaptor_Surface surf(face);
+	if (surf.GetType() != GeomAbs_Plane)
+	  lua_error_with_where("Extrude only supports planar faces.");
+  
+	gp_Pln plane = surf.Plane();
+	gp_Dir normal = plane.Axis().Direction(); 
+  
+	gp_Vec extrusionVec(normal);
+	extrusionVec *= val; 
 
-  if (!current_part) { // || current_part->shape.IsNull()){
-    lua_error_with_where("No shape to extrude.");
-  }
+	BRepPrimAPI_MakePrism prism(face, extrusionVec, Standard_False);
+	prism.Build();
+    
+	if (!prism.IsDone())
+	  lua_error_with_where("Extrusion failed.");
+   
+	TopLoc_Location savedLoc = current_part->shape.Location();
+	current_part->shape=prism.Shape();
+	SetReferenceLocationInstant(current_part->shape, savedLoc);
+}
+void Extrudemostrecent(float val = 0) {
+	  // cotm(99999);
+	  if (val == 0)
+		lua_error_with_where("Extrude must have a value.");
+		
+		if (!current_part) { // || current_part->shape.IsNull()){
+		  lua_error_with_where("No shape to extrude.");
+		}
+		if (current_part->shape.IsNull()) { // || current_part->shape.IsNull()){
+		  lua_error_with_where("No shape to extrude.");
+		}
 
   bool enablefix=0;
 
@@ -14280,6 +14429,14 @@ void Extrude(float val = 0) {
   if (localShape.IsNull()) {
     lua_error_with_where("Input shape is null.");
 }
+// cotm("extrude",TopAbs::ShapeTypeToString(localShape.ShapeType()));
+  if (localShape.ShapeType() == TopAbs_COMPOUND){
+	auto ex=ExtractFaces(localShape);
+	cotm("lface");
+	face=ex.back();
+	// face=TopoDS::Face(localShape);
+	// cotm("lface");
+  }else
   if (localShape.ShapeType() == TopAbs_COMPOUND){
 	cotm(1)
 	BakeInstantLocation(localShape);
@@ -14344,8 +14501,8 @@ void Extrude(float val = 0) {
   gp_Dir normal = plane.Axis().Direction();
 
   // IMPORTANT: respect face orientation
-  if (face.Orientation() == TopAbs_REVERSED)
-    normal.Reverse();
+//   if (face.Orientation() == TopAbs_REVERSED)
+//     normal.Reverse();
 
   gp_Vec extrusionVec(normal);
   extrusionVec *= val;
@@ -18181,7 +18338,7 @@ void Fusenww() {
   }
 
   
-void Fuse() {
+void Fusemostrecent() {
   if (!current_part)
     lua_error_with_where("No current part. Call Part(name) first.");
   if (current_part->shape.IsNull())
@@ -18258,6 +18415,108 @@ void Fuse() {
   inteligentmerge(fused);
   SetReferenceLocationInstant(current_part->shape, preserve);
 }
+void Fusepppp() {
+	if (!current_part)
+	  lua_error_with_where("No current part. Call Part(name) first.");
+	if (current_part->shape.IsNull())
+	  lua_error_with_where("No current shape. Call after doing shapes.");
+	// Add the most recent shape to the compound before processing
+	TopLoc_Location preserve = current_part->shape.Location();
+  
+	AddToCompound(current_part->cshape, current_part->shape);
+  
+	const TopoDS_Compound &c = current_part->cshape;
+	// current_part->start_location=getShapePlacement(c);
+  
+	// Collect solids, faces and wires
+	TopTools_ListOfShape solids, faces, wires;
+	for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next())
+	  solids.Append(ex.Current());
+	for (TopExp_Explorer ex(c, TopAbs_FACE); ex.More(); ex.Next())
+	  faces.Append(ex.Current());
+	for (TopExp_Explorer ex(c, TopAbs_WIRE); ex.More(); ex.Next())
+	  wires.Append(ex.Current());
+  
+	const bool has3D = solids.Extent() >= 2;
+	const bool has2D = (!has3D && faces.Extent() >= 2);
+	const bool has1D = (!has3D && !has2D && wires.Extent() >= 2);
+  
+	if (!has3D && !has2D && !has1D) {
+	  lua_error_with_where(
+		  "Need at least two shapes of the same type (Solids, Faces or Wires) to fuse.");
+	}
+  
+	TopoDS_Shape fused;
+  
+	// 3D fuse (solids)
+	if (has3D) {
+	  TopTools_ListOfShape arguments, tools;
+	  auto it = solids.begin();
+	  arguments.Append(*it);
+	  for (++it; it != solids.end(); ++it)
+		tools.Append(*it);
+  
+	  BRepAlgoAPI_Fuse fuseOp;
+	  fuseOp.SetArguments(arguments);
+	  fuseOp.SetTools(tools);
+	  fuseOp.SetFuzzyValue(1e-5);
+	  fuseOp.Build();
+	  if (!fuseOp.IsDone())
+		lua_error_with_where("3D solid fuse operation failed.");
+	  fused = fuseOp.Shape();
+	  perf2();
+	  // Unify same domain
+	  ShapeUpgrade_UnifySameDomain unify(fused, true, true, false);
+	  unify.SetLinearTolerance(1e-5);
+	  unify.Build();
+	  if (!unify.Shape().IsNull())
+		fused = unify.Shape();
+	  perf2("unify");
+	  current_part->start_location = fused.Location();
+	}
+  
+	// 2D fuse (faces)
+	else if (has2D) {
+	  std::vector<TopoDS_Face> ex = ExtractFaces(c);
+	  fused = UniteFaceVector(ex);
+	  fused = ExtractFaces(fused)[0];
+	}
+  
+	// 1D fuse (wires)
+	else if (has1D) {
+		cotm("wiresfused");
+	  TopTools_ListOfShape arguments, tools;
+	  auto it = wires.begin();
+	  arguments.Append(*it);
+	  for (++it; it != wires.end(); ++it)
+		tools.Append(*it);
+  
+	  BRepAlgoAPI_Fuse fuseOp;
+	  fuseOp.SetArguments(arguments);
+	  fuseOp.SetTools(tools);
+	  fuseOp.SetFuzzyValue(1e-5);
+	  fuseOp.Build();
+	  if (!fuseOp.IsDone())
+		lua_error_with_where("1D wire fuse operation failed.");
+	  fused = fuseOp.Shape();
+  
+	  // Optional: try to extract a single wire if the result is a compound
+	  // of wires (common when wires only partially overlap).
+	  // If you always want a single wire, you can add extra post-processing
+	  // with BRepBuilderAPI_MakeWire / ShapeFix_Wire here.
+	}
+  
+	// Finalize: Clear compound and set the fused result
+	current_part->cshape = TopoDS_Compound();
+	// current_part->cshape.Nullify();
+	current_part->builder = BRep_Builder();
+	current_part->builder.MakeCompound(current_part->cshape);
+	current_part->shape.Nullify();
+  
+	// intelligentmerge handles adding the 'fused' result back to the system
+	inteligentmerge(fused);
+	SetReferenceLocationInstant(current_part->shape, preserve);
+  }
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRep_Builder.hxx>
 #include <TopExp_Explorer.hxx>
@@ -18265,7 +18524,149 @@ void Fuse() {
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Solid.hxx>
-
+void Fuse() {
+	if (!current_part)
+	  lua_error_with_where("No current part. Call Part(name) first.");
+	if (current_part->shape.IsNull())
+	  lua_error_with_where("No current shape. Call after doing shapes.");
+	// Add the most recent shape to the compound before processing
+	TopLoc_Location preserve = current_part->shape.Location();
+  
+	AddToCompound(current_part->cshape, current_part->shape);
+  
+	const TopoDS_Compound &c = current_part->cshape;
+	// current_part->start_location=getShapePlacement(c);
+  
+	// Collect solids, faces and wires
+	TopTools_ListOfShape solids, faces, wires;
+	for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next())
+	  solids.Append(ex.Current());
+	for (TopExp_Explorer ex(c, TopAbs_FACE); ex.More(); ex.Next())
+	  faces.Append(ex.Current());
+	for (TopExp_Explorer ex(c, TopAbs_WIRE); ex.More(); ex.Next())
+	  wires.Append(ex.Current());
+  
+	const bool has3D = solids.Extent() >= 2;
+	const bool has2D = (!has3D && faces.Extent() >= 2);
+	const bool has1D = (!has3D && !has2D && wires.Extent() >= 2);
+  
+	if (!has3D && !has2D && !has1D) {
+	  lua_error_with_where(
+		  "Need at least two shapes of the same type (Solids, Faces or Wires) to fuse.");
+	}
+  
+	TopoDS_Shape fused;
+  
+	// 3D fuse (solids)
+	if (has3D) {
+	  TopTools_ListOfShape arguments, tools;
+	  auto it = solids.begin();
+	  arguments.Append(*it);
+	  for (++it; it != solids.end(); ++it)
+		tools.Append(*it);
+  
+	  BRepAlgoAPI_Fuse fuseOp;
+	  fuseOp.SetArguments(arguments);
+	  fuseOp.SetTools(tools);
+	  fuseOp.SetFuzzyValue(1e-5);
+	  fuseOp.Build();
+	  if (!fuseOp.IsDone())
+		lua_error_with_where("3D solid fuse operation failed.");
+	  fused = fuseOp.Shape();
+	  perf2();
+	  // Unify same domain
+	  ShapeUpgrade_UnifySameDomain unify(fused, true, true, false);
+	  unify.SetLinearTolerance(1e-5);
+	  unify.Build();
+	  if (!unify.Shape().IsNull())
+		fused = unify.Shape();
+	  perf2("unify");
+	  current_part->start_location = fused.Location();
+	}
+  
+	// 2D fuse (faces)
+	else if (has2D) {
+	  std::vector<TopoDS_Face> ex = ExtractFaces(c);
+	  fused = UniteFaceVector(ex);
+	  fused = ExtractFaces(fused)[0];
+	}
+  
+	// 1D fuse (wires)
+	else if (has1D) {
+	  TopTools_ListOfShape arguments, tools;
+	  auto it = wires.begin();
+	  arguments.Append(*it);
+	  for (++it; it != wires.end(); ++it)
+		tools.Append(*it);
+  
+	  BRepAlgoAPI_Fuse fuseOp;
+	  fuseOp.SetArguments(arguments);
+	  fuseOp.SetTools(tools);
+	  fuseOp.SetFuzzyValue(1e-5);
+	  fuseOp.Build();
+	  if (!fuseOp.IsDone())
+		lua_error_with_where("1D wire fuse operation failed.");
+	  fused = fuseOp.Shape();
+  
+	  // Rebuild a single clean wire from all resulting edges
+	  BRepBuilderAPI_MakeWire mkWire;
+	  for (TopExp_Explorer ex(fused, TopAbs_EDGE); ex.More(); ex.Next()) {
+		const TopoDS_Edge &e = TopoDS::Edge(ex.Current());
+		if (!e.IsNull())
+		  mkWire.Add(e);
+	  }
+  
+	  if (mkWire.IsDone()) {
+		TopoDS_Wire w = mkWire.Wire();
+  
+		// Heal ordering / connectivity / gaps
+		ShapeFix_Wire fixWire;
+		fixWire.Load(w);
+		fixWire.SetPrecision(1e-5);
+		fixWire.SetMaxTolerance(1e-4);
+		fixWire.ClosedWireMode() = Standard_True;
+		fixWire.FixReorderMode() = 1;
+		fixWire.FixConnectedMode() = 1;
+		fixWire.FixEdgeCurvesMode() = 1;
+		fixWire.FixDegeneratedMode() = 1;
+		fixWire.FixSelfIntersectionMode() = 1;
+		fixWire.FixLackingMode() = 1;
+		fixWire.Perform();
+  
+		if (!fixWire.Wire().IsNull())
+		  w = fixWire.Wire();
+  
+		// Convert to face if the wire is closed
+		if (BRep_Tool::IsClosed(w)) {
+		  BRepBuilderAPI_MakeFace mkFace(w, Standard_True); // only plane, force planar
+		  if (mkFace.IsDone() && !mkFace.Face().IsNull()) {
+			fused = mkFace.Face();
+		  } else {
+			// fallback: try without forcing planar
+			BRepBuilderAPI_MakeFace mkFace2(w);
+			if (mkFace2.IsDone() && !mkFace2.Face().IsNull())
+			  fused = mkFace2.Face();
+			else
+			  fused = w; // keep the wire
+		  }
+		} else {
+		  fused = w; // open wire → keep as wire
+		}
+	  }
+	  // else leave the original fuse compound
+	}
+  
+	// Finalize: Clear compound and set the fused result
+	current_part->cshape = TopoDS_Compound();
+	// current_part->cshape.Nullify();
+	current_part->builder = BRep_Builder();
+	current_part->builder.MakeCompound(current_part->cshape);
+	current_part->shape.Nullify();
+  
+	// intelligentmerge handles adding the 'fused' result back to the system
+	inteligentmerge(fused);
+	SetReferenceLocationInstant(current_part->shape, preserve);
+  }
 #include <BOPAlgo_Builder.hxx>
 #include <BRep_Builder.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
