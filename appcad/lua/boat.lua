@@ -38,7 +38,10 @@ Clone(cascopl)
 Offset(-100)
 Extrude(-length)
 Clone(btops)
+Mloc(0,0,-length/2,0,90)
+Mirror(0,1) 
 Fuse()
+--do return end
 --Mloc(0,800)
 --Movel(-100,-00)
 
@@ -49,7 +52,7 @@ Extrude(-length)
 Fuse()
 --Pl "0,0 @0,2591-550"
 --Dup()
-Rotatelz(90)
+Rotatelz(110)
 
 
 

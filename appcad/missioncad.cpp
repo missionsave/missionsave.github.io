@@ -11,6 +11,7 @@
 #include <BRepTools_WireExplorer.hxx>
 #include <BOPAlgo_Tools.hxx>
 #include <ShapeAnalysis_FreeBounds.hxx>
+#include <ShapeCustom.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
@@ -13361,9 +13362,14 @@ void Mirror(luadraw *original, bool keep_original = 0) {
 		inteligentmerge(mirrored, 0);
 		return;
 	  }
-  
-	TopoDS_Shape inverted = toinvert.Moved(TopLoc_Location(mirrorTrsf));
-	inverted.Reverse();
+//   perf1();
+	// TopoDS_Shape inverted = toinvert.Moved(TopLoc_Location(mirrorTrsf));
+	// inverted.Reverse();
+	BRepBuilderAPI_Transform tr(toinvert, mirrorTrsf, Standard_True);
+if (!tr.IsDone())
+    return;
+TopoDS_Shape inverted = tr.Shape();
+// perf1("mi");
   
 	{
 	  gp_Trsf originalTrsf = toinvert.Location().Transformation();
@@ -19221,6 +19227,7 @@ void Fusepppp() {
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Solid.hxx>
+#include <ShapeFix_ShapeTolerance.hxx>
 void Fuse() {
 	if (!current_part)
 	  lua_error_with_where("No current part. Call Part(name) first.");
@@ -19237,6 +19244,7 @@ void Fuse() {
 	// Collect solids, faces and wires
 	TopTools_ListOfShape solids, faces, wires;
 	for (TopExp_Explorer ex(c, TopAbs_SOLID); ex.More(); ex.Next())
+	//   solids.Append(ShapeCustom::DirectFaces(ex.Current()));
 	  solids.Append(ex.Current());
 	for (TopExp_Explorer ex(c, TopAbs_FACE); ex.More(); ex.Next())
 	  faces.Append(ex.Current());
@@ -19244,6 +19252,7 @@ void Fuse() {
 	  wires.Append(ex.Current());
   
 	const bool has3D = solids.Extent() >= 2;
+	cotm(solids.Extent());
 	const bool has2D = (!has3D && faces.Extent() >= 2);
 	const bool has1D = (!has3D && !has2D && wires.Extent() >= 2);
   
@@ -19255,31 +19264,73 @@ void Fuse() {
 	TopoDS_Shape fused;
   
 	// 3D fuse (solids)
-	if (has3D) {
+	if (has3D) { 
+		// for (auto& solid : solids) {
+		// 	// Garante que o shape é do tipo Solid antes de passar para o fixer
+		// 	if (solid.ShapeType() == TopAbs_SOLID) {
+		// 	  ShapeFix_Solid fixer(TopoDS::Solid(solid));
+		// 	  fixer.Perform();
+			  
+		// 	  // Se o fixer conseguiu corrigir ou se já estava correto, atualiza o sólido
+		// 	  if (!fixer.Solid().IsNull()) {
+		// 		solid = fixer.Solid();
+		// 	  }
+		// 	}
+		//   }
 	  TopTools_ListOfShape arguments, tools;
 	  auto it = solids.begin();
 	  arguments.Append(*it);
 	  for (++it; it != solids.end(); ++it)
 		tools.Append(*it);
-  
+	
 	  BRepAlgoAPI_Fuse fuseOp;
+	  fuseOp.SetCheckInverted(Standard_False);
 	  fuseOp.SetArguments(arguments);
 	  fuseOp.SetTools(tools);
-	  fuseOp.SetFuzzyValue(1e-5);
+	  fuseOp.SetFuzzyValue(1e-1);
 	  fuseOp.Build();
+	  
 	  if (!fuseOp.IsDone())
 		lua_error_with_where("3D solid fuse operation failed.");
+	
+	  // O método nativo simplifica faces, arestas e aceita tolerância angular opcional
+	//   fuseOp.SimplifyResult(Standard_True, Standard_True, Precision::Angular());
+	  
 	  fused = fuseOp.Shape();
-	  perf2();
-	  // Unify same domain
-	  ShapeUpgrade_UnifySameDomain unify(fused, true, true, false);
+
+	//   // --- FORÇAR REFINAMENTO ---
+	//   // 1. Forçar a redução de tolerâncias infladas pelo Fuse nas arestas/vértices
+	//   ShapeFix_ShapeTolerance toleranceFixer;
+	//   toleranceFixer.LimitTolerance(fused, 1e-5, 1e-5, TopAbs_EDGE);
+	//   toleranceFixer.LimitTolerance(fused, 1e-5, 1e-5, TopAbs_VERTEX);
+	  
+	//   // 2. Recalcular as geometrias 3D das arestas para coincidir com a nova tolerância
+	//   BRepLib::SameParameter(fused, 1e-5, Standard_True);
+
+
+	//   #include <ShapeUpgrade_UnifySameDomain.hxx>
+	//good refine
+	  // Instanciar o unificador (UnifyEdges = true, UnifyFaces = true, ConcatBSplines = true)
+	  ShapeUpgrade_UnifySameDomain unify(fused, Standard_True, Standard_True, Standard_True);
+	  
+	  // Definir limites claros
 	  unify.SetLinearTolerance(1e-5);
+	  
+	  // Definir tolerância angular (ex: 0.01 radianos ~ 0.5 graus) 
+	  // Se as normais não forem perfeitamente coincidentes, isto força a união.
+	  unify.SetAngularTolerance(0.01); 
+	  
 	  unify.Build();
-	  if (!unify.Shape().IsNull())
+	  
+	  if (!unify.Shape().IsNull()) {
 		fused = unify.Shape();
-	  perf2("unify");
+	  }
+	  
+	//   perf2("unify");
 	  current_part->start_location = fused.Location();
+	  
 	}
+	
   
 	// 2D fuse (faces)
 	else if (has2D) {
