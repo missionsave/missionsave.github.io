@@ -13653,7 +13653,9 @@ cotm(edgeCount)
   }
   BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5,
                                   true); // adjust deflection/angle
-  current_part->shape = f;
+	TopLoc_Location savedLoc = current_part->shape.Location();
+	current_part->shape=f;
+	SetReferenceLocationInstant(current_part->shape, savedLoc);
 //   current_part->shape.Location(preserve);
   // mergeShape(current_part->cshape, f);
   // inteligentmerge(f);
