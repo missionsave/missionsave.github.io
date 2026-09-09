@@ -10,6 +10,7 @@
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepTools_WireExplorer.hxx>
 #include <BOPAlgo_Tools.hxx>
+#include <ShapeAnalysis_FreeBounds.hxx>
 #include <TopExp.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
@@ -7875,6 +7876,19 @@ void mergeShape(TopoDS_Compound &target, TopoDS_Shape &toAdd) {
 #include <GProp_GProps.hxx>
 #include <TopExp_Explorer.hxx>
 #include <Standard_Boolean.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopLoc_Location.hxx>
+#include <gp_Trsf.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Vec.hxx>
+#include <BRep_Tool.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepGProp.hxx>
+#include <GProp_GProps.hxx>
+#include <TopExp_Explorer.hxx>
+#include <Precision.hxx>
 
 TopoDS_Wire OrientWireToLocation(const TopoDS_Wire& originalWire, const TopLoc_Location& targetLocation)
 {
@@ -7883,68 +7897,82 @@ TopoDS_Wire OrientWireToLocation(const TopoDS_Wire& originalWire, const TopLoc_L
     gp_Dir targetNormal = gp_Dir(0.0, 0.0, 1.0).Transformed(trsf); // Local Z
     gp_Dir targetX      = gp_Dir(1.0, 0.0, 0.0).Transformed(trsf); // Local X
 
-    // 2. Grab the first valid edge to track geometric flow
-    TopoDS_Edge sampleEdge;
+    // 2. Find the global center of mass of the whole wire shape
+    GProp_GProps linearProps;
+    BRepGProp::LinearProperties(originalWire, linearProps);
+    gp_Pnt centerOfWire = linearProps.CentreOfMass();
+
+    // 3. Accumulate "votes" across all edges to find the true flow direction
+    Standard_Real ccwVotes = 0.0;
+    Standard_Real cwVotes  = 0.0;
+    Standard_Real linearXPositiveVotes = 0.0;
+    Standard_Real linearXNegativeVotes = 0.0;
+
     TopExp_Explorer edgeExp(originalWire, TopAbs_EDGE);
-    if (edgeExp.More())
+    Standard_Integer edgeCount = 0;
+
+    for (; edgeExp.More(); edgeExp.Next())
     {
-        sampleEdge = TopoDS::Edge(edgeExp.Current());
-    }
-    else
-    {
-        return originalWire;
-    }
+        TopoDS_Edge currentEdge = TopoDS::Edge(edgeExp.Current());
+        
+        Standard_Real firstParam, lastParam;
+        Handle(Geom_Curve) curve3d = BRep_Tool::Curve(currentEdge, firstParam, lastParam);
+        if (curve3d.IsNull()) continue;
 
-    // 3. Extract the curve and evaluate its midpoint tangent
-    Standard_Real firstParam, lastParam;
-    Handle(Geom_Curve) curve3d = BRep_Tool::Curve(sampleEdge, firstParam, lastParam);
-    if (curve3d.IsNull()) return originalWire;
+        edgeCount++;
 
-    Standard_Real midParam = firstParam + (lastParam - firstParam) * 0.5;
-    gp_Pnt samplePoint;
-    gp_Vec actualTangent;
-    curve3d->D1(midParam, samplePoint, actualTangent);
+        // Evaluate midpoint tangent of this specific edge
+        Standard_Real midParam = firstParam + (lastParam - firstParam) * 0.5;
+        gp_Pnt samplePoint;
+        gp_Vec actualTangent;
+        curve3d->D1(midParam, samplePoint, actualTangent);
 
-    // Correct for topological flip on the edge
-    if (sampleEdge.Orientation() == TopAbs_REVERSED)
-    {
-        actualTangent.Reverse();
-    }
+        // Account for topological inversion of the edge parameter space
+        if (currentEdge.Orientation() == TopAbs_REVERSED)
+        {
+            actualTangent.Reverse();
+        }
 
-    Standard_Boolean alignsWithLocation = Standard_True;
-
-    // 4. Safely handle straight versus curved topology
-    Handle(Geom_Line) straightLine = Handle(Geom_Line)::DownCast(curve3d);
-    if (!straightLine.IsNull())
-    {
-        // FALLBACK FOR STRAIGHT OPEN WIRES: 
-        // A straight line has no rotation around a center. We align its tangent 
-        // directly with the target local X axis vector.
-        alignsWithLocation = (actualTangent.Dot(targetX) >= 0.0);
-    }
-    else
-    {
-        // LOGIC FOR CURVED/CLOSED WIRES:
-        GProp_GProps linearProps;
-        BRepGProp::LinearProperties(originalWire, linearProps);
-        gp_Pnt centerOfWire = linearProps.CentreOfMass();
-
+        // Evaluate rotational tracking relative to the wire center
         gp_Vec centerToPointVec(centerOfWire, samplePoint);
 
-        // Explicitly check for zero norm to prevent crash if a curved edge evaluates poorly
-        if (centerToPointVec.SquareMagnitude() > Precision::SquareConfusion())
+        // Check if the edge is collinear with the center (like a straight line pointing at center)
+        gp_Vec crossTest = actualTangent.Crossed(centerToPointVec);
+        if (crossTest.SquareMagnitude() > Precision::SquareConfusion() && 
+            centerToPointVec.SquareMagnitude() > Precision::SquareConfusion())
         {
+            // Curved/Rotational behavior: Compute ideal CCW direction at this point
             gp_Vec expectedCcwTangent = targetNormal.Crossed(centerToPointVec);
-            alignsWithLocation = (actualTangent.Dot(expectedCcwTangent) >= 0.0);
+            Standard_Real dotProduct = actualTangent.Dot(expectedCcwTangent);
+            
+            if (dotProduct > 0.0) ccwVotes += dotProduct;
+            else cwVotes += std::abs(dotProduct);
         }
         else
         {
-            // Absolute fallback alignment option
-            alignsWithLocation = (actualTangent.Dot(targetX) >= 0.0);
+            // Pure linear behavior fallback: track projection on local X
+            Standard_Real dotX = actualTangent.Dot(targetX);
+            if (dotX > 0.0) linearXPositiveVotes += dotX;
+            else linearXNegativeVotes += std::abs(dotX);
         }
     }
 
-    // 5. Output transformed wire element 
+    if (edgeCount == 0) return originalWire;
+
+    // 4. Determine final alignment decision based on aggregate voting weight
+    Standard_Boolean alignsWithLocation = Standard_True;
+    
+    // If the wire mostly exhibits rotational characteristics (typical for loops/complex arcs)
+    if ((ccwVotes + cwVotes) > Precision::Confusion())
+    {
+        alignsWithLocation = (ccwVotes >= cwVotes);
+    }
+    else // Purely straight polyline or segmented straight wire lines
+    {
+        alignsWithLocation = (linearXPositiveVotes >= linearXNegativeVotes);
+    }
+
+    // 5. Build and return result
     TopoDS_Wire resultWire = originalWire;
     if (!alignsWithLocation)
     {
@@ -7953,6 +7981,7 @@ TopoDS_Wire OrientWireToLocation(const TopoDS_Wire& originalWire, const TopLoc_L
 
     return resultWire;
 }
+
 
 
 
@@ -13198,7 +13227,7 @@ TopoDS_Shape FuseWiresInCompound(const TopoDS_Shape& theShape,
   return resultWire;   // fallback to a single valid wire if face fails
 }
 
-void Mirror(luadraw *original, float offset = 0.0f, int x = 0, int y = 0, int z = 0, bool keep_original=0) {
+void Mirrorl(luadraw *original, float offset = 0.0f, int x = 0, int y = 0, int z = 0, bool keep_original=0) {
   TopoDS_Shape toinvert =
       (original == 0) ? current_part->shape : original->fshape;
   if (toinvert.IsNull())
@@ -13305,8 +13334,54 @@ void Mirror(luadraw *original, float offset = 0.0f, int x = 0, int y = 0, int z 
   else
   	current_part->shape=inverted;
 }
+void Mirror(luadraw *original, bool keep_original = 0) {
+	TopoDS_Shape toinvert =
+		(original == 0) ? current_part->shape : original->fshape;
+	if (toinvert.IsNull())
+	  return;
+  
+	const TopLoc_Location& loc = current_part->shape.Location();
+	
+	gp_Ax3 localAx3(gp_Pnt(0, 0, 0), gp::DZ(), gp::DX());
+	localAx3.Transform(loc.Transformation());
+  
+	gp_Pnt planeOrigin = localAx3.Location();
+	gp_Dir normal = localAx3.XDirection(); // Normal is X-axis so the Y-axis acts as the mirror line
+  
+	gp_Trsf mirrorTrsf;
+	mirrorTrsf.SetMirror(gp_Ax2(planeOrigin, normal));
+  
+	if (0)
+	  if (toinvert.ShapeType() != TopAbs_SOLID) {
+		BRepBuilderAPI_Transform transformer(toinvert, mirrorTrsf, Standard_True);
+		if (!transformer.IsDone())
+		  return;
+  
+		TopoDS_Shape mirrored = transformer.Shape();
+		inteligentmerge(mirrored, 0);
+		return;
+	  }
+  
+	TopoDS_Shape inverted = toinvert.Moved(TopLoc_Location(mirrorTrsf));
+	inverted.Reverse();
+  
+	{
+	  gp_Trsf originalTrsf = toinvert.Location().Transformation();
+	  gp_Pnt oldPos(originalTrsf.TranslationPart());
+	  gp_Pnt newPos = oldPos.Transformed(mirrorTrsf);
+  
+	  gp_Trsf targetTrsf;
+	  targetTrsf.SetTranslationPart(newPos.XYZ());
+	}
+  
+	if (keep_original) {
+	  inteligentmerge(inverted);
+	} else {
+	  current_part->shape = inverted;
+	}
+}
 
-// Fast real Mirror but only works on 3d
+  // Fast real Mirror but only works on 3d
 void Mirror11(luadraw *original, float offset = 0.0f, int x = 0, int y = 0,
               int z = 0) {
   // cotm("isinv")
@@ -19213,14 +19288,14 @@ void Fuse() {
 	  fused = ExtractFaces(fused)[0];
 	}
   
-	// 1D fuse (wires)
+	// 1D fuse (wires) 
 	else if (has1D) {
 	  TopTools_ListOfShape arguments, tools;
 	  auto it = wires.begin();
 	  arguments.Append(*it);
 	  for (++it; it != wires.end(); ++it)
 		tools.Append(*it);
-  
+	
 	  BRepAlgoAPI_Fuse fuseOp;
 	  fuseOp.SetArguments(arguments);
 	  fuseOp.SetTools(tools);
@@ -19229,22 +19304,33 @@ void Fuse() {
 	  if (!fuseOp.IsDone())
 		lua_error_with_where("1D wire fuse operation failed.");
 	  fused = fuseOp.Shape();
-  
-	  // Rebuild a single clean wire from all resulting edges
-	  BRepBuilderAPI_MakeWire mkWire;
+	
+	  // FIX: Collect all fused edges into a map/list
+	  // 1. Declare the smart pointer handles directly on the stack (lvalues)
+	  Handle(TopTools_HSequenceOfShape) edgeSeq = new TopTools_HSequenceOfShape();
+	  Handle(TopTools_HSequenceOfShape) wireSeq = new TopTools_HSequenceOfShape();
+	  
 	  for (TopExp_Explorer ex(fused, TopAbs_EDGE); ex.More(); ex.Next()) {
 		const TopoDS_Edge &e = TopoDS::Edge(ex.Current());
 		if (!e.IsNull())
-		  mkWire.Add(e);
+		  edgeSeq->Append(e);
 	  }
-  
-	  if (mkWire.IsDone()) {
-		TopoDS_Wire w = mkWire.Wire();
-  
+	  
+	  Standard_Real tolerance = 1e-5;
+	  Standard_Boolean sharedVert = Standard_True;
+	  
+	  // 2. Pass the handles directly. They will now correctly bind to the reference signatures.
+	  #include <ShapeAnalysis_FreeBounds.hxx>
+	  ShapeAnalysis_FreeBounds::ConnectEdgesToWires(edgeSeq, tolerance, sharedVert, wireSeq);
+	  
+	  if (wireSeq->Length() > 0) {
+		// Grab the primary resulting wire
+		TopoDS_Wire w = TopoDS::Wire(wireSeq->Value(1)); 
+	
 		// Heal ordering / connectivity / gaps
 		ShapeFix_Wire fixWire;
 		fixWire.Load(w);
-		fixWire.SetPrecision(1e-5);
+		fixWire.SetPrecision(tolerance);
 		fixWire.SetMaxTolerance(1e-4);
 		fixWire.ClosedWireMode() = Standard_True;
 		fixWire.FixReorderMode() = 1;
@@ -19254,12 +19340,17 @@ void Fuse() {
 		fixWire.FixSelfIntersectionMode() = 1;
 		fixWire.FixLackingMode() = 1;
 		fixWire.Perform();
-  
+	
 		if (!fixWire.Wire().IsNull())
 		  w = fixWire.Wire();
-  
+	
+		// Reorient the final wire here using our multi-edge location check
+		// w = ForceWireOrientationToLocation(w, yourTargetLocation);
+	
 		// Convert to face if the wire is closed
-		if (BRep_Tool::IsClosed(w)) {
+		// Note: BRep_Tool::IsClosed(w) tests topological flags. 
+		// If it fails, check if the start and end vertices are geometrically identical.
+		if (BRep_Tool::IsClosed(w) || w.Closed()) {
 		  BRepBuilderAPI_MakeFace mkFace(w, Standard_True); // only plane, force planar
 		  if (mkFace.IsDone() && !mkFace.Face().IsNull()) {
 			fused = mkFace.Face();
@@ -19274,9 +19365,12 @@ void Fuse() {
 		} else {
 		  fused = w; // open wire → keep as wire
 		}
+	  } else {
+		// Fallback if connection returned nothing
+		fused = fuseOp.Shape();
 	  }
-	  // else leave the original fuse compound
 	}
+	
   
 	// Finalize: Clear compound and set the fused result
 	current_part->cshape = TopoDS_Compound();
@@ -20392,12 +20486,14 @@ void luainit() {
 //                    sol::protect([&](luadraw *original, float offset) {
 //                      Mirror(original, offset, 0, 0, 1);
 //                    }));
+	lua.set_function("Mirror",
+				 [&](float offset,int keep_original=0) { Mirror(0,(bool)keep_original); });
   lua.set_function("Mirrorlx",
-                   [&](float offset,int keep_original=0) { Mirror(0, offset, 1, 0, 0,keep_original); });
+                   [&](float offset,int keep_original=0) { Mirrorl(0, offset, 1, 0, 0,keep_original); });
   lua.set_function("Mirrorly",
-                   [&](float offset,int keep_original=0) { Mirror(0, offset, 0, 1, 0,keep_original); });
+                   [&](float offset,int keep_original=0) { Mirrorl(0, offset, 0, 1, 0,keep_original); });
   lua.set_function("Mirrorlz",
-                   [&](float offset,int keep_original=0) { Mirror(0, offset, 0, 0, 1,keep_original); });
+                   [&](float offset,int keep_original=0) { Mirrorl(0, offset, 0, 0, 1,keep_original); });
   // lua.set_function("Invert", &Invert);
 //   lua.set_function("Invertx",
 //                    sol::protect([&](luadraw *original, float offset) {

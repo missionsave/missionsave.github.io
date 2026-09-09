@@ -1,18 +1,78 @@
 radious=(3670)/2
 length=11000
+xmid=2438/2
 
+
+Part "cabine"
+Rec(2438,2591)
+Extrude(-length)
+
+Part "cascopl" 
+Pl "0,-300 @0,300+450 @-500,1000 @500,2591-1480 @xmid,200;r2900 " 
+--Mloc(xmid,0)
+--Mirror(0,1)
+--Mloc()
+--Pl "0,-300 2438,-300"
+--Fuse() 
+--Extrude(length)
+
+Part "cascovolum"
+Clone(cascopl) 
+--Offset(90)
+Mloc(xmid,0)
+Mirror(0,1)
+Mloc()
+Pl "0,-300 2438,-300"
+Fuse() 
+Extrude(-length)
+
+Part "btops"
+Clone(cascopl)  
+Pl "xmid,2591+200 0,-300"
+Fuse() 
+Extrude(-100)
+
+
+Part "casco"
+Clone(cascopl)
+Offset(-100)
+Extrude(-length)
+Clone(btops)
+Fuse()
+--Mloc(0,800)
+--Movel(-100,-00)
+
+Mloc(-50-00,700)
+--Mloc(200-50,-50)
+Circle(100/2)
+Extrude(-length)
+Fuse()
+--Pl "0,0 @0,2591-550"
+--Dup()
+Rotatelz(90)
+
+
+
+
+Part "casco_right"
+Clone(casco)
+Mloc(xmid,0,0,0)
+Mirror()
+
+
+--do return end
  --Part "test"
  --Rec(100)
  --Offset(10)
 -- Extrude(100)
 
 Part "test"
-Mloc(900,0,0)
+--Mloc(900,0,0)
 Pl "0,0 -100,0 @50,50 @-50,50;r-50 @0,200 @100,0 "
 --Rotatelx(-90)
-Pl "0,300 0,100"
-Pl "0,0 0,100"
-Fuse()
+--Pl "0,300 0,100"
+--Pl "0,0 0,100"
+--Fuse()
 Mirrorlx(100,1)
 Fuse()
 
@@ -27,12 +87,12 @@ Fuse()
 ----Subtract()
 ----Fuse()
 ----Join()
-Offset(-6)
+--Offset(-6)
 Extrude(100)
 ----Fuse()
-Rec(50)
+--Rec(50)
 ----  error()
-do return end
+--do return end
 
 Part "test"
 --Mloc(150,0,0,0,-45)
@@ -45,9 +105,9 @@ Rotatelx(-90)
 
 --Clone(test)
 --Offset(2)
-Extrude(9)
+--Extrude(9)
 --Fuse()
-do return end
+--do return end
 
 Part "ctest"
 Mloc(-110,-20)
@@ -97,7 +157,7 @@ Movel(0,-310)
 
 Part "circle"
 Circle(radious)
-Extrude(length)
+Extrude(-length)
 --Circle (50)
 --Movel(50,0)
 --Mloc(1219,1295.5,0)
@@ -106,11 +166,8 @@ Extrude(length)
 
 Part "latlastro"
 Pl "-100,90 -100,2591;rradious -100,90"
-Extrude(length)
-
-Part "cabine"
-Rec(2438,2591)
 Extrude(-length)
+
 
 Part "clat"
 Clone(casco)
