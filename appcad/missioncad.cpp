@@ -5896,7 +5896,7 @@ static TopoDS_Edge MakeFullCircleOffset(
 // CLOSED OFFSET WIRE
 // ------------------------------------------------------------
 
-TopoDS_Wire MakeClosedOffsetWire(
+TopoDS_Wire MakeClosedOffsetWire11(
     const TopoDS_Wire& spineWire,
     double dist)
 {
@@ -6432,13 +6432,538 @@ TopoDS_Wire MakeClosedOffsetWire(
 
     return result;
 }
+TopoDS_Wire MakeClosedOffsetWire(
+    const TopoDS_Wire& spineWire,
+    double dist)
+{
+    if (spineWire.IsNull())
+        return TopoDS_Wire();
 
+	const TopLoc_Location& loc=current_part->shape.Location();
+
+    gp_Trsf toXY = loc.Transformation().Inverted();
+    BRepBuilderAPI_Transform xformToXY(spineWire, toXY);
+    TopoDS_Wire flatSpineWire = TopoDS::Wire(xformToXY.Shape());
+
+    std::vector<TopoDS_Edge> spineEdges;
+    std::vector<OffsetSegment> segs;
+
+    // --------------------------------------------------------
+    // Extract segments
+    // --------------------------------------------------------
+
+    for (BRepTools_WireExplorer exp(flatSpineWire);
+         exp.More();
+         exp.Next())
+    {
+        TopoDS_Edge edge =
+            exp.Current();
+
+        if (edge.IsNull() ||
+            BRep_Tool::Degenerated(edge))
+            continue;
+
+        Standard_Real f = 0.0;
+        Standard_Real l = 0.0;
+
+        Handle(Geom_Curve) c3d =
+            BRep_Tool::Curve(
+                edge,
+                f,
+                l
+            );
+
+        if (c3d.IsNull()) {
+
+            Handle(Geom2d_Curve) c2d;
+            Handle(Geom_Surface) surf;
+            TopLoc_Location edgeLoc;
+
+            BRep_Tool::CurveOnSurface(
+                edge,
+                c2d,
+                surf,
+                edgeLoc,
+                f,
+                l
+            );
+
+            if (c2d.IsNull())
+                continue;
+        }
+
+        bool reversed =
+            edge.Orientation() ==
+            TopAbs_REVERSED;
+
+        double uStart =
+            reversed ? l : f;
+
+        double uEnd =
+            reversed ? f : l;
+
+        double uMid =
+            0.5 * (uStart + uEnd);
+
+        gp_Pnt2d pStart;
+        gp_Pnt2d pEnd;
+        gp_Pnt2d pMid;
+
+        gp_Vec2d dirStart;
+        gp_Vec2d dirEnd;
+        gp_Vec2d dirMid;
+
+        gp_Pnt pStart3d;
+        gp_Pnt pEnd3d;
+        gp_Pnt pMid3d;
+
+        if (!EvaluateEdgePointAndTangent(
+                edge,
+                uStart,
+                pStart,
+                dirStart,
+                pStart3d))
+            continue;
+
+        if (!EvaluateEdgePointAndTangent(
+                edge,
+                uEnd,
+                pEnd,
+                dirEnd,
+                pEnd3d))
+            continue;
+
+        if (!EvaluateEdgePointAndTangent(
+                edge,
+                uMid,
+                pMid,
+                dirMid,
+                pMid3d))
+            continue;
+
+        dirStart.Normalize();
+        dirEnd.Normalize();
+        dirMid.Normalize();
+
+        gp_Vec2d nStart(
+            -dirStart.Y(),
+             dirStart.X()
+        );
+
+        gp_Vec2d nEnd(
+            -dirEnd.Y(),
+             dirEnd.X()
+        );
+
+        gp_Vec2d nMid(
+            -dirMid.Y(),
+             dirMid.X()
+        );
+
+        nStart.Normalize();
+        nEnd.Normalize();
+        nMid.Normalize();
+
+        OffsetSegment seg;
+
+        seg.pStartOrig = pStart;
+        seg.pEndOrig = pEnd;
+
+        seg.dirStart = dirStart;
+        seg.dirEnd = dirEnd;
+
+        seg.normStart = nStart;
+        seg.normEnd = nEnd;
+
+        seg.lineP0 =
+            pStart.Translated(
+                nStart * dist
+            );
+
+        seg.lineDir =
+            dirStart;
+
+        // ----------------------------------------------------
+        // Circle?
+        // ----------------------------------------------------
+
+        gp_Pnt2d center;
+        double radius = 0.0;
+
+        if (DetectArcGeometry(
+                edge,
+                center,
+                radius))
+        {
+            seg.isArc = true;
+            seg.arcCenter = center;
+            seg.arcRadius = radius;
+
+            // ------------------------------------------------
+            // Detect traversal direction.
+            // ------------------------------------------------
+
+            gp_Vec2d radial =
+                pMid.XY() -
+                center.XY();
+
+            double cross =
+                radial.X() * dirMid.Y() -
+                radial.Y() * dirMid.X();
+
+            seg.isArcCCW =
+                cross > 0.0;
+
+            // ------------------------------------------------
+            // FULL CIRCLE
+            // ------------------------------------------------
+
+            seg.isFullCircle =
+                IsFullCircle(edge);
+
+            if (seg.isFullCircle) {
+
+                seg.arcRadiusOff =
+                    seg.isArcCCW
+                        ? radius - dist
+                        : radius + dist;
+
+                if (seg.arcRadiusOff <= 1e-9)
+                    return TopoDS_Wire();
+
+                spineEdges.push_back(edge);
+                segs.push_back(seg);
+
+                continue;
+            }
+
+            // ------------------------------------------------
+            // Normal circular ARC
+            // ------------------------------------------------
+
+            seg.arcRadiusOff =
+                seg.isArcCCW
+                    ? radius - dist
+                    : radius + dist;
+
+            if (seg.arcRadiusOff <= 1e-9)
+                return TopoDS_Wire();
+
+            seg.arcStartAngle =
+                std::atan2(
+                    pStart.Y() - center.Y(),
+                    pStart.X() - center.X()
+                );
+
+            seg.arcEndAngle =
+                std::atan2(
+                    pEnd.Y() - center.Y(),
+                    pEnd.X() - center.X()
+                );
+
+            double a1 =
+                seg.arcStartAngle;
+
+            double a2 =
+                seg.arcEndAngle;
+
+            if (seg.isArcCCW) {
+
+                while (a2 < a1)
+                    a2 += 2.0 * M_PI;
+
+            } else {
+
+                while (a2 > a1)
+                    a2 -= 2.0 * M_PI;
+            }
+
+            seg.arcSweep =
+                a2 - a1;
+
+            if (std::abs(seg.arcSweep) < 1e-10)
+                seg.arcSweep =
+                    seg.isArcCCW
+                        ? 2.0 * M_PI
+                        : -2.0 * M_PI;
+
+            double aMid =
+                a1 +
+                seg.arcSweep * 0.5;
+
+            seg.pMidOff =
+                gp_Pnt(
+                    center.X() +
+                        seg.arcRadiusOff *
+                        std::cos(aMid),
+
+                    center.Y() +
+                        seg.arcRadiusOff *
+                        std::sin(aMid),
+
+                    0.0
+                );
+        }
+        else {
+
+            seg.isArc = false;
+        }
+
+        spineEdges.push_back(edge);
+        segs.push_back(seg);
+    }
+
+    const size_t N =
+        segs.size();
+
+    if (N == 0)
+        return TopoDS_Wire();
+
+    // --------------------------------------------------------
+    // SPECIAL CASE:
+    // one plain circle
+    // --------------------------------------------------------
+
+    if (N == 1 &&
+        segs[0].isFullCircle)
+    {
+        TopoDS_Edge e =
+            MakeFullCircleOffset(
+                segs[0]
+            );
+
+        if (e.IsNull())
+            return TopoDS_Wire();
+
+        BRepBuilderAPI_MakeWire maker;
+
+        maker.Add(e);
+
+        if (!maker.IsDone())
+            return TopoDS_Wire();
+
+        TopoDS_Wire wire =
+            maker.Wire();
+
+        wire.Closed(Standard_True);
+
+        gp_Trsf toOriginal = loc.Transformation();
+        BRepBuilderAPI_Transform xformBack(wire, toOriginal);
+
+        return TopoDS::Wire(xformBack.Shape());
+    }
+
+    // --------------------------------------------------------
+    // Joint points
+    // --------------------------------------------------------
+
+    std::vector<gp_Pnt2d> offp(N);
+
+    for (size_t i = 0; i < N; ++i) {
+
+        size_t prev =
+            (i == 0)
+                ? N - 1
+                : i - 1;
+
+        if (segs[i].isFullCircle) {
+            offp[i] =
+                segs[i].pStartOrig;
+            continue;
+        }
+
+        if (segs[prev].isFullCircle) {
+            offp[i] =
+                segs[i].pStartOrig
+                    .Translated(
+                        segs[i].normStart * dist
+                    );
+            continue;
+        }
+
+        gp_Pnt2d ref =
+            ComputeMiterPoint(
+                segs[i].pStartOrig,
+                segs[prev].normEnd,
+                segs[i].normStart,
+                dist
+            );
+
+        offp[i] =
+            IntersectPrimitives(
+                segs[prev],
+                segs[i],
+                ref
+            );
+    }
+
+    // --------------------------------------------------------
+    // Build offset wire
+    // --------------------------------------------------------
+
+    BRepBuilderAPI_MakeWire maker;
+
+    for (size_t i = 0; i < N; ++i) {
+
+        size_t next =
+            (i + 1) % N;
+
+        TopoDS_Edge e;
+
+        if (segs[i].isFullCircle) {
+
+            e =
+                MakeFullCircleOffset(
+                    segs[i]
+                );
+        }
+        else if (segs[i].isArc) {
+
+            gp_Pnt2d a =
+                offp[i];
+
+            gp_Pnt2d b =
+                offp[next];
+
+            gp_Pnt2d c =
+                segs[i].arcCenter;
+
+            double a1 =
+                std::atan2(
+                    a.Y() - c.Y(),
+                    a.X() - c.X()
+                );
+
+            double a2 =
+                std::atan2(
+                    b.Y() - c.Y(),
+                    b.X() - c.X()
+                );
+
+            double sweep;
+
+            if (segs[i].isArcCCW) {
+
+                sweep = a2 - a1;
+
+                while (sweep < 0.0)
+                    sweep += 2.0 * M_PI;
+
+            } else {
+
+                sweep = a2 - a1;
+
+                while (sweep > 0.0)
+                    sweep -= 2.0 * M_PI;
+            }
+
+            if (std::abs(sweep) < 1e-10)
+                sweep =
+                    segs[i].isArcCCW
+                        ? 2.0 * M_PI
+                        : -2.0 * M_PI;
+
+            double am =
+                a1 + sweep * 0.5;
+
+            gp_Pnt pA(
+                c.X() +
+                    segs[i].arcRadiusOff *
+                    std::cos(a1),
+
+                c.Y() +
+                    segs[i].arcRadiusOff *
+                    std::sin(a1),
+
+                0.0
+            );
+
+            gp_Pnt pM(
+                c.X() +
+                    segs[i].arcRadiusOff *
+                    std::cos(am),
+
+                c.Y() +
+                    segs[i].arcRadiusOff *
+                    std::sin(am),
+
+                0.0
+            );
+
+            gp_Pnt pB(
+                c.X() +
+                    segs[i].arcRadiusOff *
+                    std::cos(a2),
+
+                c.Y() +
+                    segs[i].arcRadiusOff *
+                    std::sin(a2),
+
+                0.0
+            );
+
+            GC_MakeArcOfCircle arc(
+                pA,
+                pM,
+                pB
+            );
+
+            if (arc.IsDone())
+                e =
+                    BRepBuilderAPI_MakeEdge(
+                        arc.Value()
+                    );
+        }
+
+        if (e.IsNull()) {
+
+            gp_Pnt pA(
+                offp[i].X(),
+                offp[i].Y(),
+                0.0
+            );
+
+            gp_Pnt pB(
+                offp[next].X(),
+                offp[next].Y(),
+                0.0
+            );
+
+            if (pA.Distance(pB) > 1e-9) {
+
+                e =
+                    BRepBuilderAPI_MakeEdge(
+                        pA,
+                        pB
+                    );
+            }
+        }
+
+        if (e.IsNull())
+            return TopoDS_Wire();
+
+        maker.Add(e);
+    }
+
+    if (!maker.IsDone())
+        return TopoDS_Wire();
+
+    TopoDS_Wire result =
+        maker.Wire();
+
+    result.Closed(Standard_True);
+
+    gp_Trsf toOriginal = loc.Transformation();
+    BRepBuilderAPI_Transform xformBack(result, toOriginal);
+
+    return TopoDS::Wire(xformBack.Shape());
+}
 
 // ------------------------------------------------------------
 // RING FACE
 // ------------------------------------------------------------
 
-TopoDS_Face MakeOffsetRingFace(
+TopoDS_Face MakeOffsetRingFace11(
     const TopoDS_Wire& spineWire,
     double dist)
 {
@@ -6634,22 +7159,35 @@ TopoDS_Wire MakeOneSidedOffsetWire1(const std::vector<gp_Pnt2d> &vpoints,
 #include <vector>
 
 
+ 
+
+#include <gp_Trsf.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <TopLoc_Location.hxx>
+
 TopoDS_Wire MakeOneSidedOffsetWire(const TopoDS_Wire &spineWire, double dist) {
   if (spineWire.IsNull()) return TopoDS_Wire();
+
+  const TopLoc_Location loc=current_part->shape.Location();
+
+  // 1. Flatten the incoming wire to the global XY plane using the inverse location
+  gp_Trsf toXY = loc.Transformation().Inverted();
+  BRepBuilderAPI_Transform xformToXY(spineWire, toXY);
+  TopoDS_Wire flatSpineWire = TopoDS::Wire(xformToXY.Shape());
 
   std::vector<TopoDS_Edge> spineEdges;
   std::vector<OffsetSegment> segs;
 
-  // 1. Extract wire edges and evaluate segment geometry safely
-  for (BRepTools_WireExplorer exp(spineWire); exp.More(); exp.Next()) {
+  // 2. Extract wire edges and evaluate segment geometry safely on the flat plane
+  for (BRepTools_WireExplorer exp(flatSpineWire); exp.More(); exp.Next()) {
     TopoDS_Edge edge = exp.Current();
     if (edge.IsNull() || BRep_Tool::Degenerated(edge)) continue;
 
     Standard_Real f = 0.0, l = 0.0;
     Handle(Geom_Curve) c3d = BRep_Tool::Curve(edge, f, l);
     if (c3d.IsNull()) {
-      Handle(Geom2d_Curve) c2d; Handle(Geom_Surface) surf; TopLoc_Location loc;
-      BRep_Tool::CurveOnSurface(edge, c2d, surf, loc, f, l);
+      Handle(Geom2d_Curve) c2d; Handle(Geom_Surface) surf; TopLoc_Location edgeLoc;
+      BRep_Tool::CurveOnSurface(edge, c2d, surf, edgeLoc, f, l);
       if (c2d.IsNull()) continue;
     }
 
@@ -6699,7 +7237,7 @@ TopoDS_Wire MakeOneSidedOffsetWire(const TopoDS_Wire &spineWire, double dist) {
   const size_t N = segs.size();
   if (N == 0) return TopoDS_Wire();
 
-  // 2. Compute exact joint intersections
+  // 3. Compute exact joint intersections
   std::vector<gp_Pnt2d> offp(N + 1);
 
   // Start Cap
@@ -6730,7 +7268,7 @@ TopoDS_Wire MakeOneSidedOffsetWire(const TopoDS_Wire &spineWire, double dist) {
     offp[N] = IntersectPrimitives(lastSeg, endCapLine, lastSeg.pEndOrig.Translated(normEnd * dist));
   }
 
-  // 3. Generate offset edges (3-point arc construction preserves orientation)
+  // 4. Generate offset edges (3-point arc construction preserves orientation)
   std::vector<TopoDS_Edge> offsetEdges;
   for (size_t i = 0; i < N; ++i) {
     gp_Pnt pA(offp[i].X(), offp[i].Y(), 0.0);
@@ -6751,7 +7289,7 @@ TopoDS_Wire MakeOneSidedOffsetWire(const TopoDS_Wire &spineWire, double dist) {
     offsetEdges.push_back(eOff);
   }
 
-  // 4. Assemble closed ribbon wire
+  // 5. Assemble closed ribbon wire on the flat plane
   BRepBuilderAPI_MakeWire wireMaker;
 
   for (const auto &e : spineEdges) {
@@ -6772,10 +7310,92 @@ TopoDS_Wire MakeOneSidedOffsetWire(const TopoDS_Wire &spineWire, double dist) {
 
   if (!wireMaker.IsDone()) return TopoDS_Wire();
 
-  return wireMaker.Wire();
+  TopoDS_Wire flatRibbonWire = wireMaker.Wire();
+
+  // 6. Transform the completely generated ribbon BACK to the original 3D location
+  gp_Trsf toOriginal = loc.Transformation();
+  BRepBuilderAPI_Transform xformBack(flatRibbonWire, toOriginal);
+
+  return TopoDS::Wire(xformBack.Shape());
 }
 
+TopoDS_Face MakeOffsetRingFace(
+    const TopoDS_Wire& spineWire,
+    double dist)
+{
+    if (spineWire.IsNull())
+        return TopoDS_Face();
+		const TopLoc_Location& loc=current_part->shape.Location();
+    TopoDS_Wire offsetWire =
+	MakeClosedOffsetWire(
+		spineWire,
+		dist
+	);
 
+    if (offsetWire.IsNull())
+        return TopoDS_Face();
+
+    BRepBuilderAPI_MakeFace origMaker(
+        spineWire
+    );
+
+    BRepBuilderAPI_MakeFace offMaker(
+        offsetWire
+    );
+
+    if (!origMaker.IsDone() ||
+        !offMaker.IsDone())
+        return TopoDS_Face();
+
+    TopoDS_Face origFace =
+        origMaker.Face();
+
+    TopoDS_Face offFace =
+        offMaker.Face();
+
+    GProp_GProps gOrig;
+    GProp_GProps gOff;
+
+    BRepGProp::SurfaceProperties(
+        origFace,
+        gOrig
+    );
+
+    BRepGProp::SurfaceProperties(
+        offFace,
+        gOff
+    );
+
+    TopoDS_Wire outerWire;
+    TopoDS_Wire innerWire;
+
+    if (gOff.Mass() > gOrig.Mass()) {
+        outerWire = offsetWire;
+        innerWire = spineWire;
+    }
+    else {
+        outerWire = spineWire;
+        innerWire = offsetWire;
+    }
+
+    BRepBuilderAPI_MakeFace ringMaker(
+        outerWire
+    );
+
+    if (!ringMaker.IsDone())
+        return TopoDS_Face();
+
+    ringMaker.Add(
+        TopoDS::Wire(
+            innerWire.Reversed()
+        )
+    );
+
+    if (!ringMaker.IsDone())
+        return TopoDS_Face();
+
+    return ringMaker.Face();
+}
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
