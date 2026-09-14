@@ -5192,85 +5192,7 @@ static bool equal2d(const gp_Pnt2d &A, const gp_Pnt2d &B) {
 // Convert 2D->3D
 static gp_Pnt to3d(const gp_Pnt2d &P) { return gp_Pnt(P.X(), P.Y(), 0.0); }
 
-// Main: one function to build a ring‐shaped face offset by dist
-// pts: must form a closed loop (first==last) or will close
-// automatically dist: positive→expand outward; negative→shrink inward
-TopoDS_Face MakeOffsetRingFace1(const std::vector<gp_Pnt2d> &pts, double dist) {
-  // need at least 3 distinct points
-  if (pts.size() < 3)
-    return TopoDS_Face();
-
-  // 1) build original closed wire
-  BRepBuilderAPI_MakePolygon poly;
-  for (auto &p : pts)
-    poly.Add(to3d(p));
-  if (!equal2d(pts.front(), pts.back()))
-    poly.Close();
-  TopoDS_Wire origWire = poly.Wire();
-
-  // 2) extract 2D points (drop duplicate last if present)
-  std::vector<gp_Pnt2d> v = pts;
-  if (equal2d(v.front(), v.back()))
-    v.pop_back();
-  const size_t N = v.size();
-  if (N < 3)
-    return TopoDS_Face();
-
-  // 3) compute unit‐edge directions and left‐hand normals
-  std::vector<gp_Vec2d> dirs(N), norms(N);
-  for (size_t i = 0; i < N; ++i) {
-    auto &A = v[i];
-    auto &B = v[(i + 1) % N];
-    gp_Vec2d d(B.X() - A.X(), B.Y() - A.Y());
-    double len = d.Magnitude();
-    if (len < EPS)
-      return TopoDS_Face(); // degenerate
-    d /= len;
-    dirs[i] = d;
-    norms[i] = gp_Vec2d(-d.Y(), d.X()); // left‐hand normal
-  }
-
-  // 4) offset each vertex by signed dist along its two adjacent
-  // normals
-  //    (positive dist → inward for CCW; negative → outward)
-  std::vector<gp_Pnt2d> off(N);
-  for (size_t i = 0; i < N; ++i) {
-    size_t ip = (i + N - 1) % N; // prev edge
-    size_t in = i;               // next edge
-
-    gp_Pnt2d Pp = v[i].Translated(norms[ip] * dist);
-    gp_Pnt2d Pn = v[i].Translated(norms[in] * dist);
-    gp_Pnt2d X;
-    if (intersectLines(Pp, dirs[ip], Pn, dirs[in], X))
-      off[i] = X;
-    else
-      off[i] = Pn; // fallback on parallel
-  }
-
-  // 5) build the offset wire
-  BRepBuilderAPI_MakeWire mkOff;
-  for (size_t i = 0; i < N; ++i) {
-    mkOff.Add(BRepBuilderAPI_MakeEdge(to3d(off[i]), to3d(off[(i + 1) % N])));
-  }
-  TopoDS_Wire offsetWire = mkOff.Wire();
-
-  // 6) assign outer vs. hole based on sign of dist
-  TopoDS_Wire outerLoop, holeLoop;
-  if (dist < 0) {
-    // negative dist → outward offset is the outer boundary
-    outerLoop = offsetWire;
-    holeLoop = TopoDS::Wire(origWire.Reversed());
-  } else {
-    // positive dist → inward offset is the hole
-    outerLoop = origWire;
-    holeLoop = TopoDS::Wire(offsetWire.Reversed());
-  }
-
-  // 7) build and return the ring‐shaped face
-  BRepBuilderAPI_MakeFace faceMaker(outerLoop);
-  faceMaker.Add(holeLoop);
-  return faceMaker.Face();
-}
+ 
 // Builds a ring-shaped face between the input closed TopoDS_Wire and an offset wire.
 // dist: positive -> inward offset (hole); negative -> outward offset (outer boundary)
 #include <BRepOffsetAPI_MakeOffset.hxx>
@@ -6961,182 +6883,9 @@ TopoDS_Wire MakeClosedOffsetWire(
     return TopoDS::Wire(xformBack.Shape());
 }
 
-// ------------------------------------------------------------
-// RING FACE
-// ------------------------------------------------------------
+ 
 
-TopoDS_Face MakeOffsetRingFace11(
-    const TopoDS_Wire& spineWire,
-    double dist)
-{
-    if (spineWire.IsNull())
-        return TopoDS_Face();
-
-    TopoDS_Wire offsetWire =
-        MakeClosedOffsetWire(
-            spineWire,
-            dist
-        );
-
-    if (offsetWire.IsNull())
-        return TopoDS_Face();
-
-    BRepBuilderAPI_MakeFace origMaker(
-        spineWire
-    );
-
-    BRepBuilderAPI_MakeFace offMaker(
-        offsetWire
-    );
-
-    if (!origMaker.IsDone() ||
-        !offMaker.IsDone())
-        return TopoDS_Face();
-
-    TopoDS_Face origFace =
-        origMaker.Face();
-
-    TopoDS_Face offFace =
-        offMaker.Face();
-
-    GProp_GProps gOrig;
-    GProp_GProps gOff;
-
-    BRepGProp::SurfaceProperties(
-        origFace,
-        gOrig
-    );
-
-    BRepGProp::SurfaceProperties(
-        offFace,
-        gOff
-    );
-
-    TopoDS_Wire outerWire;
-    TopoDS_Wire innerWire;
-
-    if (gOff.Mass() > gOrig.Mass()) {
-        outerWire = offsetWire;
-        innerWire = spineWire;
-    }
-    else {
-        outerWire = spineWire;
-        innerWire = offsetWire;
-    }
-
-    BRepBuilderAPI_MakeFace ringMaker(
-        outerWire
-    );
-
-    if (!ringMaker.IsDone())
-        return TopoDS_Face();
-
-    ringMaker.Add(
-        TopoDS::Wire(
-            innerWire.Reversed()
-        )
-    );
-
-    if (!ringMaker.IsDone())
-        return TopoDS_Face();
-
-    return ringMaker.Face();
-}
-
-
-
-  // Builds a closed, one‐sided offset wire around the input polyline.
-
-  // vpoints: the “spine” as 2D points.
-// dist:    offset distance.
-// outward: true→offset on the left side of each segment..(negative
-// number does the same, so no need)
-TopoDS_Wire MakeOneSidedOffsetWire1(const std::vector<gp_Pnt2d> &vpoints,
-                                   double dist) {
-  // bool closed = ((vpoints[0].X() == vpoints.back().X()) &&
-  // 			   (vpoints[0].Y() == vpoints.back().Y()));
-  // cotm(closed);
-  // bool outward = dist>0?-1:1;
-  bool outward = 1;
-  const size_t N = vpoints.size();
-  if (N < 2)
-    return TopoDS_Wire();
-
-  // 1) Compute segment tangents and outward normals
-  std::vector<gp_Vec2d> dirs(N - 1), norms(N - 1);
-  for (size_t i = 0; i < N - 1; ++i) {
-    gp_Vec2d d(vpoints[i + 1].X() - vpoints[i].X(),
-               vpoints[i + 1].Y() - vpoints[i].Y());
-    d.Normalize();
-    dirs[i] = d;
-    // left‐normal = ( -dy, dx ); right‐normal = ( dy, -dx )
-    gp_Vec2d n(outward ? -d.Y() : d.Y(), outward ? d.X() : -d.X());
-    norms[i] = n;
-  }
-
-  // 2) Compute offset points at each vertex, trimmed with
-  // perpendicular caps
-  std::vector<gp_Pnt2d> offp(N);
-
-  // 2a) start cap: intersect offset‐line with a perpendicular at the
-  // start
-  {
-    gp_Pnt2d Poff = vpoints[0].Translated(norms[0] * dist);
-    IntersectLines(Poff, dirs[0], vpoints[0], norms[0], offp[0]);
-  }
-
-  // 2b) internal joints: intersect successive offset‐lines
-  for (size_t i = 1; i < N - 1; ++i) {
-    gp_Pnt2d P1 = vpoints[i].Translated(norms[i - 1] * dist);
-    gp_Pnt2d P2 = vpoints[i].Translated(norms[i] * dist);
-
-    if (!IntersectLines(P1, dirs[i - 1], P2, dirs[i], offp[i])) {
-      // fallback if parallel: just take the later
-      offp[i] = P2;
-    }
-  }
-
-  // 2c) end cap: intersect offset‐line with perpendicular at the end
-  {
-    gp_Pnt2d PendOff = vpoints[N - 1].Translated(norms[N - 2] * dist);
-    IntersectLines(PendOff, dirs[N - 2], vpoints[N - 1], norms[N - 2],
-                   offp[N - 1]);
-  }
-
-  // 3) Build the planar wire: original spine + end‐cap + offset side
-  // + start‐cap
-  BRepBuilderAPI_MakeWire wireMaker;
-
-  // 3a) original spine
-  for (size_t i = 0; i < N - 1; ++i) {
-    gp_Pnt A(vpoints[i].X(), vpoints[i].Y(), 0.0);
-    gp_Pnt B(vpoints[i + 1].X(), vpoints[i + 1].Y(), 0.0);
-    wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-  }
-
-  // 3b) cap at far end
-  {
-    gp_Pnt A(vpoints[N - 1].X(), vpoints[N - 1].Y(), 0.0);
-    gp_Pnt B(offp[N - 1].X(), offp[N - 1].Y(), 0.0);
-    wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-  }
-
-  // 3c) offset side (reverse direction)
-  for (size_t i = N - 1; i > 0; --i) {
-    gp_Pnt A(offp[i].X(), offp[i].Y(), 0.0);
-    gp_Pnt B(offp[i - 1].X(), offp[i - 1].Y(), 0.0);
-    wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-  }
-
-  // 3d) cap at start
-  {
-    gp_Pnt A(offp[0].X(), offp[0].Y(), 0.0);
-    gp_Pnt B(vpoints[0].X(), vpoints[0].Y(), 0.0);
-    wireMaker.Add(BRepBuilderAPI_MakeEdge(A, B));
-  }
-
-  return wireMaker.Wire();
-}
+ 
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepTools_WireExplorer.hxx>
@@ -7323,7 +7072,7 @@ TopoDS_Wire MakeOneSidedOffsetWire(const TopoDS_Wire &spineWire, double dist) {
 
 TopoDS_Face MakeOffsetRingFace(
     const TopoDS_Wire& spineWire,
-    double dist)
+    double dist, bool del_original)
 {
     if (spineWire.IsNull())
         return TopoDS_Face();
@@ -7333,6 +7082,27 @@ TopoDS_Face MakeOffsetRingFace(
 		spineWire,
 		dist
 	);
+
+	if(del_original){
+		BRepBuilderAPI_MakeFace ringMaker(
+			offsetWire
+		);
+
+		if (!ringMaker.IsDone())
+			return TopoDS_Face();
+
+		// ringMaker.Add(
+		//     TopoDS::Wire(
+		//         innerWire.Reversed()
+		//     )
+		// );
+
+		if (!ringMaker.IsDone())
+			return TopoDS_Face();
+
+		return ringMaker.Face();
+	}
+
 
     if (offsetWire.IsNull())
         return TopoDS_Face();
@@ -8334,6 +8104,7 @@ void gopart1(int currentline = -1, std::string str = "") {
 struct shelpv {
   string pname = "";
   string point = "";
+  string pointr = "";
   string error = "";
   string edge = "";
   string mass = "";
@@ -8345,14 +8116,17 @@ struct shelpv {
 <html>
 <body marginwidth=0 marginheight=0 topmargin=0 leftmargin=0><font face=Arial > 
 <b> 
-$pname<br> $point $edge <br>$mass
+$pname<br> $point $edge 
+<font color="Blue"> $pointr</font>
+<br>$mass
 <br><font color="Red">$error</font>
 <br><font color="Bue">$gentime</font>
 </font>
 </body>
 </html>
 )";
-    replace_All(html, "$point", point);
+	replace_All(html, "$pointr", point);
+	replace_All(html, "$point", point);
     replace_All(html, "$pname",
                 pname.empty()
                     ? ""
@@ -13646,7 +13420,7 @@ void Pl(const std::string &coords) {
     inteligentset();
 }
 
-void Offset(double distance) {
+void Offset(double distance,bool del_original=0) {
 	if(current_part->shape.IsNull())return;
 	// TopAbs_ShapeEnum st = current_part->shape.ShapeType();
 	// // bool hasShape =
@@ -13720,7 +13494,7 @@ cotm(edgeCount)
 	// }
 
     // f = TopoDS::Face(MakeOffsetRingFace(BRepTools::OuterWire(TopoDS::Face(face)), distance)); // well righ
-    f = TopoDS::Face(MakeOffsetRingFace(wire, distance)); // well righ
+    f = TopoDS::Face(MakeOffsetRingFace(wire, distance,del_original)); // well righ
 	// f = BRepBuilderAPI_MakeFace(wOff);
     // f = TopoDS::Face(MakeOffsetRingFace(ppoints, -distance)); // well righ
   } else 
@@ -20506,8 +20280,10 @@ void luainit() {
     Rec(arg(float,1,0),arg(float,2,0));
 	}));
 //   lua.set_function("Rec", sol::protect(&Rec));
-  lua.set_function("Extrude", sol::protect(&Extrude));
-  lua.set_function("Offset",sol::protect(&Offset));
+  lua.set_function("Extrude", sol::protect(&Extrude));  
+  lua.set_function("Offset", sol::protect([&](sol::variadic_args va) {
+    Offset(arg(float,1,0),arg(bool,2,0));
+	}));
   lua.set_function("Clone", sol::protect(&Clone));
   lua.set_function("Dup", sol::protect(&Dup));
   lua.set_function("Arrayl", sol::protect([&](sol::variadic_args va) {

@@ -1,6 +1,10 @@
+
+submerged=0
+
 radious=(3670)/2
 length=11000
 xmid=2438/2
+ang_subm=90
 
 
 Part "cabine"
@@ -8,7 +12,9 @@ Rec(2438,2591)
 Extrude(-length)
 
 Part "cascopl" 
-Pl "0,-300 @0,300+450 @-500,1000 @500,2591-1480 @xmid,200;r2900 " 
+Pl "0,-300 @0,300+450 @-300,600 @300,2591-1480+430 @xmid,200;r2900 "
+--Pl "0,-300 @0,300+450 @-500,600 @500,2591-1480+430 @xmid,200;r2900 "
+--Pl "0,-300 @0,300+450 @-500,600 @40,2591-1480+430-100 xmid,2591+200;r2900 "  
 --Mloc(xmid,0)
 --Mirror(0,1)
 --Mloc()
@@ -18,12 +24,16 @@ Pl "0,-300 @0,300+450 @-500,1000 @500,2591-1480 @xmid,200;r2900 "
 
 Part "cascovolum"
 Clone(cascopl) 
---Offset(90)
 Mloc(xmid,0)
 Mirror(0,1)
 Mloc()
 Pl "0,-300 2438,-300"
 Fuse() 
+
+Offset(-100,1) 
+Rec(2438-100*2,500)
+Movel(100,-500)
+Subtract()
 Extrude(-length)
 
 Part "btops"
@@ -52,10 +62,28 @@ Extrude(-length)
 Fuse()
 --Pl "0,0 @0,2591-550"
 --Dup()
-Rotatelz(110)
+Rotatelz(ang_subm)
+
+--bank
+Mloc(-67.1*2,746.98-170,-10900)
+Rec(-600,-800)
+Rotatelx(-90)
+Extrude(30)
+Mloc(0,0,-length/2,0,90)
+Mirror(0,1) 
+
+--sketch
+Mloc()
+--Pl "-1844.06,100.22 -50,700"
+Pl "-50,700 -1800,0"
+Rotatelz(-80) 
 
 
-
+if submerged==1 then
+Join()
+Mloc(-50-00,700)
+Rotatelz(-ang_subm)
+end
 
 Part "casco_right"
 Clone(casco)
@@ -173,7 +201,10 @@ Extrude(-length)
 
 
 Part "clat"
-Clone(casco)
+Clone(cascopl)
+Pl "1219,2791 0,-300"
+Fuse()
+Extrude(-length)
 Part "clat"
 Mloc(1000,10)
 Rec(400)

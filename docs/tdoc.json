@@ -79,5 +79,13 @@
       "workerid": 1,
 	  "notinmenu": 1
     }
+  ],
+  "Solicitud_de_colaboracion": [
+    {
+      "url": "https://docs.google.com/document/d/e/2PACX-1vTwoU2WXoHLvmLV5r3ZuuLayG6k8SUPetKVBX6bxY6MbmQfglBH3PubUaOdS2_XIlTm90ht2B1QI7DR/pub?cache=1",
+      "origin": "https://docs.google.com/document/d/1WsduApCUR9MBYhR2WGWWifNbplNNvm9Iin-njFQpcfk/edit",
+      "workerid": 1,
+	  "notinmenu": 1
+    }
   ]
 }

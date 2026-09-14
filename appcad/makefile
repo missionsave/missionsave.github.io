@@ -16,7 +16,8 @@ ifneq ($(dbg),)
 	CXXFLAGS+= -g -O0 -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer
 	LDFLAGS+= -fsanitize=address,undefined
 else
-	CXXFLAGS+= -O0 -w  -DNDEBUG -march=native -mtune=native -Wfatal-errors
+	CXXFLAGS+= -O0 -w  -DNDEBUG -march=native -mtune=native -Wfatal-errors  -ffunction-sections -fdata-sections -Wl,--gc-sections  
+#-fno-rtti 
 # 	CXXFLAGS+= -O0 -w -Wfatal-errors -DNDEBUG -march=native -mtune=native 
 # 	CXXFLAGS+= -Os -w -Wfatal-errors -DNDEBUG 
 # 	-flto=auto  -O3 -march=native -mtune=native
