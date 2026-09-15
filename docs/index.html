@@ -78,7 +78,7 @@ function updates(){
 
 	
 	<script>
-	//region translate
+	// region translate
 	var lib;
  
 	function menut(lng) {
@@ -239,6 +239,21 @@ function loadTdocSync() {
 		
 		if (xhr.status === 200 || xhr.status === 0) {
 			tdoc = JSON.parse(xhr.responseText);
+			
+			// Extract the 'cache' parameter from the current page URL
+			const currentParams = new URLSearchParams(window.location.search);
+			const cacheVal = currentParams.get('cache');
+
+			// Append 'cache' parameter to every item's url if it exists
+			if (cacheVal) {
+			Object.values(tdoc).flat().forEach(item => {
+				if (item && item.url) {
+				const parsedUrl = new URL(item.url, window.location.origin);
+				parsedUrl.searchParams.set('cache', cacheVal);
+				item.url = parsedUrl.toString();
+				}
+			});
+			}
 			console.log('✅ tdoc carregado com sucesso (blocking)', tdoc);
 		} else {
 			console.error('❌ Erro ao carregar tdoc.js:', xhr.status);
