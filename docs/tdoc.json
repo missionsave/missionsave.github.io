@@ -87,5 +87,13 @@
       "workerid": 1,
 	  "notinmenu": 1
     }
+  ],
+  "Estudo_sobre_longevidade": [
+    {
+      "url": "https://docs.google.com/document/d/e/2PACX-1vR1YfjkyXjQds6SEPvRkayj5Nz7aJo9qKURl3DyR1WkgDTe3_NAwLlV8W-Ftgek7MMbokytq3ZJO1fI/pub",
+      "origin": "https://docs.google.com/document/d/1cVEX70GIuVdZ88umjzQzGtjXTUIXI2zTvm93xdNeEW0/edit",
+      "workerid": 1,
+	  "notinmenu": 1
+    }
   ]
 }
