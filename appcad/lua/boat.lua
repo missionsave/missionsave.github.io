@@ -1,24 +1,26 @@
 
-submerged=0
+submerged=1
 
 radious=(3670)/2
 length=11000
-xmid=2438/2
+height=2000
+width=1350+600+120
+xmid=width/2
 ang_subm=90
 
 
 Part "cabine"
-Rec(2438,2591)
+Rec(width,height)
 Extrude(-length)
 
 Part "cascopl" 
-Pl "0,-300 @0,300+450 @-300,600 @300,2591-1480+430 @xmid,200;r2900 "
---Pl "0,-300 @0,300+450 @-500,600 @500,2591-1480+430 @xmid,200;r2900 "
---Pl "0,-300 @0,300+450 @-500,600 @40,2591-1480+430-100 xmid,2591+200;r2900 "  
+Pl "0,-300 @0,300+450 @-300,600 @300,height-1480+430 @xmid,200;r2900 "
+--Pl "0,-300 @0,300+450 @-500,600 @500,height-1480+430 @xmid,200;r2900 "
+--Pl "0,-300 @0,300+450 @-500,600 @40,height-1480+430-100 xmid,height+200;r2900 "  
 --Mloc(xmid,0)
 --Mirror(0,1)
 --Mloc()
---Pl "0,-300 2438,-300"
+--Pl "0,-300 width,-300"
 --Fuse() 
 --Extrude(length)
 
@@ -27,18 +29,18 @@ Clone(cascopl)
 Mloc(xmid,0)
 Mirror(0,1)
 Mloc()
-Pl "0,-300 2438,-300"
+Pl "0,-300 width,-300"
 Fuse() 
 
 Offset(-100,1) 
-Rec(2438-100*2,500)
+Rec(width-100*2,500)
 Movel(100,-500)
 Subtract()
 Extrude(-length)
 
 Part "btops"
 Clone(cascopl)  
-Pl "xmid,2591+200 0,-300"
+Pl "xmid,height+200 0,-300"
 Fuse() 
 Extrude(-100)
 
@@ -60,7 +62,7 @@ Mloc(-50-00,700)
 Circle(100/2)
 Extrude(-length)
 Fuse()
---Pl "0,0 @0,2591-550"
+--Pl "0,0 @0,height-550"
 --Dup()
 Rotatelz(ang_subm)
 
@@ -149,7 +151,7 @@ Extrude(100)
 --Subtract()
 
 
-Part "casco"
+Part "casco1"
 --Circle(10)
 --Rec(10)
 --Offset(2)
@@ -159,10 +161,13 @@ Part "casco"
 
 --Pl "0,0 30,-40 @20,0 @-20,40 "
 --Circle(radious)
-Pl "-100,0 @0,400 @2438+200,0;ir-radious @0,-400"
+Pl "-100,0 @0,400 @width+200,0;ir-radious @0,-400"
 Offset(-100)
 Extrude(-length)
 Movel(0,-310)
+
+
+--Movel(600,600)
 
 --Part "tampa"
 --Mloc(1119,1471.59,0)
@@ -171,12 +176,12 @@ Movel(0,-310)
 --Fuse()
 
 --Mloc(0,400)
---Pl "0,0 -2438/2,radious;rradious"
+--Pl "0,0 -width/2,radious;rradious"
 
 
 --Circle(radious)
 --Subtract()
---Movel(2438/2,2591/2+300+200)
+--Movel(width/2,height/2+300+200)
  --Extrude(-length)
 --Pl "0,0 60,60"
 --Pl "0,0 @10,0.0;r-60 @0,70  "
@@ -196,7 +201,7 @@ Extrude(-length)
 --Rotatelz(88)
 
 Part "latlastro"
-Pl "-100,90 -100,2591;rradious -100,90"
+Pl "-100,90 -100,height;rradious -100,90"
 Extrude(-length)
 
 
@@ -210,6 +215,6 @@ Mloc(1000,10)
 Rec(400)
 Clone(casco)
 Mloc(0,0)
---Movel(-2438)
+--Movel(-width)
 --Movl()
 Rotatelz(88)

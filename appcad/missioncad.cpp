@@ -7956,6 +7956,7 @@ struct scint : public fl_scintilla {
     });
   }
   bool stepping=0;
+  int cursorpos=0;
   int handle(int e) override;
 };
 
@@ -7984,6 +7985,8 @@ int scint::handle(int e) {
     fl_scintilla::handle(e);
     // cotm("f2",filename)
     isdebuging = 0;
+	int currentPos = SendEditor(SCI_GETCURRENTPOS, 0, 0);
+    cursorpos = SendEditor(SCI_LINEFROMPOSITION, currentPos, 0);
     lua_str(filename, 1); /////
     return 1;
   }
@@ -8284,7 +8287,10 @@ void scaleball() {
 
   // perf2("scaling");
 }
-
+// Returns the relative location (transformation) to get from theRefLoc to theTargetLoc
+TopLoc_Location GetRelativeLocation(const TopLoc_Location& theRefLoc, const TopLoc_Location& theTargetLoc) {
+    return theRefLoc.Inverted() * theTargetLoc;
+}
 void highlightVertex(const TopoDS_Vertex &aVertex, luadraw *ldd = 0) {
   clearHighlight(ctx); // Clear any existing highlight first
 
@@ -9585,6 +9591,22 @@ vector<int> check_nearest_btn_idx() {
 }
 
 // region new
+TopLoc_Location tlp;
+void settrihedroncursor(){
+	// return;
+	// if(!tlp.IsIdentity())return;
+	lua_Debug ar; 
+	if (lua_getstack(L, 1, &ar)) {
+        lua_getinfo(L, "l", &ar);  
+		cotm(ar.currentline,editor->cursorpos+0); 
+		if(ar.currentline>editor->cursorpos+1)return;
+		tlp=current_part->shape.Location(); 
+		
+		// if(ar.currentline>=editor->cursorpos-0){ 
+		// 	tlp=current_part->shape.Location(); 
+		// }
+    }
+}
 void toggle_shaded_transp(bool dont_toggle = 0) {
   if (!dont_toggle)
     hlr_on = !hlr_on;
@@ -9598,8 +9620,10 @@ void toggle_shaded_transp(bool dont_toggle = 0) {
     } else {
       vlua[i]->ashape->SetDisplayMode(AIS_Shaded);
     }
+	// region lua
     if (i == vlua.size() - 1)
       inteligentSet(vlua[i]);
+
     ctx->Display(vlua[i]->ashape, 0);
   }
 
@@ -9615,8 +9639,8 @@ void toggle_shaded_transp(bool dont_toggle = 0) {
     help.upd();
     isloading = 0;
   }
-  DrawTrihedron(ctx, current_part->shape.Location(),
-                GetViewportAspectRatio()[0]);
+  DrawTrihedron(ctx, tlp, GetViewportAspectRatio()[0]);
+//   DrawTrihedron(ctx, current_part->shape.Location(), GetViewportAspectRatio()[0]);
 }
 
 // region browser
@@ -11574,6 +11598,7 @@ luadraw* Part(const std::string &_name){
   vlua.push_back(obj);
 
   current_part->current_location = TopLoc_Location();
+  settrihedroncursor();
   // current_part->Originl=Originl();
 
   obj->builder.MakeCompound(obj->cshape);
@@ -15314,6 +15339,7 @@ if(0){
 
   // 7. Your post‑merge logic
   inteligentset();
+  settrihedroncursor();
 }
 
 void Rotatel1(float angleDegrees = 0.0f, int x = 0, int y = 0,
@@ -20196,6 +20222,7 @@ void Mloc(sol::optional<float> _x,
   SetReferenceLocationInstant(s,TopLoc_Location(trsf));
 //   s.Location(current_part->shape.Location().Transformation());
   current_part->shape=s;
+  settrihedroncursor();
 }
 void Dup(){
 	if (!current_part)
@@ -20227,6 +20254,8 @@ void Arrayl(int qtty,float x,float y,float z){
     }
 	current_part->shape=newCompound;
 }
+
+
 
   template<typename T>
   T lua_arg(sol::variadic_args& va, int i, T def) {
@@ -20299,6 +20328,11 @@ void luainit() {
 	CcxStepParam=arg(string,1,"empty");
 	}));
   lua.set_function("Mloc", sol::protect(&Mloc));
+  
+//   lua.set_function("Mloc", sol::protect([&](sol::variadic_args va) {
+//     Mloc(arg(int,1,1), arg(float,2,0), arg(float,3,0), arg(float,4,0));
+// 	settrihedroncursor();
+// 	}));
 //   lua.set_function("Copy_placement", &Copy_placement);
   // lua.set_function("Mirror", &Mirror);
 //   lua.set_function("Mirrorx",
@@ -20346,6 +20380,9 @@ void luainit() {
   lua.set_function("Fuse", &Fuse);
   lua.set_function("Movel", sol::protect([&](sol::variadic_args va) {
     Movel(arg(float,1,0), arg(float,2,0), arg(float,3,0), 0);
+
+	settrihedroncursor();
+
 }));
 
 //   lua.set_function("Movel",
@@ -20492,6 +20529,8 @@ void lua_str(const string &str, bool isfile) {
     perf();
     luainit();
 
+	
+	tlp=TopLoc_Location();
     vlua.clear();
 	for (auto& [k, v] : umaterial) delete v;
 	umaterial.clear();
