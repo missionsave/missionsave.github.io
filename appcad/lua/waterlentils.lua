@@ -4,12 +4,12 @@ gftheight=200
 acrthickness=3
 qtracks=2
 
-debug=500
+base=500
 
 rbewidth=15
 
 Part "base1" 
-Rec(gfwidth,debug)
+Rec(gfwidth,base)
 --Rec(gfwidth,gfdepth) 
 Rotatelx(-90) 
 Extrude(acrthickness)
@@ -24,12 +24,8 @@ Extrude(gftheight*qtracks)
 
 
 Part "study_wall"
---Rec(10,2591)
---Rec(45,2100)
---Movel(-35,10)
-Rec(10)
-Extrude(10)
-Mloc(10,5,0,-90,-90)
+
+--Mloc(10,5,0,-90,-90)
 Pl "0,0 @5,0 @0,5"
 
 Part "help_hsp"

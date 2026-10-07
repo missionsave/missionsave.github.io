@@ -9598,10 +9598,10 @@ void settrihedroncursor(){
 	lua_Debug ar; 
 	if (lua_getstack(L, 1, &ar)) {
         lua_getinfo(L, "l", &ar);  
-		cotm(ar.currentline,editor->cursorpos+0); 
+		// cotm(ar.currentline,editor->cursorpos+0); 
 		if(ar.currentline>editor->cursorpos+1)return;
 		tlp=current_part->shape.Location(); 
-		
+		cotm("tlp",ar.currentline);
 		// if(ar.currentline>=editor->cursorpos-0){ 
 		// 	tlp=current_part->shape.Location(); 
 		// }
@@ -11548,7 +11548,60 @@ void Originl(float x = 0, float y = 0, float z = 0, float rx = 0, float ry = 0,
   current_part->Originl = TopLoc_Location(trsf);
 }
 void OriginlApply(luadraw *current_part) {}
+void createPlanet(){
+	if (current_part->shape.IsNull()) { 
+		TopoDS_Shape s;
+		// s=BRepBuilderAPI_MakeVertex(gp_Pnt(0,0,0));
+		BRep_Builder builder;
+		TopoDS_Compound comp;
+		builder.MakeCompound(comp);
+		inteligentmerge(comp);
+		// inteligentmerge(s);
+		// current_part->shape = comp;
+		// current_part->showPlanet=1;
+    }
+}
+void Mloc(sol::optional<float> _x,
+	sol::optional<float> _y,
+	sol::optional<float> _z,
+	sol::optional<float> _rx,
+	sol::optional<float> _ry,
+	sol::optional<float> _rz)
+{
+	float x  = _x.value_or(0.0f);
+	float y  = _y.value_or(0.0f);
+	float z  = _z.value_or(0.0f);
+	float rx = _rx.value_or(0.0f);
+	float ry = _ry.value_or(0.0f);
+	float rz = _rz.value_or(0.0f);
 
+	if (!current_part)
+	return;
+	if (current_part->shape.IsNull()) {
+	createPlanet();
+	
+	// return;
+	}
+	// cotm("Mloc",x);
+
+	const float dx = rx * M_PI / 180.0;
+	const float dy = ry * M_PI / 180.0;
+	const float dz = rz * M_PI / 180.0;
+
+	gp_Trsf Rx, Ry, Rz;
+
+	Rx.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DX()), dx);
+	Ry.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DY()), dy);
+	Rz.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DZ()), dz);
+
+	gp_Trsf trsf = Rz * Ry * Rx; // ZYX order (industry standard)
+	trsf.SetTranslationPart(gp_Vec(x, y, z));
+	TopoDS_Shape s=current_part->shape;
+	SetReferenceLocationInstant(s,TopLoc_Location(trsf));
+	//   s.Location(current_part->shape.Location().Transformation());
+	current_part->shape=s;
+	settrihedroncursor();
+}
 luadraw* Part(const std::string &_name){
   // perf2();
   if (vlua.size() > 0)
@@ -11598,10 +11651,10 @@ luadraw* Part(const std::string &_name){
   vlua.push_back(obj);
 
   current_part->current_location = TopLoc_Location();
-  settrihedroncursor();
   // current_part->Originl=Originl();
 
   obj->builder.MakeCompound(obj->cshape);
+  Mloc(0,0,0,0,0,0);
 
   return obj;
 }
@@ -15067,19 +15120,7 @@ SetReferenceLocationInstant(current_part->shape, savedLoc);
 }
 
 
-void createPlanet(){
-	if (current_part->shape.IsNull()) { 
-		TopoDS_Shape s;
-		// s=BRepBuilderAPI_MakeVertex(gp_Pnt(0,0,0));
-		BRep_Builder builder;
-		TopoDS_Compound comp;
-		builder.MakeCompound(comp);
-		inteligentmerge(comp);
-		// inteligentmerge(s);
-		// current_part->shape = comp;
-		// current_part->showPlanet=1;
-    }
-}
+
 void Movel(float x = 0, float y = 0, float z = 0, int inworld = 0) {
   if (!current_part) {
     lua_error_with_where("No current part.");
@@ -20183,47 +20224,7 @@ void Fusealmost2() {
   inteligentmerge(fused);
 }
 
-void Mloc(sol::optional<float> _x,
-          sol::optional<float> _y,
-          sol::optional<float> _z,
-          sol::optional<float> _rx,
-          sol::optional<float> _ry,
-          sol::optional<float> _rz)
-{
-    float x  = _x.value_or(0.0f);
-    float y  = _y.value_or(0.0f);
-    float z  = _z.value_or(0.0f);
-    float rx = _rx.value_or(0.0f);
-    float ry = _ry.value_or(0.0f);
-    float rz = _rz.value_or(0.0f);
 
-	  if (!current_part)
-    return;
-	if (current_part->shape.IsNull()) {
-		createPlanet();
-		
-		// return;
-	  }
-	  cotm("Mloc",x);
-
-  const float dx = rx * M_PI / 180.0;
-  const float dy = ry * M_PI / 180.0;
-  const float dz = rz * M_PI / 180.0;
-
-  gp_Trsf Rx, Ry, Rz;
-
-  Rx.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DX()), dx);
-  Ry.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DY()), dy);
-  Rz.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DZ()), dz);
-
-  gp_Trsf trsf = Rz * Ry * Rx; // ZYX order (industry standard)
-  trsf.SetTranslationPart(gp_Vec(x, y, z));
-	TopoDS_Shape s=current_part->shape;
-  SetReferenceLocationInstant(s,TopLoc_Location(trsf));
-//   s.Location(current_part->shape.Location().Transformation());
-  current_part->shape=s;
-  settrihedroncursor();
-}
 void Dup(){
 	if (!current_part)
 	luaL_error(lua.lua_state(), "No current part.");
