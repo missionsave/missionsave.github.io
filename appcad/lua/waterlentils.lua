@@ -4,28 +4,50 @@ gftheight=200
 acrthickness=3
 qtracks=2
 
-base=500
+struct_width=20
 
-rbewidth=15
-
-Part "base1" 
-Rec(gfwidth,base)
---Rec(gfwidth,gfdepth) 
+Part "base1"  
+Rec(gfwidth,gfdepth) 
 Rotatelx(-90) 
 Extrude(acrthickness)
 Arrayl(qtracks,0,gftheight)
 
-Part "relevator"
-Mloc(gfwidth)
-Rec(rbewidth)
+Part "sketch_struct"
+Rec(struct_width)
 Offset(1.5)
 Rotatelx(-90)
+
+Part "struct_vertical" 
+Clone(sketch_struct)
 Extrude(gftheight*qtracks)
+Movel(gfwidth)
+Mloc(0,0,-gfdepth/2,0,-90)
+Mirror(0,1)
+Join()
+Mloc(gfwidth/2)
+Mirror(0,1)
 
+Part "struct_longitudinal" 
+Clone(sketch_struct)
+Extrude(gfdepth)
+Rotatelx(-90)
+Arrayl(qtracks,0,gftheight)
+Mloc(gfwidth/2)
+Mirror(0,1)
 
-Part "study_wall"
+Part "struct_transversal" 
+Clone(sketch_struct)
+Extrude(gfwidth)
+Rotatelz(-90)
+Mloc(0,0,-gfdepth/2,0,-90)
+Mirror(0,1)
+Dup()
+Movel(0,0,gfdepth/2)
+Join()
+Arrayl(qtracks,0,gftheight)
 
---Mloc(10,5,0,-90,-90)
+Part "help_wall"
+Mloc(10,5,0,-90,-90)
 Pl "0,0 @5,0 @0,5"
 
 Part "help_hsp"

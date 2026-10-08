@@ -20523,10 +20523,13 @@ lua_sethook(
 
 
 }
-nmutex lua_mtx("lua_mtx", 1);
+// region lua_str
+// nmutex lua_mtx("lua_mtx", 1);
+mutex lua_mtx;
 void lua_str(const string &str, bool isfile) {
   thread([str, isfile]() {
-    lua_mtx.lock();
+    Fl::lock();
+    // lua_mtx.lock();
     perf();
     luainit();
 
@@ -20549,13 +20552,17 @@ void lua_str(const string &str, bool isfile) {
       std::ifstream f(str, std::ios::binary);
       if (!f) {
         std::cerr << "Load error: cannot open " << str << std::endl;
-        lua_mtx.unlock();
+        Fl::unlock();
+        // lua_mtx.unlock();
+		Fl::awake();
         return;
       }
       std::string src((std::istreambuf_iterator<char>(f)), {});
 	  if(src.size()==0){
         std::cerr << "Load error: empty file " << str << std::endl;
-        lua_mtx.unlock();
+        Fl::unlock();
+        // lua_mtx.unlock();
+		Fl::awake();
 		return;
 	  };
       isdebuging = 1;
@@ -20594,7 +20601,9 @@ void lua_str(const string &str, bool isfile) {
       lua_pop(L, 1);
     }
     isdebuging = 0;
-    lua_mtx.unlock();
+    Fl::unlock();
+    // lua_mtx.unlock();
+	Fl::awake();
   }).detach();
 }
 // region test
