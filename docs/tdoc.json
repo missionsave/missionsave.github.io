@@ -30,8 +30,8 @@
   "Prototype": [
     {
 	  "title": "Greenhouse Shelf",      
-      "url": "http://127.0.0.1:8080/cad/index.html",
-      "url_": "https://missionsave.github.io/cad/index.html",
+      "urldbg": "http://127.0.0.1:8080/cad/index.html",
+      "url": "https://missionsave.github.io/cad/index.html",
       "workerid": 0
     },
     {

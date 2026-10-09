@@ -232,8 +232,8 @@ body.no-hover .dropdownc:hover .dropdown-content {
 let tdoc;  
 function loadTdocSync() {
 	const xhr = new XMLHttpRequest();
-	xhr.open('GET', 'tdoc.json', false);   // false = síncrono / blocking	
-	// xhr.open('GET', 'https://missionsave.github.io/tdoc.json', false);   // false = síncrono / blocking	
+	// xhr.open('GET', 'tdoc.json', false);   // false = síncrono / blocking	
+	xhr.open('GET', 'https://missionsave.github.io/tdoc.json', false);   // false = síncrono / blocking	
 	try {
 		xhr.send();
 		

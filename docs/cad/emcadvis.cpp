@@ -3,10 +3,10 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
-#include <string>
 
 #if defined(__EMSCRIPTEN__)
     #include <emscripten/emscripten.h>
+    #include <emscripten/html5.h>
 #endif
 
 // --- VARIÁVEIS GLOBAIS ---
@@ -23,6 +23,21 @@ Vector3 cameraTarget = { 0.0f, 0.0f, 0.0f };
 Vector3 modelPosition = { 0.0f, 0.0f, 0.0f };
 float modelScale = 1.0f;
 bool modelLoaded = false;
+
+// Acumulador de scroll para o evento do navegador
+static float g_webWheelDelta = 0.0f;
+
+#if defined(__EMSCRIPTEN__)
+// Callback nativo HTML5 para tratar a roda do mouse sem travamento no WASM
+EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, void *userData) {
+    if (wheelEvent->deltaY < 0) {
+        g_webWheelDelta += 1.0f;
+    } else if (wheelEvent->deltaY > 0) {
+        g_webWheelDelta -= 1.0f;
+    }
+    return EM_TRUE;
+}
+#endif
 
 // Shaders GLSL ES 100 para iluminação de estúdio 3D
 const char* vsSource = R"(
@@ -63,7 +78,7 @@ void main() {
 }
 )";
 
-// --- CARREGADOR BINÁRIO STL ---
+// --- LEITOR BINÁRIO STL COM RECALCULO DE NORMIAIS ---
 Model LoadSTLBinary(const char* filename) {
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) return { 0 };
@@ -129,6 +144,7 @@ Model LoadSTLBinary(const char* filename) {
     return m;
 }
 
+// Configura e centraliza o modelo na cena
 void SetupLoadedModel(const char* filepath) {
     if (modelLoaded) {
         UnloadModel(model);
@@ -162,8 +178,16 @@ void SetupLoadedModel(const char* filepath) {
     }
 }
 
-// --- CONTROLE DE CÂMERA ÓRBITA CAD SUAVE ---
-// --- CONTROLE DE CÂMERA ÓRBITA CAD (ZOOM SUAVE E CORRIGIDO PARA BROWSER) ---
+// Callbacks para o download assíncrono via HTTP
+void OnSTLLoaded(const char* filename) {
+    SetupLoadedModel(filename);
+}
+
+void OnSTLError(const char* filename) {
+    std::cout << "Erro ao carregar via HTTP: " << filename << std::endl;
+}
+
+// --- CONTROLE DE CÂMERA ÓRBITA CAD ---
 void UpdateOrbitCamera() {
     Vector2 currentMousePos = GetMousePosition();
     static Vector2 previousMousePos = currentMousePos;
@@ -174,23 +198,25 @@ void UpdateOrbitCamera() {
     };
     previousMousePos = currentMousePos;
 
-    // 1. Captura e normaliza o scroll da roda do mouse
-    float wheel = GetMouseWheelMove();
-    if (wheel != 0.0f) {
-        // Normaliza o valor do navegador (impede saltos bruscos de +100 / -100)
-        if (wheel > 1.0f) wheel = 1.0f;
-        if (wheel < -1.0f) wheel = -1.0f;
+    // Captura e zera o zoom imediatamente
+    float wheel = 0.0f;
 
-        // Fator de zoom suave (0.05 = 5% de variação por estalo do mouse)
-        float zoomFactor = 0.05f;
+#if defined(__EMSCRIPTEN__)
+    wheel = g_webWheelDelta;
+    g_webWheelDelta = 0.0f; // Zera para parar o zoom
+#else
+    wheel = GetMouseWheelMove();
+#endif
+
+    if (wheel != 0.0f) {
+        float zoomFactor = 0.08f;
         cameraDistance -= wheel * (cameraDistance * zoomFactor);
 
-        // Limites de distância da câmera
-        if (cameraDistance < 0.5f) cameraDistance = 0.5f;
+        if (cameraDistance < 1.0f) cameraDistance = 1.0f;
         if (cameraDistance > 500.0f) cameraDistance = 500.0f;
     }
 
-    // 2. Órbita (Botão Esquerdo)
+    // Órbita (Botão Esquerdo)
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         float sensitivity = 0.3f;
         cameraAngleX -= mouseDelta.x * sensitivity;
@@ -200,7 +226,7 @@ void UpdateOrbitCamera() {
         if (cameraAngleY < -89.0f) cameraAngleY = -89.0f;
     }
 
-    // 3. Pan / Mover (Botão Direito ou Meio)
+    // Pan / Mover (Botão Direito ou Meio)
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
         Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
         Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
@@ -211,7 +237,7 @@ void UpdateOrbitCamera() {
         cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, mouseDelta.y * panSpeed));
     }
 
-    // 4. Recalcula a posição da câmera
+    // Recalcula posição da Câmera
     float radX = cameraAngleX * DEG2RAD;
     float radY = cameraAngleY * DEG2RAD;
 
@@ -223,7 +249,7 @@ void UpdateOrbitCamera() {
 
 // --- RENDER LOOP ---
 void UpdateDrawFrame() {
-    // Permite arrastar novos arquivos STL se desejar
+    // Suporte para Drag & Drop de arquivos locais
     if (IsFileDropped()) {
         FilePathList droppedFiles = LoadDroppedFiles();
         if (droppedFiles.count > 0 && IsFileExtension(droppedFiles.paths[0], ".stl")) {
@@ -235,7 +261,7 @@ void UpdateDrawFrame() {
     UpdateOrbitCamera();
 
     BeginDrawing();
-        ClearBackground((Color){ 24, 26, 30, 255 }); // Fundo estúdio limpo
+        ClearBackground((Color){ 24, 26, 30, 255 }); // Fundo estúdio sem grid nem legendas
 
         BeginMode3D(camera);
             if (modelLoaded) {
@@ -243,28 +269,6 @@ void UpdateDrawFrame() {
             }
         EndMode3D();
     EndDrawing();
-}
-
-#include "raylib.h"
-#include "raymath.h"
-#include <iostream>
-#include <fstream>
-#include <cstdint>
-
-#if defined(__EMSCRIPTEN__)
-    #include <emscripten/emscripten.h>
-#endif
-
-// ... [Manter variáveis globais, LoadSTLBinary e SetupLoadedModel iguais] ...
-
-// Callback executado quando o download do test.stl via HTTP terminar
-void OnSTLLoaded(const char* filename) {
-    std::cout << "SUCCESS: " << filename << " baixado via HTTP!" << std::endl;
-    SetupLoadedModel(filename);
-}
-
-void OnSTLError(const char* filename) {
-    std::cout << "ERRO: Nao foi possivel baixar " << filename << " do servidor HTTP." << std::endl;
 }
 
 int main() {
@@ -277,7 +281,10 @@ int main() {
     customShader = LoadShaderFromMemory(vsSource, fsSource);
 
 #if defined(__EMSCRIPTEN__)
-    // Solicita o download assíncrono do test.stl direto do seu servidor local (npx http-server)
+    // Registra evento do scroll no canvas
+    emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, WebWheelCallback);
+    
+    // Baixa dinamicamente o test.stl via HTTP
     emscripten_async_wget("https://missionsave.github.io/cad/test.stl", "test.stl", OnSTLLoaded, OnSTLError);
     
     emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
