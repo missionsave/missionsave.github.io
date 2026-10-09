@@ -29,6 +29,13 @@
   ],
   "Prototype": [
     {
+	  "title": "greenhouse shelf",      
+      "urldbg": "http://127.0.0.1:8080/cad/index.html",
+      "url": "https://missionsave.github.io/cad/index.html",
+      "workerid": 0
+    },
+    {
+	  "title": "Multi vegetables",
       "url": "https://docs.google.com/document/d/e/2PACX-1vQOqJ5d41ktREyYnub2n1WIB7R3nzxDtJf6Ag7zZUssoYAuul8g9TWnHon2wTd4YsMYYQzHnMAyrxut/pub",
       "origin": "https://docs.google.com/document/d/15IL0OSNn8sEmfP55lfz3pgfw_q67K56gZB6xqovsJRw/edit?tab=t.0",
       "workerid": 1

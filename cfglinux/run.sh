@@ -31,6 +31,22 @@ dirsize(){
 }
 
 
+install_em(){
+	# Clonar o repositório do Emscripten
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+
+# Instalar e ativar a versão mais recente
+./emsdk install latest
+./emsdk activate latest
+
+
+}
+
+cfg_em(){
+# Configurar as variáveis de ambiente no terminal atual
+source /home/super/msv/emsdk/emsdk_env.sh
+}
 
 
 

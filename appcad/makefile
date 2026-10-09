@@ -170,6 +170,7 @@ ifeq ($(OS_NAME), Linux)
   -lTKXCAF \
   -lTKCAF \
   -lTKCDF \
+  -lTKDESTL \
   -lTKOffset \
   -lTKBO \
   -lTKBool \
