@@ -163,6 +163,7 @@ void SetupLoadedModel(const char* filepath) {
 }
 
 // --- CONTROLE DE CÂMERA ÓRBITA CAD SUAVE ---
+// --- CONTROLE DE CÂMERA ÓRBITA CAD (ZOOM SUAVE E CORRIGIDO PARA BROWSER) ---
 void UpdateOrbitCamera() {
     Vector2 currentMousePos = GetMousePosition();
     static Vector2 previousMousePos = currentMousePos;
@@ -173,15 +174,23 @@ void UpdateOrbitCamera() {
     };
     previousMousePos = currentMousePos;
 
-    // Zoom com scroll
+    // 1. Captura e normaliza o scroll da roda do mouse
     float wheel = GetMouseWheelMove();
-    if (wheel != 0) {
-        cameraDistance -= wheel * (cameraDistance * 0.1f);
-        if (cameraDistance < 1.0f) cameraDistance = 1.0f;
+    if (wheel != 0.0f) {
+        // Normaliza o valor do navegador (impede saltos bruscos de +100 / -100)
+        if (wheel > 1.0f) wheel = 1.0f;
+        if (wheel < -1.0f) wheel = -1.0f;
+
+        // Fator de zoom suave (0.05 = 5% de variação por estalo do mouse)
+        float zoomFactor = 0.05f;
+        cameraDistance -= wheel * (cameraDistance * zoomFactor);
+
+        // Limites de distância da câmera
+        if (cameraDistance < 0.5f) cameraDistance = 0.5f;
         if (cameraDistance > 500.0f) cameraDistance = 500.0f;
     }
 
-    // Órbita (Botão Esquerdo)
+    // 2. Órbita (Botão Esquerdo)
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         float sensitivity = 0.3f;
         cameraAngleX -= mouseDelta.x * sensitivity;
@@ -191,7 +200,7 @@ void UpdateOrbitCamera() {
         if (cameraAngleY < -89.0f) cameraAngleY = -89.0f;
     }
 
-    // Pan / Mover (Botão Direito ou Meio)
+    // 3. Pan / Mover (Botão Direito ou Meio)
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
         Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
         Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
@@ -202,6 +211,7 @@ void UpdateOrbitCamera() {
         cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, mouseDelta.y * panSpeed));
     }
 
+    // 4. Recalcula a posição da câmera
     float radX = cameraAngleX * DEG2RAD;
     float radY = cameraAngleY * DEG2RAD;
 
