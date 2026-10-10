@@ -335,6 +335,15 @@ void UpdateDrawFrame() {
         }
         UnloadDroppedFiles(droppedFiles);
     }
+    #if defined(__EMSCRIPTEN__)
+    bool ativa = EM_ASM_INT({
+        return g_tabVisible ? 1 : 0;
+    });
+    // std::cout<<"ativa "<<ativa<<"\n";
+        if (!ativa) {
+            return;
+        }
+    #endif
 
     UpdateOrbitCamera();
 
@@ -365,7 +374,7 @@ int main() {
     // Baixa dinamicamente o test.stl via HTTP
     emscripten_async_wget("https://superdb-api.superbem.workers.dev/epub?url=https://missionsave.github.io/cad/test.stl", "cad/test.stl", OnSTLLoaded, OnSTLError);
     
-    emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
+    emscripten_set_main_loop(UpdateDrawFrame, 23, 1);
 #else
     // if (FileExists("test.stl")) {
     //     SetupLoadedModel("test.stl");
