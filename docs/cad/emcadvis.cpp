@@ -363,7 +363,7 @@ int main() {
     emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, WebWheelCallback);
     
     // Baixa dinamicamente o test.stl via HTTP
-    emscripten_async_wget("cad/test.stl", "cad/test.stl", OnSTLLoaded, OnSTLError);
+    emscripten_async_wget("https://superdb-api.superbem.workers.dev/epub?url=https://missionsave.github.io/cad/test.stl", "cad/test.stl", OnSTLLoaded, OnSTLError);
     
     emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
 #else
