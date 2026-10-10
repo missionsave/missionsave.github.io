@@ -1,19 +1,9 @@
-// em++ emcadvis.cpp \
-//   -I/home/super/vcpkg/installed/wasm32-emscripten/include \
-//   /home/super/vcpkg/installed/wasm32-emscripten/lib/libraylib.a \
-//   -s USE_GLFW=3 \
-//   -O2 \
-//   -s EXPORTED_RUNTIME_METHODS="['ccall','cwrap','FS']" \
-//   -s EXPORTED_FUNCTIONS="['_main','_LoadSTLFromJS']" \
-//   -o app.js
-
 #include "raylib.h"
 #include "raymath.h"
 #include <iostream>
 #include <fstream>
 #include <cstdint>
 #include <string>
-#include <unistd.h>
 
 #if defined(__EMSCRIPTEN__)
     #include <emscripten/emscripten.h>
@@ -33,12 +23,15 @@ Vector3 cameraTarget = { 0.0f, 0.0f, 0.0f };
 Vector3 modelPosition = { 0.0f, 0.0f, 0.0f };
 float modelScale = 1.0f;
 bool modelLoaded = false;
-bool needsRedraw = true; // Poupa CPU ao redesenhar apenas quando há interação
+bool needsRedraw = true;
+
+void SetupLoadedModel(const char* filepath);
+// Temporizador para forçar redraw contínuo logo após o carregamento (em segundos)
+float forceRedrawTimer = 0.0f; 
 
 static float g_webWheelDelta = 0.0f;
 
 #if defined(__EMSCRIPTEN__)
-// Callback nativo HTML5 para tratar a roda do mouse sem travamento no WASM
 EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, void *userData) {
     if (wheelEvent->deltaY < 0) {
         g_webWheelDelta += 1.0f;
@@ -49,32 +42,14 @@ EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, 
     return EM_TRUE;
 }
 
-// Declaração antecipada para o compilador conhecer a função antes da ponte C
-void SetupLoadedModel(const char* filepath);
-void UpdateDrawFrame();
-
-// Ponte C para receber chamadas do JavaScript (HTML)
-// 1. Garanta que o callback HTTP também força o redesenho
-void OnSTLLoaded(const char* filename) {
-    SetupLoadedModel(filename);
-    usleep(100);
-    needsRedraw = true; // <-- Força o redesenho imediato após o download HTTP
-    UpdateDrawFrame();
-}
-
-void OnSTLError(const char* filename) {
-    std::cout << "Erro ao carregar via HTTP: " << filename << std::endl;
-}
-
-// 2. Garanta que a função chamada pelo JS também ativa o redraw
 extern "C" {
     EMSCRIPTEN_KEEPALIVE
     void LoadSTLFromJS(const char* filename) {
         std::cout << "Ficheiro solicitado via JavaScript: " << filename << std::endl;
         if (FileExists(filename)) {
             SetupLoadedModel(filename);
-            needsRedraw = true; // <-- Força o redesenho imediato após o JS gravar o ficheiro
-            UpdateDrawFrame();
+            needsRedraw = true;
+            forceRedrawTimer = 2.0f; // Força 2 segundos de renderização contínua para pintar o canvas
         } else {
             std::cout << "Erro: Ficheiro " << filename << " nao encontrado no VFS." << std::endl;
         }
@@ -218,17 +193,21 @@ void SetupLoadedModel(const char* filepath) {
         cameraTarget = (Vector3){ 0.0f, 0.0f, 0.0f };
         cameraDistance = 35.0f;
         needsRedraw = true;
+        forceRedrawTimer = 2.0f; // Ativa o temporizador pós-load
     }
 }
 
-// Wrapper para uso externo (assíncrono / JS)
-void SetupLoadedModel_External(const char* filepath) {
-    SetupLoadedModel(filepath);
+void OnSTLLoaded(const char* filename) {
+    SetupLoadedModel(filename);
+    needsRedraw = true;
+    forceRedrawTimer = 2.0f;
 }
 
- 
+void OnSTLError(const char* filename) {
+    std::cout << "Erro ao carregar via HTTP: " << filename << std::endl;
+}
 
-// --- CONTROLE DE CÂMERA ÓRBITA CAD (PC E MÓVEL OTIMIZADO) ---
+// --- CONTROLE DE CÂMERA ÓRBITA CAD ---
 bool UpdateOrbitCamera() {
     Vector2 currentMousePos = GetMousePosition();
     static Vector2 previousMousePos = currentMousePos;
@@ -259,12 +238,11 @@ bool UpdateOrbitCamera() {
 
     bool actionDetected = false;
 
-    // Se houver movimento de rato ou toque, sinaliza atividade
     if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isTouching) {
         actionDetected = true;
     }
 
-    // Gestos de 2 dedos (Telemóvel: Pinch Zoom + Pan)
+    // Gestos de 2 dedos
     if (touchCount >= 2) {
         Vector2 touch0 = GetTouchPosition(0);
         Vector2 touch1 = GetTouchPosition(1);
@@ -310,7 +288,7 @@ bool UpdateOrbitCamera() {
         previousTouchDist = 0.0f;
     }
 
-    // Zoom via roda do rato (Desktop)
+    // Zoom roda do rato
     float wheel = 0.0f;
 #if defined(__EMSCRIPTEN__)
     wheel = g_webWheelDelta;
@@ -328,7 +306,7 @@ bool UpdateOrbitCamera() {
         actionDetected = true;
     }
 
-    // Órbita / Rotação (Botão esquerdo ou 1 dedo)
+    // Órbita
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && touchCount <= 1) {
         if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f) {
             float sensitivity = 0.3f;
@@ -341,7 +319,7 @@ bool UpdateOrbitCamera() {
         }
     }
 
-    // Pan / Mover (Botão direito ou do meio)
+    // Pan
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
         if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f) {
             Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
@@ -355,7 +333,6 @@ bool UpdateOrbitCamera() {
         }
     }
 
-    // Atualiza a posição da câmara se houve alteração
     if (actionDetected) {
         float radX = cameraAngleX * DEG2RAD;
         float radY = cameraAngleY * DEG2RAD;
@@ -369,23 +346,28 @@ bool UpdateOrbitCamera() {
     return actionDetected;
 }
 
-// --- RENDER LOOP OTIMIZADO (POUPA CPU) ---
+// --- RENDER LOOP OTIMIZADO ---
 void UpdateDrawFrame() {
     if (IsFileDropped()) {
         FilePathList droppedFiles = LoadDroppedFiles();
         if (droppedFiles.count > 0 && IsFileExtension(droppedFiles.paths[0], ".stl")) {
             SetupLoadedModel(droppedFiles.paths[0]);
             needsRedraw = true;
+            forceRedrawTimer = 2.0f;
         }
         UnloadDroppedFiles(droppedFiles);
     }
 
-    // Atualiza a câmara e verifica se o utilizador está a interagir
     if (UpdateOrbitCamera()) {
         needsRedraw = true;
     }
 
-    // Redesenha apenas quando necessário (evita desperdício de CPU)
+    // Decrementa o temporizador de força de redesenho se estiver ativo
+    if (forceRedrawTimer > 0.0f) {
+        forceRedrawTimer -= GetFrameTime();
+        needsRedraw = true; // Força frames contínuos durante o período de aquecimento/load
+    }
+
     if (needsRedraw) {
         BeginDrawing();
             ClearBackground((Color){ 24, 26, 30, 255 });
@@ -397,7 +379,7 @@ void UpdateDrawFrame() {
             EndMode3D();
         EndDrawing();
         
-        needsRedraw = false; // Aguarda nova interação
+        needsRedraw = false;
     }
 }
 
@@ -414,7 +396,6 @@ int main() {
     emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, WebWheelCallback);
     emscripten_async_wget("test.stl", "test.stl", OnSTLLoaded, OnSTLError);
     
-    // Limita a 60 FPS no Emscripten para poupar ciclos de CPU
     emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
 #else
     if (FileExists("test.stl")) {
