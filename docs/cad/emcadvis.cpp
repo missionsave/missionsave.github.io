@@ -407,7 +407,7 @@ int main() {
 
 #if defined(__EMSCRIPTEN__)
     emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, WebWheelCallback);
-    emscripten_async_wget("test.stl", "test.stl", OnSTLLoaded, OnSTLError);
+    // emscripten_async_wget("test.stl", "test.stl", OnSTLLoaded, OnSTLError);
     
     // Limita a 60 FPS no Emscripten para poupar ciclos de CPU
     emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
