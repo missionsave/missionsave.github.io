@@ -52,12 +52,24 @@ EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, 
 void SetupLoadedModel(const char* filepath);
 
 // Ponte C para receber chamadas do JavaScript (HTML)
+// 1. Garanta que o callback HTTP também força o redesenho
+void OnSTLLoaded(const char* filename) {
+    SetupLoadedModel(filename);
+    needsRedraw = true; // <-- Força o redesenho imediato após o download HTTP
+}
+
+void OnSTLError(const char* filename) {
+    std::cout << "Erro ao carregar via HTTP: " << filename << std::endl;
+}
+
+// 2. Garanta que a função chamada pelo JS também ativa o redraw
 extern "C" {
     EMSCRIPTEN_KEEPALIVE
     void LoadSTLFromJS(const char* filename) {
         std::cout << "Ficheiro solicitado via JavaScript: " << filename << std::endl;
         if (FileExists(filename)) {
-            SetupLoadedModel(filename); // <-- Corrigido aqui (chamada direta)
+            SetupLoadedModel(filename);
+            needsRedraw = true; // <-- Força o redesenho imediato após o JS gravar o ficheiro
         } else {
             std::cout << "Erro: Ficheiro " << filename << " nao encontrado no VFS." << std::endl;
         }
@@ -209,13 +221,7 @@ void SetupLoadedModel_External(const char* filepath) {
     SetupLoadedModel(filepath);
 }
 
-void OnSTLLoaded(const char* filename) {
-    SetupLoadedModel(filename);
-}
-
-void OnSTLError(const char* filename) {
-    std::cout << "Erro ao carregar via HTTP: " << filename << std::endl;
-}
+ 
 
 // --- CONTROLE DE CÂMERA ÓRBITA CAD (PC E MÓVEL OTIMIZADO) ---
 bool UpdateOrbitCamera() {
