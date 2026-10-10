@@ -23,13 +23,9 @@ Vector3 cameraTarget = { 0.0f, 0.0f, 0.0f };
 Vector3 modelPosition = { 0.0f, 0.0f, 0.0f };
 float modelScale = 1.0f;
 bool modelLoaded = false;
-bool needsRedraw = true;
-
-void SetupLoadedModel(const char* filepath);
-// Temporizador para forçar redraw contínuo logo após o carregamento (em segundos)
-float forceRedrawTimer = 0.0f; 
 
 static float g_webWheelDelta = 0.0f;
+void SetupLoadedModel(const char* filepath);
 
 #if defined(__EMSCRIPTEN__)
 EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, void *userData) {
@@ -38,7 +34,6 @@ EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, 
     } else if (wheelEvent->deltaY > 0) {
         g_webWheelDelta -= 1.0f;
     }
-    needsRedraw = true;
     return EM_TRUE;
 }
 
@@ -48,8 +43,6 @@ extern "C" {
         std::cout << "Ficheiro solicitado via JavaScript: " << filename << std::endl;
         if (FileExists(filename)) {
             SetupLoadedModel(filename);
-            needsRedraw = true;
-            forceRedrawTimer = 2.0f; // Força 2 segundos de renderização contínua para pintar o canvas
         } else {
             std::cout << "Erro: Ficheiro " << filename << " nao encontrado no VFS." << std::endl;
         }
@@ -192,15 +185,11 @@ void SetupLoadedModel(const char* filepath) {
         modelPosition = (Vector3){ -center.x * modelScale, -center.y * modelScale, -center.z * modelScale };
         cameraTarget = (Vector3){ 0.0f, 0.0f, 0.0f };
         cameraDistance = 35.0f;
-        needsRedraw = true;
-        forceRedrawTimer = 2.0f; // Ativa o temporizador pós-load
     }
 }
 
 void OnSTLLoaded(const char* filename) {
     SetupLoadedModel(filename);
-    needsRedraw = true;
-    forceRedrawTimer = 2.0f;
 }
 
 void OnSTLError(const char* filename) {
@@ -208,7 +197,7 @@ void OnSTLError(const char* filename) {
 }
 
 // --- CONTROLE DE CÂMERA ÓRBITA CAD ---
-bool UpdateOrbitCamera() {
+void UpdateOrbitCamera() {
     Vector2 currentMousePos = GetMousePosition();
     static Vector2 previousMousePos = currentMousePos;
     static bool wasTouching = false;
@@ -236,13 +225,7 @@ bool UpdateOrbitCamera() {
     };
     previousMousePos = currentMousePos;
 
-    bool actionDetected = false;
-
-    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isTouching) {
-        actionDetected = true;
-    }
-
-    // Gestos de 2 dedos
+    // Gestos de 2 dedos (Pinch Zoom + Pan)
     if (touchCount >= 2) {
         Vector2 touch0 = GetTouchPosition(0);
         Vector2 touch1 = GetTouchPosition(1);
@@ -263,7 +246,6 @@ bool UpdateOrbitCamera() {
                 cameraDistance -= pinchDelta * (cameraDistance * zoomFactor);
                 if (cameraDistance < 1.0f) cameraDistance = 1.0f;
                 if (cameraDistance > 500.0f) cameraDistance = 500.0f;
-                actionDetected = true;
             }
 
             Vector2 midPointDelta = { 
@@ -280,7 +262,6 @@ bool UpdateOrbitCamera() {
                 float panSpeed = cameraDistance * 0.002f;
                 cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -midPointDelta.x * panSpeed));
                 cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, midPointDelta.y * panSpeed));
-                actionDetected = true;
             }
         }
     } else {
@@ -303,7 +284,6 @@ bool UpdateOrbitCamera() {
 
         if (cameraDistance < 1.0f) cameraDistance = 1.0f;
         if (cameraDistance > 500.0f) cameraDistance = 500.0f;
-        actionDetected = true;
     }
 
     // Órbita
@@ -315,7 +295,6 @@ bool UpdateOrbitCamera() {
 
             if (cameraAngleY > 89.0f) cameraAngleY = 89.0f;
             if (cameraAngleY < -89.0f) cameraAngleY = -89.0f;
-            actionDetected = true;
         }
     }
 
@@ -329,58 +308,39 @@ bool UpdateOrbitCamera() {
             float panSpeed = cameraDistance * 0.0015f;
             cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -mouseDelta.x * panSpeed));
             cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, mouseDelta.y * panSpeed));
-            actionDetected = true;
         }
     }
 
-    if (actionDetected) {
-        float radX = cameraAngleX * DEG2RAD;
-        float radY = cameraAngleY * DEG2RAD;
+    float radX = cameraAngleX * DEG2RAD;
+    float radY = cameraAngleY * DEG2RAD;
 
-        camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
-        camera.position.y = cameraTarget.y + cameraDistance * sinf(radY);
-        camera.position.z = cameraTarget.z + cameraDistance * cosf(radY) * cosf(radX);
-        camera.target = cameraTarget;
-    }
-
-    return actionDetected;
+    camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
+    camera.position.y = cameraTarget.y + cameraDistance * sinf(radY);
+    camera.position.z = cameraTarget.z + cameraDistance * cosf(radY) * cosf(radX);
+    camera.target = cameraTarget;
 }
 
-// --- RENDER LOOP OTIMIZADO ---
+// --- RENDER LOOP NORMAL E ESTÁVEL ---
 void UpdateDrawFrame() {
     if (IsFileDropped()) {
         FilePathList droppedFiles = LoadDroppedFiles();
         if (droppedFiles.count > 0 && IsFileExtension(droppedFiles.paths[0], ".stl")) {
             SetupLoadedModel(droppedFiles.paths[0]);
-            needsRedraw = true;
-            forceRedrawTimer = 2.0f;
         }
         UnloadDroppedFiles(droppedFiles);
     }
 
-    if (UpdateOrbitCamera()) {
-        needsRedraw = true;
-    }
+    UpdateOrbitCamera();
 
-    // Decrementa o temporizador de força de redesenho se estiver ativo
-    if (forceRedrawTimer > 0.0f) {
-        forceRedrawTimer -= GetFrameTime();
-        needsRedraw = true; // Força frames contínuos durante o período de aquecimento/load
-    }
+    BeginDrawing();
+        ClearBackground((Color){ 24, 26, 30, 255 });
 
-    if (needsRedraw) {
-        BeginDrawing();
-            ClearBackground((Color){ 24, 26, 30, 255 });
-
-            BeginMode3D(camera);
-                if (modelLoaded) {
-                    DrawModel(model, modelPosition, modelScale, (Color){ 80, 160, 230, 255 });
-                }
-            EndMode3D();
-        EndDrawing();
-        
-        needsRedraw = false;
-    }
+        BeginMode3D(camera);
+            if (modelLoaded) {
+                DrawModel(model, modelPosition, modelScale, (Color){ 80, 160, 230, 255 });
+            }
+        EndMode3D();
+    EndDrawing();
 }
 
 int main() {
