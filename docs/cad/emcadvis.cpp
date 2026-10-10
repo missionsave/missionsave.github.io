@@ -1,3 +1,12 @@
+// em++ emcadvis.cpp \
+//   -I/home/super/vcpkg/installed/wasm32-emscripten/include \
+//   /home/super/vcpkg/installed/wasm32-emscripten/lib/libraylib.a \
+//   -s USE_GLFW=3 \
+//   -O2 \
+//   -s EXPORTED_RUNTIME_METHODS="['ccall','cwrap','FS']" \
+//   -s EXPORTED_FUNCTIONS="['_main','_LoadSTLFromJS']" \
+//   -o app.js
+
 #include "raylib.h"
 #include "raymath.h"
 #include <iostream>
