@@ -238,7 +238,7 @@ function loadTdocSync() {
 	const cacheVal = currentParams.get('cache');
 	console.log("cacheVal",cacheVal);
 
-	// xhr.open('GET', 'tdoc.json', false);   // false = síncrono / blocking	
+	// xhr.open('GET', 'tdoc.json?'+cacheVal, false);   // false = síncrono / blocking	
 	xhr.open('GET', 'https://missionsave.github.io/tdoc.json?'+cacheVal, false);   // false = síncrono / blocking	
 	try {
 		xhr.send();
