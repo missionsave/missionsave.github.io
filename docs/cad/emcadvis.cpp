@@ -187,12 +187,16 @@ void OnSTLError(const char* filename) {
     std::cout << "Erro ao carregar via HTTP: " << filename << std::endl;
 }
 
-// --- CONTROLE DE CÂMERA ÓRBITA CAD (TOUCH / MOBILE CORRIGIDO) ---
+// --- CONTROLE DE CÂMERA ÓRBITA CAD (ROBUSTO PARA PC E MÓVEL) ---
 void UpdateOrbitCamera() {
     Vector2 currentMousePos = GetMousePosition();
     static Vector2 previousMousePos = currentMousePos;
     static bool wasTouching = false;
+    
+    // Estados para controle de 2 dedos (Pan & Zoom no Telemóvel)
     static float previousTouchDist = 0.0f;
+    static Vector2 previousMidPoint = { 0.0f, 0.0f };
+    static bool wasTwoFingers = false;
 
     int touchCount = GetTouchPointCount();
     bool isTouching = IsMouseButtonDown(MOUSE_BUTTON_LEFT) || 
@@ -200,9 +204,11 @@ void UpdateOrbitCamera() {
                       IsMouseButtonDown(MOUSE_BUTTON_MIDDLE) ||
                       (touchCount > 0);
 
-    // 1. Zera o Delta de rotação/pan no primeiro frame do toque
+    // Reseta o delta se acabou de iniciar o toque
     if (isTouching && !wasTouching) {
         previousMousePos = currentMousePos;
+        previousTouchDist = 0.0f;
+        wasTwoFingers = false;
     }
     wasTouching = isTouching;
 
@@ -212,31 +218,53 @@ void UpdateOrbitCamera() {
     };
     previousMousePos = currentMousePos;
 
-    // 2. PINCH-TO-ZOOM COM DOIS DEDOS (MÓVEL)
+    // --- GESTOS DE 2 DEDOS (NO TELEMÓVEL: PINCH-TO-ZOOM + PAN COM 2 DEDOS) ---
     if (touchCount >= 2) {
         Vector2 touch0 = GetTouchPosition(0);
         Vector2 touch1 = GetTouchPosition(1);
-        float currentTouchDist = Vector2Distance(touch0, touch1);
 
-        // No primeiro frame em que detecta 2 dedos, apenas registra a distância inicial sem alterar o zoom
-        if (previousTouchDist <= 0.0f) {
+        // 1. Cálculo do Zoom (Distância entre os dois dedos)
+        float currentTouchDist = Vector2Distance(touch0, touch1);
+        
+        // 2. Cálculo do Pan (Ponto central entre os dois dedos)
+        Vector2 currentMidPoint = { (touch0.x + touch1.x) * 0.5f, (touch0.y + touch1.y) * 0.5f };
+
+        if (!wasTwoFingers || previousTouchDist <= 0.0f) {
+            // Inicializa na primeira entrada com 2 dedos para evitar saltos
             previousTouchDist = currentTouchDist;
+            previousMidPoint = currentMidPoint;
+            wasTwoFingers = true;
         } else {
+            // --- APLICAR ZOOM ---
             float pinchDelta = currentTouchDist - previousTouchDist;
             previousTouchDist = currentTouchDist;
 
-            // Filtro para ignorar ruído de toque
-            if (fabsf(pinchDelta) > 0.5f) {
-                // Fator de sensibilidade ajustado para touch (suave e controlado)
+            if (fabsf(pinchDelta) > 0.3f) {
                 float zoomFactor = 0.003f;
                 cameraDistance -= pinchDelta * (cameraDistance * zoomFactor);
-
                 if (cameraDistance < 1.0f) cameraDistance = 1.0f;
                 if (cameraDistance > 500.0f) cameraDistance = 500.0f;
             }
+
+            // --- APLICAR PAN COM 2 DEDOS ---
+            Vector2 midPointDelta = { 
+                currentMidPoint.x - previousMidPoint.x, 
+                currentMidPoint.y - previousMidPoint.y 
+            };
+            previousMidPoint = currentMidPoint;
+
+            if (midPointDelta.x != 0.0f || midPointDelta.y != 0.0f) {
+                Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+                Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
+                Vector3 up = Vector3Normalize(Vector3CrossProduct(right, forward));
+
+                float panSpeed = cameraDistance * 0.002f;
+                cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -midPointDelta.x * panSpeed));
+                cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, midPointDelta.y * panSpeed));
+            }
         }
 
-        // Atualiza a câmera mantendo o foco sem aplicar rotação durante o zoom
+        // Recalcula a posição da câmera para os 2 dedos
         float radX = cameraAngleX * DEG2RAD;
         float radY = cameraAngleY * DEG2RAD;
         camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
@@ -245,11 +273,11 @@ void UpdateOrbitCamera() {
         camera.target = cameraTarget;
         return; 
     } else {
-        // Reseta o estado do touch quando o usuário tira os dedos da tela
+        wasTwoFingers = false;
         previousTouchDist = 0.0f;
     }
 
-    // 3. ZOOM VIA RODA DO MOUSE (DESKTOP)
+    // --- ZOOM VIA RODA DO MOUSE (DESKTOP) ---
     float wheel = 0.0f;
 #if defined(__EMSCRIPTEN__)
     wheel = g_webWheelDelta;
@@ -266,7 +294,7 @@ void UpdateOrbitCamera() {
         if (cameraDistance > 500.0f) cameraDistance = 500.0f;
     }
 
-    // 4. ROTAÇÃO / ÓRBITA (1 DEDO NO TELEMÓVEL OU BOTÃO ESQUERDO NO PC)
+    // --- ROTAÇÃO / ÓRBITA (1 DEDO NO TELEMÓVEL OU BOTÃO ESQUERDO NO PC) ---
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && touchCount <= 1) {
         float sensitivity = 0.3f;
         cameraAngleX -= mouseDelta.x * sensitivity;
@@ -276,7 +304,7 @@ void UpdateOrbitCamera() {
         if (cameraAngleY < -89.0f) cameraAngleY = -89.0f;
     }
 
-    // 5. PAN / MOVER (BOTÃO DIREITO / MEIO NO PC)
+    // --- PAN / MOVER (BOTÃO DIREITO / MEIO NO PC) ---
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
         Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
         Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
@@ -287,7 +315,7 @@ void UpdateOrbitCamera() {
         cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, mouseDelta.y * panSpeed));
     }
 
-    // 6. RECALCULA A POSIÇÃO DA CÂMERA
+    // --- RECALCULA POSIÇÃO FINAL DA CÂMERA ---
     float radX = cameraAngleX * DEG2RAD;
     float radY = cameraAngleY * DEG2RAD;
 
