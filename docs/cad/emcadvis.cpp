@@ -51,6 +51,7 @@ EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, 
 
 // Declaração antecipada para o compilador conhecer a função antes da ponte C
 void SetupLoadedModel(const char* filepath);
+void UpdateDrawFrame();
 
 // Ponte C para receber chamadas do JavaScript (HTML)
 // 1. Garanta que o callback HTTP também força o redesenho
@@ -58,6 +59,7 @@ void OnSTLLoaded(const char* filename) {
     SetupLoadedModel(filename);
     usleep(100);
     needsRedraw = true; // <-- Força o redesenho imediato após o download HTTP
+    UpdateDrawFrame();
 }
 
 void OnSTLError(const char* filename) {
@@ -72,6 +74,7 @@ extern "C" {
         if (FileExists(filename)) {
             SetupLoadedModel(filename);
             needsRedraw = true; // <-- Força o redesenho imediato após o JS gravar o ficheiro
+            UpdateDrawFrame();
         } else {
             std::cout << "Erro: Ficheiro " << filename << " nao encontrado no VFS." << std::endl;
         }
