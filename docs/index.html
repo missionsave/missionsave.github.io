@@ -232,17 +232,20 @@ body.no-hover .dropdownc:hover .dropdown-content {
 let tdoc;  
 function loadTdocSync() {
 	const xhr = new XMLHttpRequest();
+
+	// Extract the 'cache' parameter from the current page URL
+	const currentParams = new URLSearchParams(window.location.search);
+	const cacheVal = currentParams.get('cache');
+	console.log("cacheVal",cacheVal);
+
 	// xhr.open('GET', 'tdoc.json', false);   // false = síncrono / blocking	
-	xhr.open('GET', 'https://missionsave.github.io/tdoc.json', false);   // false = síncrono / blocking	
+	xhr.open('GET', 'https://missionsave.github.io/tdoc.json?'+cacheVal, false);   // false = síncrono / blocking	
 	try {
 		xhr.send();
 		
 		if (xhr.status === 200 || xhr.status === 0) {
 			tdoc = JSON.parse(xhr.responseText);
 			
-			// Extract the 'cache' parameter from the current page URL
-			const currentParams = new URLSearchParams(window.location.search);
-			const cacheVal = currentParams.get('cache');
 
 			// Append 'cache' parameter to every item's url if it exists
 			if (cacheVal) {
