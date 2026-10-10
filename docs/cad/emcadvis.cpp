@@ -13,6 +13,7 @@
 #include <fstream>
 #include <cstdint>
 #include <string>
+#include <unistd.h>
 
 #if defined(__EMSCRIPTEN__)
     #include <emscripten/emscripten.h>
@@ -55,6 +56,7 @@ void SetupLoadedModel(const char* filepath);
 // 1. Garanta que o callback HTTP também força o redesenho
 void OnSTLLoaded(const char* filename) {
     SetupLoadedModel(filename);
+    usleep(100);
     needsRedraw = true; // <-- Força o redesenho imediato após o download HTTP
 }
 
@@ -407,7 +409,7 @@ int main() {
 
 #if defined(__EMSCRIPTEN__)
     emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, WebWheelCallback);
-    // emscripten_async_wget("test.stl", "test.stl", OnSTLLoaded, OnSTLError);
+    emscripten_async_wget("test.stl", "test.stl", OnSTLLoaded, OnSTLError);
     
     // Limita a 60 FPS no Emscripten para poupar ciclos de CPU
     emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
