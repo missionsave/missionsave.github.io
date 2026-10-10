@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
+#include <string>
 
 #if defined(__EMSCRIPTEN__)
     #include <emscripten/emscripten.h>
@@ -14,7 +15,6 @@ Model model = { 0 };
 Shader customShader = { 0 };
 Camera camera = { 0 };
 
-// Estado da Câmera estilo Órbita CAD
 float cameraAngleX = 45.0f;
 float cameraAngleY = 30.0f;
 float cameraDistance = 40.0f;
@@ -23,8 +23,8 @@ Vector3 cameraTarget = { 0.0f, 0.0f, 0.0f };
 Vector3 modelPosition = { 0.0f, 0.0f, 0.0f };
 float modelScale = 1.0f;
 bool modelLoaded = false;
+bool needsRedraw = true; // Poupa CPU ao redesenhar apenas quando há interação
 
-// Acumulador de scroll para o evento do navegador
 static float g_webWheelDelta = 0.0f;
 
 #if defined(__EMSCRIPTEN__)
@@ -35,7 +35,24 @@ EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, 
     } else if (wheelEvent->deltaY > 0) {
         g_webWheelDelta -= 1.0f;
     }
+    needsRedraw = true;
     return EM_TRUE;
+}
+
+// Declaração antecipada para o compilador conhecer a função antes da ponte C
+void SetupLoadedModel(const char* filepath);
+
+// Ponte C para receber chamadas do JavaScript (HTML)
+extern "C" {
+    EMSCRIPTEN_KEEPALIVE
+    void LoadSTLFromJS(const char* filename) {
+        std::cout << "Ficheiro solicitado via JavaScript: " << filename << std::endl;
+        if (FileExists(filename)) {
+            SetupLoadedModel(filename); // <-- Corrigido aqui (chamada direta)
+        } else {
+            std::cout << "Erro: Ficheiro " << filename << " nao encontrado no VFS." << std::endl;
+        }
+    }
 }
 #endif
 
@@ -78,7 +95,7 @@ void main() {
 }
 )";
 
-// --- LEITOR BINÁRIO STL COM RECALCULO DE NORMIAIS ---
+// --- LEITOR BINÁRIO STL COM RECALCULO DE NORMAIS ---
 Model LoadSTLBinary(const char* filename) {
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) return { 0 };
@@ -144,7 +161,6 @@ Model LoadSTLBinary(const char* filename) {
     return m;
 }
 
-// Configura e centraliza o modelo na cena
 void SetupLoadedModel(const char* filepath) {
     if (modelLoaded) {
         UnloadModel(model);
@@ -175,10 +191,15 @@ void SetupLoadedModel(const char* filepath) {
         modelPosition = (Vector3){ -center.x * modelScale, -center.y * modelScale, -center.z * modelScale };
         cameraTarget = (Vector3){ 0.0f, 0.0f, 0.0f };
         cameraDistance = 35.0f;
+        needsRedraw = true;
     }
 }
 
-// Callbacks para o download assíncrono via HTTP
+// Wrapper para uso externo (assíncrono / JS)
+void SetupLoadedModel_External(const char* filepath) {
+    SetupLoadedModel(filepath);
+}
+
 void OnSTLLoaded(const char* filename) {
     SetupLoadedModel(filename);
 }
@@ -187,24 +208,22 @@ void OnSTLError(const char* filename) {
     std::cout << "Erro ao carregar via HTTP: " << filename << std::endl;
 }
 
-// --- CONTROLE DE CÂMERA ÓRBITA CAD (ROBUSTO PARA PC E MÓVEL) ---
-void UpdateOrbitCamera() {
+// --- CONTROLE DE CÂMERA ÓRBITA CAD (PC E MÓVEL OTIMIZADO) ---
+bool UpdateOrbitCamera() {
     Vector2 currentMousePos = GetMousePosition();
     static Vector2 previousMousePos = currentMousePos;
     static bool wasTouching = false;
     
-    // Estados para controle de 2 dedos (Pan & Zoom no Telemóvel)
     static float previousTouchDist = 0.0f;
     static Vector2 previousMidPoint = { 0.0f, 0.0f };
     static bool wasTwoFingers = false;
 
     int touchCount = GetTouchPointCount();
-    bool isTouching = IsMouseButtonDown(MOUSE_BUTTON_LEFT) || 
-                      IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || 
-                      IsMouseButtonDown(MOUSE_BUTTON_MIDDLE) ||
-                      (touchCount > 0);
+    bool isMouseDown = IsMouseButtonDown(MOUSE_BUTTON_LEFT) || 
+                       IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || 
+                       IsMouseButtonDown(MOUSE_BUTTON_MIDDLE);
+    bool isTouching = isMouseDown || (touchCount > 0);
 
-    // Reseta o delta se acabou de iniciar o toque
     if (isTouching && !wasTouching) {
         previousMousePos = currentMousePos;
         previousTouchDist = 0.0f;
@@ -218,24 +237,26 @@ void UpdateOrbitCamera() {
     };
     previousMousePos = currentMousePos;
 
-    // --- GESTOS DE 2 DEDOS (NO TELEMÓVEL: PINCH-TO-ZOOM + PAN COM 2 DEDOS) ---
+    bool actionDetected = false;
+
+    // Se houver movimento de rato ou toque, sinaliza atividade
+    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isTouching) {
+        actionDetected = true;
+    }
+
+    // Gestos de 2 dedos (Telemóvel: Pinch Zoom + Pan)
     if (touchCount >= 2) {
         Vector2 touch0 = GetTouchPosition(0);
         Vector2 touch1 = GetTouchPosition(1);
 
-        // 1. Cálculo do Zoom (Distância entre os dois dedos)
         float currentTouchDist = Vector2Distance(touch0, touch1);
-        
-        // 2. Cálculo do Pan (Ponto central entre os dois dedos)
         Vector2 currentMidPoint = { (touch0.x + touch1.x) * 0.5f, (touch0.y + touch1.y) * 0.5f };
 
         if (!wasTwoFingers || previousTouchDist <= 0.0f) {
-            // Inicializa na primeira entrada com 2 dedos para evitar saltos
             previousTouchDist = currentTouchDist;
             previousMidPoint = currentMidPoint;
             wasTwoFingers = true;
         } else {
-            // --- APLICAR ZOOM ---
             float pinchDelta = currentTouchDist - previousTouchDist;
             previousTouchDist = currentTouchDist;
 
@@ -244,9 +265,9 @@ void UpdateOrbitCamera() {
                 cameraDistance -= pinchDelta * (cameraDistance * zoomFactor);
                 if (cameraDistance < 1.0f) cameraDistance = 1.0f;
                 if (cameraDistance > 500.0f) cameraDistance = 500.0f;
+                actionDetected = true;
             }
 
-            // --- APLICAR PAN COM 2 DEDOS ---
             Vector2 midPointDelta = { 
                 currentMidPoint.x - previousMidPoint.x, 
                 currentMidPoint.y - previousMidPoint.y 
@@ -261,23 +282,15 @@ void UpdateOrbitCamera() {
                 float panSpeed = cameraDistance * 0.002f;
                 cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -midPointDelta.x * panSpeed));
                 cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, midPointDelta.y * panSpeed));
+                actionDetected = true;
             }
         }
-
-        // Recalcula a posição da câmera para os 2 dedos
-        float radX = cameraAngleX * DEG2RAD;
-        float radY = cameraAngleY * DEG2RAD;
-        camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
-        camera.position.y = cameraTarget.y + cameraDistance * sinf(radY);
-        camera.position.z = cameraTarget.z + cameraDistance * cosf(radY) * cosf(radX);
-        camera.target = cameraTarget;
-        return; 
     } else {
         wasTwoFingers = false;
         previousTouchDist = 0.0f;
     }
 
-    // --- ZOOM VIA RODA DO MOUSE (DESKTOP) ---
+    // Zoom via roda do rato (Desktop)
     float wheel = 0.0f;
 #if defined(__EMSCRIPTEN__)
     wheel = g_webWheelDelta;
@@ -292,61 +305,80 @@ void UpdateOrbitCamera() {
 
         if (cameraDistance < 1.0f) cameraDistance = 1.0f;
         if (cameraDistance > 500.0f) cameraDistance = 500.0f;
+        actionDetected = true;
     }
 
-    // --- ROTAÇÃO / ÓRBITA (1 DEDO NO TELEMÓVEL OU BOTÃO ESQUERDO NO PC) ---
+    // Órbita / Rotação (Botão esquerdo ou 1 dedo)
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && touchCount <= 1) {
-        float sensitivity = 0.3f;
-        cameraAngleX -= mouseDelta.x * sensitivity;
-        cameraAngleY -= mouseDelta.y * sensitivity;
+        if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f) {
+            float sensitivity = 0.3f;
+            cameraAngleX -= mouseDelta.x * sensitivity;
+            cameraAngleY -= mouseDelta.y * sensitivity;
 
-        if (cameraAngleY > 89.0f) cameraAngleY = 89.0f;
-        if (cameraAngleY < -89.0f) cameraAngleY = -89.0f;
+            if (cameraAngleY > 89.0f) cameraAngleY = 89.0f;
+            if (cameraAngleY < -89.0f) cameraAngleY = -89.0f;
+            actionDetected = true;
+        }
     }
 
-    // --- PAN / MOVER (BOTÃO DIREITO / MEIO NO PC) ---
+    // Pan / Mover (Botão direito ou do meio)
     if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
-        Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
-        Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
-        Vector3 up = Vector3Normalize(Vector3CrossProduct(right, forward));
+        if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f) {
+            Vector3 forward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+            Vector3 right = Vector3Normalize(Vector3CrossProduct(forward, camera.up));
+            Vector3 up = Vector3Normalize(Vector3CrossProduct(right, forward));
 
-        float panSpeed = cameraDistance * 0.0015f;
-        cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -mouseDelta.x * panSpeed));
-        cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, mouseDelta.y * panSpeed));
+            float panSpeed = cameraDistance * 0.0015f;
+            cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -mouseDelta.x * panSpeed));
+            cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, mouseDelta.y * panSpeed));
+            actionDetected = true;
+        }
     }
 
-    // --- RECALCULA POSIÇÃO FINAL DA CÂMERA ---
-    float radX = cameraAngleX * DEG2RAD;
-    float radY = cameraAngleY * DEG2RAD;
+    // Atualiza a posição da câmara se houve alteração
+    if (actionDetected) {
+        float radX = cameraAngleX * DEG2RAD;
+        float radY = cameraAngleY * DEG2RAD;
 
-    camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
-    camera.position.y = cameraTarget.y + cameraDistance * sinf(radY);
-    camera.position.z = cameraTarget.z + cameraDistance * cosf(radY) * cosf(radX);
-    camera.target = cameraTarget;
+        camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
+        camera.position.y = cameraTarget.y + cameraDistance * sinf(radY);
+        camera.position.z = cameraTarget.z + cameraDistance * cosf(radY) * cosf(radX);
+        camera.target = cameraTarget;
+    }
+
+    return actionDetected;
 }
 
-// --- RENDER LOOP ---
+// --- RENDER LOOP OTIMIZADO (POUPA CPU) ---
 void UpdateDrawFrame() {
-    // Suporte para Drag & Drop de arquivos locais
     if (IsFileDropped()) {
         FilePathList droppedFiles = LoadDroppedFiles();
         if (droppedFiles.count > 0 && IsFileExtension(droppedFiles.paths[0], ".stl")) {
             SetupLoadedModel(droppedFiles.paths[0]);
+            needsRedraw = true;
         }
         UnloadDroppedFiles(droppedFiles);
     }
 
-    UpdateOrbitCamera();
+    // Atualiza a câmara e verifica se o utilizador está a interagir
+    if (UpdateOrbitCamera()) {
+        needsRedraw = true;
+    }
 
-    BeginDrawing();
-        ClearBackground((Color){ 24, 26, 30, 255 }); // Fundo estúdio sem grid nem legendas
+    // Redesenha apenas quando necessário (evita desperdício de CPU)
+    if (needsRedraw) {
+        BeginDrawing();
+            ClearBackground((Color){ 24, 26, 30, 255 });
 
-        BeginMode3D(camera);
-            if (modelLoaded) {
-                DrawModel(model, modelPosition, modelScale, (Color){ 80, 160, 230, 255 });
-            }
-        EndMode3D();
-    EndDrawing();
+            BeginMode3D(camera);
+                if (modelLoaded) {
+                    DrawModel(model, modelPosition, modelScale, (Color){ 80, 160, 230, 255 });
+                }
+            EndMode3D();
+        EndDrawing();
+        
+        needsRedraw = false; // Aguarda nova interação
+    }
 }
 
 int main() {
@@ -359,13 +391,11 @@ int main() {
     customShader = LoadShaderFromMemory(vsSource, fsSource);
 
 #if defined(__EMSCRIPTEN__)
-    // Registra evento do scroll no canvas
     emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, WebWheelCallback);
+    emscripten_async_wget("test.stl", "test.stl", OnSTLLoaded, OnSTLError);
     
-    // Baixa dinamicamente o test.stl via HTTP
-    emscripten_async_wget("https://missionsave.github.io/cad/test.stl", "test.stl", OnSTLLoaded, OnSTLError);
-    
-    emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
+    // Limita a 60 FPS no Emscripten para poupar ciclos de CPU
+    emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
 #else
     if (FileExists("test.stl")) {
         SetupLoadedModel("test.stl");
