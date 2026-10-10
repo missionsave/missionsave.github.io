@@ -24,12 +24,7 @@ Vector3 modelPosition = { 0.0f, 0.0f, 0.0f };
 float modelScale = 1.0f;
 bool modelLoaded = false;
 
-// Flags de poupança de CPU
-bool needsRedraw = true;
-int redrawFramesCount = 10; // Força alguns frames iniciais após carregar para garantir o paint no navegador
-
 static float g_webWheelDelta = 0.0f;
-
 void SetupLoadedModel(const char* filepath);
 
 #if defined(__EMSCRIPTEN__)
@@ -39,7 +34,6 @@ EM_BOOL WebWheelCallback(int eventType, const EmscriptenWheelEvent *wheelEvent, 
     } else if (wheelEvent->deltaY > 0) {
         g_webWheelDelta -= 1.0f;
     }
-    needsRedraw = true;
     return EM_TRUE;
 }
 
@@ -191,10 +185,6 @@ void SetupLoadedModel(const char* filepath) {
         modelPosition = (Vector3){ -center.x * modelScale, -center.y * modelScale, -center.z * modelScale };
         cameraTarget = (Vector3){ 0.0f, 0.0f, 0.0f };
         cameraDistance = 35.0f;
-        
-        // ACORDA O RENDERIZADOR
-        needsRedraw = true;
-        redrawFramesCount = 15; // Pinta durante 15 frames seguidos para garantir que o navegador exibe o STL
     }
 }
 
@@ -207,7 +197,7 @@ void OnSTLError(const char* filename) {
 }
 
 // --- CONTROLE DE CÂMERA ÓRBITA CAD ---
-bool UpdateOrbitCamera() {
+void UpdateOrbitCamera() {
     Vector2 currentMousePos = GetMousePosition();
     static Vector2 previousMousePos = currentMousePos;
     static bool wasTouching = false;
@@ -235,13 +225,6 @@ bool UpdateOrbitCamera() {
     };
     previousMousePos = currentMousePos;
 
-    bool actionDetected = false;
-
-    // Se houver movimento de rato ou toque, marca atividade
-    if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f || isTouching) {
-        actionDetected = true;
-    }
-
     // Gestos de 2 dedos (Pinch Zoom + Pan)
     if (touchCount >= 2) {
         Vector2 touch0 = GetTouchPosition(0);
@@ -263,7 +246,6 @@ bool UpdateOrbitCamera() {
                 cameraDistance -= pinchDelta * (cameraDistance * zoomFactor);
                 if (cameraDistance < 1.0f) cameraDistance = 1.0f;
                 if (cameraDistance > 500.0f) cameraDistance = 500.0f;
-                actionDetected = true;
             }
 
             Vector2 midPointDelta = { 
@@ -280,7 +262,6 @@ bool UpdateOrbitCamera() {
                 float panSpeed = cameraDistance * 0.002f;
                 cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -midPointDelta.x * panSpeed));
                 cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, midPointDelta.y * panSpeed));
-                actionDetected = true;
             }
         }
     } else {
@@ -303,7 +284,6 @@ bool UpdateOrbitCamera() {
 
         if (cameraDistance < 1.0f) cameraDistance = 1.0f;
         if (cameraDistance > 500.0f) cameraDistance = 500.0f;
-        actionDetected = true;
     }
 
     // Órbita
@@ -315,7 +295,6 @@ bool UpdateOrbitCamera() {
 
             if (cameraAngleY > 89.0f) cameraAngleY = 89.0f;
             if (cameraAngleY < -89.0f) cameraAngleY = -89.0f;
-            actionDetected = true;
         }
     }
 
@@ -329,25 +308,19 @@ bool UpdateOrbitCamera() {
             float panSpeed = cameraDistance * 0.0015f;
             cameraTarget = Vector3Add(cameraTarget, Vector3Scale(right, -mouseDelta.x * panSpeed));
             cameraTarget = Vector3Add(cameraTarget, Vector3Scale(up, mouseDelta.y * panSpeed));
-            actionDetected = true;
         }
     }
 
-    if (actionDetected) {
-        float radX = cameraAngleX * DEG2RAD;
-        float radY = cameraAngleY * DEG2RAD;
+    float radX = cameraAngleX * DEG2RAD;
+    float radY = cameraAngleY * DEG2RAD;
 
-        camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
-        camera.position.y = cameraTarget.y + cameraDistance * sinf(radY);
-        camera.position.z = cameraTarget.z + cameraDistance * cosf(radY) * cosf(radX);
-        camera.target = cameraTarget;
-        needsRedraw = true; // Sinaliza que a câmara mexeu e precisa desenhar
-    }
-
-    return actionDetected;
+    camera.position.x = cameraTarget.x + cameraDistance * cosf(radY) * sinf(radX);
+    camera.position.y = cameraTarget.y + cameraDistance * sinf(radY);
+    camera.position.z = cameraTarget.z + cameraDistance * cosf(radY) * cosf(radX);
+    camera.target = cameraTarget;
 }
 
-// --- RENDER LOOP CONDICIONAL (CONSUMO QUASE ZERO DE CPU EM REPOUSO) ---
+// --- RENDER LOOP NORMAL E ESTÁVEL ---
 void UpdateDrawFrame() {
     if (IsFileDropped()) {
         FilePathList droppedFiles = LoadDroppedFiles();
@@ -359,29 +332,15 @@ void UpdateDrawFrame() {
 
     UpdateOrbitCamera();
 
-    // Se o modelo acabou de carregar, força redesenho por alguns frames para o navegador pintar
-    if (redrawFramesCount > 0) {
-        redrawFramesCount--;
-        needsRedraw = true;
-    }
+    BeginDrawing();
+        ClearBackground((Color){ 24, 26, 30, 255 });
 
-    // Desenha apenas se necessário
-    if (needsRedraw) {
-        BeginDrawing();
-            ClearBackground((Color){ 24, 26, 30, 255 });
-
-            BeginMode3D(camera);
-                if (modelLoaded) {
-                    DrawModel(model, modelPosition, modelScale, (Color){ 80, 160, 230, 255 });
-                }
-            EndMode3D();
-        EndDrawing();
-
-        // Reseta o redraw até haver nova interação (poupa CPU)
-        if (redrawFramesCount <= 0) {
-            needsRedraw = false;
-        }
-    }
+        BeginMode3D(camera);
+            if (modelLoaded) {
+                DrawModel(model, modelPosition, modelScale, (Color){ 80, 160, 230, 255 });
+            }
+        EndMode3D();
+    EndDrawing();
 }
 
 int main() {
@@ -397,7 +356,7 @@ int main() {
     emscripten_set_wheel_callback("#canvas", nullptr, EM_TRUE, WebWheelCallback);
     emscripten_async_wget("test.stl", "test.stl", OnSTLLoaded, OnSTLError);
     
-    emscripten_set_main_loop(UpdateDrawFrame, 60, 1);
+    emscripten_set_main_loop(UpdateDrawFrame, 23, 1);
 #else
     if (FileExists("test.stl")) {
         SetupLoadedModel("test.stl");
