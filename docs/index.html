@@ -484,7 +484,137 @@ function google_ads(add = 0) {
 // }
 
 //region loadpage
-function loadPage_v2(url,menuitem) {
+// Cache global para guardar os nós de DOM vivos por URL
+if (typeof window.__loadPageCache === 'undefined') {
+    window.__loadPageCache = new Map();
+}
+
+function loadPage_v2(url, menuitem) {
+    const viewer_v1 = document.getElementById('viewer_v1');
+    if (!viewer_v1) return;
+
+    // 1. Verifica se o DOM já existe na cache para esta URL (Mantém os elementos vivos e estado)
+    if (window.__loadPageCache.has(url)) {
+        const cachedRoot = window.__loadPageCache.get(url);
+        viewer_v1.replaceChildren(cachedRoot);
+
+        if (menuitem?.showpub) google_ads(1); else google_ads(0);
+        if (typeof updates === 'function') updates();
+        return;
+    }
+
+    // 2. Se não estiver em cache, efetua o fetch normal
+    fetch(url)
+        .then(r => r.text())
+        .then(html => {
+            html = fixCommaInsideSpan(html);
+            // console.log(html);
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            
+            // Remove spans sem atributos e limpa a fragmentação
+            tmp.querySelectorAll('span').forEach(span => {
+                if (span.attributes.length === 0) {
+                    span.replaceWith(...span.childNodes);
+                }
+            });
+            tmp.normalize();
+            
+            const scripts = Array.from(tmp.querySelectorAll('script'));
+            scripts.forEach(s => s.remove());
+            
+            // CSS applied only to loaded HTML
+            const styleFix = `<style>.loaded_page_root, .loaded_page_root *{max-width:100% !important;box-sizing:border-box;}.loaded_page_root img{width:100% !important;height:auto !important;max-width:100% !important;display:block;}</style>`;
+            
+            // Criação do elemento raiz encapsulado para a cache
+            const pageRoot = document.createElement('div');
+            pageRoot.className = 'loaded_page_root';
+            pageRoot.innerHTML = styleFix + tmp.innerHTML;
+            
+            // Select all elements with classes that have padding
+            pageRoot.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(el => {
+                el.style.paddingTop = '4px';
+                el.style.paddingBottom = '1px';
+                // el.style.marginTop = '0';
+                // el.style.marginBottom = '0';
+            });
+            pageRoot.querySelectorAll('ul, li').forEach(el => {
+                el.style.paddingTop = '2px';
+                el.style.paddingBottom = '2px';
+                // el.style.marginTop = '0';
+                // el.style.marginBottom = '0';
+            });
+            
+            // Reset negative left margins to zero
+            pageRoot.querySelectorAll('*').forEach(el => {
+                const style = window.getComputedStyle(el);
+                const marginLeft = parseFloat(style.marginLeft);
+                if (marginLeft < 0) {
+                    el.style.marginLeft = '0px';
+                }
+            });
+            
+            // Force images responsive
+            pageRoot.querySelectorAll('img').forEach(img => {
+                img.removeAttribute('width');
+                img.removeAttribute('height');
+                img.style.setProperty('max-width', '100%', 'important');
+                img.style.setProperty('height', 'auto', 'important');
+                const span = img.closest('span');
+                if (span) {
+                    span.style.removeProperty('width');
+                    span.style.removeProperty('height');
+                    span.style.setProperty('max-width', '100%', 'important');
+                    span.style.setProperty('display', 'block', 'important');
+                }
+            });
+
+            // Guarda o DOM processado na cache associada à URL
+            window.__loadPageCache.set(url, pageRoot);
+
+            // Insere no viewer_v1
+            viewer_v1.replaceChildren(pageRoot);
+
+            (function runScripts(i) {
+                if (i >= scripts.length) return;
+                const oldScript = scripts[i];
+                // 1. SOLUÇÃO: Se tiver src, verifica imediatamente se já foi injetado nesta sessão
+                if (oldScript.src) {
+                    const scriptUrl = new URL(oldScript.getAttribute('src'), url).href;
+                    // Se já existir uma tag com este exato SRC no body/head, ignora e avança para o próximo
+                    if (document.querySelector(`script[src="${scriptUrl}"]`)) {
+                        console.log(`Script já carregado, a ignorar: ${scriptUrl}`);
+                        return runScripts(i + 1);
+                    }
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.src = scriptUrl;
+                    newScript.onload = () => runScripts(i + 1);
+                    newScript.onerror = () => runScripts(i + 1);
+                    document.body.appendChild(newScript);
+                } else {
+                    // Para scripts inline (sem src)
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.textContent = oldScript.textContent;
+                    document.body.appendChild(newScript);
+                    runScripts(i + 1);
+                }
+            })(0);
+
+            if (menuitem?.showpub) google_ads(1); else google_ads(0);
+            updates();
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById('viewer_v1').innerHTML = "<p>Error loading page. Maybe it moved, please use the menu.</p>";
+        });
+}
+function loadPage_v2prev(url,menuitem) {
   fetch(url)
     .then(r => r.text())
     .then(html => {
@@ -573,30 +703,69 @@ viewer_v1.querySelectorAll('.loaded_page_root *').forEach(el => {
         }
       });
 
-      (function runScripts(i) {
-        if (i >= scripts.length) return;
+    //   (function runScripts(i) {
+    //     if (i >= scripts.length) return;
 
-        const oldScript = scripts[i];
-        const newScript = document.createElement('script');
+    //     const oldScript = scripts[i];
+    //     const newScript = document.createElement('script');
 
-        Array.from(oldScript.attributes).forEach(attr => {
-          newScript.setAttribute(attr.name, attr.value);
-        });
+    //     Array.from(oldScript.attributes).forEach(attr => {
+    //       newScript.setAttribute(attr.name, attr.value);
+    //     });
 
-        if (oldScript.src) {
-          newScript.src = new URL(oldScript.getAttribute('src'), url).href;
-          newScript.onload = () => runScripts(i + 1);
-          newScript.onerror = () => runScripts(i + 1);
-          document.body.appendChild(newScript);
-        } else {
-          newScript.textContent = oldScript.textContent;
-          document.body.appendChild(newScript);
-          runScripts(i + 1);
-        }
+    //     if (oldScript.src) {
+    //       newScript.src = new URL(oldScript.getAttribute('src'), url).href;
+    //       newScript.onload = () => runScripts(i + 1);
+    //       newScript.onerror = () => runScripts(i + 1);
+    //       document.body.appendChild(newScript);
+    //     } else {
+    //       newScript.textContent = oldScript.textContent;
+    //       document.body.appendChild(newScript);
+    //       runScripts(i + 1);
+    //     }
 
-        // onresizeFunction();/////
+    //     // onresizeFunction();/////
  
-      })(0);
+    //   })(0);
+	(function runScripts(i) {
+  if (i >= scripts.length) return;
+
+  const oldScript = scripts[i];
+
+  // 1. SOLUÇÃO: Se tiver src, verifica imediatamente se já foi injetado nesta sessão
+  if (oldScript.src) {
+    const scriptUrl = new URL(oldScript.getAttribute('src'), url).href;
+
+    // Se já existir uma tag com este exato SRC no body/head, ignora e avança para o próximo
+    if (document.querySelector(`script[src="${scriptUrl}"]`)) {
+      console.log(`Script já carregado, a ignorar: ${scriptUrl}`);
+      return runScripts(i + 1);
+    }
+
+    const newScript = document.createElement('script');
+    Array.from(oldScript.attributes).forEach(attr => {
+      newScript.setAttribute(attr.name, attr.value);
+    });
+    
+    newScript.src = scriptUrl;
+    newScript.onload = () => runScripts(i + 1);
+    newScript.onerror = () => runScripts(i + 1);
+    document.body.appendChild(newScript);
+  } else {
+    // Para scripts inline (sem src)
+    const newScript = document.createElement('script');
+    Array.from(oldScript.attributes).forEach(attr => {
+      newScript.setAttribute(attr.name, attr.value);
+    });
+    newScript.textContent = oldScript.textContent;
+    document.body.appendChild(newScript);
+    runScripts(i + 1);
+  }
+})(0);
+
+
+
+
 
 	  if(menuitem?.showpub)google_ads(1);else google_ads(0);
 updates();
