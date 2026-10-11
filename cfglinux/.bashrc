@@ -1094,6 +1094,9 @@ run() {
     bash ~/msv/cfglinux/run.sh "$@"
 }
 
+runstay() { source ~/msv/cfglinux/run.sh "$@"; }
+
+
 
 
 

@@ -7,11 +7,11 @@ YELLOW="\e[33m"
 RESET="\e[0m"
 
 # --- Example functions ---
-mytask() {
+my_task() {
     echo -e "${GREEN}Running mytask with args:${RESET} $*"
 }
 
-othertask() {
+_othertask() {
     echo -e "${GREEN}Running othertask with args:${RESET} $*"
 }
 
@@ -48,6 +48,51 @@ cfg_em(){
 source /home/super/msv/emsdk/emsdk_env.sh
 }
 
+compile_fltk_wasm() {
+    local fltk_dir="${1:-fltk-src}"
+    
+    if [ -f "$HOME/msv/emsdk/emsdk_env.sh" ]; then
+        source "$HOME/msv/emsdk/emsdk_env.sh" > /dev/null 2>&1
+    elif [ -n "$EMSDK" ]; then
+        source "$EMSDK/emsdk_env.sh" > /dev/null 2>&1
+    fi
+
+    if [ ! -d "$fltk_dir" ]; then
+        echo "A clonar o repositório oficial do FLTK (branch 1.4)..."
+        git clone --branch branch-1.4 --depth 1 https://github.com/fltk/fltk.git "$fltk_dir"
+    else
+        echo "A limpar diretório de build anterior..."
+        rm -rf "$fltk_dir/build-wasm"
+    fi
+
+    echo "A configurar o projeto FLTK sem suporte a imagens/jpeg/png..."
+    emcmake cmake -B "$fltk_dir/build-wasm" -S "$fltk_dir" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DOPTION_BUILD_SHARED_LIBS=OFF \
+        -DOPTION_BUILD_EXAMPLES=OFF \
+        -DOPTION_BUILD_TESTS=OFF \
+        -DOPTION_USE_X11=OFF \
+        -DOPTION_USE_GL=OFF \
+        -DOPTION_USE_THREADS=OFF \
+        -DOPTION_USE_PLUGINS=OFF \
+        -DOPTION_USE_libjpeg=OFF \
+        -DOPTION_USE_libpng=OFF \
+        -DOPTION_USE_zlib=OFF \
+        -DCMAKE_CXX_FLAGS="-D__EMSCRIPTEN__"
+
+    echo "A compilar o FLTK para WASM..."
+    cmake --build "$fltk_dir/build-wasm" -j$(nproc)
+
+    if [ $? -eq 0 ]; then
+        echo "=========================================="
+        echo "FLTK compilado com sucesso para WASM!"
+        echo "Os ficheiros .a estão em: $fltk_dir/build-wasm/lib/"
+        echo "=========================================="
+    else
+        echo "A compilação falhou."
+        return 1
+    fi
+}
 
 
 install_ncnn() {
@@ -164,3 +209,7 @@ echo -e "${GREEN}Executing function:${RESET} $func $*"
 
 # Call the function
 "$func" "$@"
+
+# Apaga AUTOMATICAMENTE todas as funções que começam por _
+# (Procura no ambiente as funções com esse nome e faz unset nelas)
+unset -f $(compgen -A function _) 2>/dev/null
