@@ -37,7 +37,7 @@ canvas:focus {
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
 
   <script type="module">
-    import createFLTKApp from './cad/app.mjs';
+    import createFLTKApp from '/cad/app.mjs';
 
     window.g_tabVisible = true;
 
@@ -127,8 +127,7 @@ window.setBlockedKeys = function (enabled) {
     // keypress is also needed in some browsers for Ctrl+S
     window.addEventListener('keypress', preventBrowserDefault, true);
     document.addEventListener('keypress', preventBrowserDefault, true);
-
-	setFltkVisible(false);
+ 
   </script>
 </body>
 </html>
