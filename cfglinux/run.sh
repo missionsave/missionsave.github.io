@@ -39,8 +39,6 @@ cd emsdk
 # Instalar e ativar a versão mais recente
 ./emsdk install latest
 ./emsdk activate latest
-
-
 }
 
 cfg_em(){
@@ -48,7 +46,52 @@ cfg_em(){
 source /home/super/msv/emsdk/emsdk_env.sh
 }
 
-compile_fltk_wasm() {
+_build_fltk_wasm() {
+    local repo_url="https://github.com/MoAlyousef/fltk_wasm32_emscripten.git"
+    local dir_name="fltk_wasm32_emscripten"
+
+    # 1. Verify that the Emscripten SDK environment is active
+    if ! command -v emcmake &> /dev/null; then
+        echo "Error: 'emcmake' not found. Please activate your Emscripten SDK first (e.g., source ./emsdk_env.sh)."
+        return 1
+    fi
+
+    # 2. Clone or update the repository on the 'emscripten' branch
+    if [ ! -d "$dir_name" ]; then
+        echo "Cloning $repo_url (emscripten branch)..."
+        git clone -b emscripten "$repo_url" || return 1
+    else
+        echo "Repository already exists. Switching to emscripten branch and pulling latest..."
+        cd "$dir_name" || return 1
+        git checkout emscripten
+        git pull origin emscripten
+        cd ..
+    fi
+
+    # 3. Enter directory and clear old build cache
+    cd "$dir_name" || return 1
+    rm -rf build_wasm
+
+    echo "Configuring FLTK for wasm32 with CMake..."
+    emcmake cmake -B build_wasm \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DFLTK_BUILD_TEST=OFF \
+        -DFLTK_BUILD_EXAMPLES=OFF \
+        -DFLTK_BUILD_FLUID=OFF \
+        -DFLTK_BUILD_FLTK_OPTIONS=OFF \
+        -DFLTK_BUILD_GL=ON || { cd - > /dev/null; return 1; }
+
+    # 4. Build the core FLTK libraries including OpenGL support
+    echo "Building FLTK wasm library..."
+    local cpu_count=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+    cmake --build build_wasm --parallel "$cpu_count" || { cd - > /dev/null; return 1; }
+
+    echo "Successfully built FLTK for wasm32! Artifacts are located in: $(pwd)/build_wasm"
+    cd - > /dev/null
+}
+
+
+_compile_fltk_wasm_notworking() {
     local fltk_dir="${1:-fltk-src}"
     
     if [ -f "$HOME/msv/emsdk/emsdk_env.sh" ]; then

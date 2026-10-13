@@ -29,10 +29,9 @@
   ],
   "Prototype": [
     {
-	  "title": "Compact Indoor Outdoor Greenhouse",      
-      "url2": "/cad/index.html",
-      "url_": "http://127.0.0.1:8080/cad/index.html",
-      "url": "https://missionsave.github.io/cad/index.html",
+	  "title": "Compact Indoor Outdoor Greenhouse",
+      "url_": "http://127.0.0.1:8080/compact/index.html",
+      "url": "https://missionsave.github.io/compact/index.html",
       "workerid": 0
     },
     {
@@ -77,6 +76,15 @@
     {
       "url": "https://missionsave.github.io/books/books.html",
       "workerid": 0,
+      "showpub": 1,
+	  "notinmenu": 1
+    }
+  ],
+  "Cad": [
+    {
+		"url_": "http://127.0.0.1:8080/cad/index.html",
+		"url": "https://missionsave.github.io/cad/index.html",
+		"workerid": 0,
       "showpub": 1
     }
   ],

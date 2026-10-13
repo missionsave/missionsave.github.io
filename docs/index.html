@@ -483,13 +483,24 @@ function google_ads(add = 0) {
 //       document.head.appendChild(s);
 // }
 
-//region loadpage
+// region loadpage
 // Cache global para guardar os nós de DOM vivos por URL
 if (typeof window.__loadPageCache === 'undefined') {
     window.__loadPageCache = new Map();
 }
 
 function loadPage_v2(url, menuitem) {
+	// console.log("v2",url);
+	if(typeof setFltkVisible === "function"){
+		if(url.includes('/cad/index.html')){
+			setFltkVisible(true);
+			setBlockedKeys(true);
+		}else{
+			setFltkVisible(false);
+			setBlockedKeys(false);
+		}
+	}
+
     const viewer_v1 = document.getElementById('viewer_v1');
     if (!viewer_v1) return;
 
