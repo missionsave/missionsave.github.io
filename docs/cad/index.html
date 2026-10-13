@@ -30,6 +30,7 @@ canvas:focus {
   background: #111 !important;
   display: block !important;
 }
+
   </style>
 </head>
 <body>
@@ -37,6 +38,7 @@ canvas:focus {
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
 
   <script type="module">
+    // import createFLTKApp from '/cad/app.mjs';
     import createFLTKApp from 'https://missionsave.github.io/cad/app.mjs';
 
     window.g_tabVisible = true;
@@ -55,10 +57,16 @@ canvas:focus {
           printErr: t => console.error("STDERR:", t)
         });
 
-        const c = document.getElementById('canvas');
-        c.addEventListener('mousedown',  () => c.focus());
-        c.addEventListener('touchstart', () => c.focus(), { passive: true });
-        c.focus();
+    //     const c = document.getElementById('canvas');
+    //     c.addEventListener('mousedown',  () => c.focus());
+    //     c.addEventListener('touchstart', () => c.focus(), { passive: true });
+    //     c.focus();
+ 
+	// c.width  = window.innerWidth;
+	// c.height = window.innerHeight;
+	// // and also set the CSS size if needed
+	// c.style.width  = '100vw';
+	// c.style.height = '100vh';
 
  
         console.log("FLTK WebAssembly module successfully initialized!");
@@ -123,10 +131,10 @@ window.setBlockedKeys = function (enabled) {
 
     // Capture phase so we run before the browser's own handlers
     window.addEventListener('keydown',  preventBrowserDefault, true);
-    document.addEventListener('keydown', preventBrowserDefault, true);
+    // document.addEventListener('keydown', preventBrowserDefault, true);
     // keypress is also needed in some browsers for Ctrl+S
     window.addEventListener('keypress', preventBrowserDefault, true);
-    document.addEventListener('keypress', preventBrowserDefault, true);
+    // document.addEventListener('keypress', preventBrowserDefault, true);
  
   </script>
 </body>
