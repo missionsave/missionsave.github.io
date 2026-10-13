@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WASM App</title>
+  <style>
+	
+ 
+
+
+html, body {
+  background-color: #111 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+}
+
+body > * {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+canvas,
+canvas:focus {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: #111 !important;
+  display: block !important;
+}
+  </style>
+</head>
+<body>
+
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+  <script type="module">
+    import createFLTKApp from './cad/app.mjs';
+
+    window.g_tabVisible = true;
+
+    document.addEventListener('visibilitychange', () => {
+      window.g_tabVisible = !document.hidden && document.hasFocus();
+    });
+    window.addEventListener('blur',  () => { window.g_tabVisible = false; });
+    window.addEventListener('focus', () => { window.g_tabVisible = true;  });
+
+    async function init() {
+      try {
+        window.Module = await createFLTKApp({
+          canvas: document.getElementById('canvas'),
+          print:    t => console.log("STDOUT:", t),
+          printErr: t => console.error("STDERR:", t)
+        });
+
+        const c = document.getElementById('canvas');
+        c.addEventListener('mousedown',  () => c.focus());
+        c.addEventListener('touchstart', () => c.focus(), { passive: true });
+        c.focus();
+
+ 
+        console.log("FLTK WebAssembly module successfully initialized!");
+      } catch (err) {
+        console.error("Failed to load WebAssembly module:", err);
+      }
+    }
+
+    init();
+
+
+
+window.fltkVisible = true;
+window.blockedKeysEnabled = true;
+
+// Show or hide the FLTK app
+window.setFltkVisible = function (visible) {
+  window.fltkVisible = visible;
+
+  // Hide the FLTK window container, not just its canvas
+  document.querySelectorAll('body > div[id^="fltk_div"]').forEach(el => {
+    el.style.display = visible ? '' : 'none';
+  });
+
+  // Also handle the canvas if it is a direct body child
+  const canvas = document.getElementById('canvas');
+  if (canvas) canvas.style.display = visible ? '' : 'none';
+};
+
+// Enable or disable browser-shortcut blocking
+window.setBlockedKeys = function (enabled) {
+  window.blockedKeysEnabled = enabled;
+};
+    // ------------------------------------------------------------------
+    // Only prevent the browser's default action – do NOT stop propagation
+    // ------------------------------------------------------------------
+    function preventBrowserDefault(e) {
+  	  if (!window.blockedKeysEnabled) return;
+      if (!(e.ctrlKey || e.metaKey || e.altKey)) return;
+
+      const key  = (e.key  || '').toLowerCase();
+      const code = e.code || '';
+
+      // Combinations that browsers normally intercept
+      const blocked =
+           key === 's' || code === 'KeyS'   // Ctrl+S → Save
+        || key === 'p' || code === 'KeyP'   // Ctrl+P → Print
+        || key === 'o' || code === 'KeyO'   // Ctrl+O → Open
+        || key === 'u' || code === 'KeyU'   // Ctrl+U → View Source
+        || key === 'n' || code === 'KeyN'   // Ctrl+N → New Window
+        || key === 't' || code === 'KeyT'   // Ctrl+T → New Tab
+        || key === 'w' || code === 'KeyW'   // Ctrl+W → Close Tab
+        || key === 'r' || code === 'KeyR'   // Ctrl+R → Reload
+        || key === 'f' || code === 'KeyF'   // Ctrl+F → Find
+        || e.key === 'F5'
+        || (e.altKey && key.length === 1);  // any Alt+letter
+
+      if (blocked) {
+        e.preventDefault();   // ← only this line – keeps the event alive for FLTK
+      }
+    }
+
+    // Capture phase so we run before the browser's own handlers
+    window.addEventListener('keydown',  preventBrowserDefault, true);
+    document.addEventListener('keydown', preventBrowserDefault, true);
+    // keypress is also needed in some browsers for Ctrl+S
+    window.addEventListener('keypress', preventBrowserDefault, true);
+    document.addEventListener('keypress', preventBrowserDefault, true);
+
+	setFltkVisible(false);
+  </script>
+</body>
+</html>

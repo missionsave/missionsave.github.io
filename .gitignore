@@ -129,6 +129,7 @@ crbot/state.json
 # !.github/**/**
 docs/pages/extras/roul.*
 docs/pages/extras/roul*.*
+docs/cad/test
 
 
 !2d
