@@ -483,6 +483,63 @@ function google_ads(add = 0) {
 //       document.head.appendChild(s);
 // }
 
+// region isfltk_and_keys
+window.setFltkVisible = function (visible) {
+		// window.fltkVisible = visible;
+
+		// console.log("visible",visible);
+
+		// Hide the FLTK window container, not just its canvas
+		document.querySelectorAll('body > div[id^="fltk_div"]').forEach(el => {
+			el.style.display = visible ? '' : 'none';
+		});
+
+		// Also handle the canvas if it is a direct body child
+		// const canvas = document.getElementById('canvas');
+		// if (canvas) canvas.style.display = visible ? '' : 'none';
+};
+
+	// Enable or disable browser-shortcut blocking
+	window.blockedKeysEnabled = false;
+	window.setBlockedKeys = function (enabled) {
+	window.blockedKeysEnabled = enabled;
+	};
+    // ------------------------------------------------------------------
+    // Only prevent the browser's default action – do NOT stop propagation
+    // ------------------------------------------------------------------
+    function preventBrowserDefault(e) {
+  	  if (!window.blockedKeysEnabled) return;
+      if (!(e.ctrlKey || e.metaKey || e.altKey)) return;
+
+      const key  = (e.key  || '').toLowerCase();
+      const code = e.code || '';
+
+      // Combinations that browsers normally intercept
+      const blocked =
+           key === 's' || code === 'KeyS'   // Ctrl+S → Save
+        || key === 'p' || code === 'KeyP'   // Ctrl+P → Print
+        || key === 'o' || code === 'KeyO'   // Ctrl+O → Open
+        || key === 'u' || code === 'KeyU'   // Ctrl+U → View Source
+        || key === 'n' || code === 'KeyN'   // Ctrl+N → New Window
+        || key === 't' || code === 'KeyT'   // Ctrl+T → New Tab
+        || key === 'w' || code === 'KeyW'   // Ctrl+W → Close Tab
+        || key === 'r' || code === 'KeyR'   // Ctrl+R → Reload
+        || key === 'f' || code === 'KeyF'   // Ctrl+F → Find
+        || e.key === 'F5'
+        || (e.altKey && key.length === 1);  // any Alt+letter
+
+      if (blocked) {
+        e.preventDefault();   // ← only this line – keeps the event alive for FLTK
+      }
+    }
+
+    // Capture phase so we run before the browser's own handlers
+    window.addEventListener('keydown',  preventBrowserDefault, true);
+    // document.addEventListener('keydown', preventBrowserDefault, true);
+    // keypress is also needed in some browsers for Ctrl+S
+    window.addEventListener('keypress', preventBrowserDefault, true);
+
+
 // region loadpage
 // Cache global para guardar os nós de DOM vivos por URL
 if (typeof window.__loadPageCache === 'undefined') {
@@ -490,24 +547,38 @@ if (typeof window.__loadPageCache === 'undefined') {
 }
 
 function loadPage_v2(url, menuitem) {
-	// console.log("v2",url);
-	if(typeof setFltkVisible === "function"){
-		if(url.includes('/cad/index.html')){
-			setFltkVisible(true);
-			setBlockedKeys(true);
-		}else{
-			setFltkVisible(false);
-			setBlockedKeys(false);
-		}
-	}
+	console.log("v2",url);
+	// if(typeof setFltkVisible === "function"){
+	// 	if(url.includes('/cad/index.html')){
+	// 		setFltkVisible(true);
+	// 		setBlockedKeys(true);
+	// 	}else{
+	// 		setFltkVisible(false);
+	// 		setBlockedKeys(false);
+	// 	}
+	// }
+	// const fltkUrls = ['/cad/index.html', '/cad/test.html', '/prototype/app.html'];
+	// const isFltk = fltkUrls.some(p => url.includes(p));
 
     const viewer_v1 = document.getElementById('viewer_v1');
     if (!viewer_v1) return;
+
+
+	setFltkVisible(false);
+	setBlockedKeys(false);
 
     // 1. Verifica se o DOM já existe na cache para esta URL (Mantém os elementos vivos e estado)
     if (window.__loadPageCache.has(url)) {
         const cachedRoot = window.__loadPageCache.get(url);
         viewer_v1.replaceChildren(cachedRoot);
+
+		const isFltk = !!cachedRoot.querySelector('.canvas-container');
+		// Show or hide the FLTK app
+
+		setFltkVisible(isFltk);
+		setBlockedKeys(isFltk);
+
+
 
         if (menuitem?.showpub) google_ads(1); else google_ads(0);
         if (typeof updates === 'function') updates();

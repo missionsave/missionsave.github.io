@@ -91,52 +91,60 @@ _build_fltk_wasm() {
 }
 
 
-_compile_fltk_wasm_notworking() {
-    local fltk_dir="${1:-fltk-src}"
-    
-    if [ -f "$HOME/msv/emsdk/emsdk_env.sh" ]; then
-        source "$HOME/msv/emsdk/emsdk_env.sh" > /dev/null 2>&1
-    elif [ -n "$EMSDK" ]; then
-        source "$EMSDK/emsdk_env.sh" > /dev/null 2>&1
-    fi
+_build_occt_wasm(){
+# ==============================================================================
+# Prerequisite Reminder:
+# Make sure you have activated your Emscripten environment before running:
+# source /path/to/emsdk/emsdk_env.sh
+# ==============================================================================
 
-    if [ ! -d "$fltk_dir" ]; then
-        echo "A clonar o repositório oficial do FLTK (branch 1.4)..."
-        git clone --branch branch-1.4 --depth 1 https://github.com/fltk/fltk.git "$fltk_dir"
-    else
-        echo "A limpar diretório de build anterior..."
-        rm -rf "$fltk_dir/build-wasm"
-    fi
+INSTALL_DIR="$(pwd)/occt_wasm_install"
+BUILD_DIR="build_wasm"
 
-    echo "A configurar o projeto FLTK sem suporte a imagens/jpeg/png..."
-    emcmake cmake -B "$fltk_dir/build-wasm" -S "$fltk_dir" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DOPTION_BUILD_SHARED_LIBS=OFF \
-        -DOPTION_BUILD_EXAMPLES=OFF \
-        -DOPTION_BUILD_TESTS=OFF \
-        -DOPTION_USE_X11=OFF \
-        -DOPTION_USE_GL=OFF \
-        -DOPTION_USE_THREADS=OFF \
-        -DOPTION_USE_PLUGINS=OFF \
-        -DOPTION_USE_libjpeg=OFF \
-        -DOPTION_USE_libpng=OFF \
-        -DOPTION_USE_zlib=OFF \
-        -DCMAKE_CXX_FLAGS="-D__EMSCRIPTEN__"
+echo "=== [1/5] Checking Emscripten environment ==="
+if [ -z "$EMSDK" ]; then
+    echo "Error: EMSDK environment variable is not set. Please source your emsdk_env.sh first."
+    exit 1
+fi
+echo "Found EMSDK at: $EMSDK"
 
-    echo "A compilar o FLTK para WASM..."
-    cmake --build "$fltk_dir/build-wasm" -j$(nproc)
+echo "=== [2/5] Cloning OpenCASCADE Source Repository ==="
+if [ ! -d "occt" ]; then
+    # Clone stable branch (e.g., V7_8_0 or adjust tag/branch as needed)
+    git clone --depth 1 --branch V7_8_0 https://github.com/Open-Cascade-SAS/OCCT.git occt
+else
+    echo "OCCT source folder already exists. Skipping clone."
+fi
 
-    if [ $? -eq 0 ]; then
-        echo "=========================================="
-        echo "FLTK compilado com sucesso para WASM!"
-        echo "Os ficheiros .a estão em: $fltk_dir/build-wasm/lib/"
-        echo "=========================================="
-    else
-        echo "A compilação falhou."
-        return 1
-    fi
+cd occt
+mkdir -p "$BUILD_DIR"
+cd "$BUILD_DIR"
+
+echo "=== [3/5] Configuring OCCT with emcmake ==="
+emcmake cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_LIBRARY_TYPE=Static \
+    -DBUILD_MODULE_Draw=OFF \
+    -DBUILD_USE_PCH=OFF \
+    -DUSE_FREETYPE=OFF \
+    -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+    -D3RDPARTY_FREETYPE_INCLUDE_DIR="$EMSDK/upstream/emscripten/cache/sysroot/include/freetype2"
+
+echo "=== [4/5] Compiling OCCT WebAssembly Static Libraries ==="
+# Detect available CPU cores for parallel build
+CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+echo "Building using $CORES parallel jobs..."
+cmake --build . -j"$CORES"
+
+echo "=== [5/5] Installing Headers and Libraries ==="
+cmake --install .
+
+echo "========================================================================"
+echo "Build Complete Successfully!"
+echo "Headers located at:   $INSTALL_DIR/include/opencascade"
+echo "Libraries located at: $INSTALL_DIR/lib"
+echo "========================================================================"
 }
-
 
 install_ncnn() {
     GREEN="\e[32m"
