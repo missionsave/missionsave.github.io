@@ -2,22 +2,22 @@
 	"equity":	0,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	12.013588656,
+	"total_fees_paid":	12.014130896,
 	"trading_halted_until":	1792904760,
-	"last_run":	1792922475,
+	"last_run":	1792926079,
 	"positions":	[{
 			"symbol":	"METIS_USDT",
 			"side":	"LONG",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
 			"quantity":	0,
-			"entry_price":	3.412,
-			"sl":	3.3085,
-			"tp":	3.619,
-			"trailing":	3.5155,
-			"timestamp":	1792922475,
+			"entry_price":	3.389,
+			"sl":	3.2809,
+			"tp":	3.6052,
+			"trailing":	3.4971,
+			"timestamp":	1792926079,
 			"partial_taken":	false,
-			"orig_risk_distance":	0.10349999999999993
+			"orig_risk_distance":	0.10809999999999986
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
@@ -1298,6 +1298,9 @@
 			"return":	0
 		}, {
 			"strategy":	"ema_trend",
+			"return":	0
+		}, {
+			"strategy":	"trend_exhaustion",
 			"return":	0
 		}, {
 			"strategy":	"trend_exhaustion",
