@@ -2,35 +2,22 @@
 	"equity":	0,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	12.367530416,
+	"total_fees_paid":	12.368087056,
 	"trading_halted_until":	1792904760,
-	"last_run":	1792947669,
+	"last_run":	1792951274,
 	"positions":	[{
 			"symbol":	"METIS_USDT",
 			"side":	"SHORT",
 			"strategy":	"trend_exhaustion",
 			"exchange":	"MEXC",
 			"quantity":	0,
-			"entry_price":	3.491,
-			"sl":	3.6064928571428574,
-			"tp":	3.260014285714286,
-			"trailing":	3.3755071428571428,
-			"timestamp":	1792947668,
+			"entry_price":	3.479,
+			"sl":	3.5959714285714286,
+			"tp":	3.2450571428571431,
+			"trailing":	3.3620285714285716,
+			"timestamp":	1792951274,
 			"partial_taken":	false,
-			"orig_risk_distance":	0.11549285714285729
-		}, {
-			"symbol":	"PEPE_USDT",
-			"side":	"LONG",
-			"strategy":	"momentum_scalper",
-			"exchange":	"MEXC",
-			"quantity":	0,
-			"entry_price":	4.398e-06,
-			"sl":	4.3335428571428572e-06,
-			"tp":	4.4946857142857144e-06,
-			"trailing":	4.4624571428571429e-06,
-			"timestamp":	1792947669,
-			"partial_taken":	false,
-			"orig_risk_distance":	6.445714285714286e-08
+			"orig_risk_distance":	0.1169714285714285
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
@@ -1326,6 +1313,12 @@
 			"return":	0
 		}, {
 			"strategy":	"momentum_scalper",
+			"return":	0
+		}, {
+			"strategy":	"momentum_scalper",
+			"return":	0
+		}, {
+			"strategy":	"trend_exhaustion",
 			"return":	0
 		}, {
 			"strategy":	"momentum_scalper",
