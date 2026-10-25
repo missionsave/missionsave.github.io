@@ -2,35 +2,35 @@
 	"equity":	0,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	11.998484496,
+	"total_fees_paid":	12.012495696,
 	"trading_halted_until":	1792904760,
-	"last_run":	1792911680,
+	"last_run":	1792915277,
 	"positions":	[{
 			"symbol":	"BNB_USDT",
 			"side":	"LONG",
 			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
 			"quantity":	0,
-			"entry_price":	743.6,
-			"sl":	734.13571428571436,
-			"tp":	771.992857142857,
-			"trailing":	753.06428571428569,
-			"timestamp":	1792911679,
+			"entry_price":	745.6,
+			"sl":	736.4392857142858,
+			"tp":	773.08214285714268,
+			"trailing":	754.76071428571424,
+			"timestamp":	1792915276,
 			"partial_taken":	false,
-			"orig_risk_distance":	9.4642857142856656
+			"orig_risk_distance":	9.16071428571422
 		}, {
-			"symbol":	"METIS_USDT",
+			"symbol":	"XRP_USDT",
 			"side":	"LONG",
-			"strategy":	"trend_exhaustion",
+			"strategy":	"ema_trend",
 			"exchange":	"MEXC",
 			"quantity":	0,
-			"entry_price":	3.419,
-			"sl":	3.3283142857142858,
-			"tp":	3.6003714285714286,
-			"trailing":	3.5096857142857143,
-			"timestamp":	1792911680,
+			"entry_price":	1.301,
+			"sl":	1.2825714285714285,
+			"tp":	1.3562857142857141,
+			"trailing":	1.3194285714285714,
+			"timestamp":	1792915277,
 			"partial_taken":	false,
-			"orig_risk_distance":	0.090685714285714258
+			"orig_risk_distance":	0.018428571428571461
 		}],
 	"strategies":	[{
 			"name":	"ema_trend",
@@ -1835,9 +1835,15 @@
 			"return":	-0.0086743638928767752
 		}, {
 			"strategy":	"ema_trend",
-			"return":	null
+			"return":	0
 		}, {
 			"strategy":	"momentum_scalper",
+			"return":	0
+		}, {
+			"strategy":	"ema_trend",
+			"return":	null
+		}, {
+			"strategy":	"trend_exhaustion",
 			"return":	null
 		}]
 }
