@@ -2,22 +2,22 @@
 	"equity":	0,
 	"starting_equity":	41.65862249,
 	"peak_equity":	46.24233262,
-	"total_fees_paid":	12.155359696,
+	"total_fees_paid":	12.226028496,
 	"trading_halted_until":	1792904760,
-	"last_run":	1792936878,
+	"last_run":	1792940469,
 	"positions":	[{
 			"symbol":	"PEPE_USDT",
 			"side":	"LONG",
 			"strategy":	"momentum_scalper",
 			"exchange":	"MEXC",
 			"quantity":	0,
-			"entry_price":	4.3797e-06,
-			"sl":	4.3174714285714286e-06,
-			"tp":	4.4730428571428573e-06,
-			"trailing":	4.44192857142857e-06,
-			"timestamp":	1792936878,
+			"entry_price":	4.4168e-06,
+			"sl":	4.3532428571428572e-06,
+			"tp":	4.5121357142857145e-06,
+			"trailing":	4.4803571428571424e-06,
+			"timestamp":	1792940469,
 			"partial_taken":	false,
-			"orig_risk_distance":	6.2228571428571143e-08
+			"orig_risk_distance":	6.35571428571426e-08
 		}],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
@@ -1307,6 +1307,9 @@
 			"return":	0
 		}, {
 			"strategy":	"trend_exhaustion",
+			"return":	0
+		}, {
+			"strategy":	"momentum_scalper",
 			"return":	0
 		}, {
 			"strategy":	"momentum_scalper",
