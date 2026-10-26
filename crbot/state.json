@@ -4,7 +4,7 @@
 	"peak_equity":	46.24233262,
 	"total_fees_paid":	12.368633776,
 	"trading_halted_until":	1792904760,
-	"last_run":	1792972875,
+	"last_run":	1792976473,
 	"positions":	[],
 	"strategies":	[{
 			"name":	"trend_exhaustion",
