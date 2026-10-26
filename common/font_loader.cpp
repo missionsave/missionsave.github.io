@@ -1,6 +1,3 @@
-// load_app_font.hpp / .cpp
-// C++17; Windows: link Gdi32.lib; Linux: link fontconfig (e.g., -lfontconfig)
-
 #include <string>
 #include <vector>
 #include <fstream>
@@ -17,13 +14,14 @@
   #include <unistd.h>
   #include <limits.h>
   #include <fontconfig/fontconfig.h>
+#elif defined(__EMSCRIPTEN__)
+  #include <unistd.h>
+  // No fontconfig needed for Emscripten!
 #else
-  #error "Only Windows and Linux supported here."
+  #error "Only Windows, Linux, and Emscripten supported here."
 #endif
 
- 
-
-// Read entire file into memory
+// Read entire file into memory (works seamlessly with Emscripten's virtual filesystem)
 std::vector<uint8_t> read_file(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) throw std::runtime_error("Cannot open font file: " + path);
@@ -41,21 +39,21 @@ std::vector<uint8_t> read_file(const std::string& path) {
     return buf;
 }
 
- uint16_t be16(const uint8_t* p) {
+uint16_t be16(const uint8_t* p) {
     return static_cast<uint16_t>(p[0] << 8 | p[1]);
 }
- uint32_t be32(const uint8_t* p) {
+
+uint32_t be32(const uint8_t* p) {
     return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | uint32_t(p[3]);
 }
 
 // Convert UTF‑16BE to UTF‑8 (minimal, handles BMP)
- std::string utf16be_to_utf8(const uint8_t* data, size_t bytes) {
+std::string utf16be_to_utf8(const uint8_t* data, size_t bytes) {
     std::string out;
-    out.reserve(bytes); // rough
+    out.reserve(bytes);
     for (size_t i = 0; i + 1 < bytes; ) {
         uint16_t code = be16(data + i);
         i += 2;
-        // handle surrogate pairs
         if (code >= 0xD800 && code <= 0xDBFF) {
             if (i + 1 >= bytes) break;
             uint16_t low = be16(data + i);
@@ -86,11 +84,10 @@ std::vector<uint8_t> read_file(const std::string& path) {
 }
 
 // Extract family (nameID=1) from TTF/OTF 'name' table; fallback to full name (nameID=4)
- std::string extract_ttf_family(const std::vector<uint8_t>& buf) {
+std::string extract_ttf_family(const std::vector<uint8_t>& buf) {
     if (buf.size() < 12) throw std::runtime_error("Font too small");
     const uint8_t* p = buf.data();
     uint32_t sfnt = be32(p + 0);
-    // Accept 'OTTO' (CFF/OTF), 0x00010000 (TTF), 'true' (rare) or 'typ1' (very rare)
     if (!(sfnt == 0x00010000u || sfnt == 0x4F54544Fu /*OTTO*/ || sfnt == 0x74727565u /*true*/ || sfnt == 0x74797031u /*typ1*/))
         throw std::runtime_error("Unrecognized sfnt");
     uint16_t numTables = be16(p + 4);
@@ -121,7 +118,6 @@ std::vector<uint8_t> read_file(const std::string& path) {
         if (absOff + len > buf.size()) return {};
         const uint8_t* s = p + absOff;
         if (utf16) return utf16be_to_utf8(s, len);
-        // Mac Roman fallback: treat as Latin-1-ish for simplicity
         return std::string(reinterpret_cast<const char*>(s), reinterpret_cast<const char*>(s) + len);
     };
 
@@ -131,13 +127,11 @@ std::vector<uint8_t> read_file(const std::string& path) {
         const uint8_t* rec = nt + 6 + i * 12;
         uint16_t platformID = be16(rec + 0);
         uint16_t encodingID = be16(rec + 2);
-        uint16_t /*languageID*/ _lang = be16(rec + 4);
         uint16_t nameID     = be16(rec + 6);
         uint16_t length     = be16(rec + 8);
         uint16_t offset     = be16(rec + 10);
 
-        bool isUnicode = (platformID == 0) ||
-                         (platformID == 3 && (encodingID == 1 || encodingID == 10));
+        bool isUnicode = (platformID == 0) || (platformID == 3 && (encodingID == 1 || encodingID == 10));
         bool isMacRoman = (platformID == 1 && encodingID == 0);
 
         if (nameID == 1 && isUnicode) {
@@ -160,7 +154,7 @@ std::vector<uint8_t> read_file(const std::string& path) {
     throw std::runtime_error("Could not extract font family name");
 }
 
- std::string exe_dir() {
+std::string exe_dir() {
 #ifdef _WIN32
     wchar_t wpath[MAX_PATH];
     DWORD n = GetModuleFileNameW(nullptr, wpath, MAX_PATH);
@@ -180,10 +174,13 @@ std::vector<uint8_t> read_file(const std::string& path) {
     std::string s(path);
     size_t pos = s.find_last_of("/\\");
     return (pos == std::string::npos) ? std::string(".") : s.substr(0, pos);
+#elif defined(__EMSCRIPTEN__)
+    // Emscripten virtual filesystem root / working directory
+    return ".";
 #endif
 }
 
- std::string join_path(const std::string& a, const std::string& b) {
+std::string join_path(const std::string& a, const std::string& b) {
     if (a.empty()) return b;
     char sep =
 #ifdef _WIN32
@@ -195,29 +192,19 @@ std::vector<uint8_t> read_file(const std::string& path) {
     return a + sep + b;
 }
 
- 
-
-// Returns the face (family) name, e.g. "DejaVu Sans"
+// Returns the face (family) name
 std::string load_app_font(const std::string& filename) {
-    // Build absolute path next to executable
     const std::string path = join_path(exe_dir(), filename);
 
-    // Read font and extract family name first (so we can return it even if registration is a no-op)
+    // Read font file from Emscripten's virtual filesystem and extract family name
     const auto bytes = read_file(path);
     const std::string family = extract_ttf_family(bytes);
 
-    // Register font for current process
 #ifdef _WIN32
-    // Prefer file-based registration (simpler lifetime). FR_PRIVATE keeps it process-local.
-    int added = 0;
-    {
-        int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
-        std::wstring wpath(wlen, L'\0');
-        MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wpath.data(), wlen);
-        // MultiByteToWideChar writes trailing null; ensure string is null-terminated in c_str
-        added = AddFontResourceExW(wpath.c_str(), FR_PRIVATE, nullptr);
-    }
-    // 'added' can be 0 if already loaded or registration failed. We still return the family name.
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+    std::wstring wpath(wlen, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, wpath.data(), wlen);
+    AddFontResourceExW(wpath.c_str(), FR_PRIVATE, nullptr);
 #elif defined(__linux__)
     FcInit();
     FcConfig* cfg = FcConfigGetCurrent();
@@ -226,8 +213,10 @@ std::string load_app_font(const std::string& filename) {
         if (ok) {
             FcConfigBuildFonts(cfg);
         }
-        // If it fails, the font might already be visible or fontconfig not available; we still return the name.
     }
+#elif defined(__EMSCRIPTEN__)
+    // No registration needed; the font data is already in memory (`bytes`) 
+    // or accessible via virtual filesystem for your renderer.
 #endif
 
     return family;

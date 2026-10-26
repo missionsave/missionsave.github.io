@@ -462,7 +462,7 @@ std::thread([html]() {
 }).detach();
 
 #else
-    #error Unsupported platform
+    // #error Unsupported platform
 #endif
 }
 #endif

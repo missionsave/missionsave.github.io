@@ -72,8 +72,6 @@
 !scintilla_370
 !/**/scintilla_370/doc
 !/**/scintilla_370/doc/*
-!/**/scintilla_370/fltk
-!/**/scintilla_370/fltk/*
 !/**/scintilla_370/include
 !/**/scintilla_370/include/*
 !/**/scintilla_370/lexers
@@ -84,7 +82,11 @@
 !/**/scintilla_370/src/*
 !/**/scintilla_370/src/*
 !/**/scintilla_370/fltest.cpp
+!/**/scintilla_370/scintilla_fltk_amalgamated.*
+!/**/scintilla_370/makefile
 
+/**/scintilla_370/fltk
+/**/scintilla_370/fltk/*
 
 # !sol2
 # !include
@@ -133,6 +135,9 @@ docs/cad/test
 docs/cad/test2
 *copiar*
 working*
+
+docs/**/**
+!docs/coi-serviceworker.min.js
 
 
 !2d

@@ -73,6 +73,7 @@ Fl_Scintilla::Fl_Scintilla(int X, int Y, int W, int H, const char* l) : Fl_Group
 	drag_str_ = NULL;
 	drag_str_size_ = 0;
 
+	// Emscripten is always UTF-8; force the document into Unicode mode.
 	SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
 }
 
@@ -191,8 +192,9 @@ int Fl_Scintilla::handle(int event)
 	unsigned int clockt;
 
 	//patch fix
-	if (Fl::event_key() == FL_BackSpace || Fl::event_key() == FL_Delete ){
-		patchfix(); 
+	if (event == FL_KEYDOWN &&
+	    (Fl::event_key() == FL_BackSpace || Fl::event_key() == FL_Delete)) {
+		patchfix();
 	}
 
 	if ( event == FL_HIDE ) {
@@ -384,7 +386,9 @@ int Fl_Scintilla::handle(int event)
 				if (!PointInSelection(pt)) {
 					CancelModes();
 					SetEmptySelection(PositionFromLocation(pt));
+#ifndef __EMSCRIPTEN__
 					Fl::wait(0);
+#endif
 				}
 
 				if ((pt.x == -1) && (pt.y == -1)) {
@@ -512,6 +516,11 @@ int Fl_Scintilla::handle_key(int event)
 		s = (char *)Fl::event_text();
 		len = strlen(s);
 		if ( len < 1 ) return 0;
+
+#ifdef __EMSCRIPTEN__
+		// Emscripten is always UTF-8 – never go through iconv
+		AddCharUTF(s, len);
+#else
 		if ( ! IsUnicodeMode() ) {
 			printf("no unicode\n");
 			if ( len*8 > ic_str_len_ ) {
@@ -530,6 +539,7 @@ int Fl_Scintilla::handle_key(int event)
 
 		// printf("keydown:%d  %d %s \n", Fl::event_key(),len,s); 
 		AddCharUTF(s, len);
+#endif
 		// patchfix();
 		return 1;
 	}
@@ -546,75 +556,147 @@ static bool BoundsContains(Scintilla::PRectangle rcBounds, Scintilla::PRectangle
 	}
 	return contains;
 }
+// void Fl_Scintilla::draw()
+// {
+	
+// 	// printf("draw\n");
+// 	// return;
+
+// 	fl_push_clip(x(),y(),w(),h());	// prevent drawing outside widget area
+// // 	#ifdef __EMSCRIPTEN__
+// // fl_color(FL_YELLOW);
+// // fl_rectf(swt_.rc_client.x, swt_.rc_client.y, swt_.rc_client.w, swt_.rc_client.h);
+// // fl_color(FL_BLACK);
+// // fl_font(FL_HELVETICA, 14);
+// // fl_draw("FLTK TEXT OK", swt_.rc_client.x + 8, swt_.rc_client.y + 24);
+// // #endif
+// 	Fl_Color bgcolor = active_r() ? color() : fl_inactive(color());
+
+// 	//
+// 	if (damage() & FL_DAMAGE_ALL) {
+// 		draw_box(box(), x(), y(), w(), h(), bgcolor);
+// 		// draw that little box in the corner of the scrollbars
+// 		if (mVScrollBar->visible() && mHScrollBar->visible()) {
+// 			fl_rectf(mVScrollBar->x(), mHScrollBar->y(), mVScrollBar->w(), mHScrollBar->h(), FL_GRAY);
+// 		}
+// 	}
+// 	// draw the scrollbars
+// 	if (damage() & (FL_DAMAGE_ALL |FL_DAMAGE_CHILD)) {
+// 		mVScrollBar->damage(FL_DAMAGE_ALL);
+// 		mHScrollBar->damage(FL_DAMAGE_ALL);
+// 	}
+// 	update_child(*mVScrollBar);
+// 	update_child(*mHScrollBar);
+// 	//printf("draw scroll visiable:v%d h%d\n", mVScrollBar->visible(), mHScrollBar->visible());
+
+	
+// 	// fl_pop_clip(); return;;
+// 	//
+// 	int X, Y, W, H;
+// 	if (damage() & FL_DAMAGE_ALL ) {
+// 		if ( ! fl_clip_box(swt_.rc_client.x, swt_.rc_client.y, swt_.rc_client.w, swt_.rc_client.h, X, Y, W, H) ) {
+// 			X = swt_.rc_client.x;
+// 			Y = swt_.rc_client.y;
+// 			W = swt_.rc_client.w;
+// 			H = swt_.rc_client.h;
+// 		}
+
+// 		bool assertsPopup = Scintilla::Platform::ShowAssertionPopUps(false);
+// 		//if ( X+W > swt_.rc_client.x+swt_.rc_client.w ) W = swt_.rc_client.x+swt_.rc_client.w - X;
+// 		fl_push_clip(X, Y, W, H);
+// 		//printf("fl_push_clip:%d %d %d %d\n", X, Y, X+W, Y+H);
+// 		paintState = painting;
+// 		rcPaint = Scintilla::PRectangle::FromInts(X-swt_.rc_client.x, Y-swt_.rc_client.y, X-swt_.rc_client.x+W, Y-swt_.rc_client.y+H);
+// 		Scintilla::PRectangle rcClient = GetClientRectangle();
+// 		paintingAllText = BoundsContains(rcPaint, rcClient);
+// 		if ( sw_ ) {
+// 			//printf("draw rect:%d %d %d %d\n", (int)rcPaint.left, (int)rcPaint.top, (int)rcPaint.Width(), (int)rcPaint.Height());
+// 			// sid==1 means “use the current FLTK drawing context”
+// 			sw_->Init((void*)1, &swt_);
+// 			Paint(sw_, rcPaint);
+// 			sw_->Release();
+// 		}
+
+// 		// if ((paintState == paintAbandoned) || repaintFullWindow) {
+// 		if (paintState == paintAbandoned) {
+// 			// Painting area was insufficient to cover new styling or brace highlight positions
+// 			FullPaint();
+// 		}
+
+// 		paintState = notPainting;
+// 		// repaintFullWindow = false;
+// 		// repaintFullWindow = 1;
+// 		fl_pop_clip();
+// 		Scintilla::Platform::ShowAssertionPopUps(assertsPopup);
+// 		// return;;
+// 	}
+
+// 	fl_pop_clip();
+// }
 void Fl_Scintilla::draw()
 {
-	// printf("draw\n");
-	// return;
 
-	fl_push_clip(x(),y(),w(),h());	// prevent drawing outside widget area
+	#ifdef __EMSCRIPTEN__
+	static int n = 0;
+	printf("draw #%d damage=0x%x\n", ++n, (unsigned)damage());
+#endif
+
+
+	fl_push_clip(x(), y(), w(), h());
+
+#ifdef __EMSCRIPTEN__
+	const bool full = true;   // backend may clear the canvas: always repaint everything
+#else
+	const bool full = (damage() & FL_DAMAGE_ALL) != 0;
+#endif
+
 	Fl_Color bgcolor = active_r() ? color() : fl_inactive(color());
 
-	//
-	if (damage() & FL_DAMAGE_ALL) {
+	if (full) {
 		draw_box(box(), x(), y(), w(), h(), bgcolor);
-		// draw that little box in the corner of the scrollbars
 		if (mVScrollBar->visible() && mHScrollBar->visible()) {
-			fl_rectf(mVScrollBar->x(), mHScrollBar->y(), mVScrollBar->w(), mHScrollBar->h(), FL_GRAY);
+			fl_rectf(mVScrollBar->x(), mHScrollBar->y(),
+			         mVScrollBar->w(), mHScrollBar->h(), FL_GRAY);
 		}
-	}
-	// draw the scrollbars
-	if (damage() & (FL_DAMAGE_ALL |FL_DAMAGE_CHILD)) {
 		mVScrollBar->damage(FL_DAMAGE_ALL);
 		mHScrollBar->damage(FL_DAMAGE_ALL);
 	}
 	update_child(*mVScrollBar);
 	update_child(*mHScrollBar);
-	//printf("draw scroll visiable:v%d h%d\n", mVScrollBar->visible(), mHScrollBar->visible());
 
-	
-	// fl_pop_clip(); return;;
-	//
-	int X, Y, W, H;
-	if (damage() & FL_DAMAGE_ALL ) {
-		if ( ! fl_clip_box(swt_.rc_client.x, swt_.rc_client.y, swt_.rc_client.w, swt_.rc_client.h, X, Y, W, H) ) {
-			X = swt_.rc_client.x;
-			Y = swt_.rc_client.y;
-			W = swt_.rc_client.w;
-			H = swt_.rc_client.h;
+	if (full) {
+		int X, Y, W, H;
+		if (!fl_clip_box(swt_.rc_client.x, swt_.rc_client.y,
+		                 swt_.rc_client.w, swt_.rc_client.h, X, Y, W, H)) {
+			X = swt_.rc_client.x; Y = swt_.rc_client.y;
+			W = swt_.rc_client.w; H = swt_.rc_client.h;
 		}
-
-		bool assertsPopup = Scintilla::Platform::ShowAssertionPopUps(false);
-		//if ( X+W > swt_.rc_client.x+swt_.rc_client.w ) W = swt_.rc_client.x+swt_.rc_client.w - X;
-		fl_push_clip(X, Y, W, H);
-		//printf("fl_push_clip:%d %d %d %d\n", X, Y, X+W, Y+H);
-		paintState = painting;
-		rcPaint = Scintilla::PRectangle::FromInts(X-swt_.rc_client.x, Y-swt_.rc_client.y, X-swt_.rc_client.x+W, Y-swt_.rc_client.y+H);
-		Scintilla::PRectangle rcClient = GetClientRectangle();
-		paintingAllText = BoundsContains(rcPaint, rcClient);
-		if ( sw_ ) {
-			//printf("draw rect:%d %d %d %d\n", (int)rcPaint.left, (int)rcPaint.top, (int)rcPaint.Width(), (int)rcPaint.Height());
-			sw_->Init((void*)1, &swt_);
-			Paint(sw_, rcPaint);
-			sw_->Release();
+// #ifdef __EMSCRIPTEN__
+// 		// paint the whole client area, not just the clipped damage rect
+// 		X = swt_.rc_client.x; Y = swt_.rc_client.y;
+// 		W = swt_.rc_client.w; H = swt_.rc_client.h;
+// #endif
+		if (W > 0 && H > 0) {
+			bool assertsPopup = Scintilla::Platform::ShowAssertionPopUps(false);
+			fl_push_clip(X, Y, W, H);
+			paintState = painting;
+			rcPaint = Scintilla::PRectangle::FromInts(
+				X - swt_.rc_client.x, Y - swt_.rc_client.y,
+				X - swt_.rc_client.x + W, Y - swt_.rc_client.y + H);
+			paintingAllText = BoundsContains(rcPaint, GetClientRectangle());
+			if (sw_) {
+				sw_->Init((void*)1, &swt_);
+				Paint(sw_, rcPaint);
+				sw_->Release();
+			}
+			if (paintState == paintAbandoned) FullPaint();
+			paintState = notPainting;
+			fl_pop_clip();
+			Scintilla::Platform::ShowAssertionPopUps(assertsPopup);
 		}
-
-		// if ((paintState == paintAbandoned) || repaintFullWindow) {
-		if (paintState == paintAbandoned) {
-			// Painting area was insufficient to cover new styling or brace highlight positions
-			FullPaint();
-		}
-
-		paintState = notPainting;
-		// repaintFullWindow = false;
-		// repaintFullWindow = 1;
-		fl_pop_clip();
-		Scintilla::Platform::ShowAssertionPopUps(assertsPopup);
-		// return;;
 	}
-
 	fl_pop_clip();
 }
-
 bool Fl_Scintilla::PaintContains(Scintilla::PRectangle rc)
 {
 	if (paintState == painting) {
@@ -627,16 +709,31 @@ bool Fl_Scintilla::PaintContains(Scintilla::PRectangle rc)
  * Redraw all of text area.
  * This paint will not be abandoned.
  */
-void Fl_Scintilla::FullPaint()
-{
-	paintState = painting;
-	rcPaint = GetClientRectangle();
-	paintingAllText = true;
-	sw_->Init((void*)1, &swt_);
-	Paint(sw_, rcPaint);
-	sw_->Release();
-	paintState = notPainting;
-}
+ void Fl_Scintilla::FullPaint()
+ {
+ #ifdef __EMSCRIPTEN__
+	 // Do not start a nested paint. Request a fresh FLTK draw instead.
+	 if (paintState == painting) {
+		 damage(FL_DAMAGE_ALL);
+		 return;
+	 }
+ 
+	 damage(FL_DAMAGE_ALL);
+	 return;
+ #else
+	 paintState = painting;
+	 rcPaint = GetClientRectangle();
+	 paintingAllText = true;
+ 
+	 if (sw_) {
+		 sw_->Init((void*)1, &swt_);
+		 Paint(sw_, rcPaint);
+		 sw_->Release();
+	 }
+ 
+	 paintState = notPainting;
+ #endif
+ }
 
 static int CodePageFromCharSet(int characterSet, int documentCodePage)
 {
@@ -723,6 +820,10 @@ void Fl_Scintilla::CopyToClipboard(const Scintilla::SelectionText &selectedText)
 	int len = static_cast<int>(selectedText.LengthWithTerminator());
 	if ( (copy==NULL) || (len<1) ) return;
 
+#ifdef __EMSCRIPTEN__
+	// Always UTF-8 on Emscripten
+	Fl::copy(copy, len-1, 1);
+#else
 	if (IsUnicodeMode()) {
 		Fl::copy(copy, len-1, 1);
 	} else {
@@ -746,6 +847,7 @@ void Fl_Scintilla::CopyToClipboard(const Scintilla::SelectionText &selectedText)
 
 		free(dst);
 	}
+#endif
 }
 
 void Fl_Scintilla::Copy()
@@ -783,6 +885,10 @@ void Fl_Scintilla::DoPaste(const char *s)
 	ClearSelection(multiPasteMode == SC_MULTIPASTE_EACH);
 
 	unsigned int len = strlen(s);
+#ifdef __EMSCRIPTEN__
+	// Always UTF-8
+	InsertPasteShape(s, len, pasteStream);
+#else
 	if (IsUnicodeMode()) {
 		InsertPasteShape(s, len, pasteStream);
 	} else {
@@ -801,6 +907,7 @@ void Fl_Scintilla::DoPaste(const char *s)
 
 		free(dst);
 	}
+#endif
 }
 
 // =========== Dnd =======================================
@@ -820,6 +927,15 @@ void Fl_Scintilla::SaveDragData(const Scintilla::SelectionText &selectedText)
 	if ( (copy==NULL) || (len<1) ) return;
 
 	void *p;
+#ifdef __EMSCRIPTEN__
+	// Always UTF-8
+	p = realloc(drag_str_, len+1);
+	if ( p == NULL ) return;
+	drag_str_ = (char *)p;
+	memcpy(drag_str_, copy, len);
+	drag_str_[len] = 0;
+	drag_str_size_ = len+1;
+#else
 	if (IsUnicodeMode()) {
 		p = realloc(drag_str_, len+1);
 		if ( p == NULL ) return;
@@ -853,6 +969,7 @@ void Fl_Scintilla::SaveDragData(const Scintilla::SelectionText &selectedText)
 
 		free(dst);
 	}
+#endif
 }
 
 void Fl_Scintilla::StartDrag()
@@ -889,7 +1006,7 @@ int Fl_Scintilla::DragOver()
 		Scintilla::Point pt = Scintilla::Point::FromInts(Fl::event_x()-swt_.rc_client.x, Fl::event_y()-swt_.rc_client.y);
 		SetDragPosition(SPositionFromLocation(pt, false, false, UserVirtualSpace()));
 
-#ifdef WIN32
+#if defined(WIN32) && !defined(__EMSCRIPTEN__)
 		Fl::wait(0);
 #endif
 
@@ -1012,6 +1129,10 @@ public:
 
 Scintilla::CaseFolder *Fl_Scintilla::CaseFolderForEncoding()
 {
+#ifdef __EMSCRIPTEN__
+	// Always UTF-8
+	return new Scintilla::CaseFolderUnicode();
+#else
 	ICONVConverter *ic;
 
 	int cpDest = CodePageOfDocument();
@@ -1056,6 +1177,7 @@ Scintilla::CaseFolder *Fl_Scintilla::CaseFolderForEncoding()
 			return new CaseFolderDBCS(cpDest);
 		}
 	}
+#endif
 }
 
 std::string Fl_Scintilla::CaseMapString(const std::string &s, int caseMapping)
@@ -1236,8 +1358,11 @@ void Fl_Scintilla::RefreshIME()
 	int x = Scintilla::RoundXYPosition(pos.x)+swt_.rc_client.x;
 	int y = Scintilla::RoundXYPosition(pos.y)+swt_.rc_client.y;
 	int height = fl_height(labelfont(), labelsize());
-#ifdef __APPLE__
+#if defined(__APPLE__)
 	Fl::insertion_point_location(x, y+height, height);
+#elif defined(__EMSCRIPTEN__)
+	// No native IME caret on the canvas; keep the widget focused.
+	// (Optional: expose a JS helper that moves a hidden <input>.)
 #else
 	fl_set_spot(labelfont(), labelsize(), x, y+height, w(), h(), window());
 #endif
@@ -1519,4 +1644,10 @@ void Fl_Scintilla::CreateCallTipWindow(Scintilla::PRectangle rc)
 	cw->swt_.main_client.y = wy;
 	ct.wCallTip = &(cw->swt_);
 	ct.wDraw = ct.wCallTip;
+
+#ifdef __EMSCRIPTEN__
+	// Make sure the floating DIV is shown and redrawn
+	callwin_->show();
+	callwin_->redraw();
+#endif
 }

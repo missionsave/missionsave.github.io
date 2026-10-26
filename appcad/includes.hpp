@@ -1,7 +1,7 @@
 #define M_PI 3.14159265358979323846
 #define M_PI_2 1.57079632679489661923
 
-#include <GL/glew.h> 
+// #include <GL/glew.h> 
 #ifdef __linux__
 extern "C" {
 #include <X11/Xlib.h>
@@ -11,15 +11,16 @@ extern "C" {
 #endif
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H> 
-#include <FL/Fl_Gl_Window.H>
+// #include <FL/Fl_Gl_Window.H>
 #include <FL/Fl_File_Chooser.H> 
 #include <FL/x.H>
-#include <GL/gl.h>
+// #include <GL/gl.h>
 #include <FL/Fl_Menu_Bar.H>
 #include <FL/fl_ask.H>
 
 #include <Aspect_DisplayConnection.hxx>
 #include <OpenGl_GraphicDriver.hxx>
+#include <ShapeFix_ShapeTolerance.hxx>
 #include <V3d_Viewer.hxx>
 #include <V3d_View.hxx>
 #include <AIS_InteractiveContext.hxx>
@@ -446,12 +447,22 @@ extern "C" {
 #include <chrono>
 #include <execution> // Para C++17 paralelismo
 
-#ifdef _WIN32 
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
 #include <lua.hpp>
 	#else
 #include <lua5.4/lua.hpp> 
 #endif
 // #define SOL_ALL_SAFETIES_ON 1
+
+#if defined(__EMSCRIPTEN__) 
+#undef LUA_VERSION_NUM
+#define LUA_VERSION_NUM 504  // Engana a validação do sol2
+// 3. Opcional: Garanta que o sol2 utilize o backend estável do 5.4
+#define SOL_LUA_VERSION 504  
+// 3. O HACK PARA O LUA 5.5: Reescreve a chamada antiga de 2 argumentos para 3 argumentos
+// Intercepta o sol2 e injeta a semente necessária exigida pelo Lua 5.5
+#define lua_newstate(f, ud) lua_newstate(f, ud, luaL_makeseed(nullptr))
+#endif
 #include <sol/sol.hpp> 
 
 // #include "fl_scintilla.hpp"

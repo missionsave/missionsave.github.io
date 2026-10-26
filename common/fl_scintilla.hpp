@@ -1,4 +1,7 @@
 
+#ifndef FL_SCINTILLA_HPP
+#define FL_SCINTILLA_HPP
+
 #include <FL/Fl.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Group.H>
@@ -17,7 +20,12 @@
 #include <tuple>
 #include <vector>
 
-#include "Fl_Scintilla.h"
+
+#include "Scintilla.h"
+// #include "Fl_Scintilla.h"
+
+// #undef SCINTILLA_FLTK_IMPLEMENTATION
+#include "scintilla_fltk_amalgamated.h" 
 #include "general.hpp"
 
 struct _FileEntry {
@@ -38,6 +46,7 @@ struct fl_scintilla : public Fl_Scintilla {
 	std::function<void()> callbackOnload;
 	std::string filename = "";
 	std::string floaded = "";
+	bool allow=0;
 	bool show_browser = 1;
 	std::string folder = "lua/";
 	std::vector<std::string> tail_functions;
@@ -240,3 +249,5 @@ void gocaret(int dir);
 	std::vector<std::string> hints; 
 	MyMenuBar* fmb=nullptr;
 };
+
+#endif

@@ -24,6 +24,12 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#ifdef __EMSCRIPTEN__
+#define Fl_Windowe Fl_Group
+#define cerr if(0)cerr 
+#else
+#define Fl_Windowe Fl_Window
+#endif
 class FixedHeightWindow : public Fl_Window {
 public:
   int fixed_height;
@@ -32,7 +38,8 @@ public:
   FixedHeightWindow(int x, int y, int w, int h, const char *label = 0)
       : Fl_Window(x, y, w, h, label), fixed_height(h), in_resize(false) {}
 
-  void flush() { Fl_Window::flush(); }
+  void flush() { Fl::flush(); }
+//   void flush() { Fl_Window::flush(); }
   void resize(int X, int Y, int W, int H) override {
     if (in_resize)
       return; // Prevent recursion
@@ -124,7 +131,7 @@ Fl_Menu_Bar *menu;
 Fl_Group *content;
 fl_browser_msv *fbm;
 Fl_Help_View *helpv;
-FixedHeightWindow *woccbtn;
+Fl_Group *woccbtn;
 
 int lastX, lastY;
 bool isRotatingz = false;
@@ -207,7 +214,8 @@ luadraw *current_part = nullptr;
 vector<luadraw *> vlua;
 
 float globalratio;
-TopoDS_Shape sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+TopoDS_Shape sphereBase;
+// TopoDS_Shape sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
 
 // region helpers
 //  std::string lua_error_with_line(lua_State* L, const std::string& msg) {
@@ -1836,7 +1844,7 @@ IMPLEMENT_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
 // // ----------------------------------------------------------------
 // void display_frd_in_occ(const std::string& file, const Handle(AIS_InteractiveContext)& ctx) {
 //     std::ifstream in(file);
-//     if (!in) { std::cerr << "Cannot open FRD: " << file << "\n"; return; }
+//     if (!in) { cerr << "Cannot open FRD: " << file << "\n"; return; }
 
 //     std::map<int, gp_Pnt> nodes;
 //     std::map<int, Elem> elems;
@@ -1888,7 +1896,7 @@ IMPLEMENT_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
 //         return d.entityNames.size() == 6 && (nm.find("STRESS") != std::string::npos || nm == "S");
 //     });
     
-//     if (ds_it == datasets.rend()) { std::cerr << "No STRESS dataset found\n"; return; }
+//     if (ds_it == datasets.rend()) { cerr << "No STRESS dataset found\n"; return; }
 //     Dataset& rds = *ds_it;
 
 //     // Detect scale (Pa to MPa)
@@ -2009,7 +2017,7 @@ IMPLEMENT_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
 //                         const Handle(AIS_InteractiveContext)& ctx)
 // {
 //     std::ifstream in(file);
-//     if (!in.is_open()) { std::cerr << "Cannot open FRD: " << file << "\n"; return; }
+//     if (!in.is_open()) { cerr << "Cannot open FRD: " << file << "\n"; return; }
 
 //     std::map<int, gp_Pnt> nodes;
 //     std::map<int, Elem>   elems;
@@ -2087,7 +2095,7 @@ IMPLEMENT_STANDARD_RTTIEXT(AIS_FEM, AIS_InteractiveObject)
 //     // Seleccionar dataset STRESS
 //     // ========================================================================
 //     int ds_idx = find_stress_dataset(datasets);
-//     if (ds_idx < 0) { std::cerr << "No stress dataset found\n"; return; }
+//     if (ds_idx < 0) { cerr << "No stress dataset found\n"; return; }
 //     std::cout << "Using dataset [" << ds_idx << "]: \""
 //               << datasets[ds_idx].name << "\" (" << datasets[ds_idx].nodeValues.size() << " nodes)\n";
 
@@ -2478,7 +2486,7 @@ static FrdData parse_frd(const std::string& filename)
 {
     FrdData data;
     std::ifstream f(filename);
-    if (!f) { std::cerr << "Erro ao abrir: " << filename << "\n"; return data; }
+    if (!f) { cerr << "Erro ao abrir: " << filename << "\n"; return data; }
 
     std::string line;
     int        block   = 0; // 2=nós, 3=elementos, 1=resultado
@@ -3127,7 +3135,7 @@ void GenerateVolumeMesh1(const TopoDS_Shape& shape,
     }
     catch(const std::exception& e)
     {
-        std::cerr << "Gmsh error: " << e.what() << std::endl;
+        cerr << "Gmsh error: " << e.what() << std::endl;
         return;
     }
 
@@ -3252,7 +3260,7 @@ void GenerateVolumeMesh(const TopoDS_Shape&       shape,
         gmsh::model::occ::importShapesNativePointer((const void*)&shape, dimTags, true);
         gmsh::model::occ::synchronize();
     } catch (const std::exception& e) {
-        std::cerr << "Gmsh import failed: " << e.what() << "\n"; return;
+        cerr << "Gmsh import failed: " << e.what() << "\n"; return;
     }
 	gmsh::option::setNumber("General.Verbosity", 0);
     gmsh::option::setNumber("Mesh.ElementOrder",      2);
@@ -3335,7 +3343,7 @@ public:
 
     bool write(const std::string& filepath = "scene.inp") {
         m_file.open(filepath);
-        if (!m_file) { std::cerr << "Error: could not open " << filepath << "\n"; return false; }
+        if (!m_file) { cerr << "Error: could not open " << filepath << "\n"; return false; }
 
         writeHeading();
         collectBodies();
@@ -3414,7 +3422,7 @@ private:
             GenerateVolumeMesh(ashape->Shape(), nodes, elements, surf_faces);
 
             if (elements.empty()) {
-                std::cerr << "Warning: Solid wrapper " << ld->name << " yielded 0 elements. Skipping.\n";
+                cerr << "Warning: Solid wrapper " << ld->name << " yielded 0 elements. Skipping.\n";
                 continue; 
             }
 
@@ -4135,6 +4143,32 @@ void DrawTrihedron(const Handle(AIS_InteractiveContext) & ctx,
 //   ctx->UpdateCurrentViewer();
 }
 vfloat GetViewportAspectRatio() {
+  const Handle(Graphic3d_Camera) &camera = view->Camera();
+
+  // Obtém a altura e largura do mundo visível na viewport
+  float viewportHeight = camera->ViewDimensions().Y(); // world
+  float viewportWidth =
+      camera->Aspect() * viewportHeight; // Largura = ratio * altura
+
+  Standard_Integer winWidth, winHeight;
+  winWidth=win->w();
+  winHeight=win->h();
+//   view->Window()->Size(winWidth, winHeight);
+
+  //     // Mundo -> Window (quantos pixels por unidade de mundo)
+  float worldToWindowX = winWidth / viewportWidth;
+  float worldToWindowY = winHeight / viewportHeight;
+
+  // cotm(worldToWindowX,worldToWindowY)
+
+  // Window -> Mundo (quantas unidades de mundo por pixel)
+  float windowToWorldX = viewportWidth / winWidth;
+  float windowToWorldY = viewportHeight / winHeight;
+  // cotm(camera->Aspect(),viewportWidth ,viewportHeight);
+  return {windowToWorldX, windowToWorldY, worldToWindowX,
+          worldToWindowY, viewportHeight, viewportWidth};
+}
+vfloat GetViewportAspectRatio1() {
   const Handle(Graphic3d_Camera) &camera = view->Camera();
 
   // Obtém a altura e largura do mundo visível na viewport
@@ -5018,7 +5052,8 @@ inline void lua_error_with_where(const char *msg) {
   luaL_where(L, 1);
   std::string where = lua_tostring(L, -1);
   lua_pop(L, 1);
-  throw sol::error(where + msg);
+  fl_alert((where + msg).c_str());
+//   throw sol::error(where + msg);
 }
 
 #include <AIS_Trihedron.hxx>
@@ -7286,7 +7321,7 @@ PutFacesInSameDomain(const std::vector<TopoDS_Face> &faces) {
   Handle(Geom_Plane) refPlane = Handle(Geom_Plane)::DownCast(refSurf);
 
   if (refPlane.IsNull()) {
-    std::cerr << "PutFacesInSameDomain: reference face is not planar\n";
+    cerr << "PutFacesInSameDomain: reference face is not planar\n";
     return faces;
   }
 
@@ -7342,7 +7377,7 @@ PutFacesInSameDomain1(std::vector<TopoDS_Face> &faces) {
   Handle(Geom_Surface) refSurf = BRep_Tool::Surface(refFace);
   Handle(Geom_Plane) refPlane = Handle(Geom_Plane)::DownCast(refSurf);
   if (refPlane.IsNull()) {
-    std::cerr << "PutFacesInSameDomain: reference face is not planar\n";
+    cerr << "PutFacesInSameDomain: reference face is not planar\n";
     return faces; // bail out, not planar
   }
 
@@ -7427,7 +7462,7 @@ TopoDS_Shape UniteFaceVector(std::vector<TopoDS_Face> &_faces) {
     fuser.Build();
 
     if (!fuser.IsDone()) {
-      std::cerr << "Fuse failed at index " << i << std::endl;
+      cerr << "Fuse failed at index " << i << std::endl;
       continue;
     }
 
@@ -7442,7 +7477,7 @@ TopoDS_Shape UniteFaceVector(std::vector<TopoDS_Face> &_faces) {
   unifier.Build();
 
   // if (!unifier.IsDone()) {
-  //     std::cerr << "UnifySameDomain failed" << std::endl;
+  //     cerr << "UnifySameDomain failed" << std::endl;
   //     return result;
   // }
 
@@ -7721,11 +7756,11 @@ void mergeShape(TopoDS_Compound &target, TopoDS_Shape &toAdd) {
   current_part->shape = toAdd; // last added
   // cotm(ShapeTypeName(shape));
   if (toAdd.IsNull()) {
-    std::cerr << "Warning: toAdd is null." << std::endl;
+    cerr << "Warning: toAdd is null." << std::endl;
     return;
   }
   if (toAdd.IsSame(target)) {
-    std::cerr << "Warning: attempted to merge compound into itself."
+    cerr << "Warning: attempted to merge compound into itself."
               << std::endl;
     return;
   }
@@ -7964,7 +7999,41 @@ void CreateWire(const std::vector<WirePoint> &points, bool closed = false) {
 // ---------------------------------------------------------------------
 // region Initialize OpenCASCADE
 // ---------------------------------------------------------------------
-void initialize_opencascade(Fl_Window *wingl) {
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h> 
+#include <emscripten/html5.h>
+#include <emscripten/threading.h>
+#include <cassert>
+#include <Wasm_Window.hxx>
+class OCC_ViewerManager {
+public: 
+
+    void init() {
+        if (m_initialized) return;
+
+        m_display_connection = new Aspect_DisplayConnection("");
+
+        m_graphic_driver = new OpenGl_GraphicDriver(m_display_connection);
+        m_viewer = new V3d_Viewer(m_graphic_driver);
+ 
+
+        ctx = new AIS_InteractiveContext(m_viewer);
+        view = m_viewer->CreateView();
+ 
+        // Target the primary Emscripten canvas selector "#canvas"
+        Handle(Wasm_Window) nativeWindow = new Wasm_Window("#canvas", true); 
+
+        view->SetWindow(nativeWindow);
+
+    }
+};
+
+static OCC_ViewerManager g_occt;
+#endif
+
+void initialize_opencascade(Fl_Windowe *wingl) {
+#ifndef __EMSCRIPTEN__
 #ifdef _WIN32
   wingl->show();
   wingl->make_current();
@@ -7993,6 +8062,7 @@ void initialize_opencascade(Fl_Window *wingl) {
   // params.NbMsaaSamples = 0;
 
   view->SetWindow(wind);
+  #endif
 
   view->SetImmediateUpdate(Standard_False);
   view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.12,V3d_ZBUFFER);
@@ -8040,6 +8110,17 @@ void setSceneDefault() {
   Handle(Prs3d_LineAspect) wireAsp =
       new Prs3d_LineAspect(Quantity_NOC_GRAY, Aspect_TOL_DASH, 0.5);
   defaultDrawer->SetUnFreeBoundaryAspect(wireAsp);
+
+
+
+//   Handle(SelectMgr_SelectionManager) aSelMgr = ctx->SelectionManager();
+
+// Definir a tolerância de pixel para o seletor (o padrão costuma ser entre 2 a 4 pixéis)
+// Aumentar para 8 ou 10 aumentará drasticamente a facilidade de detetar o vértice.
+Standard_Integer customPixelTolerance = 8; 
+
+// Aplica a nova tolerância a todos os seletores geridos
+ctx->SetPixelTolerance(customPixelTolerance);
 }
 
 // region scint
@@ -8224,9 +8305,10 @@ struct shelpv {
   int currentline = -1; // current line of Part
 
   void upd() {
+	// return;
     std::string html = R"(
 <html>
-<body marginwidth=0 marginheight=0 topmargin=0 leftmargin=0><font face=Arial > 
+<body marginwidth=0 marginheight=0 topmargin=0 leftmargin=0><font  > 
 <b> 
 $pname<br> $point $edge 
 <font color="Blue"> $pointr</font>
@@ -8439,15 +8521,18 @@ void highlightVertex(const TopoDS_Vertex &aVertex, luadraw *ldd = 0) {
   // transparent
 
   myHighlightedPointAIS->SetZLayer(
-      Graphic3d_ZLayerId_Top); // Ensure it's drawn on top
+      Graphic3d_ZLayerId_Topmost); // Ensure it's drawn on top
+    //   Graphic3d_ZLayerId_Top); // Ensure it's drawn on top
 
   ctx->Display(myHighlightedPointAIS, Standard_True);
   myLastHighlightedVertex = aVertex;
   view->Redraw();
+  cotm("greensphere");
   // Fl::wait();
   if (!IsWorldPointGreen(view, vertexPnt))
     return;
   // if(!IsPixelQuantityGreen(view,mousex,mousey))return;
+  cotm("greensphere1");
 
   help.point = "";
   help.upd();
@@ -8645,9 +8730,13 @@ void ev_highlight(Handle(AIS_InteractiveContext) & m_context) {
     TopoDS_Vertex v = TopoDS::Vertex(detected);
 
     gp_Pnt vertexPnt = BRep_Tool::Pnt(v);
-
-    if (!myLastHighlightedVertex.IsEqual(v))
+	
+	cotm("greenspherep");
+    if (!myLastHighlightedVertex.IsEqual(v)){
+		
+		cotm("greensphereh");
       highlightVertex(v, ldd);
+	}
     break;
   }
   case TopAbs_EDGE: {
@@ -8908,16 +8997,29 @@ void projectAndDisplayWithHLR() {
 }
 
 // region occv
-struct OCC_Viewer : public Fl_Window {
+void update_web_canvas_geometry();
+struct OCC_Viewer : public Fl_Windowe {
   OCC_Viewer(int X, int Y, int W, int H, const char *L = 0)
-      : Fl_Window(X, Y, W, H, L) {
-    Fl::add_timeout(10, idle_refresh_cb, 0);
+      : Fl_Windowe(X, Y, W, H, L) {
+		#ifdef __EMSCRIPTEN__
+			// 33 milissegundos = ~30 FPS
+			// emscripten_async_call(idle_refresh_cb, 0, 33);
+		#else
+			Fl::add_timeout(10, idle_refresh_cb, 0);
+		#endif
   }
   static void idle_refresh_cb(void *) {
     // clear gpu usage each 10 secs
-    glFlush();
-    glFinish();
-    Fl::repeat_timeout(10, idle_refresh_cb, 0);
+	#ifdef __EMSCRIPTEN__
+    // 33 milissegundos = ~30 FPS
+    // emscripten_async_call(idle_refresh_cb, 0, 100);
+	// glFlush();
+	// glFinish();
+	#else
+	glFlush();
+	glFinish();
+	Fl::repeat_timeout(10, idle_refresh_cb, 0);
+	#endif
   }
   void draw() {
     if (!m_initialized)
@@ -8929,10 +9031,11 @@ struct OCC_Viewer : public Fl_Window {
     if (in_resize)
       return; // Prevent recursion
     in_resize = true;
-
-    Fl_Window::resize(X, Y, W, window()->h() - 22 - 25);
+	cotm("resizing");
+    Fl_Windowe::resize(X, Y, W, window()->h() - 22 - 25);
     if (m_initialized) {
       view->MustBeResized();
+	  update_web_canvas_geometry();
       setbar5per();
       scaleaxis(ctx);
       // scaleball();
@@ -8941,9 +9044,14 @@ struct OCC_Viewer : public Fl_Window {
     in_resize = false;
   }
 
+#define fley Fl::event_y()
+#ifdef __EMSCRIPTEN__
+#define fley (Fl::event_y()-22) 
+#endif
+
   int handle(int event) {
     if (!m_initialized)
-      return Fl_Window::handle(event);
+      return Fl_Windowe::handle(event);
     static auto last_event = std::chrono::steady_clock::now();
     auto now = std::chrono::steady_clock::now();
     auto elapsed =
@@ -8955,7 +9063,7 @@ struct OCC_Viewer : public Fl_Window {
 
     if (event == FL_DRAG && isRotating && m_initialized) {
       if (elapsed > frame_interval) {
-        view->Rotation(Fl::event_x(), Fl::event_y());
+        view->Rotation(Fl::event_x(), fley);
         projectAndDisplayWithHLR();
         colorisebtn(); ////////////////////////////////////////
         redraw();
@@ -8970,7 +9078,7 @@ struct OCC_Viewer : public Fl_Window {
       // cotm(vaShape.size())
       // rotateShapeByMouse(ulua[help.pname]->ashape, m_context,
       // pickcenterforstudyrotation,
-      // pickcenteraxisDir, Fl::event_x(), Fl::event_y()); study_trg =
+      // pickcenteraxisDir, Fl::event_x(), fley); study_trg =
       // ulua[help.pname]->ashape;
     }
 
@@ -8984,13 +9092,13 @@ struct OCC_Viewer : public Fl_Window {
     }
 
     static int start_y;
-    const int edge_zone = this->w() * 0.05; // 5% right edge zone
+    const int edge_zone = w() * 0.05; // 5% right edge zone
 
     static std::chrono::steady_clock::time_point lastTime;
 
     if (event == FL_MOVE) {
       int x = Fl::event_x();
-      int y = Fl::event_y();
+      int y = fley;
 
       auto now = std::chrono::steady_clock::now();
       double elapsedMs =
@@ -9000,6 +9108,7 @@ struct OCC_Viewer : public Fl_Window {
       if ((abs(x - mousex) > 5 || abs(y - mousey) > 5) && elapsedMs > 50) {
         mousex = x;
         mousey = y;
+		cotm(mousex,mousey,w(),h());
         ev_highlight(ctx);
         lastTime = now;
       }
@@ -9012,10 +9121,10 @@ struct OCC_Viewer : public Fl_Window {
     switch (event) {
     case FL_PUSH:
       if (Fl::event_button() == FL_LEFT_MOUSE) {
-        // Check if click is in right 5% zone
-        if (Fl::event_x() > (this->w() - edge_zone)) {
+        cotm("click is in right 5% zone");
+        if (Fl::event_x() > (w() - edge_zone)) {
           isRotatingz = 1;
-          start_y = Fl::event_y();
+          start_y = fley;
           return 1; // Capture mouse
         }
       }
@@ -9029,8 +9138,8 @@ struct OCC_Viewer : public Fl_Window {
       if (Fl::event_state(FL_BUTTON1)) {
         // Only rotate if drag started in right edge zone
         if (isRotatingz) {
-          int dy = Fl::event_y() - start_y;
-          start_y = Fl::event_y();
+          int dy = fley - start_y;
+          start_y = fley;
 
           // Rotate view (OpenCascade)
           if (dy != 0) {
@@ -9055,7 +9164,7 @@ struct OCC_Viewer : public Fl_Window {
         // Fl::add_timeout(0.05, timeout_cb, this);
         isRotating = true;
         lastX = Fl::event_x();
-        lastY = Fl::event_y();
+        lastY = fley;
         if (m_initialized) {
           view->StartRotation(lastX, lastY);
         }
@@ -9063,7 +9172,7 @@ struct OCC_Viewer : public Fl_Window {
       } else if (Fl::event_button() == FL_RIGHT_MOUSE) {
         isPanning = true;
         lastX = Fl::event_x();
-        lastY = Fl::event_y();
+        lastY = fley;
         return 1;
       }
       break;
@@ -9071,11 +9180,11 @@ struct OCC_Viewer : public Fl_Window {
     case FL_DRAG:
       if (isPanning && m_initialized && Fl::event_button() == FL_RIGHT_MOUSE) {
         int dx = Fl::event_x() - lastX;
-        int dy = Fl::event_y() - lastY;
+        int dy = fley - lastY;
         view->Pan(dx, -dy);
         redraw();
         lastX = Fl::event_x();
-        lastY = Fl::event_y();
+        lastY = fley;
         return 1;
       }
       break;
@@ -9091,7 +9200,7 @@ struct OCC_Viewer : public Fl_Window {
     case FL_MOUSEWHEEL:
       if (m_initialized) {
         int mouseX = Fl::event_x();
-        int mouseY = Fl::event_y();
+        int mouseY = fley;
         view->StartZoomAtPoint(mouseX, mouseY);
         // Get wheel delta (normalized)
         int wheelDelta = Fl::event_dy();
@@ -9118,9 +9227,74 @@ struct OCC_Viewer : public Fl_Window {
       }
       break;
     }
-    return Fl_Window::handle(event);
+    return Fl_Windowe::handle(event);
   }
 };
+
+// region emscripten
+void update_web_canvas_geometry() {
+	#ifdef __EMSCRIPTEN__
+    int x=occv->x();
+    int y=occv->y()-0;
+    int w=occv->w();
+    int h=occv->h()+0;
+	cotm(x,y,w,h);
+    // Usamos MAIN_THREAD_EM_ASM para garantir que corre na thread principal do browser
+    std::cout<<x<<" "<<y<<" "<<w<<" "<<h<<" \n";
+    MAIN_THREAD_EM_ASM({
+        // 1. Seleciona o canvas principal pelo ID (ou classe se o FLTK criar múltiplos)
+        const canvas = document.getElementById('canvas') || document.querySelector('canvas');
+        
+        if (canvas) {
+            // Configurações iniciais rápidas (só aplica se não estiverem definidas)
+            if (canvas.style.position !== 'absolute') {
+                canvas.style.position = 'absolute';
+                canvas.style.left = '0px';
+                canvas.style.top = '0px';
+            }
+
+            // O SEGREDO DA PERFORMANCE: Mover via GPU (transform) em vez de style.top/left
+            canvas.style.transform = 'translate(' + $0 + 'px, ' + $1 + 'px)';
+            
+            // Alterar a largura e altura diretamente no estilo inline
+            canvas.style.width = $2 + 'px';
+            canvas.style.height = $3 + 'px';
+        }
+    }, x, y, w, h); // Passa as variáveis do C++ para o JavaScript ($0, $1, $2, $3)
+	#endif
+}
+
+#ifdef __EMSCRIPTEN__
+
+extern "C" {
+    EMSCRIPTEN_KEEPALIVE void init_occt_viewer() {
+        // g_occt.init();
+		// initialize_opencascade(occv);
+		// m_initialized = 1;
+		// setSceneDefault();
+    }
+    EMSCRIPTEN_KEEPALIVE void update_web_canvas_geometry_() {
+        update_web_canvas_geometry();
+		// occv->position(win->x(), win->y()-22);
+        view->MustBeResized();
+		view->Window()->DoResize();
+        view->FitAll(0.01, Standard_True);
+		// occv->resize(win->x(), win->y()-22, occv->w(), occv->h()-0);
+		setbar5per();
+        view->Redraw();
+    }
+    EMSCRIPTEN_KEEPALIVE void resize_event(int x, int y, int w, int h) {
+		win->resize(x, y+0, w, h-0);
+		update_web_canvas_geometry();
+		
+        view->MustBeResized();
+		view->Window()->DoResize();
+        view->FitAll(0.01, Standard_True);
+        view->Redraw();
+    }
+}
+#endif
+
 
 // region spin
 bool IsSpinning = false;
@@ -9185,7 +9359,12 @@ static void SpinCallback(void *userdata) {
 
   projectAndDisplayWithHLR();
   occv->redraw();
-  Fl::repeat_timeout(1.0 / 60.0, SpinCallback, userdata);
+  	#ifdef __EMSCRIPTEN__
+	// 33 milissegundos = ~30 FPS
+	emscripten_async_call(SpinCallback, userdata, 33);
+	#else
+	Fl::repeat_timeout(1.0 / 60.0, SpinCallback, userdata);
+	#endif
 }
 
 void start_continuous_rotation(double spins_amount = 1) {
@@ -9428,7 +9607,10 @@ static gp_Pnt computeVisibleCenter() {
 static void animation_update(void *userdata) {
 
   if (CurrentAnimation.IsNull()) {
-    Fl::remove_timeout(animation_update, userdata);
+	#ifdef __EMSCRIPTEN__ 
+	#else
+	Fl::remove_timeout(animation_update, userdata);
+	#endif
     return;
   }
 
@@ -9439,7 +9621,10 @@ static void animation_update(void *userdata) {
     view->Redraw();
     // redraw();
 
-    Fl::remove_timeout(animation_update, userdata);
+	#ifdef __EMSCRIPTEN__ 
+	#else
+	Fl::remove_timeout(animation_update, userdata);
+	#endif
     return;
   }
 
@@ -9448,8 +9633,14 @@ static void animation_update(void *userdata) {
   projectAndDisplayWithHLR();
   view->Redraw();
 
-  // 30 FPS
-  Fl::repeat_timeout(1.0 / 30.0, animation_update, userdata);
+	// 30 FPS
+	#ifdef __EMSCRIPTEN__
+	// 33 milissegundos = ~30 FPS
+	emscripten_async_call(animation_update, userdata, 33);
+	#else
+	// Comportamento nativo Desktop mantido
+	Fl::repeat_timeout(1.0 / 30.0, animation_update, userdata);
+	#endif
 }
 
 void start_animation() {
@@ -9499,7 +9690,13 @@ void start_animation() {
   CurrentAnimation->StartTimer(0.0, 1.0, Standard_True, Standard_False);
 
   // Kick the update loop
-  Fl::add_timeout(1.0 / 12.0, animation_update, 0);
+  #ifdef __EMSCRIPTEN__
+    // 33 milissegundos = ~30 FPS
+    emscripten_async_call(animation_update, 0, 33);
+#else
+    // Comportamento nativo Desktop mantido
+	Fl::add_timeout(1.0 / 12.0, animation_update, 0);
+#endif
 }
 
 // region occt buttons
@@ -9644,7 +9841,8 @@ void drawbuttons(float w, int hc1) {
 
   lop(i, 0, sbt.size()) {
     sbt[i].idx = i;
-    sbt[i].occbtn = new Fl_Button(w1 * i, 0, w1, hc1, sbt[i].label.c_str());
+    sbt[i].occbtn = new Fl_Button(w1 * i,win->h()-hc1, w1, hc1, sbt[i].label.c_str());
+    // sbt[i].occbtn = new Fl_Button(w1 * i, 0, w1, hc1, sbt[i].label.c_str());
     sbt[i].occbtn->callback(sbts::call, &sbt[i]); // ✅ fixed here
   }
 }
@@ -9716,9 +9914,9 @@ void settrihedroncursor(){
 		// }
     }
 }
-void toggle_shaded_transp(bool dont_toggle = 0) {
-  if (!dont_toggle)
-    hlr_on = !hlr_on;
+void toggle_shaded_transp() {
+//   if (!dont_toggle)
+//     hlr_on = !hlr_on;
   ctx->RemoveAll(0);
   for (int i = 0; i < vlua.size(); i++) {
     if (!vlua[i]->visible_hardcoded)
@@ -9735,11 +9933,15 @@ void toggle_shaded_transp(bool dont_toggle = 0) {
 
     ctx->Display(vlua[i]->ashape, 0);
   }
-
+cotm(11);
   projectAndDisplayWithHLR();
+  cotm(12);
   scaleball();
-  occv->redraw();
-  // view->Redraw();
+  cotm(13);
+//   occv->redraw();
+  view->Redraw();
+  
+  cotm(14);
   if (isloading) {
     auto now = std::chrono::steady_clock::now();
     auto elapsed =
@@ -9748,6 +9950,7 @@ void toggle_shaded_transp(bool dont_toggle = 0) {
     help.upd();
     isloading = 0;
   }
+  cotm(15);
   DrawTrihedron(ctx, tlp, GetViewportAspectRatio()[0]);
 //   DrawTrihedron(ctx, current_part->shape.Location(), GetViewportAspectRatio()[0]);
 }
@@ -9876,14 +10079,14 @@ void fillbrowser(void *) {
     }
   }
 
-  toggle_shaded_transp(1);
+  toggle_shaded_transp();
   // occv->redraw();
   view->Redraw();
   perf("fillbrowser");
 }
 
 void fillbrowser1(void *) {
-  toggle_shaded_transp(1);
+  toggle_shaded_transp();
   return;
   // vshapes is not in sync vector
   //  cotm(vaShape.size(), vshapes.size());
@@ -10022,7 +10225,7 @@ void inteligentSet___(luadraw *currentpart) {
     currentpart->fshape = fcomp;
     currentpart->ashape->SetShape(fcomp);
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   }
 }
 
@@ -10153,7 +10356,7 @@ void inteligentSetexcelent(luadraw *part) {
   part->ashape->SetShape(fcomp);
   // }
   // catch (const Standard_Failure& e) {
-  //     std::cerr << "OCCT Error in inteligentSet: " << e.GetMessageString() <<
+  //     cerr << "OCCT Error in inteligentSet: " << e.GetMessageString() <<
   //     std::endl;
   // }
 }
@@ -10256,7 +10459,7 @@ void inteligentSetexcelent1(luadraw *part) {
   part->ashape->SetShape(fcomp);
   // }
   // catch (const Standard_Failure& e) {
-  //     std::cerr << "OCCT Error in inteligentSet: " << e.GetMessageString() <<
+  //     cerr << "OCCT Error in inteligentSet: " << e.GetMessageString() <<
   //     std::endl;
   // }
 }
@@ -10323,7 +10526,7 @@ void inteligentSetbest(luadraw *part) {
     part->fshape = fcomp;
     part->ashape->SetShape(fcomp);
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   }
 }
 
@@ -10390,7 +10593,7 @@ void inteligentSetverygood2(luadraw *part) {
     part->fshape = fcomp;
     part->ashape->SetShape(fcomp);
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   }
 }
 
@@ -10461,7 +10664,7 @@ void inteligentSetverygood(luadraw *part) {
     part->fshape = fcomp;
     part->ashape->SetShape(fcomp);
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   }
 }
 
@@ -10764,7 +10967,7 @@ void inteligentSetnotgood(luadraw *currentpart) {
     currentpart->fshape = fcomp;
     currentpart->ashape->SetShape(fcomp);
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   }
 }
 #include <AIS_InteractiveContext.hxx>
@@ -11033,7 +11236,7 @@ void inteligentSet_(luadraw *current_part) {
     current_part->fshape = fcomp;
     current_part->ashape->SetShape(fcomp);
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   }
 }
 void inteligentSetgood(luadraw *current_part) {
@@ -11118,7 +11321,7 @@ void inteligentSetgood(luadraw *current_part) {
     current_part->fshape = fcomp;
     current_part->ashape->SetShape(fcomp);
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   }
 }
 // fast
@@ -11298,7 +11501,7 @@ void inteligentSetFast1(luadraw *current_part) {
     // CRITICAL: Check if the shape is null before adding it
     if (scomp.IsNull()) {
       // Handle error: maybe the fusion failed or there were no solids
-      // std::cerr << "Error: Fusion returned a null shape!" << std::endl;
+      // cerr << "Error: Fusion returned a null shape!" << std::endl;
       current_part->fshape = comp;
     } else {
       BRep_Builder builder;
@@ -11394,11 +11597,11 @@ void inteligentSetFast1(luadraw *current_part) {
     //     current_part->ashape->Redisplay();
     // }
   } catch (const Standard_Failure &e) {
-    std::cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
+    cerr << "OCCT Error: " << e.GetMessageString() << std::endl;
   } catch (const std::exception &e) {
-    std::cerr << "std exception: " << e.what() << std::endl;
+    cerr << "std exception: " << e.what() << std::endl;
   } catch (...) {
-    std::cerr << "Unknown exception in inteligentSet() - most likely during "
+    cerr << "Unknown exception in inteligentSet() - most likely during "
                  "shaded presentation"
               << std::endl;
   }
@@ -11810,7 +12013,7 @@ void CreateMat(string name,string color,string ccx){
 TopoDS_Shape FuseAndRefineWithAPI(const TopoDS_Shape &inputShape) {
   auto solids = ExtractSolids(inputShape);
   if (solids.empty()) {
-    // std::cerr << "⚠️ No solids found in input shape\n";
+    // cerr << "⚠️ No solids found in input shape\n";
     // cotm(name, "⚠️ No solids found in input shape");
     // lua_error_with_line(L, "No solids found in input shape\n");
     return current_part->shape;
@@ -18006,14 +18209,14 @@ TopoDS_Shape PutAllFacesInSameDomain(const TopoDS_Shape &compound) {
   }
 
   if (refFace.IsNull()) {
-    std::cerr << "Compound has no faces" << std::endl;
+    cerr << "Compound has no faces" << std::endl;
     return compound;
   }
 
   // 2. Extract the reference surface
   Handle(Geom_Surface) refSurf = BRep_Tool::Surface(refFace);
   if (refSurf.IsNull()) {
-    std::cerr << "Reference face has no surface" << std::endl;
+    cerr << "Reference face has no surface" << std::endl;
     return compound;
   }
 
@@ -18058,13 +18261,13 @@ TopoDS_Shape PutShapeBInShapeADomain(const TopoDS_Shape &shapeA,
     break;
   }
   if (faceA.IsNull()) {
-    std::cerr << "ShapeA has no faces" << std::endl;
+    cerr << "ShapeA has no faces" << std::endl;
     return shapeB;
   }
 
   Handle(Geom_Surface) surfA = BRep_Tool::Surface(faceA);
   if (surfA.IsNull()) {
-    std::cerr << "ShapeA has no underlying surface" << std::endl;
+    cerr << "ShapeA has no underlying surface" << std::endl;
     return shapeB;
   }
 
@@ -20636,6 +20839,89 @@ lua_sethook(
 // nmutex lua_mtx("lua_mtx", 1);
 mutex lua_mtx;
 void lua_str(const string &str, bool isfile) {
+	// thread([str, isfile]() {
+	//   Fl::lock();
+	  // lua_mtx.lock();
+	  perf();
+	  luainit();
+  
+	  
+	  tlp=TopLoc_Location();
+	  vlua.clear();
+	  for (auto& [k, v] : umaterial) delete v;
+	  umaterial.clear();
+  
+	  // ctx->RemoveAll(1);
+	  help.error = "";
+	  help.upd();
+  
+	  last_event = std::chrono::steady_clock::now();
+	  isloading = 1;
+  
+	  int status;
+	  std::string code;
+	  if (isfile) {
+		std::ifstream f(str, std::ios::binary);
+		if (!f) {
+		  cerr << "Load error: cannot open " << str << std::endl;
+		//   Fl::unlock();
+		  // lua_mtx.unlock();
+		//   Fl::awake();
+		  return;
+		}
+		std::string src((std::istreambuf_iterator<char>(f)), {});
+		if(src.size()==0){
+		  cerr << "Load error: empty file " << str << std::endl;
+		//   Fl::unlock();
+		  // lua_mtx.unlock();
+		//   Fl::awake();
+		  return;
+		};
+		isdebuging = 1;
+		status = luaL_loadbuffer(L, src.data(), src.size(), str.c_str());
+	  } else {
+		status = luaL_loadbuffer(L, str.data(), str.size(), "chunk");
+	  }
+	  string lerror = "";
+	  if (status == LUA_OK) {
+		if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
+		  // lua_error_with_where("error");
+		  cerr << "Lua error 1 " << std::endl;
+		  stringstream strm;
+		  strm << lua_tostring(L, -1);
+		  help.error = strm.str();
+		  help.upd();
+		  // try{
+		  // lerror = lua_tostring(L, -1);
+		  // cerr << "runtimer error: " << lerror << std::endl;
+		  // lua_pop(L, 1);
+		  // }catch(...){}
+		}
+		perf("lua");
+		if (lerror.find("Breakpoint hit") == std::string::npos){
+		  fillbrowser(0);
+		  toggle_shaded_transp();
+		}
+		//   Fl::awake(fillbrowser);
+  
+	  } else {
+		  cerr << "Lua error 2 " << std::endl;
+	  //   Fl::awake(fillbrowser);
+		stringstream strm;
+		strm << lua_tostring(L, -1);
+		help.error = strm.str();
+		help.upd();
+		cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
+  
+		lua_pop(L, 1);
+	  }
+	  isdebuging = 0;
+	//   Fl::unlock();
+	  // lua_mtx.unlock();
+	//   Fl::awake();
+	// }).detach();
+  }
+void lua_strt(const string &str, bool isfile) {
   thread([str, isfile]() {
     Fl::lock();
     // lua_mtx.lock();
@@ -20660,7 +20946,7 @@ void lua_str(const string &str, bool isfile) {
     if (isfile) {
       std::ifstream f(str, std::ios::binary);
       if (!f) {
-        std::cerr << "Load error: cannot open " << str << std::endl;
+        cerr << "Load error: cannot open " << str << std::endl;
         Fl::unlock();
         // lua_mtx.unlock();
 		Fl::awake();
@@ -20668,7 +20954,7 @@ void lua_str(const string &str, bool isfile) {
       }
       std::string src((std::istreambuf_iterator<char>(f)), {});
 	  if(src.size()==0){
-        std::cerr << "Load error: empty file " << str << std::endl;
+        cerr << "Load error: empty file " << str << std::endl;
         Fl::unlock();
         // lua_mtx.unlock();
 		Fl::awake();
@@ -20683,14 +20969,14 @@ void lua_str(const string &str, bool isfile) {
     if (status == LUA_OK) {
       if (lua_pcall(L, 0, LUA_MULTRET, 0) != LUA_OK) {
 		// lua_error_with_where("error");
-        std::cerr << "Lua error 1 " << std::endl;
+        cerr << "Lua error 1 " << std::endl;
         stringstream strm;
         strm << lua_tostring(L, -1);
         help.error = strm.str();
         help.upd();
 		// try{
         // lerror = lua_tostring(L, -1);
-        // std::cerr << "runtimer error: " << lerror << std::endl;
+        // cerr << "runtimer error: " << lerror << std::endl;
         // lua_pop(L, 1);
 		// }catch(...){}
       }
@@ -20699,13 +20985,13 @@ void lua_str(const string &str, bool isfile) {
         Fl::awake(fillbrowser);
 
     } else {
-		std::cerr << "Lua error 2 " << std::endl;
+		cerr << "Lua error 2 " << std::endl;
     //   Fl::awake(fillbrowser);
       stringstream strm;
       strm << lua_tostring(L, -1);
       help.error = strm.str();
       help.upd();
-      std::cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
+      cerr << "Load error: " << lua_tostring(L, -1) << std::endl;
 
       lua_pop(L, 1);
     }
@@ -20958,14 +21244,14 @@ void ExportAllVisibleToSingleBinarySTL(
   std::cout << "Total de triangulos no STL final: " << all_triangles.size() << std::endl;
 
   if (all_triangles.empty()) {
-    std::cerr << "Erro: Nenhum triangulo extraido de objetos visiveis." << std::endl;
+    cerr << "Erro: Nenhum triangulo extraido de objetos visiveis." << std::endl;
     return;
   }
 
   // 7. Write Binary STL File
   std::ofstream file(outFilename, std::ios::binary);
   if (!file.is_open()) {
-    std::cerr << "Erro ao abrir o ficheiro para escrita: " << outFilename << std::endl;
+    cerr << "Erro ao abrir o ficheiro para escrita: " << outFilename << std::endl;
     return;
   }
 
@@ -21064,15 +21350,17 @@ void fill_menu() {
   menu->add(
       "View/Transparent", FL_ALT + 't',
       [](Fl_Widget *mnu, void *ud) {
+		cotm(10);
         Fl_Menu_ *menu = static_cast<Fl_Menu_ *>(mnu);
         const Fl_Menu_Item *item =
             menu->mvalue(); // This gets the actually clicked item
         //  fillvectopo();
-        if (!item->value()) {
+		hlr_on=item->value();
+        // if (!item->value()) {
           toggle_shaded_transp();
-        } else {
-          toggle_shaded_transp();
-        }
+        // } else {
+        //   toggle_shaded_transp();
+        // }
         occv->redraw();
       },
       0, FL_MENU_TOGGLE);
@@ -21307,7 +21595,7 @@ void fill_menu() {
         // fhelp->set_menu_window();
 
         // make it a child of 'parent' so no new taskbar icon
-        fhelp->set_modal(); // owned by parent, not independent
+        // fhelp->set_modal(); // owned by parent, not independent //////
 
         static Fl_Help_View *fh =
             new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
@@ -21442,13 +21730,23 @@ void fill_menu() {
       [](Fl_Widget *, void *ud) {
         Fl_Group::current(nullptr); // clear current group
 
-        static Fl_Window *fhelp = new Fl_Window(
+        static Fl_Window *fhelp=0;
+
+		if(fhelp){
+			fhelp->show();
+			return;
+		}
+		
+		fhelp= new Fl_Window(
             win->x() + win->w() / 4, // position relative to parent
             win->y() + win->h() / 4, win->w() / 2, win->h() / 2, "Help");
         // fhelp->set_menu_window();
 
+
+
         // make it a child of 'parent' so no new taskbar icon
-        fhelp->set_modal(); // owned by parent, not independent
+        // fhelp->set_modal(); // owned by parent, not independent////e
+        // fhelp->set_non_modal(); // owned by parent, not independent
 
         static Fl_Help_View *fh =
             new Fl_Help_View(0, 0, fhelp->w(), fhelp->h());
@@ -21523,8 +21821,9 @@ void fill_menu() {
 #include <OSD_ThreadPool.hxx>
 // region main
 int main(int argc, char **argv) {
+	Fl::lock();
   // Fl::set_font(FL_HELVETICA, "DejaVu Sans");
-  Fl::use_high_res_GL(1);
+//   Fl::use_high_res_GL(1);
   // setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
   std::cout << "FLTK version: " << FL_MAJOR_VERSION << "." << FL_MINOR_VERSION
             << "." << FL_PATCH_VERSION << std::endl;
@@ -21538,12 +21837,14 @@ int main(int argc, char **argv) {
 
   Fl::visual(FL_DOUBLE | FL_INDEX);
   // Fl::gl_visual(FL_RGB8 | FL_DOUBLE | FL_DEPTH | FL_STENCIL );
+  #ifdef __EMSCRIPTEN__0
+//   #ifndef __EMSCRIPTEN__
   Fl::gl_visual(FL_RGB8 | FL_DOUBLE | FL_DEPTH | FL_STENCIL | FL_MULTISAMPLE);
-  Fl::scheme("oxy");
+  #endif
+//   Fl::scheme("oxy");
 
   Fl_Group::current(content);
 
-  Fl::lock();
   int w = 1024;
   int h = 576;
   int firstblock = w * 0.62;
@@ -21551,6 +21852,9 @@ int main(int argc, char **argv) {
   int lastblock = w - firstblock - secondblock;
 
   win = new Fl_Double_Window(0, 0, w, h, "MissionCad");
+  #ifdef __EMSCRIPTEN__
+  win->border(0);
+  #endif
   // win->color(FL_RED);
   win->callback([](Fl_Widget *widget, void *) {
     if (Fl::event() == FL_SHORTCUT && Fl::event_key() == FL_Escape)
@@ -21564,7 +21868,7 @@ int main(int argc, char **argv) {
   occv = new OCC_Viewer(0, 22, firstblock, h - 22 - hc1 - 1);
 
   Fl_Group::current(content);
-  woccbtn = new FixedHeightWindow(0, h - hc1, firstblock, hc1, "");
+  woccbtn = new Fl_Group(0, h - hc1, firstblock, hc1, "");
 
   drawbuttons(woccbtn->w(), hc1);
   woccbtn->resizable(woccbtn);
@@ -21580,19 +21884,27 @@ int main(int argc, char **argv) {
   vsb.selection_color(FL_RED);
 
   Fl_Group::current(content);
+  cotm(4444);
   scint_init(firstblock + secondblock, 0, lastblock, h - 0 - htable);
+  cotm(5555);
 
   Fl_Group::current(content);
   helpv = new Fl_Help_View(firstblock, h - htable, w - firstblock, htable);
   helpv->box(FL_UP_BOX);
   helpv->value(R"(
-	<html> 
-		<font face="Helvetica">
+	<html>  
 			<br><br>
-		<b><font size=5 color="Red">Loading...</font></b>
-		</font> 
+		<b>Loading... </b> 
 	</html>
 	)");
+//   helpv->value(R"(
+// 	<html> 
+// 		<font face="Helvetica">
+// 			<br><br>
+// 		<b><font size=5 color="Red">Loading...</font></b>
+// 		</font> 
+// 	</html>
+// 	)");
 
   fill_menu();
 
@@ -21603,28 +21915,71 @@ int main(int argc, char **argv) {
   // Fl::screen_work_area(x, y, _w, _h);
   // win->resize(x, y+22, _w, _h-22);
   win->show();
+  #ifndef __EMSCRIPTEN__
   win->maximize();
+  #endif
   Fl::flush(); // make sure everything gets drawn
   win->flush();
-  woccbtn->flush();
+//   woccbtn->flush();
 
+  #ifndef __EMSCRIPTEN__
+//   g_occt.init();
+//   #endif
+// //   initialize_opencascade(occv);
+// //   m_initialized = 1;
+// //   setSceneDefault();
   initialize_opencascade(occv);
-  m_initialized = 1;
+  m_initialized = 1;  
+  editor->allow=1;
   setSceneDefault();
+  sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+  #endif
 
   // working1(ctx,view);
 
-  Fl::add_timeout(
-      0.7,
-      [](void *d) {
-		editor->callbackOnload();
-      },
-      0);
-  Fl::add_timeout(
-      0.9, [](void *d) { view->FitAll(); }, 0);
-  Fl::add_timeout(
-      1.5, [](void *d) { sbt[6].occbtn->do_callback(); }, 0);
-  Fl::add_timeout(
-      2.4, [](void *d) { view->FitAll(); }, 0);
-  return Fl::run();
+//   Fl::add_timeout(
+//       0.7,
+//       [](void *d) {
+// 		editor->callbackOnload();
+//       },
+//       0);
+//   Fl::add_timeout(
+//       0.9, [](void *d) { view->FitAll(); }, 0);
+//   Fl::add_timeout(
+//       1.5, [](void *d) { sbt[6].occbtn->do_callback(); }, 0);
+//   Fl::add_timeout(
+//       2.4, [](void *d) { view->FitAll(); }, 0);
+
+
+// thread([]{
+// 	cotm("sthreadm");
+// }).detach();
+
+	#ifndef __EMSCRIPTEN__
+	return Fl::run();
+	#else
+	emscripten_set_main_loop([]() {
+
+		if(!m_initialized){
+		g_occt.init();
+		initialize_opencascade(occv);
+		m_initialized = 1;  
+		editor->allow=1;
+		setSceneDefault();
+		sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+		}
+
+
+
+	Fl::check();
+	// if (Fl::damage()) {
+    //     Fl::flush();
+    // }
+	// view->Redraw();
+	// Fl::flush();
+	// Fl::wait(0.01);
+	}, 23, true);
+	#endif
+	return 0;
+		
 }

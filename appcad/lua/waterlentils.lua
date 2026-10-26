@@ -1,5 +1,5 @@
-gfwidth=1000
-gfdepth=600
+gfwidth=800
+gfdepth=500
 gftheight=200
 acrthickness=3
 qtracks=8

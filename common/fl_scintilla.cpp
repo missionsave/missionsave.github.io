@@ -17,8 +17,18 @@
 # define FL_DLL
 #endif
 
-#include "Scintilla.h"
-#include "Fl_Scintilla.h"
+
+#if defined(__EMSCRIPTEN__)
+    #include <emscripten/emscripten.h>
+    #include <emscripten/html5.h>
+#endif
+
+// #include "Scintilla.h"
+// #include "Fl_Scintilla.h"
+#include "fl_scintilla.hpp"
+
+#define SCINTILLA_FLTK_IMPLEMENTATION
+#include "scintilla_fltk_amalgamated.h" 
 
 #include <FL/Fl.H>
 #include <FL/x.H> // for fl_open_callback
@@ -39,6 +49,7 @@
 #include <vector>
 #include <sstream>
 #include <fstream>
+#include <thread>
 #include <stack>
 #include <cctype>
 
@@ -53,7 +64,7 @@ namespace fs = std::filesystem;
 
 #include "general.hpp"
 
-#include "fl_scintilla.hpp"
+// #include "fl_scintilla.hpp"
 
 
 #define IDM_DOT_MARKER  0
@@ -459,20 +470,33 @@ fl_scintilla::fl_scintilla(int X, int Y, int W, int H, const char* l): Fl_Scinti
     
 	// floaded = load_app_font("Cascadia Mono PL SemiBold 600.otf");
 
-	floaded = Fl::get_font(FL_HELVETICA_BOLD);
+	// floaded = Fl::get_font(FL_HELVETICA_BOLD);
 	// cotm(floaded)
-	floaded = Fl::get_font_name(FL_HELVETICA);
+	// floaded = Fl::get_font_name(FL_HELVETICA);
 	// cotm(floaded)
-	floaded = Fl::get_font_name(FL_COURIER_BOLD);
+	// floaded = Fl::get_font_name(FL_COURIER_BOLD);
+
 	// floaded = Fl::get_font_name(FL_HELVETICA_BOLD);
+	
 	// cotm(floaded)
 	// string fstd=load_app_font("DejaVuSans-Bold.ttf");
+	// string fstd=load_app_font("/fonts/DejaVuSans-Bold.ttf");
 	// string fstd=load_app_font("DejaVuSans.ttf");
 	// Fl::set_font(FL_HELVETICA, fstd.c_str());
 	// Fl::set_font(FL_HELVETICA, "Noto Color Emoji");
+	// Fl::set_font(FL_HELVETICA, "DejaVu Sans");
 
-
-
+	// Preferred (modern FLTK)
+	// Fl::load_font(FL_FREE_FONT, font_data, font_data_size);
+	// or from preloaded MEMFS path:
+	// Fl::load_font(FL_FREE_FONT, "/fonts/DejaVuSans-Bold.ttf");
+	
+	// Get the real family name that was registered
+	// const char* fntname = Fl::get_font_name(FL_FREE_FONT);
+	// const char* fntname = Fl::get_font_name(FL_HELVETICA);
+	
+	// static const char fntname[] = "";
+	static const char fntname[] = "DejaVu Sans";
 
     set_lua();
 	cotm("set_lua")
@@ -694,7 +718,7 @@ void fl_scintilla::update_menu() {
 	}
 
 	fmb = new fl_scintilla::MyMenuBar(x(), y(), w(), 22, 0, this);
-	cotm(y(), fmb->y());
+	// cotm(y(), fmb->y());
 	if (y() == 0) {
 		size(w(), h() - 22);
 		position(x(), y() + 22);
@@ -1251,7 +1275,7 @@ void fl_scintilla::set_lua(){
 	
 	// const char* fntname="";
 
-	int fntsize=9;
+	int fntsize=14;
 	// #ifdef _WIN32
 	// fntsize=8;
 	// #endif
@@ -1696,6 +1720,7 @@ static void cb_editor(Scintilla::SCNotification *scn, void *data)
 }
 
 void setscint(fl_scintilla* editor,string filename){ 
+	if(!editor->allow)return;
 	set_access_time(filename,time(0));
 	loading=1;
     // cotm("setscint");	
@@ -1714,12 +1739,39 @@ void setscint(fl_scintilla* editor,string filename){
 			if (!path.empty() && path.back() == '\n')
 				path.pop_back();
 
+			cotm("path",path);
+
+			#if defined(__EMSCRIPTEN__)
+			static bool download_concluido = false;
+			static bool download_falhou = false;
+			string spath="https://superdb-api.superbem.workers.dev/epub?url=https://raw.githubusercontent.com/missionsave/missionsave.github.io/refs/heads/master/appcad/"+path;
+			emscripten_async_wget(spath.c_str(), path.c_str(), 
+				[](const char* filename) { download_concluido = true; }, 
+				[](const char* filename) { download_falhou = true; }
+			);
+
+			while (!download_concluido && !download_falhou) {
+				// Fl::check();
+				// sleepms(50);
+				// Fl::check();
+				emscripten_sleep(50); // Espera 50ms e cede o controlo ao browser
+			}
+			download_concluido = 0;
+			if(download_falhou){
+			download_falhou = 0;
+			return;
+			}
+			download_falhou = 0;
+			#endif
+
+
+
 			std::ifstream file(path);
 			if (file.is_open()) {
 				std::stringstream buffer;
 				buffer << file.rdbuf();
 				std::string contents = buffer.str();
-
+				// cotm(contents);
 				editor->SendEditor(SCI_SETTEXT, 0, (sptr_t)contents.c_str()); 
 				file.close();
 			}
@@ -1796,6 +1848,7 @@ void setscint(fl_scintilla* editor,string filename){
 	thread([]{
 		sleepms(300);//500
 		loading=0;
+		cotm("sthread");
 	}).detach();
 } 
 
@@ -1810,6 +1863,11 @@ bool sortByFilename(const _FileEntry& a, const _FileEntry& b) {
 
 //sorted by last modified
 std::vector<_FileEntry> fl_scintilla::list_files_in_dir(const std::string path) {
+    if (!std::filesystem::exists(path)) {
+        return {};
+    }
+
+
     std::vector<_FileEntry> entries;
 
     for (const auto& entry : fs::directory_iterator(path)) {

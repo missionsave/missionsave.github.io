@@ -6,6 +6,7 @@
 // The License.txt file describes the conditions under which this software may be distributed.
   
 // Copyright 2015-2016 by cyantree <cyantree.guo@gmail.com>
+// Emscripten / FLTK-wasm fixes 2026
 
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +26,6 @@
 #include "UniConversion.h"
 #include "FontQuality.h"
 
-#include "FL/x.H"
 #include "FL/Fl.H"
 #include "FL/Fl_Widget.H"
 #include "FL/Fl_Group.H"
@@ -39,6 +39,11 @@
 #include "FL/Fl_Copy_Surface.H"
 #include "FL/Fl_Image_Surface.H"
 #include "FL/Fl_Menu_Window.H"
+
+// FL/x.H is X11-only; do not pull it in under Emscripten or pure Win32 builds
+#if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
+#include "FL/x.H"
+#endif
 
 #include "PlatFLTK.h"
 
@@ -56,11 +61,10 @@ public:
 	Fl_Font ff_;
 	FontData(Fl_Font ff, char *name, int size)
 	{
-		//printf("font size:%d\n", size);
 		size_ = size;
 		name_ = NULL;
 		if ( name != NULL )	name_ = (char*)malloc(strlen(name)+1);
-		strcpy(name_, name);
+		if (name_) strcpy(name_, name);
 		ff_ = ff;
 	}
 	~FontData()
@@ -70,12 +74,12 @@ public:
 			name_ = NULL;
 		}
 	}
+	// FIXED: was "strcmp && size" which is always wrong
 	unsigned char SameAs(const char *name, int size)
 	{
-		if ( strcmp(name, name_) && size == size_ ) return 1;
+		if ( name_ && name && !strcmp(name, name_) && size == size_ ) return 1;
 		return 0;
 	}
-
 };
 
 class FontCached : Scintilla::Font {
@@ -115,8 +119,35 @@ void FontCached::Release()
 	fid = 0;
 }
 
-Scintilla::FontID FontCached::FindOrCreate(const Scintilla::FontParameters &fp) 
+Scintilla::FontID FontCached::FindOrCreate(const Scintilla::FontParameters &fp)
 {
+#ifdef __EMSCRIPTEN__
+	// No fontconfig / no system fonts – use FLTK built-ins only
+	Fl_Font ff = FL_HELVETICA;
+	const char *name = fp.faceName ? fp.faceName : "";
+	if (strstr(name, "Courier") || strstr(name, "Mono") || strstr(name, "Consolas"))
+		ff = FL_COURIER;
+	else if (strstr(name, "Times"))
+		ff = FL_TIMES;
+	else if (strstr(name, "Bold"))
+		ff = FL_HELVETICA_BOLD;
+
+	int useSize = (int)fp.size;
+	if (useSize < 8) useSize = 12;
+
+	// reuse cache if same face+size already exists
+	for (FontCached *cur = first; cur; cur = cur->next) {
+		if (cur->GetFD()->ff_ == ff && cur->GetFD()->size_ == useSize) {
+			cur->usage++;
+			return cur->fid;
+		}
+	}
+	FontCached *fc = new FontCached(ff, (char*)(fp.faceName ? fp.faceName : "Helvetica"), useSize);
+	fc->next = first;
+	first = fc;
+	return fc->fid;
+#else 
+
 	int n = Fl::set_fonts("-*");
 
 	Scintilla::FontID ret = 0;
@@ -124,36 +155,41 @@ Scintilla::FontID FontCached::FindOrCreate(const Scintilla::FontParameters &fp)
 		if ( cur->GetFD()->SameAs(fp.faceName, (int)fp.size) ) {
 			cur->usage++;
 			ret = cur->fid;
+			return ret;   // found – return immediately
 		}
 	}
 	if (ret == 0) {
 		int i;
-		Fl_Font ff = 0;
+		Fl_Font ff = FL_HELVETICA;   // safe default under Emscripten
 		for (i=0; i<n; i++) {
 			int t;
 			const char *name = Fl::get_font_name((Fl_Font)i, &t);
-			if ( strcmp(name, fp.faceName) == 0 ) {
+			if ( name && strcmp(name, fp.faceName) == 0 ) {
 				ff = (Fl_Font)i;
 				break;
 			}
 		}
 		int useSize = (int)fp.size;
-#if defined(_WIN32)
-// #if defined(PLAT_FLTK_WIN32) || defined(_WIN32) || defined(__WIN32__)
-    HDC hdc = GetDC(NULL);
-    if (hdc) {
-        useSize = MulDiv(useSize, GetDeviceCaps(hdc, LOGPIXELSY), 72);
-        ReleaseDC(NULL, hdc);
-    }
+#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
+		HDC hdc = GetDC(NULL);
+		if (hdc) {
+			useSize = MulDiv(useSize, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+			ReleaseDC(NULL, hdc);
+		}
 #endif
-    FontCached *fc = new FontCached(ff, (char*)fp.faceName, useSize);
+		// Under Emscripten / high-DPI FLTK the point size is already correct
+		if (useSize < 1) useSize = 10;
+
+		FontCached *fc = new FontCached(ff, (char*)fp.faceName, useSize);
 
 		fc->next = first;
 		first = fc;
 		ret = fc->fid;
 	}
 	return ret;
+#endif
 }
+
 
 void FontCached::ReleaseId(Scintilla::FontID fid_) 
 {
@@ -222,10 +258,16 @@ private:
 	int px_, py_;
 
 	Fl_Color forecolor_;
+	bool clipped_;
 
 	// Private so SurfaceGDI objects can not be copied
 	SurfaceFLTK(const SurfaceFLTK &);
 	SurfaceFLTK &operator=(const SurfaceFLTK &);
+
+	// Helper: origin offset when drawing into the live Scintilla widget
+	int ox() const { return (drawtype_ == 1 && swt_) ? swt_->rc_client.x : 0; }
+	int oy() const { return (drawtype_ == 1 && swt_) ? swt_->rc_client.y : 0; }
+
 public:
 	Fl_Offscreen offscreen_buffer;
 	int off_width, off_height;
@@ -281,13 +323,17 @@ SurfaceFLTK::SurfaceFLTK()
 	scibase_ = 0;
 	win_ = 0;
 	drawtype_ = 0;
+	clipped_ = false;
 
 	offscreen_buffer = 0;
 	off_width = 0;
 	off_height = 0;
 	
-	unicodeMode = 0;
+	unicodeMode = false;
 	codePage = 0;
+	px_ = py_ = 0;
+	forecolor_ = FL_BLACK;
+	swt_ = 0;
 
 	//
 	ic_ = new ICONVConverter();
@@ -315,17 +361,18 @@ SurfaceFLTK::~SurfaceFLTK()
 	if ( dst_ != NULL ) free(dst_);
 }
 
-void SurfaceFLTK::Release()
-{
-	if ( offscreen_buffer != 0 ) {
-		fl_delete_offscreen(offscreen_buffer);
-		offscreen_buffer = 0;
-	}
+// void SurfaceFLTK::Release()
+// {
+// 	if ( offscreen_buffer != 0 ) {
+// 		fl_delete_offscreen(offscreen_buffer);
+// 		offscreen_buffer = 0;
+// 	}
 
-	scibase_ = 0;
-	win_ = 0;
-	drawtype_ = 0;
-}
+// 	scibase_ = 0;
+// 	win_ = 0;
+// 	drawtype_ = 0;
+// 	swt_ = 0;
+// }
 
 bool SurfaceFLTK::Initialised()
 {
@@ -364,7 +411,8 @@ void SurfaceFLTK::InitPixMap(int width, int height, Scintilla::Surface *surface_
 	SetDBCSMode(psurfOther->codePage);
 
 	off_width = width; off_height = height;
-	offscreen_buffer = fl_create_offscreen(width, height);
+	if (width > 0 && height > 0)
+		offscreen_buffer = fl_create_offscreen(width, height);
 
 	drawtype_ = 0;
 }
@@ -376,15 +424,10 @@ void SurfaceFLTK::PenColour(Scintilla::ColourDesired fore)
 
 int SurfaceFLTK::LogPixelsY() // ok
 {
-	//int v = ::GetDeviceCaps(fl_GetDC(0), LOGPIXELSY);
-	//printf("logpixely:%d\n", v);
-	//return v;
-	//*
 	float h, v;
 	Fl::screen_dpi(h, v, 0);
-
+	if (v < 1.0f) v = 96.0f;   // sensible default for Emscripten
 	return (int)v;
-	//*/
 }
 
 int SurfaceFLTK::DeviceHeightFont(int points) // ok
@@ -402,17 +445,14 @@ void SurfaceFLTK::MoveTo(int x_, int y_)
 void SurfaceFLTK::LineTo(int x_, int y_)
 {
 	if ( drawtype_ == 0 ) {
+		if (!offscreen_buffer) { px_ = x_; py_ = y_; return; }
 		fl_begin_offscreen(offscreen_buffer);
 		fl_color(forecolor_);
 		fl_line(px_, py_, x_, y_);
 		fl_end_offscreen();
-	} else if ( drawtype_ == 1 ) {
-		fl_color(forecolor_);
-		fl_line(px_+swt_->rc_client.x, py_+swt_->rc_client.y, x_+swt_->rc_client.x, y_+swt_->rc_client.y);
 	} else {
 		fl_color(forecolor_);
-		fl_line(px_, py_, x_, y_);
-		//printf("%s\n", __FUNCTION__);
+		fl_line(px_ + ox(), py_ + oy(), x_ + ox(), y_ + oy());
 	}
 
 	px_ = x_;
@@ -422,6 +462,7 @@ void SurfaceFLTK::LineTo(int x_, int y_)
 void SurfaceFLTK::Polygon(Scintilla::Point *pts, int npts, Scintilla::ColourDesired fore, Scintilla::ColourDesired back)
 {
 	if ( drawtype_ == 0 ) {
+		if (!offscreen_buffer) return;
 		fl_begin_offscreen(offscreen_buffer);
 		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
 		fl_begin_polygon();
@@ -430,21 +471,13 @@ void SurfaceFLTK::Polygon(Scintilla::Point *pts, int npts, Scintilla::ColourDesi
 		}
 		fl_end_polygon();
 		fl_end_offscreen();
-	} else if ( drawtype_ == 1 ) {
-		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
-		fl_begin_polygon();
-		for (int i=0; i<npts; i++) {
-			fl_vertex(pts[i].x+swt_->rc_client.x, pts[i].y+swt_->rc_client.y);
-		}
-		fl_end_polygon();
 	} else {
 		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
 		fl_begin_polygon();
 		for (int i=0; i<npts; i++) {
-			fl_vertex(pts[i].x, pts[i].y);
+			fl_vertex(pts[i].x + ox(), pts[i].y + oy());
 		}
 		fl_end_polygon();
-		//printf("%s\n", __FUNCTION__);
 	}
 }
 
@@ -456,14 +489,12 @@ void SurfaceFLTK::RectangleDraw(Scintilla::PRectangle rc, Scintilla::ColourDesir
 	int h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
 
 	if ( drawtype_ == 0 ) {
+		if (!offscreen_buffer) return;
 		fl_begin_offscreen(offscreen_buffer);
 		fl_rect(x, y, w, h, fl_rgb_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue()));
 		fl_end_offscreen();
-	} else if ( drawtype_ == 1 ){
-		fl_rect(x+swt_->rc_client.x, y+swt_->rc_client.y, w, h, fl_rgb_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue()));
 	} else {
-		fl_rect(x, y, w, h, fl_rgb_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue()));
-		//printf("%s\n", __FUNCTION__);
+		fl_rect(x + ox(), y + oy(), w, h, fl_rgb_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue()));
 	}
 }
 
@@ -473,74 +504,72 @@ void SurfaceFLTK::FillRectangle(Scintilla::PRectangle rc, Scintilla::ColourDesir
 	int y = Scintilla::RoundXYPosition(rc.top);
 	int w = Scintilla::RoundXYPosition(rc.right-rc.left);
 	int h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
+	if (w <= 0 || h <= 0) return;
 
 	if ( drawtype_ == 0 ) {
+		if (!offscreen_buffer) return;
 		fl_begin_offscreen(offscreen_buffer);
 		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
 		fl_rectf(x, y, w, h);
 		fl_end_offscreen();
-	} else if ( drawtype_ == 1 ) {
-		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
-		fl_rectf(x+swt_->rc_client.x, y+swt_->rc_client.y, w, h);
 	} else {
 		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
-		fl_rectf(x, y, w, h);
-		//printf("%s, %d %d %d %d\n", __FUNCTION__, x, y, w, h);
+		fl_rectf(x + ox(), y + oy(), w, h);
 	}
 }
 
 static void GetOffScreenImg(SurfaceFLTK *sf, int w, int h, unsigned char **img)
 {
+	if (!sf->offscreen_buffer) { *img = NULL; return; }
 	fl_begin_offscreen(sf->offscreen_buffer);
 	*img = fl_read_image(NULL, 0, 0, w, h, 0);
 	fl_end_offscreen();
 }
+
 void SurfaceFLTK::FillRectangle(Scintilla::PRectangle rc, Scintilla::Surface &surfacePattern)
 {
 	int x = Scintilla::RoundXYPosition(rc.left);
 	int y = Scintilla::RoundXYPosition(rc.top);
 	int w = Scintilla::RoundXYPosition(rc.right-rc.left);
 	int h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
+	if (w <= 0 || h <= 0) return;
 
 	SurfaceFLTK *sf = (SurfaceFLTK*)&surfacePattern;
 	if ( sf->offscreen_buffer != 0 ) {
 		int ow = sf->off_width, oh = sf->off_height;
+		if (ow <= 0 || oh <= 0) return;
+
 		int i, j, m, n;
-		unsigned char *img=NULL;
+		unsigned char *img = NULL;
 		GetOffScreenImg(sf, ow, oh, &img);
+		if (!img) {
+			// fallback solid red so we can see the problem
+			FillRectangle(rc, Scintilla::ColourDesired(0xff, 0, 0));
+			return;
+		}
+
+		m = w / ow; if ( w % ow > 0 ) m++;
+		n = h / oh; if ( h % oh > 0 ) n++;
 
 		if ( drawtype_ == 0 ) {
+			if (!offscreen_buffer) { delete[] img; return; }
 			fl_begin_offscreen(offscreen_buffer);
-			m = w / ow; if ( w % ow > 0 ) m++;
-			n = h / oh; if ( h % oh > 0 ) n++;
 			for (j=0; j<n; j++) {
 				for (i=0; i<m; i++) fl_draw_image(img, x+i*ow, y+j*oh, ow, oh, 3, 0);
 			}
 			fl_end_offscreen();
-		} else if ( drawtype_ == 1 ) {
-			m = w / ow; if ( w % ow > 0 ) m++;
-			n = h / oh; if ( h % oh > 0 ) n++;
-			for (j=0; j<n; j++) {
-				for (i=0; i<m; i++) fl_draw_image(img, x+i*ow, y+j*oh, ow, oh, 3, 0);
-			}
 		} else {
-			m = w / ow; if ( w % ow > 0 ) m++;
-			n = h / oh; if ( h % oh > 0 ) n++;
+			// FIXED: apply client origin
 			for (j=0; j<n; j++) {
-				for (i=0; i<m; i++) fl_draw_image(img, x+i*ow, y+j*oh, ow, oh, 3, 0);
+				for (i=0; i<m; i++)
+					fl_draw_image(img, x + i*ow + ox(), y + j*oh + oy(), ow, oh, 3, 0);
 			}
 		}
 
 		delete[] img;
-	} else { // Something is wrong so display in red
-		if ( drawtype_ == 0 ) {
-			fl_begin_offscreen(offscreen_buffer);
-			fl_rectf(x, y, w, h, fl_rgb_color(0xff, 0, 0));
-			fl_end_offscreen();
-		} else {
-			fl_rectf(x, y, w, h, fl_rgb_color(0xff, 0, 0));
-		}
-		//printf("%s2\n", __FUNCTION__);
+	} else {
+		// Something is wrong so display in red
+		FillRectangle(rc, Scintilla::ColourDesired(0xff, 0, 0));
 	}
 }
 
@@ -552,51 +581,86 @@ void SurfaceFLTK::RoundedRectangle(Scintilla::PRectangle rc, Scintilla::ColourDe
 	int h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
 
 	if ( drawtype_ == 0 ) {
+		if (!offscreen_buffer) return;
 		fl_begin_offscreen(offscreen_buffer);
 		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
 		fl_rectf(x, y, w, h);
 		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
 		fl_rect(x, y, w, h);
 		fl_end_offscreen();
-	} else if ( drawtype_ == 1 ) {
-		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
-		fl_rectf(x+swt_->rc_client.x, y+swt_->rc_client.y, w, h);
-		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
-		fl_rect(x+swt_->rc_client.x, y+swt_->rc_client.y, w, h);
 	} else {
 		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
-		fl_rectf(x, y, w, h);
+		fl_rectf(x + ox(), y + oy(), w, h);
 		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
-		fl_rect(x, y, w, h);
-		//printf("%s\n", __FUNCTION__);
+		fl_rect(x + ox(), y + oy(), w, h);
 	}
 }
 
-void SurfaceFLTK::AlphaRectangle(Scintilla::PRectangle rc, int cornerSize, Scintilla::ColourDesired fill, int alphaFill, Scintilla::ColourDesired outline, int alphaOutline, int /* flags*/ )
+// void SurfaceFLTK_AlphaRectangle(Scintilla::PRectangle rc, int cornerSize, Scintilla::ColourDesired fill, int alphaFill, Scintilla::ColourDesired outline, int alphaOutline, int /* flags*/ )
+// {
+// 	int x = Scintilla::RoundXYPosition(rc.left);
+// 	int y = Scintilla::RoundXYPosition(rc.top);
+// 	int w = Scintilla::RoundXYPosition(rc.right-rc.left);
+// 	int h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
+
+// 	// Simple outline (alpha ignored on pure FLTK canvas)
+// 	if ( drawtype_ == 0 ) {
+// 		if (!offscreen_buffer) return;
+// 		fl_begin_offscreen(offscreen_buffer);
+// 		fl_color(outline.GetRed(), outline.GetGreen(), outline.GetBlue());
+// 		fl_rect(x, y, w, h);
+// 		fl_end_offscreen();
+// 	} else {
+// 		fl_color(outline.GetRed(), outline.GetGreen(), outline.GetBlue());
+// 		fl_rect(x + ox(), y + oy(), w, h);
+// 	}
+// }
+void SurfaceFLTK::AlphaRectangle(Scintilla::PRectangle rc, int cornerSize,
+    Scintilla::ColourDesired fill, int alphaFill,
+    Scintilla::ColourDesired outline, int alphaOutline, int)
 {
 	int x = Scintilla::RoundXYPosition(rc.left);
 	int y = Scintilla::RoundXYPosition(rc.top);
-	int w = Scintilla::RoundXYPosition(rc.right-rc.left);
-	int h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
+	int w = Scintilla::RoundXYPosition(rc.right - rc.left);
+	int h = Scintilla::RoundXYPosition(rc.bottom - rc.top);
+	if (w <= 0 || h <= 0) return;
 
-	if ( drawtype_ == 0 ) {
+	// Blend against white (your editor background). Good enough without readback.
+	Fl_Color bg = FL_WHITE;
+	Fl_Color cf = fl_color_average(
+		fl_rgb_color(fill.GetRed(), fill.GetGreen(), fill.GetBlue()),
+		bg, alphaFill / 255.0f);
+	Fl_Color co = fl_color_average(
+		fl_rgb_color(outline.GetRed(), outline.GetGreen(), outline.GetBlue()),
+		bg, alphaOutline / 255.0f);
+
+	auto draw = [&](int dx, int dy) {
+		fl_color(cf);
+		fl_rectf(x + dx, y + dy, w, h);
+		if (alphaOutline > 0) {
+			fl_color(co);
+			fl_rect(x + dx, y + dy, w, h);
+		}
+	};
+
+	if (drawtype_ == 0) {
+		if (!offscreen_buffer) return;
 		fl_begin_offscreen(offscreen_buffer);
-		fl_color(outline.GetRed(), outline.GetGreen(), outline.GetBlue());
-		fl_rect(x, y, w, h);
+		draw(0, 0);
 		fl_end_offscreen();
-	} else if ( drawtype_ == 1 ) {
-		fl_color(outline.GetRed(), outline.GetGreen(), outline.GetBlue());
-		fl_rect(x+swt_->rc_client.x, y+swt_->rc_client.y, w, h);
 	} else {
-		fl_color(outline.GetRed(), outline.GetGreen(), outline.GetBlue());
-		fl_rect(x, y, w, h);
-		//printf("%s\n", __FUNCTION__);
+		draw(ox(), oy());
 	}
 }
-
 void SurfaceFLTK::DrawRGBAImage(Scintilla::PRectangle rc, int width, int height, const unsigned char *pixelsImage)
 {
-	//printf("%s\n", __FUNCTION__);
+	if (!pixelsImage || width <= 0 || height <= 0) return;
+
+	int x = Scintilla::RoundXYPosition(rc.left);
+	int y = Scintilla::RoundXYPosition(rc.top);
+
+	Fl_RGB_Image img(pixelsImage, width, height, 4);
+	img.draw(x + ox(), y + oy());
 }
 
 void SurfaceFLTK::Ellipse(Scintilla::PRectangle rc, Scintilla::ColourDesired fore, Scintilla::ColourDesired back)
@@ -607,10 +671,10 @@ void SurfaceFLTK::Ellipse(Scintilla::PRectangle rc, Scintilla::ColourDesired for
 	double h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
 
 	if ( drawtype_ == 0 ) {
+		if (!offscreen_buffer) return;
 		fl_begin_offscreen(offscreen_buffer);
 		
 		fl_push_matrix();
-
 		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
 		fl_begin_complex_polygon();
 		fl_circle(x+w/2.0, y+h/2.0, w/2.0);
@@ -620,99 +684,73 @@ void SurfaceFLTK::Ellipse(Scintilla::PRectangle rc, Scintilla::ColourDesired for
 		fl_begin_line();
 		fl_circle(x+w/2.0, y+h/2.0, w/2.0);
 		fl_end_line();
-
 		fl_pop_matrix();
 
 		fl_end_offscreen();
-	} else if ( drawtype_ == 1 ) {
-		fl_push_matrix();
-
-		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
-		fl_begin_complex_polygon();
-		fl_circle(x+w/2.0 + swt_->rc_client.x, y+h/2.0 + swt_->rc_client.y, w/2.0);
-		fl_end_complex_polygon();
-
-		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
-		fl_begin_line();
-		fl_circle(x+w/2.0 + swt_->rc_client.x, y+h/2.0 + swt_->rc_client.y, w/2.0);
-		fl_end_line();
-
-		fl_pop_matrix();
 	} else {
 		fl_push_matrix();
-
 		fl_color(back.GetRed(), back.GetGreen(), back.GetBlue());
 		fl_begin_complex_polygon();
-		fl_circle(x+w/2.0, y+h/2.0, w/2.0);
+		fl_circle(x+w/2.0 + ox(), y+h/2.0 + oy(), w/2.0);
 		fl_end_complex_polygon();
 
 		fl_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
 		fl_begin_line();
-		fl_circle(x+w/2.0, y+h/2.0, w/2.0);
+		fl_circle(x+w/2.0 + ox(), y+h/2.0 + oy(), w/2.0);
 		fl_end_line();
-
 		fl_pop_matrix();
-		//printf("%s\n", __FUNCTION__);
 	}
 }
 
 void SurfaceFLTK::Copy(Scintilla::PRectangle rc, Scintilla::Point from, Scintilla::Surface &surfaceSource) // ok
 {
 	SurfaceFLTK *sf = (SurfaceFLTK*)&surfaceSource;
+	if (!sf->offscreen_buffer) return;
+
 	int x, y, w, h, srcx, srcy;
-	if ( drawtype_ == 0 ) {
-		x = Scintilla::RoundXYPosition(rc.left);
-		y = Scintilla::RoundXYPosition(rc.top);
-	} else if ( drawtype_ == 1 ) {
-		x = Scintilla::RoundXYPosition(rc.left) + swt_->rc_client.x;
-		y = Scintilla::RoundXYPosition(rc.top) + swt_->rc_client.y;
-	} else {
-		x = Scintilla::RoundXYPosition(rc.left);
-		y = Scintilla::RoundXYPosition(rc.top);
-		//printf("%s\n", __FUNCTION__);
-	}
+	x = Scintilla::RoundXYPosition(rc.left) + ox();
+	y = Scintilla::RoundXYPosition(rc.top)  + oy();
 	w = Scintilla::RoundXYPosition(rc.Width());
 	h = Scintilla::RoundXYPosition(rc.Height());
 	srcx = Scintilla::RoundXYPosition(from.x);
 	srcy = Scintilla::RoundXYPosition(from.y);
+
+	if (w <= 0 || h <= 0) return;
+
 	fl_copy_offscreen(x, y, w, h, sf->offscreen_buffer, srcx, srcy);
-	//printf("==>copy, %d, x,y,w,h:%d %d %d %d, srcx,y:%d %d\n", drawtype_,	x, y, w, h, srcx, srcy);
 }
 
+// ---------------------------------------------------------------------------
+// Text drawing – CRITICAL fix: apply client origin when drawtype_ == 1
+// ---------------------------------------------------------------------------
 void SurfaceFLTK::DrawTextNoClip(Scintilla::PRectangle rc, Scintilla::Font &font_, Scintilla::XYPOSITION ybase, const char *s, int len, Scintilla::ColourDesired fore, Scintilla::ColourDesired back)
 {
+	if (!s || len <= 0) return;
+
 	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return;
+
 	Fl_Color fc = fl_rgb_color(fore.GetRed(), fore.GetGreen(), fore.GetBlue());
-	Fl_Color bc = fl_rgb_color(back.GetRed(), back.GetGreen(), back.GetBlue());
 
-	int cl;
-	void *p;
+	const int dx = ox();
+	const int dy = oy();
+	const int tx = Scintilla::RoundXYPosition(rc.left) + dx;
+	const int ty = Scintilla::RoundXYPosition(ybase)   + dy;
+
 	if ( drawtype_ == 0 ) {
-		// Fl_Image_Surface *surface = new Fl_Image_Surface(width, height);
-		// surface->set_current();
-		// fl_color(fc);
-		// fl_font(fd->ff_ | FL_BOLD , fd->size_);
-		// fl_draw(s, len, x, y);
-		// surface->draw(x, y);
-		// delete surface;
-		// return;
-
-
+		
+		if (!offscreen_buffer) return;
 		fl_begin_offscreen(offscreen_buffer);
-		// fl_font(fd->ff_ | FL_BOLD , fd->size_);
 		fl_font(fd->ff_, fd->size_);
 		fl_color(fc);
 
-		// utf8
 		if (unicodeMode) {
-			// fl_draw(s, len, (int)(rc.left + 0.5), (int)(ybase + 0.5));
-
 			fl_draw(s, len, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
 			fl_end_offscreen();
 			return;
 		}
 
-		// ansi and string create already
+		// ansi path (rarely used under Emscripten)
 		if ( ic_src_ != NULL && ic_srclen_ == len && ic_dst_ != NULL && ic_dstlen_ > 0 && ic_codepage_ == codePage ) {
 			if ( memcmp(ic_src_, s, len) == 0 ) {
 				fl_draw(ic_dst_, ic_dstlen_, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
@@ -721,16 +759,15 @@ void SurfaceFLTK::DrawTextNoClip(Scintilla::PRectangle rc, Scintilla::Font &font
 			}
 		}
 
-		// ansi and need create string
 		ic_->Open4UTF8(codePage);
-		cl = ic_->GetLength((char*)s, len);
-		if ( cl <= 0 ) { // can not convert
+		int cl = ic_->GetLength((char*)s, len);
+		if ( cl <= 0 ) {
 			fl_draw(s, len, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
 			fl_end_offscreen();
 			return;
 		}
 		if ( dstsize_ < cl ) {
-			p = realloc(dst_, cl);
+			void *p = realloc(dst_, cl);
 			if ( p == NULL ) {
 				fl_draw(s, len, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
 				fl_end_offscreen();
@@ -751,37 +788,33 @@ void SurfaceFLTK::DrawTextNoClip(Scintilla::PRectangle rc, Scintilla::Font &font
 		return;
 	}
 
-	//printf("draw text: type=%d, %d, %d, fontsize:%d\n", drawtype_, (int)rc.left, (int)rc.top, fd->size_);
-
-	// ===== normal =====
+	// ===== live widget (drawtype_ 1 or 2) – ALWAYS apply origin =====
 	fl_font(fd->ff_, fd->size_);
 	fl_color(fc);
 
-	// utf8
 	if (unicodeMode) {
-		fl_draw(s, len, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
+		fl_draw(s, len, tx, ty);
 		return;
 	}
 
-	// ansi and string create already
+	// ansi fallback (kept for native platforms)
 	if ( ic_src_ != NULL && ic_srclen_ == len && ic_dst_ != NULL && ic_dstlen_ > 0 && ic_codepage_ == codePage ) {
 		if ( memcmp(ic_src_, s, len) == 0 ) {
-			fl_draw(ic_dst_, ic_dstlen_, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
+			fl_draw(ic_dst_, ic_dstlen_, tx, ty);
 			return;
 		}
 	}
 
-	// ansi and need create string
 	ic_->Open4UTF8(codePage);
-	cl = ic_->GetLength((char*)s, len);
-	if ( cl <= 0 ) { // can not convert
-		fl_draw(s, len, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
+	int cl = ic_->GetLength((char*)s, len);
+	if ( cl <= 0 ) {
+		fl_draw(s, len, tx, ty);
 		return;
 	}
 	if ( dstsize_ < cl ) {
-		p = realloc(dst_, cl);
+		void *p = realloc(dst_, cl);
 		if ( p == NULL ) {
-			fl_draw(s, len, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
+			fl_draw(s, len, tx, ty);
 			return;
 		}
 		dst_ = (char *)p;
@@ -790,25 +823,39 @@ void SurfaceFLTK::DrawTextNoClip(Scintilla::PRectangle rc, Scintilla::Font &font
 	memset(dst_, 0, dstsize_);
 	dstlen_ = ic_->convert((char*)s, len, dst_, dstsize_);
 	if ( dstlen_ <= 0 ) {
-		fl_draw(s, len, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
+		fl_draw(s, len, tx, ty);
 		return;
 	}
-	fl_draw(dst_, dstlen_, Scintilla::RoundXYPosition(rc.left), Scintilla::RoundXYPosition(ybase));
+	fl_draw(dst_, dstlen_, tx, ty);
 }
 
-void SurfaceFLTK::DrawTextClipped(Scintilla::PRectangle rc, Scintilla::Font &font_, Scintilla::XYPOSITION ybase, const char *s, int len, Scintilla::ColourDesired fore, Scintilla::ColourDesired back)
+void SurfaceFLTK::DrawTextClipped(
+    Scintilla::PRectangle rc,
+    Scintilla::Font &font_,
+    Scintilla::XYPOSITION ybase,
+    const char *s,
+    int len,
+    Scintilla::ColourDesired fore,
+    Scintilla::ColourDesired back)
 {
-	DrawTextNoClip(rc, font_, ybase, s, len, fore, 0);
+    SetClip(rc);
+    DrawTextNoClip(rc, font_, ybase, s, len, fore, back);
+
+    if (clipped_) {
+        fl_pop_clip();
+        clipped_ = false;
+    }
 }
 
 void SurfaceFLTK::DrawTextTransparent(Scintilla::PRectangle rc, Scintilla::Font &font_, Scintilla::XYPOSITION ybase, const char *s, int len, Scintilla::ColourDesired fore)
 {
-	DrawTextNoClip(rc, font_, ybase, s, len, fore, 0);
+	DrawTextNoClip(rc, font_, ybase, s, len, fore, Scintilla::ColourDesired(0,0,0));
 }
 
 Scintilla::XYPOSITION SurfaceFLTK::WidthText(Scintilla::Font &font_, const char *s, int len)
 {
 	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return 0;
 	fl_font(fd->ff_, fd->size_);
 	return (Scintilla::XYPOSITION)fl_width(s, len);
 }
@@ -820,14 +867,10 @@ unsigned char SurfaceFLTK::Ansi2Utf(const char *s, int len)
 
 	ic_->Open4UTF8(codePage);
 	cl = ic_->GetLength((char*)s, len);
-	if ( cl <= 0 ) { // can not convert
-		return 0;
-	}
+	if ( cl <= 0 ) return 0;
 	if ( ic_dstsize_ < cl ) {
 		p = realloc(ic_dst_, cl);
-		if ( p == NULL ) {
-			return 0;
-		}
+		if ( p == NULL ) return 0;
 		ic_dst_ = (char *)p;
 		ic_dstsize_ = cl;
 	}
@@ -875,19 +918,17 @@ void SurfaceFLTK::MeasureWidths(Scintilla::Font &font_, const char *s, int len, 
 {
 	memset(positions, 0, len*sizeof(Scintilla::XYPOSITION));
 	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return;
 	fl_font(fd->ff_, fd->size_);
 
-	//
 	unsigned char isutf=1;
 	if (!unicodeMode) {
 		isutf = Ansi2Utf(s, len);
 		if ( ! isutf ) {
-			//printf("convert err: %s\n", s);
 			if ( ! Copy2Buffer(s, len) ) return;
 		}
 	}
 
-	//
 	char *ss;
 	int sslen;
 	char c;
@@ -908,7 +949,8 @@ void SurfaceFLTK::MeasureWidths(Scintilla::Font &font_, const char *s, int len, 
 				pos += fl_width(ss+i, u1);
 
 				ansi_add = 1;
-				if (codePage == 932 || codePage == 936 || codePage == 949 || codePage == 950 || codePage == 1361) ansi_add = Scintilla::Platform::IsDBCSLeadByte(codePage, ansi_s[m]) ? 2 : 1;
+				if (codePage == 932 || codePage == 936 || codePage == 949 || codePage == 950 || codePage == 1361)
+					ansi_add = Scintilla::Platform::IsDBCSLeadByte(codePage, ansi_s[m]) ? 2 : 1;
 				m += ansi_add;
 
 				positions[n] = (float)pos;
@@ -924,7 +966,7 @@ void SurfaceFLTK::MeasureWidths(Scintilla::Font &font_, const char *s, int len, 
 			if (u1 < 1) i += 1;
 			else i += u1;
 		}
-		const Scintilla::XYPOSITION lastPos = (n<len) ? positions[n - 1] : 0.0f;
+		const Scintilla::XYPOSITION lastPos = (n>0 && n<=len) ? positions[n - 1] : 0.0f;
 		for (i=0; i<len-n;i++) positions[i+n] = lastPos;
 		return;
 	} 
@@ -948,7 +990,7 @@ void SurfaceFLTK::MeasureWidths(Scintilla::Font &font_, const char *s, int len, 
 			if (u1 < 1) i += 1;
 			else i += u1;
 		}
-		const Scintilla::XYPOSITION lastPos = (n<len) ? positions[n - 1] : 0.0f;
+		const Scintilla::XYPOSITION lastPos = (n>0 && n<=len) ? positions[n - 1] : 0.0f;
 		for (i=0; i<len-n;i++) positions[i+n] = lastPos;
 		return;
 	}
@@ -966,7 +1008,8 @@ void SurfaceFLTK::MeasureWidths(Scintilla::Font &font_, const char *s, int len, 
 				pos += fl_width(ss+i, u1);
 
 				ansi_add = 1;
-				if (codePage == 932 || codePage == 936 || codePage == 949 || codePage == 950 || codePage == 1361) ansi_add = Scintilla::Platform::IsDBCSLeadByte(codePage, ansi_s[m]) ? 2 : 1;
+				if (codePage == 932 || codePage == 936 || codePage == 949 || codePage == 950 || codePage == 1361)
+					ansi_add = Scintilla::Platform::IsDBCSLeadByte(codePage, ansi_s[m]) ? 2 : 1;
 				m += ansi_add;
 
 				positions[n] = (float)pos;
@@ -982,7 +1025,7 @@ void SurfaceFLTK::MeasureWidths(Scintilla::Font &font_, const char *s, int len, 
 			if (u1 < 1) i += 1;
 			else i += u1;
 		}
-		const Scintilla::XYPOSITION lastPos = (n<len) ? positions[n - 1] : 0.0f;
+		const Scintilla::XYPOSITION lastPos = (n>0 && n<=len) ? positions[n - 1] : 0.0f;
 		for (i=0; i<len-n;i++) positions[i+n] = lastPos;
 		return;
 	}
@@ -991,25 +1034,66 @@ void SurfaceFLTK::MeasureWidths(Scintilla::Font &font_, const char *s, int len, 
 Scintilla::XYPOSITION SurfaceFLTK::WidthChar(Scintilla::Font &font_, char ch)
 {
 	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return 0;
 	fl_font(fd->ff_, fd->size_);
-
 	return (Scintilla::XYPOSITION)fl_width(ch);
 }
+
+// Scintilla::XYPOSITION SurfaceFLTK::Ascent(Scintilla::Font &font_)
+// {
+// 	FontData* fd = (FontData*)(font_.GetID());
+// 	if (!fd) return 0;
+// 	fl_font(fd->ff_, fd->size_);
+// 	return (Scintilla::XYPOSITION)(fl_height() - fl_descent());
+// }
+
+// Scintilla::XYPOSITION SurfaceFLTK::Descent(Scintilla::Font &font_)
+// {
+// 	FontData* fd = (FontData*)(font_.GetID());
+// 	if (!fd) return 0;
+// 	fl_font(fd->ff_, fd->size_);
+// 	return (Scintilla::XYPOSITION)fl_descent();
+// }
+
+// helper near the top of PlatFLTK.cxx
+#ifdef __EMSCRIPTEN__
+static inline int WasmDescent(int size) { return (size * 28 + 50) / 100; }   // ~0.28em -> 3 at 12
+static inline int WasmHeight(int size)  { return (size * 140 + 50) / 100; }  // ~1.4em  -> 17 at 12, same as X11
+#endif
 
 Scintilla::XYPOSITION SurfaceFLTK::Ascent(Scintilla::Font &font_)
 {
 	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return 0;
+#ifdef __EMSCRIPTEN__
+	return (Scintilla::XYPOSITION)(WasmHeight(fd->size_) - WasmDescent(fd->size_));
+#else
 	fl_font(fd->ff_, fd->size_);
-
 	return (Scintilla::XYPOSITION)(fl_height() - fl_descent());
+#endif
 }
 
 Scintilla::XYPOSITION SurfaceFLTK::Descent(Scintilla::Font &font_)
 {
 	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return 0;
+#ifdef __EMSCRIPTEN__
+	return (Scintilla::XYPOSITION)WasmDescent(fd->size_);
+#else
 	fl_font(fd->ff_, fd->size_);
-
 	return (Scintilla::XYPOSITION)fl_descent();
+#endif
+}
+
+Scintilla::XYPOSITION SurfaceFLTK::Height(Scintilla::Font &font_)
+{
+	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return 0;
+#ifdef __EMSCRIPTEN__
+	return (Scintilla::XYPOSITION)WasmHeight(fd->size_);
+#else
+	return (Scintilla::XYPOSITION)fl_height(fd->ff_, fd->size_);
+#endif
 }
 
 Scintilla::XYPOSITION SurfaceFLTK::InternalLeading(Scintilla::Font &font_)
@@ -1022,39 +1106,62 @@ Scintilla::XYPOSITION SurfaceFLTK::ExternalLeading(Scintilla::Font &font_)
 	return 0;
 }
 
-Scintilla::XYPOSITION SurfaceFLTK::Height(Scintilla::Font &font_)
-{
-	FontData* fd = (FontData*)(font_.GetID());
-	return (Scintilla::XYPOSITION)fl_height(fd->ff_, fd->size_);
-}
+// Scintilla::XYPOSITION SurfaceFLTK::Height(Scintilla::Font &font_)
+// {
+// 	FontData* fd = (FontData*)(font_.GetID());
+// 	if (!fd) return 0;
+// 	return (Scintilla::XYPOSITION)fl_height(fd->ff_, fd->size_);
+// }
 
 Scintilla::XYPOSITION SurfaceFLTK::AverageCharWidth(Scintilla::Font &font_)
 {
 	FontData* fd = (FontData*)(font_.GetID());
+	if (!fd) return 0;
 	fl_font(fd->ff_, fd->size_);
-
 	return (Scintilla::XYPOSITION)fl_width('n');
 }
 
+
+
+
 void SurfaceFLTK::SetClip(Scintilla::PRectangle rc)
 {
-	double x = Scintilla::RoundXYPosition(rc.left);
-	double y = Scintilla::RoundXYPosition(rc.top);
-	double w = Scintilla::RoundXYPosition(rc.right-rc.left);
-	double h = Scintilla::RoundXYPosition(rc.bottom-rc.top);
-
-	//printf("setclip: %d %d %d %d\n", x, y, w, h);
-	/*
-	::IntersectClipRect(hdc, static_cast<int>(rc.left), static_cast<int>(rc.top),
-	static_cast<int>(rc.right), static_cast<int>(rc.bottom));
-	*/
+	if (drawtype_ == 0) return;
+	if (clipped_) { fl_pop_clip(); clipped_ = false; }
+	int w = Scintilla::RoundXYPosition(rc.right - rc.left);
+	int h = Scintilla::RoundXYPosition(rc.bottom - rc.top);
+	if (w <= 0 || h <= 0) return;
+	fl_push_clip(Scintilla::RoundXYPosition(rc.left) + ox(),
+	             Scintilla::RoundXYPosition(rc.top) + oy(), w, h);
+	clipped_ = true;
 }
+ 
+
+void SurfaceFLTK::Release()
+{
+	if (clipped_) { fl_pop_clip(); clipped_ = false; }
+	if (offscreen_buffer != 0) {
+		fl_delete_offscreen(offscreen_buffer);
+		offscreen_buffer = 0;
+	}
+	scibase_ = 0; win_ = 0; drawtype_ = 0; swt_ = 0;
+}
+
+
+
+
+
+
+// void SurfaceFLTK::SetClip(Scintilla::PRectangle rc)
+// {
+// 	// The Fl_Scintilla::draw() already pushes a clip for the client area.
+// 	// Additional clipping is not required (and fl_push_clip is nested carefully
+// 	// by FLTK itself). Leaving this empty is correct for all backends including
+// 	// Emscripten.
+// }
 
 void SurfaceFLTK::FlushCachedState()
 {
-	//pen = 0;
-	//brush = 0;
-	//font = 0;
 }
 
 void SurfaceFLTK::SetUnicodeMode(bool unicodeMode_)
@@ -1064,7 +1171,6 @@ void SurfaceFLTK::SetUnicodeMode(bool unicodeMode_)
 
 void SurfaceFLTK::SetDBCSMode(int codePage_)
 {
-	// No action on window as automatically handled by system.
 	codePage = codePage_;
 }
 
@@ -1097,8 +1203,7 @@ void Scintilla::Menu::Destroy()
 void Scintilla::Menu::Show(Point pt, Scintilla::Window &w) 
 {
 	Fl_Menu_Button *m = (Fl_Menu_Button *)mid;
-	m->popup();
-
+	if (m) m->popup();
 	Destroy();
 }
 
@@ -1127,20 +1232,22 @@ double Scintilla::ElapsedTime::Duration(bool reset)
 }
 
 // ====================== Platform::DynamicLibrary ok ===================================
-#ifndef WIN32
+#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#include <windows.h>
+#else
 #include <dlfcn.h>
 #endif
 
 class DynamicLibraryImpl : public Scintilla::DynamicLibrary {
 protected:
-#ifdef WIN32
+#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
 	HMODULE h;
 #else
 	void * h;
 #endif
 public:
 	explicit DynamicLibraryImpl(const char *modulePath) {
-#ifdef WIN32
+#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
 		h = ::LoadLibraryA(modulePath);
 #else
 		h = dlopen(modulePath, RTLD_LAZY);
@@ -1148,18 +1255,16 @@ public:
 	}
 
 	virtual ~DynamicLibraryImpl() {
-#ifdef WIN32
+#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
 		if (h != NULL) ::FreeLibrary(h);
 #else
 		if ( h != NULL ) dlclose(h);
 #endif
 	}
 
-	// Use GetProcAddress to get a pointer to the relevant function.
 	virtual Scintilla::Function FindFunction(const char *name) {
-#ifdef WIN32
+#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
 		if (h != NULL) {
-			// C++ standard doesn't like casts between function pointers and void pointers so use a union
 			union {
 				FARPROC fp;
 				Scintilla::Function f;
@@ -1170,6 +1275,14 @@ public:
 			return NULL;
 		}
 #else
+		if (h != NULL) {
+			union {
+				void *fp;
+				Scintilla::Function f;
+			} fnConv;
+			fnConv.fp = dlsym(h, name);
+			return fnConv.f;
+		}
 		return NULL;
 #endif		
 	}
@@ -1192,7 +1305,6 @@ struct ListItemData {
 
 class LineToItem {
 	std::vector<char> words;
-
 	std::vector<ListItemData> data;
 
 public:
@@ -1248,7 +1360,7 @@ public:
 	}
 
 protected:
-	unsigned int m_borderesize_status; // 0-no, 1-left, 2-right, 3-top, 4-bottom, 13 14 23 24
+	unsigned int m_borderesize_status;
 	Fl_Hold_Browser *browser_;
 	int handle(int e)
 	{
@@ -1256,30 +1368,23 @@ protected:
 			handle_drag();
 			return 1;
 		}
-
 		if ( FL_MOVE == e ) {
 			handle_move();
 			return 1;
 		}
-
 		if ( FL_PUSH == e ) {
 			handle_push(e);
 			return 1;
 		}
-
 		if ( FL_RELEASE == e ) {
 			handle_release(e);
 			return 1;
 		}
-
 		return Fl_Double_Window::handle(e);
 	}
 	void handle_push(int e)
 	{
-		int x = Fl::event_x();
-		int y = Fl::event_y();
 		int len=20, split=2;
-
 		if ( Fl::event_inside(0, len, split, h()-len*2) ) {
 		} else if ( Fl::event_inside(w()-split, len, split, h()-len*2) ) {
 		} else if ( Fl::event_inside(len, 0, w()-len*2, split) ) {
@@ -1294,10 +1399,7 @@ protected:
 	}
 	void handle_release(int e)
 	{
-		int x = Fl::event_x();
-		int y = Fl::event_y();
 		int len=20, split=2;
-
 		if ( Fl::event_inside(0, len, split, h()-len*2) ) {
 		} else if ( Fl::event_inside(w()-split, len, split, h()-len*2) ) {
 		} else if ( Fl::event_inside(len, 0, w()-len*2, split) ) {
@@ -1312,10 +1414,7 @@ protected:
 	}
 	void handle_move()
 	{
-		int x = Fl::event_x();
-		int y = Fl::event_y();
 		int len=20, split=2;
-
 		m_borderesize_status = 0;
 		if ( Fl::event_inside(0, len, split, h()-len*2) ) {
 			fl_cursor(FL_CURSOR_WE);
@@ -1353,54 +1452,30 @@ protected:
 		int y = Fl::event_y();
 
 		if ( 1 == m_borderesize_status ) {
-			// left
-			if (w()-x>80) {
-				this->resize(this->x()+x, this->y(), this->w()- x, this->h());
-			}
+			if (w()-x>80) this->resize(this->x()+x, this->y(), this->w()- x, this->h());
 		} else if ( 2 == m_borderesize_status ) {
-				// right
-				if (x>80) {
-					this->resize(this->x(), this->y(), x, this->h());
-				}
-			} else if ( 3 == m_borderesize_status ) {
-				// top
-				if (this->h()-y>40) {
-					this->resize(this->x(), this->y()+y, this->w(), this->h()-y);
-				}
-			} else if ( 4 == m_borderesize_status ) {
-				// bottom
-				if (y>40) {
-					this->resize(this->x(), this->y(), this->w(), y);
-				}
-			} else if ( 13 == m_borderesize_status ) {
-				// left-top
-				x1=x;
-				if (w()-x<=80) x1=0;
-				y1=y;
-				if (this->h()-y<=40) y1=0;
-				this->resize(this->x()+x1, this->y()+y1, this->w()-x1, this->h()-y1);
-			} else if ( 14 == m_borderesize_status ) {
-				// left-bottom
-				x1=x;
-				if (w()-x<=80) x1=0;
-				y1=y;
-				if (y<=40) y1=h();
-				this->resize(this->x()+x1, this->y(), this->w()-x1, y1);
-			} else if ( 23 == m_borderesize_status ) {
-				// right-top
-				x1=x;
-				if (x<=80) x1=w();
-				y1=y;
-				if (this->h()-y<=40) y1=0;
-				this->resize(this->x(), this->y()+y1, x1,this->h()-y1);
-			} else if ( 24 == m_borderesize_status ) {
-				// right-bottom
-				x1=x;
-				if (x<=80) x1=w();
-				y1=y;
-				if (y<=40) y1=h();
-				this->resize(this->x(), this->y(), x1,y1);
-			}
+			if (x>80) this->resize(this->x(), this->y(), x, this->h());
+		} else if ( 3 == m_borderesize_status ) {
+			if (this->h()-y>40) this->resize(this->x(), this->y()+y, this->w(), this->h()-y);
+		} else if ( 4 == m_borderesize_status ) {
+			if (y>40) this->resize(this->x(), this->y(), this->w(), y);
+		} else if ( 13 == m_borderesize_status ) {
+			x1=x; if (w()-x<=80) x1=0;
+			y1=y; if (this->h()-y<=40) y1=0;
+			this->resize(this->x()+x1, this->y()+y1, this->w()-x1, this->h()-y1);
+		} else if ( 14 == m_borderesize_status ) {
+			x1=x; if (w()-x<=80) x1=0;
+			y1=y; if (y<=40) y1=h();
+			this->resize(this->x()+x1, this->y(), this->w()-x1, y1);
+		} else if ( 23 == m_borderesize_status ) {
+			x1=x; if (x<=80) x1=w();
+			y1=y; if (this->h()-y<=40) y1=0;
+			this->resize(this->x(), this->y()+y1, x1,this->h()-y1);
+		} else if ( 24 == m_borderesize_status ) {
+			x1=x; if (x<=80) x1=w();
+			y1=y; if (y<=40) y1=h();
+			this->resize(this->x(), this->y(), x1,y1);
+		}
 	}
 };
 
@@ -1430,8 +1505,8 @@ class ListBoxX : public Scintilla::ListBox {
 	int resizeHit;
 	Scintilla::PRectangle rcPreSize;
 	Scintilla::Point dragOffset;
-	Scintilla::Point location;	// Caret location at which the list is opened
-	int wheelDelta; // mouse wheel residue
+	Scintilla::Point location;
+	int wheelDelta;
 
 	void AppendListItem(const char *text, const char *numword);
 	static void AdjustWindowRect(Scintilla::PRectangle *rc);
@@ -1440,9 +1515,9 @@ class ListBoxX : public Scintilla::ListBox {
 	int TextOffset() const;
 	void OnDoubleClick();
 
-	static const Scintilla::Point ItemInset;	// Padding around whole item
-	static const Scintilla::Point TextInset;	// Padding around text
-	static const Scintilla::Point ImageInset;	// Padding around image
+	static const Scintilla::Point ItemInset;
+	static const Scintilla::Point TextInset;
+	static const Scintilla::Point ImageInset;
 
 public:
 	ListBoxX() : lineHeight(10), unicodeMode(false),
@@ -1532,6 +1607,7 @@ void ListBoxX::Create(Scintilla::Window &parent_, int ctrlID_, Scintilla::Point 
 void ListBoxX::SetFont(Scintilla::Font &font) 
 {
 	FontData* fd = (FontData*)(font.GetID());
+	if (!fd) return;
 	Fl_Window *win = (Fl_Window*)swt_.wid;
 	win->labelfont(fd->ff_);
 	win->labelsize(fd->size_);
@@ -1608,7 +1684,6 @@ void ListBoxX::Clear()
 
 void ListBoxX::Append(char *, int) 
 {
-	// This method is no longer called in Scintilla
 	PLATFORM_ASSERT(false);
 }
 
@@ -1619,9 +1694,6 @@ int ListBoxX::Length()
 
 void ListBoxX::Select(int n) 
 {
-	// We are going to scroll to centre on the new selection and then select it, so disable
-	// redraw to avoid flicker caused by a painting new selection twice in unselected and then
-	// selected states
 	brw_->value(n+1);
 }
 
@@ -1630,7 +1702,6 @@ int ListBoxX::GetSelection()
 	return brw_->value()-1;
 }
 
-// This is not actually called at present
 int ListBoxX::Find(const char *) 
 {
 	return -1;
@@ -1679,8 +1750,6 @@ void ListBoxX::AppendListItem(const char *text, const char *numword) {
 
 void ListBoxX::SetList(const char *list, char separator, char typesep) 
 {
-	// Turn off redraw while populating the list - this has a significant effect, even if
-	// the listbox is not visible.
 	Clear();
 	size_t size = strlen(list);
 	char *words = lti.SetWords(list);
@@ -1750,22 +1819,7 @@ int ListBoxX::MinClientWidth() const
 	return 12 * (aveCharWidth+aveCharWidth/3);
 }
 
-static Scintilla::XYPOSITION XYMinimum(Scintilla::XYPOSITION a, Scintilla::XYPOSITION b) {
-	if (a < b)
-		return a;
-	else
-		return b;
-}
-
-static Scintilla::XYPOSITION XYMaximum(Scintilla::XYPOSITION a, Scintilla::XYPOSITION b) {
-	if (a > b)
-		return a;
-	else
-		return b;
-}
-
 void ListBoxX::OnDoubleClick() {
-
 	if (doubleClickAction != NULL) {
 		doubleClickAction(doubleClickActionData);
 	}
@@ -1789,26 +1843,30 @@ void Scintilla::Window::Destroy()
 	wid = 0; 
 }
 
+// bool Scintilla::Window::HasFocus()
+// {
+// 	SCIWinType *swt = (SCIWinType *)wid;
+// 	if ( swt->type == 0 ) {
+// 		Fl_Group *w = (Fl_Group *)swt->wid;
+// 		if ( w->visible_focus() ) {
+// 			return true;
+// 		}
+// 		return false;
+// 	}
+
+// 	Fl_Window *win = (Fl_Window *)swt->wid;
+// 	if ( win->visible_focus() ) return true;
+// 	return false;
+// }
 bool Scintilla::Window::HasFocus()
 {
-	//printf("%s\n", __FUNCTION__);
 	SCIWinType *swt = (SCIWinType *)wid;
-	if ( swt->type == 0 ) {
-		Fl_Group *w = (Fl_Group *)swt->wid;
-		if ( w->visible_focus() ) {
-			return true;
-		}
-		return false;
-	}
-
-	Fl_Window *win = (Fl_Window *)swt->wid;
-	if ( win->visible_focus() ) return true;
-	return false;
+	if (!swt) return false;
+	return Fl::focus() == (Fl_Widget *)swt->wid;
 }
 
 Scintilla::PRectangle Scintilla::Window::GetPosition()
 {
-	//printf("%s\n", __FUNCTION__);
 	SCIWinType *swt = (SCIWinType *)wid;
 	Fl_Widget *w = (Fl_Widget *)swt->wid;
 	return PRectangle::FromInts(w->x(), w->y(), w->x() + w->w(), w->y() + w->h());
@@ -1830,15 +1888,12 @@ void Scintilla::Window::SetPosition(PRectangle rc)
 	} else {
 		Fl_Window *win = (Fl_Window *)swt->wid;
 		win->resize(x, y, w, h);
-		//printf("win : %x\n", win);
 	}
 }
 
 void Scintilla::Window::SetPositionRelative(PRectangle rc, Scintilla::Window win)
 {
 	if ( ! wid ) return;
-
-	//printf("%s, %d %d %d %d\n", __FUNCTION__, (int)rc.left, (int)rc.top, (int)rc.Width(), (int)rc.Height());
 
 	int x = RoundXYPosition(rc.left);
 	int y = RoundXYPosition(rc.top);
@@ -1863,7 +1918,6 @@ void Scintilla::Window::SetPositionRelative(PRectangle rc, Scintilla::Window win
 
 Scintilla::PRectangle Scintilla::Window::GetClientPosition()
 {
-	//printf("%s\n", __FUNCTION__);
 	if ( wid ) {
 		SCIWinType *swt = (SCIWinType *)wid;
 		if ( swt->type == 0 ) {
@@ -1900,14 +1954,12 @@ void Scintilla::Window::Show(bool show)
 
 void Scintilla::Window::InvalidateAll()
 {
-	//printf("InvalidateAll\n");
 	if ( ! wid ) return;
 
 	SCIWinType *swt = (SCIWinType *)wid;
 	if ( swt->type == 0 ) {
 		Fl_Group *w = (Fl_Group *)swt->wid;
 		w->damage(FL_DAMAGE_ALL, swt->rc_client.x, swt->rc_client.y, swt->rc_client.w, swt->rc_client.h);
-		//printf("damage all:%d %d %d %d\n", swt->rc_client.x, swt->rc_client.y, swt->rc_client.w, swt->rc_client.h);
 	} else {
 		Fl_Window *win = (Fl_Window *)swt->wid;
 		win->damage(FL_DAMAGE_ALL, 0, 0, win->w(), win->h());
@@ -1927,8 +1979,6 @@ void Scintilla::Window::InvalidateRectangle(PRectangle rc)
 		w = RoundXYPosition(rc.Width());
 		h = RoundXYPosition(rc.Height());
 		sci->damage(FL_DAMAGE_ALL, x, y, w, h);
-
-		//printf("sci, InvalidateRectangle, %d %d %d %d\n", x, y, w, h);
 	} else {
 		Fl_Window *win = (Fl_Window *)swt->wid;
 		x = RoundXYPosition(rc.left);
@@ -1936,11 +1986,7 @@ void Scintilla::Window::InvalidateRectangle(PRectangle rc)
 		w = RoundXYPosition(rc.Width());
 		h = RoundXYPosition(rc.Height());
 		win->damage(FL_DAMAGE_ALL, x, y, w, h);
-
-		//printf("win InvalidateRectangle, %d %d %d %d\n", x, y, w, h);
 	}
-
-	//printf("InvalidateRectangle, %d %d %d %d\n", x, y, w, h);
 }
 
 void Scintilla::Window::SetFont(Font &font)
@@ -1948,6 +1994,7 @@ void Scintilla::Window::SetFont(Font &font)
 	if ( ! wid ) return;
 
 	FontData* fd = (FontData*)(font.GetID());
+	if (!fd) return;
 	SCIWinType *swt = (SCIWinType *)wid;
 	if ( swt->type == 0 ) {
 		Fl_Group *sci = (Fl_Group *)swt->wid;
@@ -1964,7 +2011,6 @@ void Scintilla::Window::SetCursor(Cursor curs)
 {
 	if ( ! wid ) return;
 
-	//printf("%s\n", __FUNCTION__);
 	Fl_Cursor cur = FL_CURSOR_ARROW;
 	switch (curs) {
 	case cursorText:
@@ -1987,10 +2033,9 @@ void Scintilla::Window::SetCursor(Cursor curs)
 		break;
 	case cursorReverseArrow:
 		cur = FL_CURSOR_ARROW;
-		//::SetCursor(GetReverseArrowCursor());
 		break;
 	case cursorArrow:
-	case cursorInvalid:	// Should not occur, but just in case.
+	case cursorInvalid:
 		cur = FL_CURSOR_ARROW;
 		break;
 	}
@@ -1998,7 +2043,7 @@ void Scintilla::Window::SetCursor(Cursor curs)
 	SCIWinType *swt = (SCIWinType *)wid;
 	if ( swt->type == 0 ) {
 		Fl_Group *sci = (Fl_Group *)swt->wid;
-		sci->window()->cursor(cur);
+		if (sci->window()) sci->window()->cursor(cur);
 	} else {
 		Fl_Window *win = (Fl_Window *)swt->wid;
 		win->cursor(cur);
@@ -2007,38 +2052,14 @@ void Scintilla::Window::SetCursor(Cursor curs)
 
 void Scintilla::Window::SetTitle(const char *s)
 {
-	//printf("%s, %s\n", __FUNCTION__, s);
 	SCIWinType *swt = (SCIWinType *)wid;
 	Fl_Group *w = (Fl_Group *)swt->wid;
 	w->copy_label(s);	
-	//::SetWindowTextA(reinterpret_cast<HWND>(wid), s);
 }
 
-/* Returns rectangle of monitor pt is on, both rect and pt are in Window's coordinates */
 Scintilla::PRectangle Scintilla::Window::GetMonitorRect(Scintilla::Point pt)
 {
-	//printf("%s\n", __FUNCTION__);
 	return Scintilla::PRectangle();
-	/*
-	// MonitorFromPoint and GetMonitorInfo are not available on Windows 95 and NT 4.
-	Scintilla::PRectangle rcPosition = GetPosition();
-	POINT ptDesktop = {static_cast<LONG>(pt.x + rcPosition.left), static_cast<LONG>(pt.y + rcPosition.top)};
-	//HMONITOR hMonitor = NULL;
-	//if (MonitorFromPointFn)
-	//	hMonitor = MonitorFromPointFn(ptDesktop, MONITOR_DEFAULTTONEAREST);
-
-	RECT rcWork = RectFromMonitor();
-	if (rcWork.left < rcWork.right) {
-		PRectangle rcMonitor(
-		        rcWork.left - rcPosition.left,
-		        rcWork.top - rcPosition.top,
-		        rcWork.right - rcPosition.left,
-		        rcWork.bottom - rcPosition.top);
-		return rcMonitor;
-	} else {
-		return Scintilla::PRectangle();
-	}
-	*/
 }
 
 // ====================== Platform ===================================
@@ -2062,7 +2083,6 @@ Scintilla::ColourDesired Scintilla::Platform::ChromeHighlight() // ok
 
 const char *Scintilla::Platform::DefaultFont() // ok
 {
-	//return "Verdana"; // test
 	return Fl::get_font_name(FL_HELVETICA);
 }
 
@@ -2073,7 +2093,7 @@ int Scintilla::Platform::DefaultFontSize() // ok
 
 unsigned int Scintilla::Platform::DoubleClickTime() // ok
 {
-	return 500; // Half a second
+	return 500;
 }
 
 bool Scintilla::Platform::MouseButtonBounce() // ok
@@ -2083,7 +2103,6 @@ bool Scintilla::Platform::MouseButtonBounce() // ok
 
 void Scintilla::Platform::DebugDisplay(const char *s)
 {
-	//::OutputDebugStringA(s);
 	printf("%s\n", s);
 }
 
@@ -2095,37 +2114,27 @@ bool Scintilla::Platform::IsKeyDown(int key)
 
 long Scintilla::Platform::SendScintilla(WindowID w, unsigned int msg, unsigned long wParam, long lParam)
 {
-	// This should never be called - its here to satisfy an old interface
-	//return static_cast<long>(::SendMessage(reinterpret_cast<HWND>(w), msg, wParam, lParam));
 	return 0;
 }
 
 long Scintilla::Platform::SendScintillaPointer(WindowID w, unsigned int msg, unsigned long wParam, void *lParam)
 {
-	// This should never be called - its here to satisfy an old interface
-	//return static_cast<long>(::SendMessage(reinterpret_cast<HWND>(w), msg, wParam, reinterpret_cast<LPARAM>(lParam)));
 	return 0;
 }
 
 bool Scintilla::Platform::IsDBCSLeadByte(int codePage, char ch)
 {
-	// Byte ranges found in Wikipedia articles with relevant search strings in each case
 	unsigned char uch = static_cast<unsigned char>(ch);
 	switch (codePage) {
 	case 932:
-		// Shift_jis
 		return ((uch >= 0x81) && (uch <= 0x9F)) || ((uch >= 0xE0) && (uch <= 0xEF));
 	case 936:
-		// GBK
 		return (uch >= 0x81) && (uch <= 0xFE);
 	case 949:
-		// Korean Wansung KS C-5601-1987
 		return (uch >= 0x81) && (uch <= 0xFE);
 	case 950:
-		// Big5
 		return (uch >= 0x81) && (uch <= 0xFE);
 	case 1361:
-		// Korean Johab KS C-5601-1992
 		return
 		((uch >= 0x84) && (uch <= 0xD3)) ||
 		((uch >= 0xD8) && (uch <= 0xDE)) ||
@@ -2148,8 +2157,6 @@ int Scintilla::Platform::DBCSCharMaxLength()
 	return 2;
 }
 
-// These are utility functions not really tied to a platform
-
 int Scintilla::Platform::Minimum(int a, int b)
 {
 	if (a < b) return a;
@@ -2161,8 +2168,6 @@ int Scintilla::Platform::Maximum(int a, int b)
 	if (a > b) return a;
 	else return b;
 }
-
-//#define TRACE
 
 #ifdef TRACE
 void Scintilla::Platform::DebugPrintf(const char *format, ...)
@@ -2200,15 +2205,12 @@ void Scintilla::Platform::Assert(const char *c, const char *file, int line)
 		int rep = fl_choice(buffer, "Retry", "Ignore", "Quit");
 		fl_message_hotspot(hotspot);
 		if (rep==0) {
-			//::DebugBreak();
 		} else if (rep==1) {
-			// all OK
 		} else {
 			abort();
 		}
 	} else {
 		Scintilla::Platform::DebugDisplay(buffer);
-		//::DebugBreak();
 		abort();
 	}
 }

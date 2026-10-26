@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FLTK + OCCT WebAssembly</title>
+	
     <style>
         /* body {
             display: flex;
@@ -66,77 +67,172 @@ canvas:focus {
         <canvas id="canvas" width="250" height="150" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     </div>
 oi
+<!-- 1. Configuração para evitar loops de reload -->
+<script>
+  window.coi = {
+    // Evita registar ou recarregar se o script já tiver provocado um reload nesta sessão
+    shouldRegister: () => !window.reloadedBySelf,
+    coepCredentialless: () => true // Recomendado para compatibilidade de recursos
+  };
+
+  // 2. Função que bloqueia a execução até que o ambiente esteja pronto
+  function aguardarIsolamento() {
+    return new Promise((resolve) => {
+      if (window.crossOriginIsolated) {
+        // Se já está isolado (segunda visita ou após o reload), continua imediatamente
+        resolve();
+      } else {
+        // Se não está isolado, monitoriza o Service Worker. 
+        // Nota: Se for o primeiro acesso, a página irá recarregar e o fluxo recomeça do topo.
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(() => {
+            if (window.crossOriginIsolated) {
+              resolve();
+            }
+          });
+        }
+      }
+    });
+  }
+</script>
+
+<!-- 3. O Script do COI (carregado normalmente com defer) -->
+<script defer src="/coi-serviceworker.min.js"></script>
     <script>
         // Emscripten strictly requires Module.canvas to point to a valid element on startup
         // var Module = {
         //     canvas: document.getElementById('canvas')
         // };
     </script>
-
-    <!-- Load the modularized build as an ES Module -->
-    <script type="module">
-		setBlockedKeys(true);
-		var Module = {
-            canvas: document.getElementById('canvas')
-        };
-        // import createModule from '/cad/app.mjs';
-		import createModule from 'https://missionsave.github.io/cad/app.mjs';
-
-        createModule(Module).then((instance) => {
-
-// 			{
-// const canvas = document.querySelector('.canvas-container');
-// const viewer = document.getElementById('viewer_v1');
-// if (canvas && viewer && canvas.parentNode !== viewer)
-//     viewer.appendChild(canvas);
-
-// const fltk = document.querySelector('[id^="fltk"]');
-// if (fltk && viewer && fltk.parentNode !== viewer)
-//     viewer.appendChild(fltk);
-// 			}
-
-
-            // console.log('Emscripten module initialized successfully.');
-            
-            // Trigger Open CASCADE initialization on the primary canvas
-            // setTimeout(() => {
-                if (typeof instance._init_occt_viewer === 'function') {
-                    instance._init_occt_viewer();
-
-					document.querySelector('.canvas-container').style.top = document.getElementById('topheaderid').getBoundingClientRect().height + 'px';
-					const rect=document.querySelector('.canvas-container').getBoundingClientRect();
-                    instance._resize_event(rect.left,rect.top,rect.width,rect.height);
-
-					// setTimeout(() => {
-                    instance._update_web_canvas_geometry_();
-					document.querySelector('.canvas-container').style.visibility= 'visible';
-					// }, 10);
-
-        //             setTimeout(() => {
-        //     const container = document.querySelector('.canvas-container');
-        //     // Find the canvas FLTK just spawned in the body
-        //     const canvases = document.querySelectorAll('canvas');
-        //     const fltkCanvas = canvases[canvases.length - 1]; // Usually the last created canvas
-
-        //     if (container && fltkCanvas && fltkCanvas.parentNode !== container) {
-        //         container.appendChild(fltkCanvas);
-        //         fltkCanvas.style.position = 'absolute';
-        //         fltkCanvas.style.top = '0px';
-        //         fltkCanvas.style.left = '0px';
-        //         fltkCanvas.style.width = '100%';
-        //         fltkCanvas.style.height = '100%';
-        //     }
-        // }, 500);
-
-
-
-
-                }
-            // }, 10);
-        }).catch((err) => {
-            console.error('Failed to load module:', err);
-        });
+    <script>
+        // OffscreenCanvas polyfill protection for Emscripten
+        (function() {
+            if (typeof OffscreenCanvasRenderingContext2D !== 'undefined') {
+                const originalGet = Object.getOwnPropertyDescriptor(OffscreenCanvasRenderingContext2D.prototype, 'canvas').get;
+                Object.defineProperty(OffscreenCanvasRenderingContext2D.prototype, 'canvas', {
+                    get: originalGet,
+                    set: function(val) {
+                        console.warn("Emscripten tried to overwrite read-only 'canvas' property. Handled successfully.");
+                    },
+                    configurable: true,
+                    enumerable: true
+                });
+            }
+        })();
     </script>
+    <!-- Load the modularized build as an ES Module --> 
+<script type="module">
+    setBlockedKeys(true);
+
+    var Module = {
+        canvas: document.getElementById('canvas'),
+			print:    t => console.log("STDOUT:", t),
+			printErr: t => console.error("STDERR:", t),
+    };
+
+    import createModule from '/cad/app.mjs';
+
+    createModule(Module).then(async (instance) => {
+
+// 		const data = instance.FS.readFile('/fonts/DejaVuSans-Bold.ttf');
+
+// console.log(
+//     [...data.slice(0, 4)]
+//         .map(b => b.toString(16).padStart(2, '0'))
+//         .join(' ')
+// );
+
+try {
+    const font = new FontFace(
+        'DejaVu Sans',
+        'url("/cad/DejaVuSans-Bold.ttf")',
+        { weight: '700', style: 'normal' }
+    );
+
+    await font.load();
+    document.fonts.add(font);
+
+    console.log('Font loaded:', font.family);
+} catch (e) {
+    console.error('Font loading failed:', e);
+}
+
+
+
+// 1. Captura erros normais (síncronos, erros de runtime Wasm e exceções C++)
+window.addEventListener('error', event => {
+  // O objeto do erro ou da exceção C++ estará em event.error
+  console.error('Erro global capturado:', event.error);
+});
+
+// 2. Captura Promises rejeitadas (assíncronas)
+window.addEventListener('unhandledrejection', event => {
+  console.error('Promise rejeitada capturada:', event.reason);
+});
+
+
+        // Load the preloaded TTF font into the browser.
+        // try {
+        //     const data = instance.FS.readFile(
+        //         '/fonts/DejaVuSans-Bold.ttf'
+        //     );
+
+        //     const blob = new Blob([data], {
+        //         type: 'font/ttf'
+        //     });
+
+        //     const fontURL = URL.createObjectURL(blob);
+
+        //     const font = new FontFace(
+        //         'DejaVu Sans',
+        //         `url(${fontURL})`
+        //     );
+
+        //     await font.load();
+        //     document.fonts.add(font);
+
+        //     console.log('Loaded font:', font.family);
+        // }
+        // catch (e) {
+        //     console.error('Failed to load font:', e);
+        // }
+
+        // Fundamental FLTK setup.
+        const fltk = document.querySelector('[id^="fltk"]');
+
+        if (fltk) {
+            fltk.appendChild(document.getElementById('canvas'));
+        }
+
+        // Initialize canvas geometry.
+        if (typeof instance._resize_event === 'function') {
+
+            const container =
+                document.querySelector('.canvas-container');
+
+            container.style.top =
+                document.getElementById('topheaderid')
+                    .getBoundingClientRect().height + 'px';
+
+            const rect = container.getBoundingClientRect();
+
+            instance._resize_event(
+                rect.left,
+                rect.top,
+                rect.width,
+                rect.height
+            );
+
+            instance._update_web_canvas_geometry_();
+
+            container.style.visibility = 'visible';
+        }
+
+    }).catch((err) => {
+        console.error('Emscripten initialization failed:', err);
+    });
+</script>
+ 
 
 </body>
 </html>

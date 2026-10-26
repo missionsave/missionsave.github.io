@@ -15,8 +15,14 @@
 # define FL_DLL
 #endif
 
-#include "Scintilla.h"
-#include "Fl_Scintilla.h"
+
+ 
+
+// #include "Scintilla.h"
+// #include "Fl_Scintilla.h"
+
+#define SCINTILLA_FLTK_IMPLEMENTATION
+#include "scintilla_fltk_amalgamated.h" 
 
 #include <FL/Fl.H>
 #include <FL/x.H> // for fl_open_callback
@@ -33,6 +39,48 @@
 #include <FL/filename.H> 
 
 Fl_Scintilla *editor;
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <iostream>
+
+extern "C" {   
+
+  EMSCRIPTEN_KEEPALIVE
+  void handle_browser_paste(const char* text) {
+      if (!text) return;
+      
+      // Process the string safely during synchronous execution
+      std::string pasted_data(text);
+      std::cout << "Received in C++: " << pasted_data << std::endl;
+      if (!text) return;
+      
+      // Check if there is a focused widget that accepts text (like an FLTK input/text field)
+      Fl_Widget* focus_widget = Fl::focus();
+      if (focus_widget) {
+          // If it's a text input widget, handle insertion
+          // Alternatively, use Fl::paste() mechanism adapted for your GUI
+          Fl_Input* input = dynamic_cast<Fl_Input*>(focus_widget);
+          if (input) {
+              input->replace(input->position(), input->mark(), text);
+          }
+      }
+      // Note: Do NOT call free() here, because JS will free the pointer 
+      // the exact moment this function returns.
+  }
+  EMSCRIPTEN_KEEPALIVE
+  const char* get_selected_text() {
+      Fl_Widget* focus_widget = Fl::focus();
+      Fl_Input* input = dynamic_cast<Fl_Input*>(focus_widget);
+      if (input && input->size() > 0) {
+          // Return currently highlighted/selected text in the active input field
+          return input->value(); // Note: ensure memory lifespan or static buffer if necessary
+      }
+      return "";    
+  }
+} 
+#endif
+
 
 
 #include <string>
@@ -700,18 +748,78 @@ struct fl_scintilla : public Fl_Scintilla {
 		return Fl_Scintilla::handle(e);
 	}
 };
-
+#include <thread>
+#include <iostream>
 int main(){
 	Fl::scheme("gleam");
     Fl::get_system_colors();
 
-	Fl_Window *win = new Fl_Double_Window(0, 0, 1024, 576, "scintilla for fltk");
+	string str="ttest";
+	thread([str]() {
+		cout<<"tt "<<str<<"\n";
+}).detach();
+
+	Fl_Double_Window *win = new Fl_Double_Window(0, 0, 1024, 576, "scintilla for fltk");
 
 	// win->color(fl_rgb_color(0, 128, 128));
 
 	win->begin();
-	editor = new fl_scintilla(0, 0, 800, 500);
-    // sci_init();
+	editor = new fl_scintilla(0, 0, 800, 500);	
+
+
+	// #ifdef __EMSCRIPTEN__	
+	win->end();
+	win->resizable(win);
+	win->show( );
+	fl_font(FL_COURIER, 12);
+printf("h=%d d=%d w(n)=%f\n", fl_height(), fl_descent(), fl_width('n'));
+	editor->SendEditor(SCI_STYLESETFONT, STYLE_DEFAULT, (sptr_t)"Courier");
+	editor->SendEditor(SCI_STYLESETSIZE, STYLE_DEFAULT, 12);
+	editor->SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, 0x000000);
+	editor->SendEditor(SCI_STYLESETBACK, STYLE_DEFAULT, 0xFFFFFF);
+	editor->SendEditor(SCI_STYLECLEARALL, 0, 0);
+    editor->SendEditor(SCI_SETBUFFEREDDRAW, 0, 0);   // no offscreen pixmap
+    // editor->SendEditor(SCI_SETCARETPERIOD, 0, 0);   // no offscreen pixmap
+    editor->SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);  // avoids the iconv path
+	editor->SendEditor(SCI_SETTEXT, 0, (sptr_t)"Hello from Scintilla!");
+
+	#ifndef __EMSCRIPTEN__
+	return Fl::run();
+#else
+emscripten_set_main_loop([]() {
+	// Fl::wait(0); 
+
+    // // Optional: exit loop if all windows are closed
+    // if (!Fl::first_window()) {
+    //     emscripten_cancel_main_loop();
+    // }
+    Fl::flush();
+	// Fl::wait(0.01);
+}, 0, true);
+#endif
+// #endif
+
+
+    sci_init();
+	editor->SendEditor(SCI_SETTEXT, 0, (sptr_t)"Hello from Scintilla!");
+
+	editor->SendEditor(SCI_SETCODEPAGE, SC_CP_UTF8, 0);
+	editor->SendEditor(SCI_SETBUFFEREDDRAW, 0);          // important on canvas
+	editor->SendEditor(SCI_SETTECHNOLOGY, 0);
+
+	editor->SendEditor(SCI_STYLESETFONT, STYLE_DEFAULT, (sptr_t)"Helvetica");
+	editor->SendEditor(SCI_STYLESETSIZE, STYLE_DEFAULT, 12);
+	editor->SendEditor(SCI_STYLESETFORE, STYLE_DEFAULT, 0x000000);
+	editor->SendEditor(SCI_STYLESETBACK, STYLE_DEFAULT, 0xFFFFFF);
+	editor->SendEditor(SCI_STYLECLEARALL);
+
+// put some text so you can see it
+editor->SendEditor(SCI_SETTEXT, 0, (sptr_t)"Hello from Scintilla on wasm\nline 2\n");
+
+
+	sptr_t len = editor->SendEditor(SCI_GETLENGTH);
+printf("Scintilla document length: %ld\n", (long)len);
+editor->redraw();
     
 	win->end();
 	win->resizable(win);
