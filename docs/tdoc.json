@@ -83,7 +83,7 @@
   "Cad": [
     {
 		"url__": "http://127.0.0.1:8080/cad/test.html",
-		"url1": "http://127.0.0.1:8080/cad/index.html",
+		"url_": "http://127.0.0.1:8080/cad/index.html",
 		"url": "https://missionsave.github.io/cad/index.html",
 		"urlnw": "/cad/index.html",
 		"workerid": 0,

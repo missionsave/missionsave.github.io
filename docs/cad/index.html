@@ -149,8 +149,9 @@ oi
 			print:    t => console.log("STDOUT:", t),
 			printErr: t => console.error("STDERR:", t),
     };
-
-    import createModule from '/cad/app.mjs';
+	const dominioActual = window.location.origin;
+    // import createModule from '/cad/app.mjs';
+	const { default: createModule } = await import(`${dominioActual}/cad/app.mjs`);
 
     createModule(Module).then(async (instance) => {
 
