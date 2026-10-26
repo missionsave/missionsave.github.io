@@ -97,7 +97,27 @@ oi
 </script>
 
 <!-- 3. O Script do COI (carregado normalmente com defer) -->
-<script defer src="/coi-serviceworker.min.js"></script>
+<!-- <script defer src="https://superdb-api.superbem.workers.dev/epub?url=https://missionsave.github.io/coi-serviceworker.min.js"></script> -->
+<!-- Inserção dinâmica do script do COI com o domínio atual -->
+<script>
+  (function() {
+    // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
+    const dominioActual = window.location.origin;
+
+    // 2. Cria o elemento script
+    const script = document.createElement('script');
+    
+    // 3. Define os atributos necessários
+    script.src = `${dominioActual}/coi-serviceworker.min.js`;
+    script.defer = true;
+
+    // 4. Adiciona o script ao documento (no final do body ou head)
+    document.body.appendChild(script);
+    
+    console.log(`Script COI injetado dinamicamente para: ${script.src}`);
+  })();
+</script>
+
     <script>
         // Emscripten strictly requires Module.canvas to point to a valid element on startup
         // var Module = {

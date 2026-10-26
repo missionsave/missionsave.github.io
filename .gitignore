@@ -136,9 +136,11 @@ docs/cad/test2
 *copiar*
 working*
 
-docs/**/**
+# docs/**/*
+docs/*.*
+docs/cad/*
 !docs/coi-serviceworker.min.js
-
+!docs/cad/app.data
 
 !2d
 !2d/study*
