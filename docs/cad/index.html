@@ -148,6 +148,16 @@ oi
         canvas: document.getElementById('canvas'),
 			print:    t => console.log("STDOUT:", t),
 			printErr: t => console.error("STDERR:", t),
+
+			// Esta função intercepta o pedido do app.data e devolve o caminho absoluto correto
+			locateFile: function(path, prefix) {
+				// Se o Emscripten pedir o 'app.data', redirecionamos para a pasta correta
+				if (path.endsWith('.data')) {
+					return `${dominioActual}/cad/${path}`; 
+				}
+				// Para os restantes ficheiros (como o .wasm), mantém o comportamento padrão
+				return prefix + path;
+			}
     };
 	const dominioActual = window.location.origin;
     // import createModule from '/cad/app.mjs';
