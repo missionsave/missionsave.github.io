@@ -18,7 +18,49 @@
 	<link rel="shortcut icon" href="https://missionsave.github.io/favicon.ico"> -->
 	<link rel="icon" type="image/png" href="/favicon.png">
 	<!-- <meta property="og:image" content="https://missionsave.github.io/favicon.png"> -->
+
+
+	<script src="https://cdn.jsdelivr.net/npm/eruda@3.4.1/eruda.min.js"></script>
+	<script>eruda.init();</script>
+
+
+
+
+
+
 	<script src="coi-serviceworker.js"></script>
+
+
+
+	<script>
+		(function () {
+		  const box = document.createElement("pre");
+		  box.style.cssText = "position:fixed;top:0;left:0;right:0;max-height:45vh;overflow:auto;margin:0;padding:6px;background:rgba(0,0,0,.85);color:#0f0;font:11px monospace;z-index:99999;white-space:pre-wrap";
+		  const add = (lvl, args) => {
+			const msg = args.map(a => {
+			  try { return typeof a === "object" ? JSON.stringify(a) : String(a); } catch (e) { return String(a); }
+			}).join(" ");
+			box.textContent += "[" + lvl + "] " + msg + "\n";
+			box.scrollTop = box.scrollHeight;
+		  };
+		  ["log", "info", "warn", "error"].forEach(l => {
+			const orig = console[l];
+			console[l] = (...a) => { add(l, a); orig.apply(console, a); };
+		  });
+		  window.addEventListener("error", e => add("ERR", [e.message, e.filename + ":" + e.lineno]));
+		  window.addEventListener("unhandledrejection", e => add("REJ", [String(e.reason)]));
+		  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(box));
+		})();
+		</script>
+
+
+
+
+
+
+
+
+
 	<script type="module">
 		// document.addEventListener('DOMContentLoaded', function() {
 		// 	if (!window.crossOriginIsolated) {
