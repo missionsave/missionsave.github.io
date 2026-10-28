@@ -69,33 +69,33 @@ canvas:focus {
 oi
 <!-- 1. Configuração para evitar loops de reload -->
 <script>
-	if (!window.crossOriginIsolated) {
-  window.coi = {
-    // Evita registar ou recarregar se o script já tiver provocado um reload nesta sessão
-    shouldRegister: () => !window.reloadedBySelf,
-    coepCredentialless: () => true // Recomendado para compatibilidade de recursos
-  };
+// 	if (!window.crossOriginIsolated) {
+//   window.coi = {
+//     // Evita registar ou recarregar se o script já tiver provocado um reload nesta sessão
+//     shouldRegister: () => !window.reloadedBySelf,
+//     coepCredentialless: () => true // Recomendado para compatibilidade de recursos
+//   };
 
-  // 2. Função que bloqueia a execução até que o ambiente esteja pronto
-  function aguardarIsolamento() {
-    return new Promise((resolve) => {
-      if (window.crossOriginIsolated) {
-        // Se já está isolado (segunda visita ou após o reload), continua imediatamente
-        resolve();
-      } else {
-        // Se não está isolado, monitoriza o Service Worker. 
-        // Nota: Se for o primeiro acesso, a página irá recarregar e o fluxo recomeça do topo.
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then(() => {
-            if (window.crossOriginIsolated) {
-              resolve();
-            }
-          });
-        }
-      }
-    });
-}
-  }
+//   // 2. Função que bloqueia a execução até que o ambiente esteja pronto
+//   function aguardarIsolamento() {
+//     return new Promise((resolve) => {
+//       if (window.crossOriginIsolated) {
+//         // Se já está isolado (segunda visita ou após o reload), continua imediatamente
+//         resolve();
+//       } else {
+//         // Se não está isolado, monitoriza o Service Worker. 
+//         // Nota: Se for o primeiro acesso, a página irá recarregar e o fluxo recomeça do topo.
+//         if ('serviceWorker' in navigator) {
+//           navigator.serviceWorker.ready.then(() => {
+//             if (window.crossOriginIsolated) {
+//               resolve();
+//             }
+//           });
+//         }
+//       }
+//     });
+// }
+//   }
 </script>
 
 <!-- 3. O Script do COI (carregado normalmente com defer) -->
@@ -103,30 +103,30 @@ oi
 <!-- <script defer src="/coi-serviceworker.min.js"></script> -->
 <!-- Inserção dinâmica do script do COI com o domínio atual -->
 <script>
-	if (!window.crossOriginIsolated) {
-  (function() {
-    // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
-    const dominioActual = window.location.origin;
+// 	if (!window.crossOriginIsolated) {
+//   (function() {
+//     // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
+//     const dominioActual = window.location.origin;
 
-    // 2. Cria o elemento script
-    const script = document.createElement('script');
+//     // 2. Cria o elemento script
+//     const script = document.createElement('script');
     
-    // 3. Define os atributos necessários
-    // script.src = `/coi-serviceworker.min.js`;
-    script.src = `${dominioActual}/coi-serviceworker.min.js`;
-    script.defer = true;
+//     // 3. Define os atributos necessários
+//     // script.src = `/coi-serviceworker.min.js`;
+//     script.src = `${dominioActual}/coi-serviceworker.min.js`;
+//     script.defer = true;
 
-	// if (!window.crossOriginIsolated) {
-    // 4. Adiciona o script ao documento (no final do body ou head)
-    document.body.appendChild(script);
+// 	// if (!window.crossOriginIsolated) {
+//     // 4. Adiciona o script ao documento (no final do body ou head)
+//     document.body.appendChild(script);
 	
-	// reload the current page
-window.location.reload();
-	// }
+// 	// reload the current page
+// window.location.reload();
+// 	// }
     
-    console.log(`Script COI injetado dinamicamente para: ${script.src}`);
-  })();
-}
+//     console.log(`Script COI injetado dinamicamente para: ${script.src}`);
+//   })();
+// }
 </script>
 
     <script>
