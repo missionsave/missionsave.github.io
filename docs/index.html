@@ -25,10 +25,22 @@
 
 
 
+	<script>
+		window.coi = {
+		  quiet: false, // Ensures it logs actions to the console
+		  onRegistration: (sw) => {
+			console.log("Service worker registered successfully", sw);
+		  },
+		  doReload: () => {
+			console.log("Reloading triggered by coi-serviceworker");
+			window.location.reload();
+		  }
+		};
+	  </script>
+	  <script src="coi-serviceworker.js"></script>
 
 
-
-	<script src="coi-serviceworker.js?cc=999"></script>
+	<script src="coi-serviceworker.js?cc=9999"></script>
 
 
 
