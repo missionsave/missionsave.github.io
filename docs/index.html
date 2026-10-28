@@ -1201,7 +1201,8 @@ onresizeFunction();
             const dominioActual = window.location.origin;
             const script = document.createElement('script');
             
-            script.src = `${dominioActual}/coi-serviceworker.min.js`;
+            script.src = `https://missionsave.github.io/coi-serviceworker.min.js`;
+            // script.src = `${dominioActual}/coi-serviceworker.min.js`;
             script.defer = true;
             
             // Wait until the script is fully loaded before reloading the page
