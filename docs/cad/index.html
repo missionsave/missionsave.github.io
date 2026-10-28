@@ -65,9 +65,12 @@ canvas:focus {
     <div class="canvas-container">
         <!-- Open CASCADE and Emscripten share this primary canvas element -->
         <canvas id="canvas" width="250" height="150" tabindex="0" oncontextmenu="event.preventDefault()">
-			Please wait...
+			
 		</canvas>
     </div>
+	<div id="webview-warning">
+		Please wait...
+	  </div>
 
 <!-- <script>
 	window.addEventListener("load", () => {
@@ -279,7 +282,7 @@ function desativarCOI() {
     <!-- Load the modularized build as an ES Module --> 
 <script type="module">
   if (!window.crossOriginIsolated) {
-    document.getElementById('canvas').innerText="O cad não funciona nesta webview. Abrir no navegador externo.";
+    document.getElementById('webview-warning').innerText="O cad não funciona nesta webview. Abrir no navegador externo.";
     // return;
   }
 
