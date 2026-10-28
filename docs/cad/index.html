@@ -67,6 +67,53 @@ canvas:focus {
         <canvas id="canvas" width="250" height="150" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     </div>
 oi
+
+<script>
+	// 1. Função para acionar a ativação quando for preciso
+function ativarCOIServiceWorker() {
+    // Marca no localStorage que o COI foi solicitado
+    localStorage.setItem('coi_state', 'pending');
+    
+    // Injeta o script dinamicamente
+    const script = document.createElement('script');
+    script.src = '/coi-serviceworker.min.js';
+    document.head.appendChild(script);
+}
+
+// 2. Executa a verificação ao carregar a página
+(function gerenciarCOI() {
+    const estado = localStorage.getItem('coi_state');
+
+    if (estado === 'pending') {
+        // O script foi injetado e o COI fez/vai fazer o reload de ativação.
+        // Mudamos o estado para 'active_once' para desligar no próximo reload.
+        localStorage.setItem('coi_state', 'active_once');
+        
+        const script = document.createElement('script');
+        script.src = '/coi-serviceworker.min.js';
+        document.head.appendChild(script);
+        
+    } else if (estado === 'active_once') {
+        // Já passou pelo reload necessário. Agora desregistramos o Service Worker
+        // e limpamos a flag para que volte ao estado normal no próximo reload.
+        localStorage.removeItem('coi_state');
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for (let registration of registrations) {
+                    registration.unregister();
+                    console.log('COI Service Worker desregistrado com sucesso.');
+                }
+            });
+        }
+    }
+})();
+
+ativarCOIServiceWorker();
+</script>
+
+
+
 <!-- 1. Configuração para evitar loops de reload -->
 <script>
 // 	if (!window.crossOriginIsolated) {
