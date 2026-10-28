@@ -10,7 +10,7 @@ if (typeof window === "undefined") {
 	  e.respondWith(
 		fetch(req)
 		  .then(r => {
-			if (r.status === 0) return r; // opaque response, can't modify
+			if (r.status === 0) return r; // opaque
 			const h = new Headers(r.headers);
 			h.set("Cross-Origin-Opener-Policy", "same-origin");
 			h.set("Cross-Origin-Embedder-Policy", "require-corp");
@@ -21,23 +21,45 @@ if (typeof window === "undefined") {
 			  headers: h,
 			});
 		  })
-		  .catch(err => { console.error(err); return Response.error(); })
+		  .catch(err => {
+			console.error(err);
+			return Response.error();
+		  })
 	  );
 	});
   } else {
 	// ---- page context ----
 	(async () => {
+	  // Skip completely in Facebook / Messenger / Instagram in-app browsers.
+	  // These environments have broken or incomplete Service Worker support.
+	  const ua = navigator.userAgent || "";
+	  if (/FBAN|FBAV|Messenger|Instagram|FB_IAB|FB4A|FBIOS/i.test(ua)) {
+		return;
+	  }
+  
 	  if (window.crossOriginIsolated || !("serviceWorker" in navigator)) return;
+  
+	  // document.currentScript can be null in some edge cases
+	  const script = document.currentScript;
+	  if (!script || !script.src) {
+		console.warn("COI SW: no currentScript.src available");
+		return;
+	  }
+  
 	  try {
-		await navigator.serviceWorker.register(document.currentScript.src);
-		await navigator.serviceWorker.ready; // waits until a worker is active
+		const reg = await navigator.serviceWorker.register(script.src);
+		await navigator.serviceWorker.ready;
   
 		if (!navigator.serviceWorker.controller) {
 		  // reload once, with a guard so it can never loop
 		  let done = false;
-		  try { done = sessionStorage.getItem("coi-reloaded") === "1"; } catch (e) {}
+		  try {
+			done = sessionStorage.getItem("coi-reloaded") === "1";
+		  } catch (_) {}
 		  if (!done) {
-			try { sessionStorage.setItem("coi-reloaded", "1"); } catch (e) {}
+			try {
+			  sessionStorage.setItem("coi-reloaded", "1");
+			} catch (_) {}
 			location.reload();
 		  }
 		}
