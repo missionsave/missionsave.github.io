@@ -68,55 +68,112 @@ canvas:focus {
     </div>
 oi
 
-<script>
-	// 1. Função para ativar o COI sob demanda
-function ativarCOIServiceWorker() {
-    localStorage.setItem('coi_active', 'true');
-    location.reload(); // Recarrega para iniciar o isolamento
+<script type="module">
+// 	// 1. Função para ativar o COI sob demanda
+// function ativarCOIServiceWorker() {
+//     localStorage.setItem('coi_active', 'true');
+//     location.reload(); // Recarrega para iniciar o isolamento
+// }
+
+// // 2. Função para desligar e limpar o Service Worker
+// function desativarCOIServiceWorker() {
+//     localStorage.removeItem('coi_active');
+//     if ('serviceWorker' in navigator) {
+//         navigator.serviceWorker.getRegistrations().then(registrations => {
+//             for (let registration of registrations) {
+//                 if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
+//                     registration.unregister();
+//                     console.log('COI Service Worker desativado e desregistrado.');
+//                 }
+//             }
+//         });
+//     }
+//     location.reload();
+// }
+
+// // 3. Execução automática no carregamento
+// (function gerenciarCOI() {
+//     const isActive = localStorage.getItem('coi_active') === 'true';
+
+//     if (isActive) {
+//         // Garante que o script seja injetado apenas se já não estiver presente na página
+//         if (!document.querySelector('script[src*="coi-serviceworker"]')) {
+//             const script = document.createElement('script');
+//             script.src = '/coi-serviceworker.min.js';
+//             document.head.appendChild(script);
+//         }
+//     } else {
+//         // Se estiver desligado, limpa qualquer vestígio de Service Worker ativo
+//         if ('serviceWorker' in navigator) {
+//             navigator.serviceWorker.getRegistrations().then(registrations => {
+//                 for (let registration of registrations) {
+//                     if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
+//                         registration.unregister();
+//                     }
+//                 }
+//             });
+//         }
+//     }
+// })();
+
+// ativarCOIServiceWorker();
+
+async function ativarCOI() {
+  // Já isolado: nada a fazer
+  if (window.crossOriginIsolated) {
+    console.log('COI já está ativo.');
+    return;
+  }
+
+  // Sem suporte a service workers (ex: contexto não seguro)
+  if (!('serviceWorker' in navigator)) {
+    console.warn('Service Workers não suportados; COI indisponível.');
+    return;
+  }
+
+  // Já fez 1 reload e continua sem isolamento: não repete (evita loop)
+  if (sessionStorage.getItem('coi_reloaded') === 'true') {
+    console.warn('COI não ficou ativo após o reload.');
+    return;
+  }
+
+  // 1. Carrega o script do coi-serviceworker e espera
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = '/coi-serviceworker.min.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Falha ao carregar coi-serviceworker'));
+    document.head.appendChild(script);
+  });
+
+  // 2. Espera que o service worker esteja registado e ativo
+  const registration = await navigator.serviceWorker.ready;
+
+  if (registration.active) {
+    // 3. Um único reload, já com o SW no browser
+    sessionStorage.setItem('coi_reloaded', 'true');
+    location.reload();
+  }
 }
 
-// 2. Função para desligar e limpar o Service Worker
-function desativarCOIServiceWorker() {
-    localStorage.removeItem('coi_active');
+// 2. Desativa, remove o Service Worker e limpa o estado
+function desativarCOI() {
+    // localStorage.removeItem('coi_active');
+
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
             for (let registration of registrations) {
                 if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
                     registration.unregister();
-                    console.log('COI Service Worker desativado e desregistrado.');
+                    console.log('COI Service Worker desregistrado.');
                 }
             }
         });
     }
-    location.reload();
+
+    // location.reload();
 }
-
-// 3. Execução automática no carregamento
-(function gerenciarCOI() {
-    const isActive = localStorage.getItem('coi_active') === 'true';
-
-    if (isActive) {
-        // Garante que o script seja injetado apenas se já não estiver presente na página
-        if (!document.querySelector('script[src*="coi-serviceworker"]')) {
-            const script = document.createElement('script');
-            script.src = '/coi-serviceworker.min.js';
-            document.head.appendChild(script);
-        }
-    } else {
-        // Se estiver desligado, limpa qualquer vestígio de Service Worker ativo
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                for (let registration of registrations) {
-                    if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
-                        registration.unregister();
-                    }
-                }
-            });
-        }
-    }
-})();
-
-ativarCOIServiceWorker();
+await ativarCOI();
 </script>
 
 
@@ -230,7 +287,6 @@ ativarCOIServiceWorker();
 
     createModule(Module).then(async (instance) => {
 
-		desativarCOIServiceWorker();
 
 // 		const data = instance.FS.readFile('/fonts/DejaVuSans-Bold.ttf');
 
@@ -358,6 +414,7 @@ window.addEventListener('unhandledrejection', event => {
 
 
 
+		desativarCOI();
 
 
     }).catch((err) => {
