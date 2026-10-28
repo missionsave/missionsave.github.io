@@ -69,40 +69,47 @@ canvas:focus {
 oi
 
 <script>
-	// 1. Função para acionar a ativação quando for preciso
+	// 1. Função para ativar o COI sob demanda
 function ativarCOIServiceWorker() {
-    // Marca no localStorage que o COI foi solicitado
-    localStorage.setItem('coi_state', 'pending');
-    
-    // Injeta o script dinamicamente
-    const script = document.createElement('script');
-    script.src = '/coi-serviceworker.min.js';
-    document.head.appendChild(script);
+    localStorage.setItem('coi_active', 'true');
+    location.reload(); // Recarrega para iniciar o isolamento
 }
 
-// 2. Executa a verificação ao carregar a página
+// 2. Função para desligar e limpar o Service Worker
+function desativarCOIServiceWorker() {
+    localStorage.removeItem('coi_active');
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+                if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
+                    registration.unregister();
+                    console.log('COI Service Worker desativado e desregistrado.');
+                }
+            }
+        });
+    }
+    location.reload();
+}
+
+// 3. Execução automática no carregamento
 (function gerenciarCOI() {
-    const estado = localStorage.getItem('coi_state');
+    const isActive = localStorage.getItem('coi_active') === 'true';
 
-    if (estado === 'pending') {
-        // O script foi injetado e o COI fez/vai fazer o reload de ativação.
-        // Mudamos o estado para 'active_once' para desligar no próximo reload.
-        localStorage.setItem('coi_state', 'active_once');
-        
-        const script = document.createElement('script');
-        script.src = '/coi-serviceworker.min.js';
-        document.head.appendChild(script);
-        
-    } else if (estado === 'active_once') {
-        // Já passou pelo reload necessário. Agora desregistramos o Service Worker
-        // e limpamos a flag para que volte ao estado normal no próximo reload.
-        localStorage.removeItem('coi_state');
-
+    if (isActive) {
+        // Garante que o script seja injetado apenas se já não estiver presente na página
+        if (!document.querySelector('script[src*="coi-serviceworker"]')) {
+            const script = document.createElement('script');
+            script.src = '/coi-serviceworker.min.js';
+            document.head.appendChild(script);
+        }
+    } else {
+        // Se estiver desligado, limpa qualquer vestígio de Service Worker ativo
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(registrations => {
                 for (let registration of registrations) {
-                    registration.unregister();
-                    console.log('COI Service Worker desregistrado com sucesso.');
+                    if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
+                        registration.unregister();
+                    }
                 }
             });
         }
@@ -222,6 +229,8 @@ ativarCOIServiceWorker();
 	const { default: createModule } = await import(`${dominioActual}/cad/app.mjs`);
 
     createModule(Module).then(async (instance) => {
+
+		desativarCOIServiceWorker();
 
 // 		const data = instance.FS.readFile('/fonts/DejaVuSans-Bold.ttf');
 
