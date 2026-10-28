@@ -26,13 +26,23 @@ if (typeof window === "undefined") {
 	});
   } else {
 	// ---- page context ----
-	if (!window.crossOriginIsolated && navigator.serviceWorker) {
-	  navigator.serviceWorker
-		.register(document.currentScript.src)
-		.then(reg => {
-		  reg.addEventListener("updatefound", () => location.reload());
-		  if (reg.active && !navigator.serviceWorker.controller) location.reload();
-		})
-		.catch(err => console.error("COI SW registration failed:", err));
-	}
+	(async () => {
+	  if (window.crossOriginIsolated || !("serviceWorker" in navigator)) return;
+	  try {
+		await navigator.serviceWorker.register(document.currentScript.src);
+		await navigator.serviceWorker.ready; // waits until a worker is active
+  
+		if (!navigator.serviceWorker.controller) {
+		  // reload once, with a guard so it can never loop
+		  let done = false;
+		  try { done = sessionStorage.getItem("coi-reloaded") === "1"; } catch (e) {}
+		  if (!done) {
+			try { sessionStorage.setItem("coi-reloaded", "1"); } catch (e) {}
+			location.reload();
+		  }
+		}
+	  } catch (err) {
+		console.error("COI SW registration failed:", err);
+	  }
+	})();
   }
