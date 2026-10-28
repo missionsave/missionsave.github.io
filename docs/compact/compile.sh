@@ -1,0 +1,1 @@
+em++ emcadvis.cpp   -I/home/super/vcpkg/installed/wasm32-emscripten/include   /home/super/vcpkg/installed/wasm32-emscripten/lib/libraylib.a   -s USE_GLFW=3 -O2 -sMODULARIZE=1 -o app.mjs
