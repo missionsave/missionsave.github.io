@@ -1759,6 +1759,7 @@ void setscint(fl_scintilla* editor,string filename){
 			download_concluido = 0;
 			if(download_falhou){
 			download_falhou = 0;
+			loading=0;
 			return;
 			}
 			download_falhou = 0;
@@ -1845,6 +1846,8 @@ void setscint(fl_scintilla* editor,string filename){
 		// sci_setup(SCINTILLA(editor[ieditor]));
 		// sci_setStyleCommon(SCINTILLA(editor[ieditor]));
 		// sci_setStyleC(SCINTILLA(editor[ieditor]));
+		// emscripten_sleep(250);
+		// loading=0;
 	thread([]{
 		sleepms(300);//500
 		loading=0;

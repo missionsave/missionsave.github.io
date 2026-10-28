@@ -69,53 +69,64 @@ canvas:focus {
 oi
 <!-- 1. Configuração para evitar loops de reload -->
 <script>
-  window.coi = {
-    // Evita registar ou recarregar se o script já tiver provocado um reload nesta sessão
-    shouldRegister: () => !window.reloadedBySelf,
-    coepCredentialless: () => true // Recomendado para compatibilidade de recursos
-  };
+// 	if (!window.crossOriginIsolated) {
+//   window.coi = {
+//     // Evita registar ou recarregar se o script já tiver provocado um reload nesta sessão
+//     shouldRegister: () => !window.reloadedBySelf,
+//     coepCredentialless: () => true // Recomendado para compatibilidade de recursos
+//   };
 
-  // 2. Função que bloqueia a execução até que o ambiente esteja pronto
-  function aguardarIsolamento() {
-    return new Promise((resolve) => {
-      if (window.crossOriginIsolated) {
-        // Se já está isolado (segunda visita ou após o reload), continua imediatamente
-        resolve();
-      } else {
-        // Se não está isolado, monitoriza o Service Worker. 
-        // Nota: Se for o primeiro acesso, a página irá recarregar e o fluxo recomeça do topo.
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.ready.then(() => {
-            if (window.crossOriginIsolated) {
-              resolve();
-            }
-          });
-        }
-      }
-    });
-  }
+//   // 2. Função que bloqueia a execução até que o ambiente esteja pronto
+//   function aguardarIsolamento() {
+//     return new Promise((resolve) => {
+//       if (window.crossOriginIsolated) {
+//         // Se já está isolado (segunda visita ou após o reload), continua imediatamente
+//         resolve();
+//       } else {
+//         // Se não está isolado, monitoriza o Service Worker. 
+//         // Nota: Se for o primeiro acesso, a página irá recarregar e o fluxo recomeça do topo.
+//         if ('serviceWorker' in navigator) {
+//           navigator.serviceWorker.ready.then(() => {
+//             if (window.crossOriginIsolated) {
+//               resolve();
+//             }
+//           });
+//         }
+//       }
+//     });
+// }
+//   }
 </script>
 
 <!-- 3. O Script do COI (carregado normalmente com defer) -->
 <!-- <script defer src="https://superdb-api.superbem.workers.dev/epub?url=https://missionsave.github.io/coi-serviceworker.min.js"></script> -->
+<!-- <script defer src="/coi-serviceworker.min.js"></script> -->
 <!-- Inserção dinâmica do script do COI com o domínio atual -->
 <script>
-  (function() {
-    // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
-    const dominioActual = window.location.origin;
+// 	if (!window.crossOriginIsolated) {
+//   (function() {
+//     // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
+//     const dominioActual = window.location.origin;
 
-    // 2. Cria o elemento script
-    const script = document.createElement('script');
+//     // 2. Cria o elemento script
+//     const script = document.createElement('script');
     
-    // 3. Define os atributos necessários
-    script.src = `${dominioActual}/coi-serviceworker.min.js`;
-    script.defer = true;
+//     // 3. Define os atributos necessários
+//     // script.src = `/coi-serviceworker.min.js`;
+//     script.src = `${dominioActual}/coi-serviceworker.min.js`;
+//     script.defer = true;
 
-    // 4. Adiciona o script ao documento (no final do body ou head)
-    document.body.appendChild(script);
+// 	// if (!window.crossOriginIsolated) {
+//     // 4. Adiciona o script ao documento (no final do body ou head)
+//     document.body.appendChild(script);
+	
+// 	// reload the current page
+// window.location.reload();
+// 	// }
     
-    console.log(`Script COI injetado dinamicamente para: ${script.src}`);
-  })();
+//     console.log(`Script COI injetado dinamicamente para: ${script.src}`);
+//   })();
+// }
 </script>
 
     <script>
@@ -142,12 +153,13 @@ oi
     </script>
     <!-- Load the modularized build as an ES Module --> 
 <script type="module">
-    setBlockedKeys(true);
-
+    // setBlockedKeys(true);
+	
+	const dominioActual = window.location.origin;
     var Module = {
         canvas: document.getElementById('canvas'),
-			print:    t => console.log("STDOUT:", t),
-			printErr: t => console.error("STDERR:", t),
+			// print:    t => console.log("STDOUT:", t),
+			// printErr: t => console.error("STDERR:", t),
 
 			// Esta função intercepta o pedido do app.data e devolve o caminho absoluto correto
 			locateFile: function(path, prefix) {
@@ -159,7 +171,6 @@ oi
 				return prefix + path;
 			}
     };
-	const dominioActual = window.location.origin;
     // import createModule from '/cad/app.mjs';
 	const { default: createModule } = await import(`${dominioActual}/cad/app.mjs`);
 
@@ -258,6 +269,40 @@ window.addEventListener('unhandledrejection', event => {
 
             container.style.visibility = 'visible';
         }
+
+
+
+
+
+
+// 		if ('serviceWorker' in navigator) {
+//   navigator.serviceWorker.getRegistrations().then(function(registrations) {
+//     for (let registration of registrations) {
+//       if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
+//         registration.unregister().then(function(success) {
+//           if (success) {
+//             console.log('coi-serviceworker removido com sucesso em segundo plano.');
+//           }
+//         });
+//       }
+//     }
+//   });
+// }
+
+
+
+
+
+
+
+
+
+
+// await instance.fltk_run();
+
+
+
+
 
     }).catch((err) => {
         console.error('Emscripten initialization failed:', err);

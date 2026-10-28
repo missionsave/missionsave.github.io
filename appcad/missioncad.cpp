@@ -13896,8 +13896,10 @@ cotm(edgeCount)
                       // contructed clockwise
     f = BRepBuilderAPI_MakeFace(wOff);
   }
+  cotm(777777);
   BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5,
                                   true); // adjust deflection/angle
+	cotm(7777771);
 	TopLoc_Location savedLoc = current_part->shape.Location();
 	current_part->shape=f;
 	SetReferenceLocationInstant(current_part->shape, savedLoc);
@@ -14099,7 +14101,7 @@ void Clone(luadraw* toclone, sol::optional<int> _option){
     if (!toclone)
         lua_error_with_where("Clone name dont exist");
 
-    current_part->vpoints     = toclone->vpoints;
+    // current_part->vpoints     = toclone->vpoints;
     current_part->Extrude_val = toclone->Extrude_val;
 
     int option = _option.value_or(0);
@@ -20839,6 +20841,7 @@ lua_sethook(
 // nmutex lua_mtx("lua_mtx", 1);
 mutex lua_mtx;
 void lua_str(const string &str, bool isfile) {
+	win->deactivate();
 	// thread([str, isfile]() {
 	//   Fl::lock();
 	  // lua_mtx.lock();
@@ -20867,6 +20870,7 @@ void lua_str(const string &str, bool isfile) {
 		//   Fl::unlock();
 		  // lua_mtx.unlock();
 		//   Fl::awake();
+		win->activate();
 		  return;
 		}
 		std::string src((std::istreambuf_iterator<char>(f)), {});
@@ -20875,6 +20879,7 @@ void lua_str(const string &str, bool isfile) {
 		//   Fl::unlock();
 		  // lua_mtx.unlock();
 		//   Fl::awake();
+		win->activate();
 		  return;
 		};
 		isdebuging = 1;
@@ -20916,6 +20921,7 @@ void lua_str(const string &str, bool isfile) {
 		lua_pop(L, 1);
 	  }
 	  isdebuging = 0;
+	  win->activate();
 	//   Fl::unlock();
 	  // lua_mtx.unlock();
 	//   Fl::awake();
@@ -21820,6 +21826,18 @@ void fill_menu() {
 #include <OSD_Parallel.hxx>
 #include <OSD_ThreadPool.hxx>
 // region main
+// #include <emscripten/bind.h>
+
+// void fltk_run() {
+//   // Um único export promising: menos overhead que promising por frame
+//   for (;;) {
+//     Fl::wait(0.016);  // ~60 Hz; o sleep está dentro do driver
+//   }
+// }
+
+// EMSCRIPTEN_BINDINGS(app) {
+//   emscripten::function("fltk_run", &fltk_run, emscripten::async());
+// }
 int main(int argc, char **argv) {
 	Fl::lock();
   // Fl::set_font(FL_HELVETICA, "DejaVu Sans");
@@ -21954,6 +21972,8 @@ int main(int argc, char **argv) {
 // thread([]{
 // 	cotm("sthreadm");
 // }).detach();
+// return 0;
+// return Fl::run();
 
 	#ifndef __EMSCRIPTEN__
 	return Fl::run();
@@ -21968,6 +21988,25 @@ int main(int argc, char **argv) {
 		setSceneDefault();
 		sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
 		}
+
+
+
+		// // Processa os cliques e eventos
+		Fl::wait(0.0);
+		
+		// if (Fl::first_window()) {
+		// 	// Se houver resize pendente, danos pendentes ou menu aberto
+		// 	if (Fl::first_window()->damage() || Fl::grab() != nullptr) {
+		// 		// Força a janela a redesenhar absolutamente tudo a partir do buffer de CPU
+		// 		Fl::first_window()->damage(0xFF); 
+		// 		Fl::first_window()->redraw();
+		// 		Fl::flush();
+		// 	}
+		// }
+
+
+
+
 
 
 

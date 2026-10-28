@@ -541,12 +541,60 @@ window.setFltkVisible = function (visible) {
 
 
 // region loadpage
+function needscoi(){
+	if (!window.crossOriginIsolated) {
+  (function() {
+    // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
+    const dominioActual = window.location.origin;
+
+    // 2. Cria o elemento script
+    const script = document.createElement('script');
+    
+    // 3. Define os atributos necessários
+    // script.src = `/coi-serviceworker.min.js`;
+    script.src = `${dominioActual}/coi-serviceworker.min.js`;
+    script.defer = true;
+
+	// if (!window.crossOriginIsolated) {
+    // 4. Adiciona o script ao documento (no final do body ou head)
+    document.body.appendChild(script);
+	
+	// reload the current page
+window.location.reload();
+	// }
+    
+    console.log(`Script COI injetado dinamicamente para: ${script.src}`);
+  })();
+}
+}
+function remove_coi(){
+if ('serviceWorker' in navigator) {
+	navigator.serviceWorker.getRegistrations().then(function(registrations) {
+	  for (let registration of registrations) {
+		if (registration.active && registration.active.scriptURL.includes('coi-serviceworker')) {
+		  registration.unregister().then(function(success) {
+			if (success) {
+			  console.log('coi-serviceworker removido com sucesso em segundo plano.');
+			  // reload the current page
+// window.location.reload();
+			}
+		  });
+		}
+	  }
+	});
+  }
+  
+
+}
 // Cache global para guardar os nós de DOM vivos por URL
 if (typeof window.__loadPageCache === 'undefined') {
     window.__loadPageCache = new Map();
 }
 
 function loadPage_v2(url, menuitem) {
+	// if(url.includes('/cad/index.html'))needscoi();
+	// if(!url.includes('/cad/index.html'))
+		// remove_coi();
 	console.log("v2",url);
 	// if(typeof setFltkVisible === "function"){
 	// 	if(url.includes('/cad/index.html')){
@@ -1148,8 +1196,35 @@ onresizeFunction();
 </script>
 
 
-
-
+<script defer src="/coi-serviceworker.min.js"></script>
+<script>
+	document.addEventListener('DOMContentLoaded', function() {
+	if (!window.crossOriginIsolated) {
+	(function() {
+	  // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
+	  const dominioActual = window.location.origin;
+  
+	  // 2. Cria o elemento script
+	  const script = document.createElement('script');
+	  
+	  // 3. Define os atributos necessários
+	  // script.src = `/coi-serviceworker.min.js`;
+	  script.src = `${dominioActual}/coi-serviceworker.min.js`;
+	  script.defer = true;
+  
+	  // if (!window.crossOriginIsolated) {
+	  // 4. Adiciona o script ao documento (no final do body ou head)
+	  document.body.appendChild(script);
+	  
+	  // reload the current page
+  window.location.reload();
+// 	  // }
+	  
+// // 	  console.log(`Script COI injetado dinamicamente para: ${script.src}`);
+	})();
+}
+	});
+  </script>
 
 
 

@@ -141,6 +141,8 @@ docs/*.*
 docs/cad/*
 !docs/coi-serviceworker.min.js
 !docs/cad/app.data
+!docs/cad/compile.sh
+!docs/cad/pre.js
 
 !2d
 !2d/study*

@@ -32,18 +32,56 @@ dirsize(){
 
 
 _compile_cad_scint(){
-	em++ testscint.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs   -O2 -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS --bind   -s MODULARIZE=1  -s ASYNCIFY=1 -sSTACK_SIZE=5MB -sINITIAL_MEMORY=64MB -sGROWABLE_ARRAYBUFFERS=2  -sMAXIMUM_MEMORY=512MB -pthread -std=c++20 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm --preload-file /home/super/msv/appcad/lua@lua
+	em++ testscint.cpp /home/super/msv/common/general.cpp  -o app.mjs   -O2    -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common  --bind -sJSPI=1 -sMODULARIZE=1 --pre-js pre.js
+
+
+	# em++ testscint.cpp /home/super/msv/common/general.cpp  -o app.mjs   -O2    -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common  --bind -sJSPI=1 -sJSPI_EXPORTS=[...] -sEXPORTED_FUNCTIONS=_main -sEXPORTED_RUNTIME_METHODS=ccall -sMODULARIZE=1 --pre-js pre.js
+	
+	
+# 	em++ testscint.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs   -O2 -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS --bind -sASYNCIFY=2 \
+#   -sJSPI_EXPORTS=['fl_run_jspi','main','_main',...] \
+#   -sEXPORTED_FUNCTIONS=_main,_fl_run_jspi \
+#   -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
+#   -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createApp \
+#   -matomics -mbulk-memory -fwasm-exceptions -sSUPPORT_LONGJMP=wasm -pthread -s PTHREAD_POOL_SIZE_STRICT=0 -sPROXY_TO_PTHREAD=0
+	
+	
+	
+	
+	#    -s MODULARIZE=1   -sSTACK_SIZE=5MB -sINITIAL_MEMORY=64MB -sGROWABLE_ARRAYBUFFERS=2  -sMAXIMUM_MEMORY=512MB -pthread -std=c++20 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm -s EXPORTED_RUNTIME_METHODS=ccall -sASYNCIFY=2  -sJSPI_EXPORTS=[...]
+	
+	
+	# -s JSPI=1 -s EXPORTED_RUNTIME_METHODS=ccall -s JSPI_EXPORTS=_fl_run_jspi,__wasm_call_ctors -s EXPORTED_FUNCTIONS=_fl_run_jspi  -s OFFSCREENCANVAS_SUPPORT=1
+	
+	# -s ASYNCIFY=2 -s ASYNCIFY_IGNORE_INDIRECT=1 -s JSPI_EXPORTS=_fl_run_jspi,__wasm_call_ctors -s EXPORTED_FUNCTIONS=_fl_run_jspi,_main -s OFFSCREENCANVAS_SUPPORT=1 -s EXPORTED_RUNTIME_METHODS=ccall
+
+
+	# -sASYNCIFY=1 -sASYNCIFY_ADVISE=1
+	
+	#  -s JSPI=1 -sJSPI_EXPORTS=['_main_thread','_fl_run_jspi'] -sASYNCIFY_IGNORE_INDIRECT=1 -sPROXY_TO_PTHREAD=0
 
 }
 _compile_cad(){
-	ccache em++ -w  /home/super/msv/appcad/missioncad.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs   -O2 -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade -L/home/super/msv/emsdk/downloads/occt_wasm/lib -lTKDESTEP -lTKDEIGES -lTKDESTL -lTKDEOBJ -lTKDEVRML -lTKDEPLY -lTKDECascade -lTKDE -lTKXSBase  -lTKXCAF -lTKVCAF -lTKCAF -lTKLCAF -lTKCDF  -lTKXmlXCAF -lTKBinXCAF -lTKXml -lTKBin -lTKXmlL -lTKBinL -lTKXmlTObj -lTKBinTObj -lTKTObj -lTKStd -lTKStdL  -lTKRWMesh -lTKMeshVS -lTKXMesh -lTKV3d -lTKService -lTKOpenGles -lTKHLR  -lTKHelix -lTKOffset -lTKFillet -lTKFeat -lTKBO -lTKBool -lTKShHealing  -lTKTopAlgo -lTKGeomAlgo -lTKMesh -lTKPrim -lTKBRep -lTKExpress  -lTKGeomBase -lTKG3d -lTKG2d -lTKMath -lTKernel /home/super/msv/emsdk/downloads/gmsh_wasm/lib/libgmsh.a -I/home/super/msv/emsdk/downloads/gmsh_wasm/include  -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include -I/home/super/msv/appcad  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS --bind   -s MODULARIZE=1  -s ASYNCIFY=1 -sSTACK_SIZE=5MB -sINITIAL_MEMORY=64MB -sGROWABLE_ARRAYBUFFERS=2  -sMAXIMUM_MEMORY=1024MB -pthread -std=c++20 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm --preload-file /home/super/msv/appcad/lua@lua -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=ccall,FS --preload-file /home/super/msv/appcad/DejaVuSans-Bold.ttf@/fonts/DejaVuSans-Bold.ttf  -s PTHREAD_POOL_SIZE=4 -s PTHREAD_POOL_SIZE_STRICT=0
-	# -sASSERTIONS=1 -gsource-map
+	em++ -w /home/super/msv/appcad/missioncad.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs  --bind  -O2 -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade -L/home/super/msv/emsdk/downloads/occt_wasm/lib -lTKDESTEP -lTKDEIGES -lTKDESTL -lTKDEOBJ -lTKDEVRML -lTKDEPLY -lTKDECascade -lTKDE -lTKXSBase  -lTKXCAF -lTKVCAF -lTKCAF -lTKLCAF -lTKCDF  -lTKXmlXCAF -lTKBinXCAF -lTKXml -lTKBin -lTKXmlL -lTKBinL -lTKXmlTObj -lTKBinTObj -lTKTObj -lTKStd -lTKStdL  -lTKRWMesh -lTKMeshVS -lTKXMesh -lTKV3d -lTKService -lTKOpenGles -lTKHLR  -lTKHelix -lTKOffset -lTKFillet -lTKFeat -lTKBO -lTKBool -lTKShHealing  -lTKTopAlgo -lTKGeomAlgo -lTKMesh -lTKPrim -lTKBRep -lTKExpress  -lTKGeomBase -lTKG3d -lTKG2d -lTKMath -lTKernel /home/super/msv/emsdk/downloads/gmsh_wasm/lib/libgmsh.a -I/home/super/msv/emsdk/downloads/gmsh_wasm/include  -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include -I/home/super/msv/appcad  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS   -s MODULARIZE=1  -sSTACK_SIZE=5MB -sINITIAL_MEMORY=64MB -sGROWABLE_ARRAYBUFFERS=2  -sMAXIMUM_MEMORY=1024MB -pthread -std=c++20 -fwasm-exceptions  --preload-file /home/super/msv/appcad/lua@lua -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=ccall,FS --preload-file /home/super/msv/appcad/DejaVuSans-Bold.ttf@/fonts/DejaVuSans-Bold.ttf  -s PTHREAD_POOL_SIZE=4 -s PTHREAD_POOL_SIZE_STRICT=0 -sSUPPORT_LONGJMP=wasm -sJSPI --pre-js pre.js
+	# -sJSPI_EXPORTS=['main','_main']
+  	# -sASSERTIONS=1 -gsource-map
+	# -s ASYNCIFY=1
+	# -sSUPPORT_LONGJMP=wasm
 	
 	# ccache em++ -w /home/super/msv/appcad/missioncad.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs   -O2 -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade -Wl,--start-group /home/super/msv/emsdk/downloads/occt_wasm/lib/*.a -Wl,--end-group /home/super/msv/emsdk/downloads/gmsh_wasm/lib/libgmsh.a -I/home/super/msv/emsdk/downloads/gmsh_wasm/include  -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include -I/home/super/msv/appcad  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS --bind   -s MODULARIZE=1  -s ASYNCIFY=1 -sSTACK_SIZE=5MB -sINITIAL_MEMORY=64MB -sGROWABLE_ARRAYBUFFERS=2  -sMAXIMUM_MEMORY=512MB -pthread -std=c++20 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm --preload-file /home/super/msv/appcad/lua@lua -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=ccall
 
 }
 
+_compile_cad1(){
+	em++   /home/super/msv/appcad/missioncad.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs   -O2 -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade -L/home/super/msv/emsdk/downloads/occt_wasm/lib -lTKDESTEP -lTKDEIGES -lTKDESTL -lTKDEOBJ -lTKDEVRML -lTKDEPLY -lTKDECascade -lTKDE -lTKXSBase  -lTKXCAF -lTKVCAF -lTKCAF -lTKLCAF -lTKCDF  -lTKXmlXCAF -lTKBinXCAF -lTKXml -lTKBin -lTKXmlL -lTKBinL -lTKXmlTObj -lTKBinTObj -lTKTObj -lTKStd -lTKStdL  -lTKRWMesh -lTKMeshVS -lTKXMesh -lTKV3d -lTKService -lTKOpenGles -lTKHLR  -lTKHelix -lTKOffset -lTKFillet -lTKFeat -lTKBO -lTKBool -lTKShHealing  -lTKTopAlgo -lTKGeomAlgo -lTKMesh -lTKPrim -lTKBRep -lTKExpress  -lTKGeomBase -lTKG3d -lTKG2d -lTKMath -lTKernel /home/super/msv/emsdk/downloads/gmsh_wasm/lib/libgmsh.a -I/home/super/msv/emsdk/downloads/gmsh_wasm/include  -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include -I/home/super/msv/appcad  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS --bind  -sSTACK_SIZE=5MB -sINITIAL_MEMORY=128MB -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=2GB -sGROWABLE_ARRAYBUFFERS=4  -pthread -std=c++20 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm --preload-file /home/super/msv/appcad/lua@lua -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=ccall,FS --preload-file /home/super/msv/appcad/DejaVuSans-Bold.ttf@/fonts/DejaVuSans-Bold.ttf   -sJSPI=1 -sMODULARIZE=1 --pre-js pre.js -matomics -mbulk-memory -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency -sPTHREAD_POOL_SIZE_STRICT=2 
 
+	#working
+	# ccache em++ -w  /home/super/msv/appcad/missioncad.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs   -O2 -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade -L/home/super/msv/emsdk/downloads/occt_wasm/lib -lTKDESTEP -lTKDEIGES -lTKDESTL -lTKDEOBJ -lTKDEVRML -lTKDEPLY -lTKDECascade -lTKDE -lTKXSBase  -lTKXCAF -lTKVCAF -lTKCAF -lTKLCAF -lTKCDF  -lTKXmlXCAF -lTKBinXCAF -lTKXml -lTKBin -lTKXmlL -lTKBinL -lTKXmlTObj -lTKBinTObj -lTKTObj -lTKStd -lTKStdL  -lTKRWMesh -lTKMeshVS -lTKXMesh -lTKV3d -lTKService -lTKOpenGles -lTKHLR  -lTKHelix -lTKOffset -lTKFillet -lTKFeat -lTKBO -lTKBool -lTKShHealing  -lTKTopAlgo -lTKGeomAlgo -lTKMesh -lTKPrim -lTKBRep -lTKExpress  -lTKGeomBase -lTKG3d -lTKG2d -lTKMath -lTKernel /home/super/msv/emsdk/downloads/gmsh_wasm/lib/libgmsh.a -I/home/super/msv/emsdk/downloads/gmsh_wasm/include  -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include -I/home/super/msv/appcad  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS --bind  -sSTACK_SIZE=5MB -sINITIAL_MEMORY=64MB -sGROWABLE_ARRAYBUFFERS=2  -sMAXIMUM_MEMORY=1024MB -pthread -std=c++20 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm --preload-file /home/super/msv/appcad/lua@lua -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=ccall,FS --preload-file /home/super/msv/appcad/DejaVuSans-Bold.ttf@/fonts/DejaVuSans-Bold.ttf   -sJSPI=1 -sMODULARIZE=1 --pre-js pre.js -matomics -mbulk-memory -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency -sPTHREAD_POOL_SIZE_STRICT=2 
+	# -sASSERTIONS=1 -gsource-map
+	
+	# ccache em++ -w /home/super/msv/appcad/missioncad.cpp /home/super/msv/common/general.cpp /home/super/msv/common/fl_scintilla.cpp /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp /home/super/msv/common/fl_browser_msv.cpp -o app.mjs   -O2 -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade -Wl,--start-group /home/super/msv/emsdk/downloads/occt_wasm/lib/*.a -Wl,--end-group /home/super/msv/emsdk/downloads/gmsh_wasm/lib/libgmsh.a -I/home/super/msv/emsdk/downloads/gmsh_wasm/include  -L/home/super/msv/common/scintilla_370 -l:libscinte.a  -I/home/super/msv/emsdk/downloads/fltk_wasm   -I/home/super/msv/emsdk/downloads/fltk_wasm/build_wasm   /home/super/msv/emsdk/downloads/fltk_wasm/build_wasm/lib/libfltk.a -I/home/super/msv/common -I/home/super/msv/common/sol2/include -I/home/super/msv/appcad  -I/home/super/msv/common/scintilla_370 -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include -I/home/super/msv/common/scintilla_370/include/ -I/home/super/msv/common/scintilla_370/lexlib -I/home/super/msv/common/scintilla_370/src -DSCI_LEXER -DSCI_NAMESPACE  -D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS --bind   -s MODULARIZE=1  -s ASYNCIFY=1 -sSTACK_SIZE=5MB -sINITIAL_MEMORY=64MB -sGROWABLE_ARRAYBUFFERS=2  -sMAXIMUM_MEMORY=512MB -pthread -std=c++20 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm --preload-file /home/super/msv/appcad/lua@lua -s USE_WEBGL2=1 -s FULL_ES3=1 -s EXPORTED_RUNTIME_METHODS=ccall
+
+}
 
 install_em(){
 	# Clonar o repositório do Emscripten
@@ -106,7 +144,7 @@ _build_fltk_wasm_sne() {
     cd - > /dev/null
 }
 
-_build_fltk_wasm() {
+_build_fltk_wasmdelete() {
     local dir_name="fltk_wasm"
     local repo_url="https://github.com/MoAlyousef/fltk_wasm32_emscripten.git"
 
@@ -151,6 +189,120 @@ _build_fltk_wasm() {
     echo "Successfully built FLTK for wasm32! Artifacts are located in: $(pwd)/build_wasm"
     cd - > /dev/null
 }
+
+_build_fltk_wasm() {
+    local dir_name="fltk_wasm"
+    local repo_url="https://github.com/MoAlyousef/fltk_wasm32_emscripten.git"
+
+    # 1. Verificar Emscripten
+    if ! command -v emcmake >/dev/null 2>&1; then
+        echo "Error: 'emcmake' not found. Activate Emscripten first."
+        return 1
+    fi
+
+    # 2. Clonar ou atualizar o repositório
+    if [ ! -d "$dir_name" ]; then
+        echo "Cloning $repo_url..."
+        git clone -b emscripten "$repo_url" "$dir_name" || return 1
+    else
+        echo "Updating FLTK repository..."
+        (
+            cd "$dir_name" &&
+            git checkout emscripten &&
+            git pull origin emscripten
+        ) || return 1
+    fi
+
+    # 3. Entrar no diretório
+    cd "$dir_name" || return 1
+
+    local driver="src/drivers/Emscripten/Fl_Emscripten_System_Driver.cxx"
+
+    if [ ! -f "$driver" ]; then
+        echo "Error: FLTK Emscripten driver not found: $driver"
+        cd - >/dev/null
+        return 1
+    fi
+
+    # 4. Aplicar o patch JSPI: remover emscripten_sleep(0)
+    echo "Patching FLTK Emscripten system driver..."
+
+    python3 - "$driver" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+src = path.read_text()
+
+pattern = re.compile(
+    r'double Fl_Emscripten_System_Driver::wait\(double v\)\s*\{.*?'
+    r'\n\}',
+    re.S
+)
+
+replacement = """double Fl_Emscripten_System_Driver::wait(double v) {
+  double ret = Fl_System_Driver::wait(v);
+  Fl::flush();
+  return ret;
+}"""
+
+patched, count = pattern.subn(replacement, src, count=1)
+
+if count != 1:
+    if replacement in src:
+        print("Patch already applied.")
+        sys.exit(0)
+    print("Error: could not locate wait() implementation; source unchanged.")
+    sys.exit(1)
+
+path.write_text(patched)
+print("Patch applied successfully.")
+PY
+
+    if [ $? -ne 0 ]; then
+        cd - >/dev/null
+        return 1
+    fi
+
+    # 5. Limpar build anterior
+    rm -rf build_wasm
+
+    # 6. Configurar FLTK WASM
+    echo "Configuring FLTK for WebAssembly..."
+
+    emcmake cmake -B build_wasm \
+        -DCMAKE_CXX_FLAGS="-matomics -mbulk-memory -fwasm-exceptions -pthread" \
+        -DCMAKE_C_FLAGS="-matomics -mbulk-memory -fwasm-exceptions -pthread" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DFLTK_BUILD_TEST=OFF \
+        -DFLTK_BUILD_EXAMPLES=OFF \
+        -DFLTK_BUILD_FLUID=OFF \
+        -DFLTK_BUILD_FLTK_OPTIONS=OFF \
+        -DFLTK_BUILD_GL=ON || {
+            cd - >/dev/null
+            return 1
+        }
+
+    # 7. Compilar
+    local cpu_count
+    cpu_count=$(nproc 2>/dev/null || echo 4)
+
+    echo "Building patched FLTK WASM..."
+    cmake --build build_wasm --parallel "$cpu_count" || {
+        cd - >/dev/null
+        return 1
+    }
+
+    echo "FLTK WASM successfully built."
+    echo "Artifacts: $(pwd)/build_wasm"
+
+    cd - >/dev/null
+}
+
+
+
+
 
 _build_lua_wasm() {
     # set -e

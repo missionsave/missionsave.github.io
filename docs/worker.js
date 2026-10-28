@@ -19,6 +19,7 @@ function cors(extra = {}, request) {
 
   return {
     "Access-Control-Allow-Origin": allowOrigin,
+    //"Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     ...extra
@@ -220,6 +221,62 @@ if (url.pathname === "/emailsendtome" && request.method === "POST") {
 
 
 
+// --- ENDPOINT MTHREADS (Proxy para Emscripten com COOP/COEP) ---
+// --- ENDPOINT MTHREADS (Proxy seguro com ALLOWED_ORIGINS) ---
+if (url.pathname === "/mthreads" || url.pathname.startsWith("/cad/")) {
+  const filePath = url.pathname === "/mthreads"
+    ? url.searchParams.get("file")
+    : url.pathname;
+
+  if (!filePath) {
+    return new Response("Missing ?file=", { status: 400, headers: cors({}, request) });
+  }
+
+  let targetUrl;
+  try {
+    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+      const parsed = new URL(filePath);
+      // Valida se a origem está permitida em ALLOWED_ORIGINS
+      if (!ALLOWED_ORIGINS.includes(parsed.origin)) {
+        return new Response("Forbidden origin", { status: 403, headers: cors({}, request) });
+      }
+      targetUrl = filePath;
+    } else {
+      // Caminho relativo: usa a Origin da request se estiver permitida,
+      // senão faz fallback para o GitHub Pages
+      const requestOrigin = request.headers.get("Origin") || "";
+      const base = ALLOWED_ORIGINS.includes(requestOrigin)
+        ? requestOrigin
+        : "https://missionsave.github.io";
+
+      targetUrl = base + (filePath.startsWith("/") ? filePath : "/" + filePath);
+    }
+  } catch {
+    return new Response("Invalid URL format", { status: 400, headers: cors({}, request) });
+  }
+
+  const resp = await fetch(targetUrl);
+  if (!resp.ok) {
+    return new Response("Not found", { status: resp.status, headers: cors({}, request) });
+  }
+
+  let contentType = "text/plain";
+  if (filePath.endsWith(".mjs") || filePath.endsWith(".js")) contentType = "text/javascript";
+  else if (filePath.endsWith(".wasm")) contentType = "application/wasm";
+  else if (filePath.endsWith(".data")) contentType = "application/octet-stream";
+
+  return new Response(resp.body, {
+    status: resp.status,
+    headers: {
+      ...cors({}, request),
+      "Content-Type": contentType,
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp"
+    }
+  });
+}
+
+
 
 
 
@@ -323,7 +380,14 @@ if (url.pathname === "/google-img") {
   const cacheKey = new Request(request.url, request);
 
   const cached = await cache.match(cacheKey);
-  if (cached) return cached;
+  //if (cached) return cached;
+  if (cached) {
+    // ✅ This is the problem - it needs to use cors() with request
+    return new Response(cached.body, {
+      status: 200,
+      headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
+    });
+  }
 
   try {
 
@@ -491,7 +555,8 @@ if (url.pathname === "/clean-doc") {
   const response = new Response(finalHtml, {
     headers: {
       ...cors({ "Content-Type": "text/html; charset=utf-8" }, request),
-      "Cache-Control": "public, max-age=21600"
+      "Cache-Control": "public, max-age=21600",
+    "Vary": "Origin"
     }
   });
 
@@ -624,7 +689,8 @@ if (!p) p="";
       return new Response(svg, {
         headers: { 
           "Content-Type": "image/svg+xml", 
-          "Cache-Control": "public, max-age=86400",
+          "Cache-Control": "public, max-age=21600",
+    "Vary": "Origin",
           "Access-Control-Allow-Origin": "*" 
         }
       });
@@ -653,7 +719,8 @@ if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
       response = new Response(imgRes.body, {
         headers: {
           "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=8888",
+          "Cache-Control": "public, max-age=21600",
+    "Vary": "Origin",
           "X-Cache-Status": "MISS"
         }
       });
