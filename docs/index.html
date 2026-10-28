@@ -9,6 +9,7 @@
  	<meta content="text/html; charset=UTF-8" http-equiv="content-type">	
 	<meta property="og:description" content="This project aims to create innovative machines capable of preparing 40 fresh, healthy meals every single day.">
  	<title translate="no" class="notranslate">Foundation Mission SAVE</title>
+	 <script src="./coi-serviceworker.js?cache=99999"></script>
  	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
  	<!-- <link rel="stylesheet" type="text/css" href="style.css"> -->
@@ -20,18 +21,23 @@
 	<!-- <meta property="og:image" content="https://missionsave.github.io/favicon.png"> -->
 
 
+
 	<!-- <script src="https://cdn.jsdelivr.net/npm/eruda@3.4.1/eruda.min.js"></script>
 	<script>eruda.init();</script> -->
 
-	<script type="module">
-		(async () => {
+	<!-- <script await type="module">
+async function swrk() {
+	
+console.log("sw",(typeof SharedArrayBuffer));
+
+			if(("serviceWorker" in navigator)==true && (typeof SharedArrayBuffer)!=undefined)return;
 			if (crossOriginIsolated) return;
-		
-			const key = "coi-reload-done";
-		
+			
+
 			await new Promise((resolve, reject) => {
 				const script = document.createElement("script");
-				script.src = "./coi-serviceworker.min.js?cc=99999";
+				script.src = "coi-serviceworker.js?cc=9999999";
+				// script.src = "./coi-serviceworker.min.js?cc=99999";
 				script.onload = resolve;
 				script.onerror = () => reject(new Error("Failed to load coi.js"));
 				document.head.appendChild(script);
@@ -39,9 +45,10 @@
 		
 			// Give the service worker registration a chance to complete.
 			await navigator.serviceWorker?.ready;
-			location.reload(); 
-		})();
-		</script>
+			// location.reload(); 
+		};
+		await swrk();
+		</script> -->
 
 	<!-- <script>
 		window.coi = {
