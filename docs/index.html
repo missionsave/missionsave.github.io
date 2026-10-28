@@ -23,9 +23,35 @@
 	<!-- <script src="https://cdn.jsdelivr.net/npm/eruda@3.4.1/eruda.min.js"></script>
 	<script>eruda.init();</script> -->
 
-
-
 	<script>
+		(async function () {
+			if (window.crossOriginIsolated) return;
+		
+			const KEY = "coi-reload-done";
+		
+			// Load the official COI script.
+			await new Promise((resolve, reject) => {
+				const s = document.createElement("script");
+				s.src = "./coi-serviceworker.min.js?cc=9999";
+				s.onload = resolve;
+				s.onerror = reject;
+				document.head.appendChild(s);
+			});
+		
+			if (window.crossOriginIsolated) {
+				sessionStorage.removeItem(KEY);
+				return;
+			}
+		
+			// Reload once on first visit, not indefinitely.
+			if (!sessionStorage.getItem(KEY)) {
+				sessionStorage.setItem(KEY, "1");
+				location.reload();
+			}
+		})();
+		</script>
+
+	<!-- <script>
 		window.coi = {
 		  quiet: false, // Ensures it logs actions to the console
 		  onRegistration: (sw) => {
@@ -40,7 +66,7 @@
 	  <script src="coi-serviceworker.js"></script>
 
 
-	<script src="coi-serviceworker.js?cc=9999"></script>
+	<script src="coi-serviceworker.js?cc=9999"></script> -->
 
 
 
