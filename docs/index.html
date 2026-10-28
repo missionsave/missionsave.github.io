@@ -20,30 +20,30 @@
 	<!-- <meta property="og:image" content="https://missionsave.github.io/favicon.png"> -->
 
 	<script>
-		document.addEventListener('DOMContentLoaded', function() {
-			if (!window.crossOriginIsolated) {
-				const dominioActual = window.location.origin;
-				const script = document.createElement('script');
+		// document.addEventListener('DOMContentLoaded', function() {
+		// 	if (!window.crossOriginIsolated) {
+		// 		const dominioActual = window.location.origin;
+		// 		const script = document.createElement('script');
 				
-				script.src = `https://superdb-api.superbem.workers.dev/epub?url=https://missionsave.github.io/coi-serviceworker.min.js`;
-				// script.src = `https://missionsave.github.io/coi-serviceworker.min.js`;
-				// script.src = `${dominioActual}/coi-serviceworker.min.js`;
-				script.defer = true;
+		// 		script.src = `https://superdb-api.superbem.workers.dev/epub?url=https://missionsave.github.io/coi-serviceworker.min.js`;
+		// 		// script.src = `https://missionsave.github.io/coi-serviceworker.min.js`;
+		// 		// script.src = `${dominioActual}/coi-serviceworker.min.js`;
+		// 		script.defer = true;
 				
-				// Wait until the script is fully loaded before reloading the page
-				script.onload = function() {
-					window.location.reload();
-				};
+		// 		// Wait until the script is fully loaded before reloading the page
+		// 		script.onload = function() {
+		// 			window.location.reload();
+		// 		};
 				
-				script.onerror = function() {
-					console.error("Failed to load the coi-serviceworker script.");
-				};
+		// 		script.onerror = function() {
+		// 			console.error("Failed to load the coi-serviceworker script.");
+		// 		};
 	
-				document.body.appendChild(script);
-			}
-		});
+		// 		document.body.appendChild(script);
+		// 	}
+		// });
 	</script>
-	
+
 	<script>
 function updateCanonical() {
     let canonical = document.querySelector('link[rel="canonical"]');
