@@ -1195,36 +1195,28 @@ console.log("path",path);
 onresizeFunction();
 </script>
 
-
-<script defer src="/coi-serviceworker.min.js"></script>
 <script>
-	document.addEventListener('DOMContentLoaded', function() {
-	if (!window.crossOriginIsolated) {
-	(function() {
-	  // 1. Obtém o domínio atual com protocolo (ex: http://127.0.0.1:5500 ou https://meusite.com)
-	  const dominioActual = window.location.origin;
-  
-	  // 2. Cria o elemento script
-	  const script = document.createElement('script');
-	  
-	  // 3. Define os atributos necessários
-	  // script.src = `/coi-serviceworker.min.js`;
-	  script.src = `${dominioActual}/coi-serviceworker.min.js`;
-	  script.defer = true;
-  
-	  // if (!window.crossOriginIsolated) {
-	  // 4. Adiciona o script ao documento (no final do body ou head)
-	  document.body.appendChild(script);
-	  
-	  // reload the current page
-  window.location.reload();
-// 	  // }
-	  
-// // 	  console.log(`Script COI injetado dinamicamente para: ${script.src}`);
-	})();
-}
-	});
-  </script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!window.crossOriginIsolated) {
+            const dominioActual = window.location.origin;
+            const script = document.createElement('script');
+            
+            script.src = `${dominioActual}/coi-serviceworker.min.js`;
+            script.defer = true;
+            
+            // Wait until the script is fully loaded before reloading the page
+            script.onload = function() {
+                window.location.reload();
+            };
+            
+            script.onerror = function() {
+                console.error("Failed to load the coi-serviceworker script.");
+            };
+
+            document.body.appendChild(script);
+        }
+    });
+</script>
 
 
 
