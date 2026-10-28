@@ -50,8 +50,9 @@
 		  window.addEventListener("error", e => add("ERR", [e.message, e.filename + ":" + e.lineno]));
 		  window.addEventListener("unhandledrejection", e => add("REJ", [String(e.reason)]));
 		  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(box));
+
+throw new Error("Exiting execution: Critical error occurred.");
 		})();
-		throw new Error("Exiting execution: Critical error occurred.");
 		</script>
 
 
@@ -189,7 +190,7 @@ function updates(){
 		 menut(locale);
 	}
 	</script>
-	<script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;client=wt" type="text/javascript"></script>
+	<!-- <script async src="https://translate.google.com/translate_a/element.js?cb=gtElInit&amp;client=wt" type="text/javascript"></script> -->
 
 <style>
 	/* --- Google Translate UI Hiding (Existing Code) --- */
