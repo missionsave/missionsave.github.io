@@ -67,7 +67,19 @@ canvas:focus {
         <canvas id="canvas" width="250" height="150" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     </div>
 oi
-
+<script>
+	window.addEventListener("load", () => {
+	  const d = document.createElement("pre");
+	  d.style.cssText = "position:fixed;bottom:0;left:0;right:0;margin:0;padding:6px;background:#000;color:#0f0;font:11px monospace;z-index:99999;white-space:pre-wrap";
+	  d.textContent = [
+		"sw: " + ("serviceWorker" in navigator),
+		"coi: " + window.crossOriginIsolated,
+		"sab: " + (typeof SharedArrayBuffer),
+		"ua: " + navigator.userAgent
+	  ].join("\n");
+	  document.body.appendChild(d);
+	});
+  </script>
 <script type="module">
 // 	// 1. Função para ativar o COI sob demanda
 // function ativarCOIServiceWorker() {
