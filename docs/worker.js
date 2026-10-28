@@ -1,5 +1,6 @@
 import { EmailMessage } from "cloudflare:email";
 
+const CACHE_TIME = 0; // 0 = desliga cache (faz sempre fetch novo), ou define o tempo exato em segundos (ex: 99999)
 
 const ALLOWED_ORIGINS = [
   "https://missionsave.github.io",
@@ -19,7 +20,6 @@ function cors(extra = {}, request) {
 
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    //"Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     ...extra
@@ -91,10 +91,6 @@ export default {
         });
       }
     }
-
-
-
-
 
 // --- EMAILSENDTOME ENDPOINT (Resend) ---
 if (url.pathname === "/emailsendtome" && request.method === "POST") {
@@ -168,15 +164,6 @@ if (url.pathname === "/emailsendtome" && request.method === "POST") {
   }
 }
 
-
-
-
-
-
-
-
-
-
     if (url.pathname === '/binancegethist') {
       const symbol = url.searchParams.get('symbol') || 'BTCUSDT';
       const interval = url.searchParams.get('interval') || '1d';
@@ -194,12 +181,9 @@ if (url.pathname === "/emailsendtome" && request.method === "POST") {
       });
     }
 
-
     if (url.pathname === "/epub") {
       return handleEpubProxy(request, env, ctx);
     }
-
-
 
     // --- NEW: Proxy Euromillions API ---
     if (request.method === "GET" && url.pathname === "/euromillions") {
@@ -218,11 +202,7 @@ if (url.pathname === "/emailsendtome" && request.method === "POST") {
       }
     }
 
-
-
-
 // --- ENDPOINT MTHREADS (Proxy para Emscripten com COOP/COEP) ---
-// --- ENDPOINT MTHREADS (Proxy seguro com ALLOWED_ORIGINS) ---
 if (url.pathname === "/mthreads" || url.pathname.startsWith("/cad/")) {
   const filePath = url.pathname === "/mthreads"
     ? url.searchParams.get("file")
@@ -236,14 +216,11 @@ if (url.pathname === "/mthreads" || url.pathname.startsWith("/cad/")) {
   try {
     if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
       const parsed = new URL(filePath);
-      // Valida se a origem está permitida em ALLOWED_ORIGINS
       if (!ALLOWED_ORIGINS.includes(parsed.origin)) {
         return new Response("Forbidden origin", { status: 403, headers: cors({}, request) });
       }
       targetUrl = filePath;
     } else {
-      // Caminho relativo: usa a Origin da request se estiver permitida,
-      // senão faz fallback para o GitHub Pages
       const requestOrigin = request.headers.get("Origin") || "";
       const base = ALLOWED_ORIGINS.includes(requestOrigin)
         ? requestOrigin
@@ -276,12 +253,6 @@ if (url.pathname === "/mthreads" || url.pathname.startsWith("/cad/")) {
   });
 }
 
-
-
-
-
-
-
 // -----------------------------------
 // ENDPOINT /gethtml
 // -----------------------------------
@@ -298,7 +269,6 @@ if (url.pathname === "/gethtml") {
       ? await request.text()
       : null;
 
-  // Fetch ao servidor remoto (com headers reais)
   const resp = await fetch(target, {
     method,
     body,
@@ -314,7 +284,6 @@ if (url.pathname === "/gethtml") {
   const contentType = resp.headers.get("Content-Type") || "text/plain";
   const data = await resp.text();
 
-  // Resposta com CORS liberado
   return new Response(data, {
     status: resp.status,
     headers: {
@@ -326,21 +295,6 @@ if (url.pathname === "/gethtml") {
   });
 }
 
-    
- 
-    
-
-
-
-
-
-
-
-
-
-    
-
-
     // 👇 manual trigger route
     if (url.pathname === "/trigger-github") {
       const resp = await fetch(
@@ -351,7 +305,7 @@ if (url.pathname === "/gethtml") {
             "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
             "Accept": "application/vnd.github+json",
             "Content-Type": "application/json",
-            "User-Agent": "missionsave-worker" // 👈 required
+            "User-Agent": "missionsave-worker"
           },
           body: JSON.stringify({ ref: "master" })
         }
@@ -364,11 +318,6 @@ if (url.pathname === "/gethtml") {
       );
     }
 
-
-
-
-
-
 if (url.pathname === "/google-img") {
 
   const targetImage = url.searchParams.get("url");
@@ -379,14 +328,14 @@ if (url.pathname === "/google-img") {
   const cache = caches.default;
   const cacheKey = new Request(request.url, request);
 
-  const cached = await cache.match(cacheKey);
-  //if (cached) return cached;
-  if (cached) {
-    // ✅ This is the problem - it needs to use cors() with request
-    return new Response(cached.body, {
-      status: 200,
-      headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
-    });
+  if (CACHE_TIME > 0) {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return new Response(cached.body, {
+        status: 200,
+        headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
+      });
+    }
   }
 
   try {
@@ -404,9 +353,9 @@ if (url.pathname === "/google-img") {
     const newHeaders = new Headers(imgResp.headers);
 
     newHeaders.set("Access-Control-Allow-Origin", "*");
-    newHeaders.set("Cache-Control", "public, max-age=604800");
+    newHeaders.set("Cache-Control", CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`);
+    newHeaders.set("Cross-Origin-Resource-Policy", "cross-origin"); // 👈 Necessário para imagens sob COI / COEP require-corp
 
-    newHeaders.delete("Cross-Origin-Resource-Policy");
     newHeaders.delete("Content-Security-Policy");
 
     const response = new Response(imgResp.body, {
@@ -414,7 +363,9 @@ if (url.pathname === "/google-img") {
       headers: newHeaders
     });
 
-    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    if (CACHE_TIME > 0) {
+      ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    }
 
     return response;
 
@@ -422,7 +373,6 @@ if (url.pathname === "/google-img") {
     return new Response("Proxy error", { status: 500 });
   }
 }
-
 
 if (url.pathname === "/clean-doc") {
 
@@ -438,13 +388,14 @@ if (url.pathname === "/clean-doc") {
   const cache = caches.default;
   const cacheKey = new Request(request.url, request);
 
-  const cached = await cache.match(cacheKey);
-
-  if (cached) {
-    return new Response(cached.body, {
-      status: 200,
-      headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
-    });
+  if (CACHE_TIME > 0) {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return new Response(cached.body, {
+        status: 200,
+        headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
+      });
+    }
   }
 
   const res = await fetch(docUrl, {
@@ -479,19 +430,16 @@ if (url.pathname === "/clean-doc") {
     );
   }
 
-  // -------- src ----------
   cleaned = cleaned.replace(
     /(src)=["'](https?:\/\/[^"']+)["']/gi,
     (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
   );
 
-  // -------- data-src ----------
   cleaned = cleaned.replace(
     /(data-src)=["'](https?:\/\/[^"']+)["']/gi,
     (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
   );
 
-  // -------- srcset ----------
   cleaned = cleaned.replace(
     /srcset=["']([^"']+)["']/gi,
     (match, list) => {
@@ -512,7 +460,6 @@ if (url.pathname === "/clean-doc") {
     }
   );
 
-  // -------- CSS url() images ----------
   cleaned = cleaned.replace(
     /url\((https?:\/\/[^)]+)\)/gi,
     (match, u) => {
@@ -523,10 +470,8 @@ if (url.pathname === "/clean-doc") {
     }
   );
 
-  // -------- remove scripts ----------
   cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, "");
 
-  // -------- simplify styles ----------
   cleaned = cleaned.replace(/style="([^"]*)"/gi, (match, css) => {
 
     const cleanedCss = css
@@ -555,44 +500,30 @@ if (url.pathname === "/clean-doc") {
   const response = new Response(finalHtml, {
     headers: {
       ...cors({ "Content-Type": "text/html; charset=utf-8" }, request),
-      "Cache-Control": "public, max-age=21600",
-    "Vary": "Origin"
+      "Cache-Control": CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`,
+      "Vary": "Origin"
     }
   });
 
-  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  if (CACHE_TIME > 0) {
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
 
   return response;
 }
 
-
-
-
-
-
-
-
-
-
-
-
 // --- Proxy everything else to GitHub Pages ---
-// Global variables for caching
 let MAP_CACHE = null;
 let LAST_FETCH = 0;
 
-
-
-    // 1. Helper for slugs
     const getSlug = (s) => s.toLowerCase().trim()
       .replace(/\s+/g, '_')
       .replace(/[^a-z0-9_]/g, '');
 
-    // 2. Load + Cache JSON
     try {
       if (!MAP_CACHE || (Date.now() - LAST_FETCH > 300000)) {
         const r = await fetch("https://missionsave.github.io/tdoc.json", {
-          cf: { cacheTtl: 300 }
+          cf: { cacheTtl: CACHE_TIME }
         });
         if (r.ok) {
           const j = await r.json();
@@ -612,10 +543,7 @@ let LAST_FETCH = 0;
       }
     } catch (e) {}
 
-    // 3. Resolve path/title
-    //let p = url.searchParams.get("p") || "";
   let p = url.searchParams.get("p");
-    // If no ?p= exists, derive it from the path
 if (!p) {
   const segments = url.pathname.split("/").filter(Boolean);
   if (segments.length > 0) p = segments[0];
@@ -632,8 +560,6 @@ if (!p) p="";
       ogTitle = MAP_CACHE.get(p) || MAP_CACHE.get(p.split("/")[0]) || "MissionSave";
     }
 
-    
-    // 4. ROUTE: Serve SVG directly
     function svgWrappedText(
   text,
   x = "80",
@@ -644,7 +570,7 @@ if (!p) p="";
   maxCharsPerLine = 48,
   lineHeightMultiplier = 1.2
 ) {
-  const fs = Number(fontSize); // convert for arithmetic
+  const fs = Number(fontSize);
   const lineHeight = fs * lineHeightMultiplier;
 
   const words = text.split(" ");
@@ -672,8 +598,6 @@ if (!p) p="";
 </text>`;
 }
 
-
-
     if (url.pathname.endsWith(".svg")) {
       const block = svgWrappedText(
   "40 fresh raw meals a day — from each autonomous, 40' container-sized greenhouse."
@@ -689,21 +613,21 @@ if (!p) p="";
       return new Response(svg, {
         headers: { 
           "Content-Type": "image/svg+xml", 
-          "Cache-Control": "public, max-age=21600",
-    "Vary": "Origin",
+          "Cache-Control": CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`,
+          "Vary": "Origin",
           "Access-Control-Allow-Origin": "*" 
         }
       });
     }
 
-    // 5. ROUTE: PNG Proxy (Server-side fetch prevents loops)
-// Replace Section 5 with this "Cache-First" version
 if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
   const cache = caches.default;
-  let response = await cache.match(request);
+  let response = null;
 
-  // If we have it in the Cloudflare cache, return it immediately!
-  if (response) return response;
+  if (CACHE_TIME > 0) {
+    response = await cache.match(request);
+    if (response) return response;
+  }
 
   const svgUrl = url.origin + url.pathname.replace(".png", ".svg");
   const converterUrl = `https://wsrv.nl/?url=${encodeURIComponent(svgUrl)}&output=png&w=1200&h=630`;
@@ -711,22 +635,22 @@ if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
   try {
     const imgRes = await fetch(converterUrl, {
       headers: { "User-Agent": "MissionSave-Worker/1.0" },
-      cf: { cacheTtl: 8888 } // Tells Cloudflare to cache this fetch result
+      cf: { cacheTtl: CACHE_TIME }
     });
 
     if (imgRes.ok) {
-      // Reconstruct the response to make it "Cacheable"
       response = new Response(imgRes.body, {
         headers: {
           "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=21600",
-    "Vary": "Origin",
-          "X-Cache-Status": "MISS"
+          "Cache-Control": CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`,
+          "Vary": "Origin",
+          "X-Cache-Status": CACHE_TIME === 0 ? "BYPASS" : "MISS"
         }
       });
 
-      // Store it in the edge cache
-      await cache.put(request, response.clone());
+      if (CACHE_TIME > 0) {
+        await cache.put(request, response.clone());
+      }
       return response;
     }
   } catch (err) {
@@ -734,24 +658,29 @@ if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
   }
 }
 
-    // 6. Proxy to GitHub Pages
+    // --- Proxy para o GitHub Pages (com bypass para ficheiros estáticos/extensões) ---
     let path = url.pathname;
-    if (!path.endsWith("/") && !path.includes(".")) path += "/";
-    //const targetUrl = "https://missionsave.github.io" + path + url.search;
     
-    let targetUrl;
+    // Se o caminho tiver uma extensão (ex: .js, .css, .ico), vai buscar o ficheiro real diretamente
+    const hasExtension = /\.[a-zA-Z0-9]+$/.test(path);
 
-if (p) {
-//targetUrl = "https://missionsave.github.io/?p=Prototype";
-targetUrl = "https://missionsave.github.io/?p=" + encodeURIComponent(p);
-} else {
-  targetUrl = "https://missionsave.github.io" + path + url.search;
-}
+    let targetUrl;
+    if (hasExtension) {
+      targetUrl = "https://missionsave.github.io" + path + url.search;
+    } else if (p) {
+      targetUrl = "https://missionsave.github.io/?p=" + encodeURIComponent(p);
+    } else {
+      targetUrl = "https://missionsave.github.io" + path + url.search;
+    }
 
     const response = await fetch(targetUrl, { redirect: "manual" });
     if (response.status === 301 || response.status === 302) return response;
 
-    // 7. Inject Meta Tags
+    // Se for um ficheiro estático (ex: .js), devolvemos logo sem injetar meta tags do Open Graph
+    if (hasExtension) {
+      return response;
+    }
+
     const safeP = p || "default";
     const ogImage = `${url.origin}/og/${safeP}.png`;
 
@@ -769,21 +698,10 @@ targetUrl = "https://missionsave.github.io/?p=" + encodeURIComponent(p);
         }
       })
       .transform(response);
-    
-
-
-  
-
-  
-
-
+      
   },
 
-
-
-
-  // --- CRON trigger here ---
- async scheduled(event, env, ctx) {
+  async scheduled(event, env, ctx) {
     ctx.waitUntil(fetch(
       "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/cwin.yaml/dispatches",
       {
@@ -792,7 +710,7 @@ targetUrl = "https://missionsave.github.io/?p=" + encodeURIComponent(p);
           "Authorization": `Bearer ${env.GITHUB_TOKEN}`,
           "Accept": "application/vnd.github+json",
           "Content-Type": "application/json",
-          "User-Agent": "missionsave-worker" // 👈 required
+          "User-Agent": "missionsave-worker"
         },
         body: JSON.stringify({ ref: "master" })
       }
@@ -800,23 +718,19 @@ targetUrl = "https://missionsave.github.io/?p=" + encodeURIComponent(p);
   }
 };
 
-// EPUB proxy handler with caching and origin check
 async function handleEpubProxy(request, env, ctx) {
   const reqUrl = new URL(request.url);
   const originHeader = request.headers.get("Origin") || "";
   const target = reqUrl.searchParams.get("url");
 
-  // Allow only missionsave.github.io or missionsave.org
   const allowed = ALLOWED_ORIGINS.includes(originHeader);
 
-  // Build CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": allowed ? originHeader : "null",
     "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
     "Access-Control-Allow-Headers": "*",
   };
 
-  // Handle preflight
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -828,21 +742,22 @@ async function handleEpubProxy(request, env, ctx) {
   const cacheKey = new Request(request.url, request);
   const cache = caches.default;
 
-  // Try cache first
-  let response = await cache.match(cacheKey);
-  if (response) {
-    // Ensure only our CORS headers are present
-    response = new Response(response.body, response);
-    response.headers.delete("Access-Control-Allow-Origin");
-    response.headers.delete("Access-Control-Allow-Methods");
-    response.headers.delete("Access-Control-Allow-Headers");
-    Object.entries(corsHeaders).forEach(([k, v]) => response.headers.set(k, v));
-    return response;
+  if (CACHE_TIME > 0) {
+    let response = await cache.match(cacheKey);
+    if (response) {
+      response = new Response(response.body, response);
+      response.headers.delete("Access-Control-Allow-Origin");
+      response.headers.delete("Access-Control-Allow-Methods");
+      response.headers.delete("Access-Control-Allow-Headers");
+      Object.entries(corsHeaders).forEach(([k, v]) => response.headers.set(k, v));
+      return response;
+    }
   }
 
-  // Fetch from origin
   try {
-    const originResp = await fetch(target);
+    const originResp = await fetch(target, {
+      cf: { cacheTtl: CACHE_TIME }
+    });
     if (!originResp.ok) {
       return new Response(`Failed to fetch target: ${originResp.status}`, {
         status: originResp.status,
@@ -850,18 +765,17 @@ async function handleEpubProxy(request, env, ctx) {
       });
     }
 
-    // Clone and strip upstream CORS headers
-    response = new Response(originResp.body, originResp);
+    let response = new Response(originResp.body, originResp);
     response.headers.delete("Access-Control-Allow-Origin");
     response.headers.delete("Access-Control-Allow-Methods");
     response.headers.delete("Access-Control-Allow-Headers");
 
-    // Set correct content type and our CORS headers
     response.headers.set("Content-Type", "application/epub+zip");
     Object.entries(corsHeaders).forEach(([k, v]) => response.headers.set(k, v));
 
-    // Cache for 1 day
-    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    if (CACHE_TIME > 0) {
+      ctx.waitUntil(cache.put(cacheKey, response.clone()));
+    }
 
     return response;
   } catch (err) {
@@ -870,9 +784,4 @@ async function handleEpubProxy(request, env, ctx) {
       headers: corsHeaders
     });
   }
-}
-
-
-async function handleOtherRoutes(request) {
-  return new Response("Default handler here");
 }

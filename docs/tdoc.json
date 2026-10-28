@@ -30,8 +30,8 @@
   "Prototype": [
     {
 	  "title": "Compact Indoor Outdoor Greenhouse",
-      "url_": "http://127.0.0.1:8080/compact/index.html",
-      "url": "https://missionsave.github.io/compact/index.html",
+      "url": "http://127.0.0.1:8080/compact/index.html",
+      "url_": "https://missionsave.github.io/compact/index.html",
       "workerid": 0
     },
     {
@@ -87,7 +87,8 @@
 		"url": "https://missionsave.github.io/cad/index.html",
 		"urlnw": "/cad/index.html",
 		"workerid": 0,
-      "showpub": 1
+      "showpub": 1,
+	  "translate_title":0
     }
   ],
   "Prince_Mauro": [
