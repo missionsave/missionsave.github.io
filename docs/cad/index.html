@@ -283,7 +283,8 @@ await ativarCOI();
 			}
     };
     // import createModule from '/cad/app.mjs';
-	const { default: createModule } = await import(`${dominioActual}/cad/app.mjs`);
+	const { default: createModule } = await import(`/cad/app.mjs`);
+	// const { default: createModule } = await import(`${dominioActual}/cad/app.mjs`);
 
     createModule(Module).then(async (instance) => {
 
