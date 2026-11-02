@@ -1744,7 +1744,8 @@ void setscint(fl_scintilla* editor,string filename){
 			#if defined(__EMSCRIPTEN__)
 			static bool download_concluido = false;
 			static bool download_falhou = false;
-			string spath="https://superdb-api.superbem.workers.dev/epub?url=https://raw.githubusercontent.com/missionsave/missionsave.github.io/refs/heads/master/appcad/"+path;
+			string spath="https://raw.githubusercontent.com/missionsave/missionsave.github.io/refs/heads/master/appcad/"+path;
+			// string spath="https://superdb-api.superbem.workers.dev/epub?url=https://raw.githubusercontent.com/missionsave/missionsave.github.io/refs/heads/master/appcad/"+path;
 			emscripten_async_wget(spath.c_str(), path.c_str(), 
 				[](const char* filename) { download_concluido = true; }, 
 				[](const char* filename) { download_falhou = true; }

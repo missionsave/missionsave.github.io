@@ -5,7 +5,7 @@
   /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp \
   /home/super/msv/common/fl_browser_msv.cpp \
   -o app.mjs \
-  -O2 \
+  -O3 \
   -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade \
   -L/home/super/msv/emsdk/downloads/occt_wasm/lib \
   -lTKDESTEP -lTKDEIGES -lTKDESTL -lTKDEOBJ -lTKDEVRML -lTKDEPLY -lTKDECascade -lTKDE -lTKXSBase \

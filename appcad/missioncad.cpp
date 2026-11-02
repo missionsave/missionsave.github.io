@@ -24,6 +24,9 @@
 #include <cmath>
 #include <string>
 #include <vector>
+
+#include "fm.hpp"
+
 #ifdef __EMSCRIPTEN__
 #define Fl_Windowe Fl_Group
 #define cerr if(0)cerr 

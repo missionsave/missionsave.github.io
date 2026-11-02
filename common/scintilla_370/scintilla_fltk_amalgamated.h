@@ -5099,180 +5099,170 @@ int Fl_Scintilla::handle(int event)
 }
 
 int Fl_Scintilla::handle_key(int event)
-
 {
+    (void)event;
 
-    // printf("keydown:%d\n", Fl::event_key());
+    // ---------- local helpers ----------
+    auto isValidUtf8 = [](const char* s, int len) -> bool {
+        const unsigned char* p = (const unsigned char*)s;
+        const unsigned char* e = p + len;
+        while (p < e) {
+            unsigned c = *p, cp, minv;
+            int n;
+            if      (c < 0x80)           { p++; continue; }
+            else if ((c & 0xE0) == 0xC0) { n = 1; cp = c & 0x1F; minv = 0x80; }
+            else if ((c & 0xF0) == 0xE0) { n = 2; cp = c & 0x0F; minv = 0x800; }
+            else if ((c & 0xF8) == 0xF0) { n = 3; cp = c & 0x07; minv = 0x10000; }
+            else return false;
+            if (e - p <= n) return false;
+            for (int i = 1; i <= n; i++) {
+                if ((p[i] & 0xC0) != 0x80) return false;
+                cp = (cp << 6) | (p[i] & 0x3F);
+            }
+            if (cp < minv || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) return false;
+            p += n + 1;
+        }
+        return true;
+    };
 
-    char *s;
+    // DOM key names that must never be inserted as text
+    auto isKnownKeyName = [](const char* s, int len) -> bool {
+        static const char* names[] = {
+            "Dead", "Unidentified", "WakeUp", "Process", "Compose", "AltGraph",
+            "AltGraphLatch", "Hyper", "Super", "Meta", "OS", "Fn", "FnLock",
+            "Shift", "Control", "Alt", "CapsLock", "NumLock", "ScrollLock",
+            "Escape", "Enter", "Tab", "Backspace", "Delete", "Insert",
+            "Home", "End", "PageUp", "PageDown",
+            "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+            "ContextMenu", "PrintScreen", "Pause", "Clear", "Help",
+            "Standby", "Hibernate", "Power", "PowerOff", "Sleep",
+            "AudioVolumeUp", "AudioVolumeDown", "AudioVolumeMute",
+            "MediaPlayPause", "MediaTrackNext", "MediaTrackPrevious", "MediaStop",
+            "BrowserBack", "BrowserForward", "BrowserRefresh", "BrowserHome",
+            "BrowserSearch", "BrowserFavorites", "BrowserStop",
+            "LaunchMail", "LaunchApplication1", "LaunchApplication2",
+            "HangulMode", "HanjaMode", "KanaMode", "KanjiMode", "Convert",
+            "NonConvert", "Eisu", "Hiragana", "Katakana", "Zenkaku", "Hankaku",
+            "Copy", "Cut", "Paste", "Undo", "Redo", "Select", "Execute", "Cancel"
+        };
+        for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+            size_t nl = strlen(names[i]);
+            if ((size_t)len == nl && memcmp(s, names[i], nl) == 0) return true;
+        }
+        // F1..F35
+        if (len >= 2 && len <= 3 && s[0] == 'F') {
+            bool digits = true;
+            for (int i = 1; i < len; i++) if (!isdigit((unsigned char)s[i])) digits = false;
+            if (digits) return true;
+        }
+        return false;
+    };
 
-    void *p;
+    // Generic "looks like a DOM key name": CamelCase ASCII word, no spaces/punctuation
+    auto looksLikeKeyName = [](const char* s, int len) -> bool {
+        if (len < 4) return false;
+        if (!isupper((unsigned char)s[0])) return false;
+        bool hasLower = false;
+        for (int i = 0; i < len; i++) {
+            unsigned char c = (unsigned char)s[i];
+            if (c >= 0x80 || !isalnum(c)) return false;
+            if (islower(c)) hasLower = true;
+        }
+        return hasLower;
+    };
 
-    int len, n, del=0;
-
-    // caret
+    // ---------- stale state after sleep / wake / long idle ----------
+    {
+        typedef std::chrono::steady_clock clk;
+        static clk::time_point lastKeyTime = clk::now();
+        clk::time_point now = clk::now();
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - lastKeyTime).count() > 5) {
+            lastKeyDownConsumed = false;
+            Fl::compose_reset();
+        }
+        lastKeyTime = now;
+    }
 
     RefreshIME();
 
-    // Check for dead keys or active composition
+    // ---------- modifiers from the CURRENT event (never stale) ----------
+    const int  st    = Fl::event_state();
+    const bool shift = (st & FL_SHIFT) != 0;
+    const bool ctrl  = (st & (FL_CTRL | FL_COMMAND)) != 0;
+    const bool alt   = (st & FL_ALT) != 0;
+    const bool altGr = ctrl && alt;          // Windows reports AltGr as Ctrl+Alt
+    const int  key   = Fl::event_key();
+
+    int  del = 0;
     bool composed = Fl::compose(del);
 
-    // If we are in a dead-key state, we should not insert anything yet.
-    if (!composed && Fl::event_length() == 0) {
-        // Pass to KeyDown so shortcuts still work, but do not insert text
-        lastKeyDownConsumed = false;
-        int ret = KeyDown(KeyTranslate(Fl::event_key()),
-                          Scintilla::Platform::IsKeyDown(FL_SHIFT),
-                          Scintilla::Platform::IsKeyDown(FL_CTRL),
-                          Scintilla::Platform::IsKeyDown(FL_ALT),
-                          &lastKeyDownConsumed);
-        return 1; // Consume dead key to prevent "Dead" from being inserted
-    }
+    const char* txt  = Fl::event_text();
+    int         tlen = txt ? (int)strlen(txt) : 0;
 
-    // shortcut
-    if ( ! composed ) {
-        if ((Fl::event_state()&(FL_CTRL|FL_COMMAND)) && Fl::event_key()=='z') {
-
-            ScintillaBase::WndProc(SCI_UNDO,  0, 0);patchfix(); 
-
-            return 1;
-
-        }
-
-        if ((Fl::event_state()&(FL_CTRL|FL_COMMAND)) && Fl::event_key()=='y') {
-
-            ScintillaBase::WndProc(SCI_REDO,  0, 0);patchfix(); 
-
-            return 1;
-
-        }
-
-        if ((Fl::event_state()&(FL_CTRL|FL_COMMAND)) && Fl::event_key()=='x') {
-
-            ScintillaBase::WndProc(SCI_CUT,   0, 0);
-
-            patchfix(); 
-
-            return 1;
-
-        }
-
-        if ((Fl::event_state()&(FL_CTRL|FL_COMMAND)) && Fl::event_key()=='c') {
-
-            ScintillaBase::WndProc(SCI_COPY,  0, 0);
-
-            return 1;
-
-        }
-
-        if ((Fl::event_state()&(FL_CTRL|FL_COMMAND)) && Fl::event_key()=='v') {
-
-            ScintillaBase::WndProc(SCI_PASTE, 0, 0);
-
-            patchfix(); 
-
-            return 1;
-
-        }
-
-        if ((Fl::event_state()&(FL_CTRL|FL_COMMAND)) && Fl::event_key()=='a') {
-
-            ScintillaBase::WndProc(SCI_SELECTALL, 0, 0);
-
-            return 1;
-
+    // ---------- no text produced: dead key, modifier, F-key, arrow, WakeUp, Unidentified ----------
+    if (!composed) {
+        // Shortcuts (skipped when AltGr is producing a character like @ or €)
+        if (ctrl && !altGr) {
+            switch (key) {
+            case 'z': ScintillaBase::WndProc(SCI_UNDO,      0, 0); patchfix(); return 1;
+            case 'y': ScintillaBase::WndProc(SCI_REDO,      0, 0); patchfix(); return 1;
+            case 'x': ScintillaBase::WndProc(SCI_CUT,       0, 0); patchfix(); return 1;
+            case 'c': ScintillaBase::WndProc(SCI_COPY,      0, 0);             return 1;
+            case 'v': ScintillaBase::WndProc(SCI_PASTE,     0, 0); patchfix(); return 1;
+            case 'a': ScintillaBase::WndProc(SCI_SELECTALL, 0, 0);             return 1;
+            default: break;
+            }
         }
 
         lastKeyDownConsumed = false;
+        int ret = KeyDown(KeyTranslate(key), shift, ctrl, alt, &lastKeyDownConsumed);
 
-        int ret = KeyDown(KeyTranslate(Fl::event_key()),
+        // Dead key (no text yet): swallow so nothing leaks into the editor
+        if (tlen == 0 && key == 0) return 1;
 
-                          Scintilla::Platform::IsKeyDown(FL_SHIFT),
-
-                          Scintilla::Platform::IsKeyDown(FL_CTRL),
-
-                          Scintilla::Platform::IsKeyDown(FL_ALT),
-
-                          &lastKeyDownConsumed);
-
-        if ( ret || lastKeyDownConsumed ) return 1;
-
-        return 0;
-
+        // Only swallow if Scintilla handled it; let everything else propagate
+        return (ret || lastKeyDownConsumed) ? 1 : 0;
     }
 
-    if (del) {
-
-        int pos = CurrentPosition();
-
-        SetSelection(pos-del, pos);
-
+    // ---------- composed text ----------
+    if (del > 0) {
+        int pos  = CurrentPosition();
+        int from = pos - del;
+        if (from < 0) from = 0;
+        SetSelection(from, pos);
         ClearSelection();
-
     }
 
-    // text
+    if (!txt || tlen < 1) return 0;
 
-    if (!Fl::event_text()) return 0;
-    unsigned char c = Fl::event_text()[0];
-    if (((Fl::event_key() >= 128) || !iscntrl(c)) || !lastKeyDownConsumed) {
-        s = (char *)Fl::event_text();
-        len = strlen(s);
-        if ( len < 1 ) return 0;
+    // Reject key names, invalid UTF-8, oversized or control-char payloads
+    if (tlen > 64) return 1;
+    if (!isValidUtf8(txt, tlen)) return 1;
+    if (isKnownKeyName(txt, tlen)) return 1;
+    if ((key == 0 || key >= 0xff00) && looksLikeKeyName(txt, tlen)) return 1;
+    for (int i = 0; i < tlen; i++) {
+        unsigned char ch = (unsigned char)txt[i];
+        if ((ch < 0x20 && ch != '\t' && ch != '\n' && ch != '\r') || ch == 0x7F) return 1;
+    }
 
-        // Filter out dead key literal string from FLTK IME
-        if (len >= 4 && strncmp(s, "Dead", 4) == 0) return 1;
+    unsigned char c = (unsigned char)txt[0];
+    if (!((key >= 128) || !iscntrl(c)) && lastKeyDownConsumed) return 0;
 
 #ifdef __EMSCRIPTEN__
-
-        // Emscripten is always UTF-8 – never go through iconv
-
-        AddCharUTF(s, len);
-
+    // Emscripten is always UTF-8, never go through iconv
+    AddCharUTF(txt, tlen);
 #else
-
-        if ( ! IsUnicodeMode() ) {
-
-            printf("no unicode\n");
-
-            if ( len*8 > ic_str_len_ ) {
-
-                p = realloc(ic_str_, len*8);
-
-                if ( p == NULL ) return 1;
-
-                ic_str_ = (char *)p;
-
-                ic_str_len_ = len*8; 
-
-            }
-
-            ic_->Open4MB(CodePageOfDocument());
-
-            n = ic_->convert(s, len, ic_str_, len*8);
-
-            ic_str_[n] = 0;
-
-            s = ic_str_;
-
-            len = n;
-
-        }
-
-        // printf("keydown:%d  %d %s \n", Fl::event_key(),len,s); 
-
-        AddCharUTF(s, len);
-
-#endif
-
-        // patchfix();
-
-        return 1;
-
+    if (!IsUnicodeMode()) {
+        std::string out((size_t)tlen * 8 + 1, '\0');
+        ic_->Open4MB(CodePageOfDocument());
+        int n = ic_->convert(txt, tlen, &out[0], tlen * 8);
+        if (n <= 0 || n > tlen * 8) return 1;
+        AddCharUTF(out.data(), n);
+    } else {
+        AddCharUTF(txt, tlen);
     }
-
-    return 0;
-
+#endif
+    return 1;
 }
 
 static bool BoundsContains(Scintilla::PRectangle rcBounds, Scintilla::PRectangle rcCheck)

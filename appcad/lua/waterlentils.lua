@@ -63,6 +63,7 @@ Extrude(filter_height)
 Part "help_wall"
 Mloc(10,5,0,-90,-90)
 Pl "0,0 @5,0 @0,5"
+Offset(2)
 
 Part "help_hsp"
 Rec(1000,600)
