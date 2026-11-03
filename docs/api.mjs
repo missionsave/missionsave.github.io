@@ -21,15 +21,23 @@ async function handleOAuthRedirect() {
     try {
         const params = new URLSearchParams(hash.substring(1));
         const accessToken = params.get('access_token');
+        
+        // Captura o URL original que guardámos no state
+        const targetUrl = params.get('state'); 
 
         if (accessToken) {
-            console.log("Access Token detetado no URL após redirecionamento! A limpar URL...");
+            console.log("Access Token detetado! A autenticar com o Worker...");
             
-            // Remove o token da barra de endereços do browser por segurança
-            window.history.replaceState({}, document.title, window.location.pathname);
-
-            // Envia o access_token diretamente para o Cloudflare Worker
+            // 1. Envia o token para o seu Cloudflare Worker primeiro
             await authenticateWithWorker({ access_token: accessToken });
+
+            // 2. Após autenticar, redireciona o utilizador de volta para a página original
+            if (targetUrl && targetUrl !== window.location.href) {
+                window.location.href = targetUrl;
+            } else {
+                // Se já estiver na página certa, apenas limpa o hash do URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
             return true;
         }
     } catch (err) {
@@ -77,9 +85,10 @@ export function triggerGoogleLogin() {
     // Constrói o URL do endpoint de autenticação do Google por redirecionamento
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
-        `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+        `&redirect_uri=${encodeURIComponent(window.location.origin)}` +
         `&response_type=token` +
-        `&scope=${encodeURIComponent('openid email profile')}`;
+        `&scope=${encodeURIComponent('openid email profile')}` +
+        `&state=${encodeURIComponent(window.location.origin+window.location.pathname)}`;
 
     // Redireciona a janela inteira para o Google
     window.location.href = authUrl;
