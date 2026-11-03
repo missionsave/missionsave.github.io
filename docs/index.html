@@ -9,7 +9,7 @@
  	<meta content="text/html; charset=UTF-8" http-equiv="content-type">	
 	<meta property="og:description" content="This project aims to create innovative machines capable of preparing 40 fresh, healthy meals every single day.">
  	<title translate="no" class="notranslate">Foundation Mission SAVE</title>
-	 <script src="./coi-serviceworker.js?cache=999999"></script>
+	 <script src="./coi-serviceworker.js?cache=9999"></script>
  	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
  	<!-- <link rel="stylesheet" type="text/css" href="style.css"> -->
@@ -1249,6 +1249,13 @@ Object.entries(tdoc).forEach(([key, value]) => {
 
 });
 
+const btn = document.createElement("a");
+btn.id="login-btn";
+btn.className = "dropdownc";
+btn.innerHTML='<i class="fa-solid fa-user" style="color: #808080;"></i>';
+btn.style.cursor = "pointer";
+document.getElementById("myTopnav").appendChild(btn); 
+
 //region globe
 // Create the Language Dropdown
 const langDropdown = document.createElement("div");
@@ -1304,6 +1311,38 @@ onresizeFunction();
 </script>
 
 
+<!-- <button id="login-btn">Entrar com Google</button> -->
+
+<script type="module">
+		window.addEventListener('user-logged-in', (event) => {
+		const user = event.detail;
+		console.log("Utilizador entrou:", user.name, user.email);
+		// Aqui podes atualizar a interface gráfica ou esconder o botão de login
+		btn.innerHTML='<i class="fa-solid fa-user" style="color: #00fb5f;"></i>'; 
+	});
+
+	
+	const timestamp = Date.now();
+	const { triggerGoogleLogin, getCurrentUser } = await import(`./api.mjs?v=${timestamp}`);
+
+    // Se já estiver logado, não faz nada
+    if (!getCurrentUser()) {
+        document.getElementById("login-btn").addEventListener("click", () => {
+			console.log("login");
+            triggerGoogleLogin();
+        });
+    } else {        
+		document.getElementById("login-btn").addEventListener("click", () => {
+			console.log("logout");
+            window.logout();
+        });
+    } 
+	
+
+	
+	
 
 
+
+</script>
 

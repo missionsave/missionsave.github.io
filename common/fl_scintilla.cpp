@@ -64,7 +64,7 @@ namespace fs = std::filesystem;
 
 #include "general.hpp"
 
-// #include "fl_scintilla.hpp"
+#include "fm.hpp"
 
 
 #define IDM_DOT_MARKER  0
@@ -439,7 +439,7 @@ void menu_callback(Fl_Widget* w, void* data) {
 		}
         setscint(vs,str);
 		// vs->bfilesmodified->deselect();
-		vs->getfuncs();
+		// vs->getfuncs();
 
 
 		//run callback after file is opened
@@ -852,7 +852,10 @@ void fl_scintilla::update_menu() {
     },
     (void*)this,FL_MENU_DIVIDER);
 
-	fmb->add("Functions", 0, 0, 0, FL_SUBMENU);
+	fmb->add("Funcs", 0, 0, 0, FL_SUBMENU);
+	// Fl_Menu_Item* item = (Fl_Menu_Item*)meu_menu_bar->find_item("Funcs");
+	// item->hide();
+	
 	// fmb->add("Options/test",0,menu_cb);
 	// fmb->add("Help",0,0,0,FL_MENU_DIVIDER);
 	// fmb->add("testing",0,0,0,0);
@@ -1276,7 +1279,12 @@ void fl_scintilla::set_lua(){
 	
 	// const char* fntname="";
 
-	int fntsize=14;
+	#if defined(__EMSCRIPTEN__)
+	int fntsize=17;
+	#else
+	int fntsize=9;
+	#endif
+
 	// #ifdef _WIN32
 	// fntsize=8;
 	// #endif
@@ -1584,8 +1592,8 @@ static void cb_editor(Scintilla::SCNotification *scn, void *data)
 	if (scn->nmhdr.code==SCN_UPDATEUI)editor->recordCaret();
 
  
-	if (scn->nmhdr.code == SCN_CHARADDED && editor->curr_file_pointer>0)
-		editor->getfuncs();
+	// if (scn->nmhdr.code == SCN_CHARADDED && editor->curr_file_pointer>0)
+	// 	editor->getfuncs();
 
     if ((scn->nmhdr.code == SCN_CHARADDED) && editor->curr_file_pointer>0){
         // cotm("chad\n")
@@ -1719,7 +1727,7 @@ static void cb_editor(Scintilla::SCNotification *scn, void *data)
 
 	
 }
-
+// region setscint
 void setscint(fl_scintilla* editor,string filename){ 
 	if(!editor->allow)return;
 	set_access_time(filename,time(0));

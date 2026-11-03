@@ -131,7 +131,7 @@ void gocaret(int dir);
 				}
 			}
 
-			// Functions
+			// Funcs
 			// fl_scintilla* editor = (fl_scintilla*)data;
 			// Fl_Browser* b=editor->bfunctions;
 			int sel = -1;
@@ -175,15 +175,15 @@ void gocaret(int dir);
 			// return Fl_Menu_Bar::handle(ev);
 			if (ev == FL_PUSH) {
 				int ex = Fl::event_x();	 // x relative to this widget
-				// find index of the "Functions" header in the flat menu array
-				int opt_idx = find_index("Functions");
+				// find index of the "Funcs" header in the flat menu array
+				int opt_idx = find_index("Funcs");
 				if (opt_idx < 0) return Fl_Menu_Bar::handle(ev);
 
 				// access the internal flat Fl_Menu_Item array
 				const Fl_Menu_Item* items = this->menu();
 				if (!items) return Fl_Menu_Bar::handle(ev);
 
-				// compute the x origin of the "Functions" header by summing widths of preceding top-level headers
+				// compute the x origin of the "Funcs" header by summing widths of preceding top-level headers
 				int origin_x = this->x();  // left edge of menubar in parent coords
 				fl_font(FL_HELVETICA,
 						14);  // use same font/size as the menu bar (adjust if your menubar uses different)
@@ -200,7 +200,7 @@ void gocaret(int dir);
 
 				// check whether click X falls inside the computed header rectangle
 				if (ex >= origin_x && ex < origin_x + hdr_w) {
-					// Click landed on "Functions"
+					// Click landed on "Funcs"
 					static int counter = 0;
 					++counter;
 
@@ -214,7 +214,7 @@ void gocaret(int dir);
 					//                 char buf[64];
 					//                 std::snprintf(buf, sizeof(buf), "%s", val[i].c_str());
 
-					//                 // std::snprintf(buf, sizeof(buf), "Functions/Item %d", i);
+					//                 // std::snprintf(buf, sizeof(buf), "Funcs/Item %d", i);
 					//                 path = strdup(buf); // persist string for FLTK
 					// 				// path=(char*)val[i].c_str();
 
@@ -226,8 +226,12 @@ void gocaret(int dir);
 					// cotm(val);
 
 					for (size_t i = 0; i < val.size() - 1; ++i) {
+						if(i==0){
+							// Fl_Menu_Item* item = (Fl_Menu_Item*)menu_menu_bar->find_item("Funcs");
+							// item->show();
+						}
 						char buf[64];
-						std::snprintf(buf, sizeof(buf), "Functions/%s", val[i].c_str());
+						std::snprintf(buf, sizeof(buf), "Funcs/%s", val[i].c_str());
 
 						path = strdup(buf);	 // persist string for FLTK
 

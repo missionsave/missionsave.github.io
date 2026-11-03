@@ -141,6 +141,7 @@ docs/*.*
 docs/cad/*
 !docs/coi-serviceworker.min.js
 !docs/coi-serviceworker.js
+!docs/api.mjs
 !docs/cad/app.data
 !docs/cad/compile.sh
 !docs/cad/pre.js

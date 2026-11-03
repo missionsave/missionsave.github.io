@@ -197,6 +197,8 @@ ifeq ($(OS_NAME), Linux)
 # 	CXXFLAGS += -I/home/super/missionsave/common/opencascade_lin/include
 # 	LDFLAGS+= -lTKViewerTest -lTKXDEDRAW -lTKTopTest -lTKExpress -lTKFeat -lTKBinXCAF -lTKBinTObj -lTKBinL -lTKBin -lTKTObjDRAW -lTKTObj -lTKVCAF -lTKLCAF -lTKDCAF -lTKCAF -lTKCDF -lTKXmlXCAF -lTKXmlTObj -lTKXmlL -lTKXml -lTKXSDRAWPLY -lTKXSDRAWOBJ -lTKXSDRAWGLTF -lTKXSDRAWVRML -lTKXSDRAWSTEP -lTKXSDRAWIGES -lTKXSDRAWDE -lTKXSDRAW -lTKQADraw -lTKDraw -lTKDEVRML -lTKDEGLTF -lTKDEPLY -lTKDECascade -lTKDEOBJ -lTKDEIGES -lTKDESTEP -lTKDE -lTKXMesh -lTKXCAF -lTKOpenGl -lTKV3d -lTKXSBase -lTKService -lTKOpenGlTest  -lTKRWMesh -lTKMeshVS -lTKMesh -lTKHLR -lTKOffset -lTKBO -lTKBool -lTKShHealing -lTKPrim -lTKTopAlgo -lTKBRep -lTKFillet -lTKGeomAlgo -lTKGeomBase -lTKG3d -lTKG2d -lTKMath -lTKStd -lTKernel
 
+	CXXFLAGS += -I/home/super/msv/emsdk/downloads/zlibng_linux
+	LDFLAGS+= -L/home/super/msv/emsdk/downloads/zlibng_linux -lz.a
 
 	LDFLAGS+= -llua5.4
 	# LDFLAGS+=  -lsqlite3 

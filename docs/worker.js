@@ -1,6 +1,6 @@
 import { EmailMessage } from "cloudflare:email";
 
-const CACHE_TIME = 0; // 0 = desliga cache (faz sempre fetch novo), ou define o tempo exato em segundos (ex: 99999)
+const CACHE_TIME = 999; // 0 = desliga cache, ou define o tempo em segundos (ex: 99999)
 
 const ALLOWED_ORIGINS = [
   "https://missionsave.github.io",
@@ -31,15 +31,13 @@ function isWrite(sql) {
 }
 
 export default {
-  async fetch(request, env,ctx) {
-    // --- Handle CORS preflight ---
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: cors({}, request) });
     }
 
     const url = new URL(request.url);
 
-    // --- Your D1 database API ---
     if (request.method === "POST" && url.pathname === "/sql") {
       if (!env.db) {
         return new Response("D1 binding ausente", { status: 500, headers: cors({}, request) });
@@ -61,7 +59,6 @@ export default {
 
       const wantsWrite = isWrite(sql);
 
-      // Auth for write queries
       if (wantsWrite) {
         const auth = request.headers.get("Authorization") || "";
         const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
@@ -92,77 +89,76 @@ export default {
       }
     }
 
-// --- EMAILSENDTOME ENDPOINT (Resend) ---
-if (url.pathname === "/emailsendtome" && request.method === "POST") {
-  try {
-    const data = await request.json().catch(() => null);
+    if (url.pathname === "/emailsendtome" && request.method === "POST") {
+      try {
+        const data = await request.json().catch(() => null);
 
-    if (!data) {
-      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...cors({}, request) }
-      });
+        if (!data) {
+          return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json", ...cors({}, request) }
+          });
+        }
+
+        const name = (data.name || "").trim();
+        const email = (data.email || "").trim();
+        const message = (data.message || "").trim();
+
+        if (!name || !email || !message) {
+          return new Response(JSON.stringify({ error: "Missing fields" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json", ...cors({}, request) }
+          });
+        }
+
+        if (!env.MYEMAIL) {
+          return new Response(JSON.stringify({ error: "MYEMAIL not configured" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...cors({}, request) }
+          });
+        }
+
+        const domain = env.MYEMAIL.includes("@")
+          ? env.MYEMAIL.split("@")[1]
+          : "example.com";
+
+        const payload = {
+          from: `Contact Form <no-reply@${domain}>`,
+          to: env.MYEMAIL,
+          subject: `Contact form: ${name}`,
+          text: `From: ${name} <${email}>\n\n${message}`
+        };
+
+        const resendRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const txt = await resendRes.text();
+
+        if (!resendRes.ok) {
+          return new Response(JSON.stringify({ error: "Send failed", details: txt }), {
+            status: 502,
+            headers: { "Content-Type": "application/json", ...cors({}, request) }
+          });
+        }
+
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...cors({}, request) }
+        });
+
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...cors({}, request) }
+        });
+      }
     }
-
-    const name = (data.name || "").trim();
-    const email = (data.email || "").trim();
-    const message = (data.message || "").trim();
-
-    if (!name || !email || !message) {
-      return new Response(JSON.stringify({ error: "Missing fields" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...cors({}, request) }
-      });
-    }
-
-    if (!env.MYEMAIL) {
-      return new Response(JSON.stringify({ error: "MYEMAIL not configured" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...cors({}, request) }
-      });
-    }
-
-    const domain = env.MYEMAIL.includes("@")
-      ? env.MYEMAIL.split("@")[1]
-      : "example.com";
-
-    const payload = {
-      from: `Contact Form <no-reply@${domain}>`,
-      to: env.MYEMAIL,
-      subject: `Contact form: ${name}`,
-      text: `From: ${name} <${email}>\n\n${message}`
-    };
-
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const txt = await resendRes.text();
-
-    if (!resendRes.ok) {
-      return new Response(JSON.stringify({ error: "Send failed", details: txt }), {
-        status: 502,
-        headers: { "Content-Type": "application/json", ...cors({}, request) }
-      });
-    }
-
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...cors({}, request) }
-    });
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...cors({}, request) }
-    });
-  }
-}
 
     if (url.pathname === '/binancegethist') {
       const symbol = url.searchParams.get('symbol') || 'BTCUSDT';
@@ -185,7 +181,6 @@ if (url.pathname === "/emailsendtome" && request.method === "POST") {
       return handleEpubProxy(request, env, ctx);
     }
 
-    // --- NEW: Proxy Euromillions API ---
     if (request.method === "GET" && url.pathname === "/euromillions") {
       try {
         const resp = await fetch("https://nunofcguerreiro.com/api-euromillions-json?result=all");
@@ -202,100 +197,91 @@ if (url.pathname === "/emailsendtome" && request.method === "POST") {
       }
     }
 
-// --- ENDPOINT MTHREADS (Proxy para Emscripten com COOP/COEP) ---
-if (url.pathname === "/mthreads" || url.pathname.startsWith("/cad/")) {
-  const filePath = url.pathname === "/mthreads"
-    ? url.searchParams.get("file")
-    : url.pathname;
+    // --- ENDPOINT MTHREADS / CAD (Corrigido para ir ao GitHub Pages diretamente) ---
+    if (url.pathname === "/mthreads" || url.pathname.startsWith("/cad/")) {
+      const filePath = url.pathname === "/mthreads"
+        ? url.searchParams.get("file")
+        : url.pathname;
 
-  if (!filePath) {
-    return new Response("Missing ?file=", { status: 400, headers: cors({}, request) });
-  }
-
-  let targetUrl;
-  try {
-    if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
-      const parsed = new URL(filePath);
-      if (!ALLOWED_ORIGINS.includes(parsed.origin)) {
-        return new Response("Forbidden origin", { status: 403, headers: cors({}, request) });
+      if (!filePath) {
+        return new Response("Missing ?file=", { status: 400, headers: cors({}, request) });
       }
-      targetUrl = filePath;
-    } else {
-      const requestOrigin = request.headers.get("Origin") || "";
-      const base = ALLOWED_ORIGINS.includes(requestOrigin)
-        ? requestOrigin
-        : "https://missionsave.github.io";
 
-      targetUrl = base + (filePath.startsWith("/") ? filePath : "/" + filePath);
+      let targetUrl;
+      try {
+        if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+          const parsed = new URL(filePath);
+          if (!ALLOWED_ORIGINS.includes(parsed.origin)) {
+            return new Response("Forbidden origin", { status: 403, headers: cors({}, request) });
+          }
+          targetUrl = filePath;
+        } else {
+          targetUrl = "https://missionsave.github.io" + (filePath.startsWith("/") ? filePath : "/" + filePath);
+        }
+      } catch {
+        return new Response("Invalid URL format", { status: 400, headers: cors({}, request) });
+      }
+
+      const resp = await fetch(targetUrl);
+      if (!resp.ok) {
+        return new Response("Not found", { status: resp.status, headers: cors({}, request) });
+      }
+
+      let contentType = "text/plain";
+      if (filePath.endsWith(".mjs") || filePath.endsWith(".js")) contentType = "text/javascript";
+      else if (filePath.endsWith(".wasm")) contentType = "application/wasm";
+      else if (filePath.endsWith(".data")) contentType = "application/octet-stream";
+
+      return new Response(resp.body, {
+        status: resp.status,
+        headers: {
+          ...cors({}, request),
+          "Content-Type": contentType,
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Embedder-Policy": "require-corp"
+        }
+      });
     }
-  } catch {
-    return new Response("Invalid URL format", { status: 400, headers: cors({}, request) });
-  }
 
-  const resp = await fetch(targetUrl);
-  if (!resp.ok) {
-    return new Response("Not found", { status: resp.status, headers: cors({}, request) });
-  }
+    if (url.pathname === "/gethtml") {
+      const target = url.searchParams.get("url");
 
-  let contentType = "text/plain";
-  if (filePath.endsWith(".mjs") || filePath.endsWith(".js")) contentType = "text/javascript";
-  else if (filePath.endsWith(".wasm")) contentType = "application/wasm";
-  else if (filePath.endsWith(".data")) contentType = "application/octet-stream";
+      if (!target) {
+        return new Response("Missing parameter: ?url=", { status: 400 });
+      }
 
-  return new Response(resp.body, {
-    status: resp.status,
-    headers: {
-      ...cors({}, request),
-      "Content-Type": contentType,
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp"
+      const method = request.method;
+      const body =
+        method !== "GET" && method !== "HEAD"
+          ? await request.text()
+          : null;
+
+      const resp = await fetch(target, {
+        method,
+        body,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+          "Accept": "application/json, text/plain, */*",
+          "Referer": "https://www.jogossantacasa.pt/",
+          "Origin": "https://www.jogossantacasa.pt"
+        }
+      });
+
+      const contentType = resp.headers.get("Content-Type") || "text/plain";
+      const data = await resp.text();
+
+      return new Response(data, {
+        status: resp.status,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Content-Type": contentType
+        }
+      });
     }
-  });
-}
 
-// -----------------------------------
-// ENDPOINT /gethtml
-// -----------------------------------
-if (url.pathname === "/gethtml") {
-  const target = url.searchParams.get("url");
-
-  if (!target) {
-    return new Response("Missing parameter: ?url=", { status: 400 });
-  }
-
-  const method = request.method;
-  const body =
-    method !== "GET" && method !== "HEAD"
-      ? await request.text()
-      : null;
-
-  const resp = await fetch(target, {
-    method,
-    body,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-      "Accept": "application/json, text/plain, */*",
-      "Referer": "https://www.jogossantacasa.pt/",
-      "Origin": "https://www.jogossantacasa.pt"
-    }
-  });
-
-  const contentType = resp.headers.get("Content-Type") || "text/plain";
-  const data = await resp.text();
-
-  return new Response(data, {
-    status: resp.status,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Content-Type": contentType
-    }
-  });
-}
-
-    // 👇 manual trigger route
     if (url.pathname === "/trigger-github") {
       const resp = await fetch(
         "https://api.github.com/repos/missionsave/missionsave.github.io/actions/workflows/cwin.yaml/dispatches",
@@ -318,203 +304,187 @@ if (url.pathname === "/gethtml") {
       );
     }
 
-if (url.pathname === "/google-img") {
-
-  const targetImage = url.searchParams.get("url");
-  if (!targetImage) {
-    return new Response("Missing url", { status: 400 });
-  }
-
-  const cache = caches.default;
-  const cacheKey = new Request(request.url, request);
-
-  if (CACHE_TIME > 0) {
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-      return new Response(cached.body, {
-        status: 200,
-        headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
-      });
-    }
-  }
-
-  try {
-
-    const imgResp = await fetch(targetImage, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://docs.google.com/",
-        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+    if (url.pathname === "/google-img") {
+      const targetImage = url.searchParams.get("url");
+      if (!targetImage) {
+        return new Response("Missing url", { status: 400 });
       }
-    });
 
-    if (!imgResp.ok) return imgResp;
+      const cache = caches.default;
+      const cacheKey = new Request(request.url, request);
 
-    const newHeaders = new Headers(imgResp.headers);
+      if (CACHE_TIME > 0) {
+        const cached = await cache.match(cacheKey);
+        if (cached) {
+          return new Response(cached.body, {
+            status: 200,
+            headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
+          });
+        }
+      }
 
-    newHeaders.set("Access-Control-Allow-Origin", "*");
-    newHeaders.set("Cache-Control", CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`);
-    newHeaders.set("Cross-Origin-Resource-Policy", "cross-origin"); // 👈 Necessário para imagens sob COI / COEP require-corp
+      try {
+        const imgResp = await fetch(targetImage, {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://docs.google.com/",
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+          }
+        });
 
-    newHeaders.delete("Content-Security-Policy");
+        if (!imgResp.ok) return imgResp;
 
-    const response = new Response(imgResp.body, {
-      status: imgResp.status,
-      headers: newHeaders
-    });
+        const newHeaders = new Headers(imgResp.headers);
+        newHeaders.set("Access-Control-Allow-Origin", "*");
+        newHeaders.set("Cache-Control", CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`);
+        newHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
+        newHeaders.delete("Content-Security-Policy");
 
-    if (CACHE_TIME > 0) {
-      ctx.waitUntil(cache.put(cacheKey, response.clone()));
-    }
+        const response = new Response(imgResp.body, {
+          status: imgResp.status,
+          headers: newHeaders
+        });
 
-    return response;
-
-  } catch (err) {
-    return new Response("Proxy error", { status: 500 });
-  }
-}
-
-if (url.pathname === "/clean-doc") {
-
-  const docUrl = url.searchParams.get("url");
-
-  if (!docUrl) {
-    return new Response("Missing ?url=", {
-      status: 400,
-      headers: cors({}, request)
-    });
-  }
-
-  const cache = caches.default;
-  const cacheKey = new Request(request.url, request);
-
-  if (CACHE_TIME > 0) {
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-      return new Response(cached.body, {
-        status: 200,
-        headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
-      });
-    }
-  }
-
-  const res = await fetch(docUrl, {
-    headers: { "User-Agent": "Mozilla/5.0" }
-  });
-
-  let html = await res.text();
-
-  const marker = '<div id="contents">';
-  const idx = html.indexOf(marker);
-
-  if (idx === -1) {
-    return new Response("Could not find contents marker", {
-      status: 500,
-      headers: cors({}, request)
-    });
-  }
-
-  let cleaned = html.substring(idx);
-
-  const workerUrl = new URL(request.url).origin;
-
-  function proxyUrl(u) {
-    return `${workerUrl}/google-img?url=${encodeURIComponent(u)}`;
-  }
-
-  function shouldProxy(u) {
-    return (
-      u.includes("googleusercontent.com") ||
-      u.includes("gstatic.com") ||
-      u.includes("docs.google.com/docs-images-rt")
-    );
-  }
-
-  cleaned = cleaned.replace(
-    /(src)=["'](https?:\/\/[^"']+)["']/gi,
-    (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
-  );
-
-  cleaned = cleaned.replace(
-    /(data-src)=["'](https?:\/\/[^"']+)["']/gi,
-    (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
-  );
-
-  cleaned = cleaned.replace(
-    /srcset=["']([^"']+)["']/gi,
-    (match, list) => {
-
-      const rewritten = list.split(",").map(part => {
-
-        const [u, size] = part.trim().split(/\s+/);
-
-        if (shouldProxy(u)) {
-          return `${proxyUrl(u)} ${size || ""}`.trim();
+        if (CACHE_TIME > 0) {
+          ctx.waitUntil(cache.put(cacheKey, response.clone()));
         }
 
-        return part.trim();
+        return response;
 
-      }).join(", ");
-
-      return `srcset="${rewritten}"`;
-    }
-  );
-
-  cleaned = cleaned.replace(
-    /url\((https?:\/\/[^)]+)\)/gi,
-    (match, u) => {
-      if (shouldProxy(u)) {
-        return `url(${proxyUrl(u)})`;
+      } catch (err) {
+        return new Response("Proxy error", { status: 500 });
       }
-      return match;
     }
-  );
 
-  cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, "");
+    if (url.pathname === "/clean-doc") {
+      const docUrl = url.searchParams.get("url");
 
-  cleaned = cleaned.replace(/style="([^"]*)"/gi, (match, css) => {
+      if (!docUrl) {
+        return new Response("Missing ?url=", {
+          status: 400,
+          headers: cors({}, request)
+        });
+      }
 
-    const cleanedCss = css
-      .replace(/padding[^;]*;?/gi, "")
-      .replace(/margin-(top|bottom|right)[^;]*;?/gi, "")
-      .replace(/min-width[^;]*;?/gi, "")
-      .replace(/max-width[^;]*;?/gi, "")
-      .trim();
+      const cache = caches.default;
+      const cacheKey = new Request(request.url, request);
 
-    return cleanedCss ? `style="${cleanedCss}"` : "";
-  });
+      if (CACHE_TIME > 0) {
+        const cached = await cache.match(cacheKey);
+        if (cached) {
+          return new Response(cached.body, {
+            status: 200,
+            headers: cors({ "Content-Type": "text/html; charset=utf-8" }, request)
+          });
+        }
+      }
 
-  const styleFix = `
-  <style>
-  body,#contents{margin:0!important;padding:0!important;max-width:100%!important}
-  #contents>div{margin:0!important;padding:0!important}
-  img{max-width:100%!important;height:auto!important;display:block}
-  .doc-content{width:100%!important;padding:0!important}
-  </style>
-  `;
+      const res = await fetch(docUrl, {
+        headers: { "User-Agent": "Mozilla/5.0" }
+      });
 
-  const metaFix = `<meta name="referrer" content="no-referrer">`;
+      let html = await res.text();
 
-  const finalHtml = metaFix + styleFix + cleaned;
+      const marker = '<div id="contents">';
+      const idx = html.indexOf(marker);
 
-  const response = new Response(finalHtml, {
-    headers: {
-      ...cors({ "Content-Type": "text/html; charset=utf-8" }, request),
-      "Cache-Control": CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`,
-      "Vary": "Origin"
+      if (idx === -1) {
+        return new Response("Could not find contents marker", {
+          status: 500,
+          headers: cors({}, request)
+        });
+      }
+
+      let cleaned = html.substring(idx);
+      const workerUrl = new URL(request.url).origin;
+
+      function proxyUrl(u) {
+        return `${workerUrl}/google-img?url=${encodeURIComponent(u)}`;
+      }
+
+      function shouldProxy(u) {
+        return (
+          u.includes("googleusercontent.com") ||
+          u.includes("gstatic.com") ||
+          u.includes("docs.google.com/docs-images-rt")
+        );
+      }
+
+      cleaned = cleaned.replace(
+        /(src)=["'](https?:\/\/[^"']+)["']/gi,
+        (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
+      );
+
+      cleaned = cleaned.replace(
+        /(data-src)=["'](https?:\/\/[^"']+)["']/gi,
+        (m, attr, u) => shouldProxy(u) ? `${attr}="${proxyUrl(u)}"` : m
+      );
+
+      cleaned = cleaned.replace(
+        /srcset=["']([^"']+)["']/gi,
+        (match, list) => {
+          const rewritten = list.split(",").map(part => {
+            const [u, size] = part.trim().split(/\s+/);
+            if (shouldProxy(u)) {
+              return `${proxyUrl(u)} ${size || ""}`.trim();
+            }
+            return part.trim();
+          }).join(", ");
+          return `srcset="${rewritten}"`;
+        }
+      );
+
+      cleaned = cleaned.replace(
+        /url\((https?:\/\/[^)]+)\)/gi,
+        (match, u) => {
+          if (shouldProxy(u)) {
+            return `url(${proxyUrl(u)})`;
+          }
+          return match;
+        }
+      );
+
+      cleaned = cleaned.replace(/<script[\s\S]*?<\/script>/gi, "");
+
+      cleaned = cleaned.replace(/style="([^"]*)"/gi, (match, css) => {
+        const cleanedCss = css
+          .replace(/padding[^;]*;?/gi, "")
+          .replace(/margin-(top|bottom|right)[^;]*;?/gi, "")
+          .replace(/min-width[^;]*;?/gi, "")
+          .replace(/max-width[^;]*;?/gi, "")
+          .trim();
+        return cleanedCss ? `style="${cleanedCss}"` : "";
+      });
+
+      const styleFix = `
+      <style>
+      body,#contents{margin:0!important;padding:0!important;max-width:100%!important}
+      #contents>div{margin:0!important;padding:0!important}
+      img{max-width:100%!important;height:auto!important;display:block}
+      .doc-content{width:100%!important;padding:0!important}
+      </style>
+      `;
+
+      const metaFix = `<meta name="referrer" content="no-referrer">`;
+      const finalHtml = metaFix + styleFix + cleaned;
+
+      const response = new Response(finalHtml, {
+        headers: {
+          ...cors({ "Content-Type": "text/html; charset=utf-8" }, request),
+          "Cache-Control": CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`,
+          "Vary": "Origin"
+        }
+      });
+
+      if (CACHE_TIME > 0) {
+        ctx.waitUntil(cache.put(cacheKey, response.clone()));
+      }
+
+      return response;
     }
-  });
 
-  if (CACHE_TIME > 0) {
-    ctx.waitUntil(cache.put(cacheKey, response.clone()));
-  }
-
-  return response;
-}
-
-// --- Proxy everything else to GitHub Pages ---
-let MAP_CACHE = null;
-let LAST_FETCH = 0;
+    let MAP_CACHE = null;
+    let LAST_FETCH = 0;
 
     const getSlug = (s) => s.toLowerCase().trim()
       .replace(/\s+/g, '_')
@@ -543,12 +513,12 @@ let LAST_FETCH = 0;
       }
     } catch (e) {}
 
-  let p = url.searchParams.get("p");
-if (!p) {
-  const segments = url.pathname.split("/").filter(Boolean);
-  if (segments.length > 0) p = segments[0];
-}
-if (!p) p="";
+    let p = url.searchParams.get("p");
+    if (!p) {
+      const segments = url.pathname.split("/").filter(Boolean);
+      if (segments.length > 0) p = segments[0];
+    }
+    if (!p) p = "";
 
     if (url.pathname.startsWith("/og/")) {
       p = url.pathname.replace("/og/", "").replace(/\.(png|svg)$/, "");
@@ -561,47 +531,47 @@ if (!p) p="";
     }
 
     function svgWrappedText(
-  text,
-  x = "80",
-  y = "440",
-  fill = "#38bdf8",
-  fontSize = "40",
-  fontFamily = "sans-serif",
-  maxCharsPerLine = 48,
-  lineHeightMultiplier = 1.2
-) {
-  const fs = Number(fontSize);
-  const lineHeight = fs * lineHeightMultiplier;
+      text,
+      x = "80",
+      y = "440",
+      fill = "#38bdf8",
+      fontSize = "40",
+      fontFamily = "sans-serif",
+      maxCharsPerLine = 48,
+      lineHeightMultiplier = 1.2
+    ) {
+      const fs = Number(fontSize);
+      const lineHeight = fs * lineHeightMultiplier;
 
-  const words = text.split(" ");
-  let lines = [];
-  let line = "";
+      const words = text.split(" ");
+      let lines = [];
+      let line = "";
 
-  for (const w of words) {
-    if ((line + w).length > maxCharsPerLine) {
-      lines.push(line.trim());
-      line = "";
+      for (const w of words) {
+        if ((line + w).length > maxCharsPerLine) {
+          lines.push(line.trim());
+          line = "";
+        }
+        line += w + " ";
+      }
+      if (line.trim()) lines.push(line.trim());
+
+      const tspans = lines
+        .map((ln, i) =>
+          `<tspan x="${x}" dy="${i === 0 ? 0 : lineHeight}">${ln}</tspan>`
+        )
+        .join("");
+
+      return `
+      <text x="${x}" y="${y}" fill="${fill}" font-size="${fontSize}" font-family="${fontFamily}">
+        ${tspans}
+      </text>`;
     }
-    line += w + " ";
-  }
-  if (line.trim()) lines.push(line.trim());
-
-  const tspans = lines
-    .map((ln, i) =>
-      `<tspan x="${x}" dy="${i === 0 ? 0 : lineHeight}">${ln}</tspan>`
-    )
-    .join("");
-
-  return `
-<text x="${x}" y="${y}" fill="${fill}" font-size="${fontSize}" font-family="${fontFamily}">
-  ${tspans}
-</text>`;
-}
 
     if (url.pathname.endsWith(".svg")) {
       const block = svgWrappedText(
-  "40 fresh raw meals a day — from each autonomous, 40' container-sized greenhouse."
-);
+        "40 fresh raw meals a day — from each autonomous, 40' container-sized greenhouse."
+      );
       const safeTitle = ogTitle.replace(/[<>&"]/g, "");
       const svg = `<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="#0f172a"/>
@@ -620,48 +590,45 @@ if (!p) p="";
       });
     }
 
-if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
-  const cache = caches.default;
-  let response = null;
-
-  if (CACHE_TIME > 0) {
-    response = await cache.match(request);
-    if (response) return response;
-  }
-
-  const svgUrl = url.origin + url.pathname.replace(".png", ".svg");
-  const converterUrl = `https://wsrv.nl/?url=${encodeURIComponent(svgUrl)}&output=png&w=1200&h=630`;
-
-  try {
-    const imgRes = await fetch(converterUrl, {
-      headers: { "User-Agent": "MissionSave-Worker/1.0" },
-      cf: { cacheTtl: CACHE_TIME }
-    });
-
-    if (imgRes.ok) {
-      response = new Response(imgRes.body, {
-        headers: {
-          "Content-Type": "image/png",
-          "Cache-Control": CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`,
-          "Vary": "Origin",
-          "X-Cache-Status": CACHE_TIME === 0 ? "BYPASS" : "MISS"
-        }
-      });
+    if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
+      const cache = caches.default;
+      let response = null;
 
       if (CACHE_TIME > 0) {
-        await cache.put(request, response.clone());
+        response = await cache.match(request);
+        if (response) return response;
       }
-      return response;
-    }
-  } catch (err) {
-    return Response.redirect(svgUrl, 302);
-  }
-}
 
-    // --- Proxy para o GitHub Pages (com bypass para ficheiros estáticos/extensões) ---
+      const svgUrl = url.origin + url.pathname.replace(".png", ".svg");
+      const converterUrl = `https://wsrv.nl/?url=${encodeURIComponent(svgUrl)}&output=png&w=1200&h=630`;
+
+      try {
+        const imgRes = await fetch(converterUrl, {
+          headers: { "User-Agent": "MissionSave-Worker/1.0" },
+          cf: { cacheTtl: CACHE_TIME }
+        });
+
+        if (imgRes.ok) {
+          response = new Response(imgRes.body, {
+            headers: {
+              "Content-Type": "image/png",
+              "Cache-Control": CACHE_TIME === 0 ? "no-store" : `public, max-age=${CACHE_TIME}`,
+              "Vary": "Origin",
+              "X-Cache-Status": CACHE_TIME === 0 ? "BYPASS" : "MISS"
+            }
+          });
+
+          if (CACHE_TIME > 0) {
+            await cache.put(request, response.clone());
+          }
+          return response;
+        }
+      } catch (err) {
+        return Response.redirect(svgUrl, 302);
+      }
+    }
+
     let path = url.pathname;
-    
-    // Se o caminho tiver uma extensão (ex: .js, .css, .ico), vai buscar o ficheiro real diretamente
     const hasExtension = /\.[a-zA-Z0-9]+$/.test(path);
 
     let targetUrl;
@@ -676,7 +643,6 @@ if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
     const response = await fetch(targetUrl, { redirect: "manual" });
     if (response.status === 301 || response.status === 302) return response;
 
-    // Se for um ficheiro estático (ex: .js), devolvemos logo sem injetar meta tags do Open Graph
     if (hasExtension) {
       return response;
     }
@@ -698,7 +664,6 @@ if (url.pathname.startsWith("/og/") && url.pathname.endsWith(".png")) {
         }
       })
       .transform(response);
-      
   },
 
   async scheduled(event, env, ctx) {
