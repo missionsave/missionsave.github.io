@@ -27,6 +27,13 @@
 
 #include "fm.hpp"
 
+// mallinfo_stub.c -sMALLOC=mimalloc
+#include <malloc.h>
+struct mallinfo mallinfo(void) {
+  struct mallinfo mi = {0};
+  return mi;
+}
+
 #ifdef __EMSCRIPTEN__
 #define Fl_Windowe Fl_Group
 #define cerr if(0)cerr 
@@ -135,6 +142,9 @@ Fl_Group *content;
 fl_browser_msv *fbm;
 Fl_Help_View *helpv;
 Fl_Group *woccbtn;
+
+struct fl_scintilla;
+void setscint(fl_scintilla* editor,string filename);
 
 int lastX, lastY;
 bool isRotatingz = false;
@@ -21841,6 +21851,14 @@ void fill_menu() {
 // EMSCRIPTEN_BINDINGS(app) {
 //   emscripten::function("fltk_run", &fltk_run, emscripten::async());
 // }
+void minit(){
+	setscint(editor, editor->folder + "waterlentils.lua");
+	// setscint(editor, editor->folder + editor->vfiles[0].filename);
+	editor->callbackOnload();
+	view->FitAll(); 
+	sbt[6].occbtn->do_callback(); 
+	view->FitAll();
+}
 int main(int argc, char **argv) {
 	Fl::lock();
   // Fl::set_font(FL_HELVETICA, "DejaVu Sans");
@@ -21954,13 +21972,15 @@ int main(int argc, char **argv) {
   editor->allow=1;
   setSceneDefault();
   sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+  minit();
   #endif
 
   // working1(ctx,view);
 
 //   Fl::add_timeout(
-//       0.7,
+//       0.88,
 //       [](void *d) {
+// 		editor->allow=1;
 // 		editor->callbackOnload();
 //       },
 //       0);
@@ -21990,6 +22010,7 @@ int main(int argc, char **argv) {
 		editor->allow=1;
 		setSceneDefault();
 		sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+		minit();
 		}
 
 

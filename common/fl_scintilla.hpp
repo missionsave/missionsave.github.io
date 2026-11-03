@@ -73,6 +73,7 @@ void gocaret(int dir);
 	std::tuple<int, int> csearch(const char* needle, bool dirDown = true, int flags = SCFIND_MATCHCASE);
 	void searchshow();
 
+	std::vector<_FileEntry> vfiles;
 	std::vector<_FileEntry> list_files_in_dir(const std::string path);
 	void update_menu();
 	// void move_item(Fl_Browser* browser, std::string str);

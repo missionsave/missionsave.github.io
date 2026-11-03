@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <chrono>
 
 // iconv is optional; under Emscripten we prefer a pure UTF-8 path
 #if !defined(__EMSCRIPTEN__)
@@ -5255,7 +5256,7 @@ int Fl_Scintilla::handle_key(int event)
     if (!IsUnicodeMode()) {
         std::string out((size_t)tlen * 8 + 1, '\0');
         ic_->Open4MB(CodePageOfDocument());
-        int n = ic_->convert(txt, tlen, &out[0], tlen * 8);
+        int n = ic_->convert(const_cast<char*>(txt), tlen, &out[0], tlen * 8);
         if (n <= 0 || n > tlen * 8) return 1;
         AddCharUTF(out.data(), n);
     } else {

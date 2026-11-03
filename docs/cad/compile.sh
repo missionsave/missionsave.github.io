@@ -1,4 +1,4 @@
-  em++ \
+em++ \
   /home/super/msv/appcad/missioncad.cpp \
   /home/super/msv/common/general.cpp \
   /home/super/msv/common/fl_scintilla.cpp \
@@ -6,6 +6,14 @@
   /home/super/msv/common/fl_browser_msv.cpp \
   -o app.mjs \
   -O3 \
+  -flto \
+  -msimd128 \
+  -mrelaxed-simd \
+  -mtail-call \
+  -matomics \
+  -mbulk-memory \
+  -mnontrapping-fptoint \
+  -msign-ext \
   -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade \
   -L/home/super/msv/emsdk/downloads/occt_wasm/lib \
   -lTKDESTEP -lTKDEIGES -lTKDESTL -lTKDEOBJ -lTKDEVRML -lTKDEPLY -lTKDECascade -lTKDE -lTKXSBase \
@@ -50,6 +58,8 @@
   -sJSPI=1 \
   -sMODULARIZE=1 \
   --pre-js pre.js \
-  -matomics -mbulk-memory \
   -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
-  -sPTHREAD_POOL_SIZE_STRICT=2
+  -sPTHREAD_POOL_SIZE_STRICT=2 \
+  -sMALLOC=mimalloc \
+  -sENVIRONMENT=web \
+  -sEXPORT_ES6

@@ -734,7 +734,7 @@ void fl_scintilla::update_menu() {
 	fmb->add("Files", 0, 0, 0, FL_SUBMENU);
  
 
-fmb->add("Files/New", 0,
+	fmb->add("Files/New", 0,
     [](Fl_Widget*, void* ud) {
         auto* self = static_cast<fl_scintilla*>(ud);
         
@@ -876,7 +876,8 @@ fmb->add("Files/New", 0,
 	// // 	lfiles=list_files_in_dir(folder);
 	// cotm(99999999999999);
 	// 	// vector<_FileEntry> &files=lfiles;
-	vector<_FileEntry> vfiles = list_files_in_dir(folder);
+	vfiles = list_files_in_dir(folder);
+	// vector<_FileEntry> vfiles = list_files_in_dir(folder);
 
 	std::sort(vfiles.begin(), vfiles.end(),
 			  [](const _FileEntry& a, const _FileEntry& b) { return a.accesstime > b.accesstime; });
@@ -1759,6 +1760,7 @@ void setscint(fl_scintilla* editor,string filename){
 			}
 			download_concluido = 0;
 			if(download_falhou){
+				cotm(download_falhou);
 			download_falhou = 0;
 			loading=0;
 			return;

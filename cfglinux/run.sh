@@ -98,6 +98,110 @@ cfg_em(){
 source /home/super/msv/emsdk/emsdk_env.sh
 }
 
+
+
+
+ 
+_build_zlibng_wasm() {
+	# Garante que o repositório existe
+	if [ ! -d "zlib-ng" ]; then
+		git clone --depth 1 https://github.com/zlib-ng/zlib-ng
+	fi
+    echo "--- Building zlib-ng for WASM (with pthreads & SIMD) ---"
+    cd zlib-ng
+     
+    
+    # 1. Criar e limpar diretório de build isolado
+    mkdir -p build_wasm
+    cd build_wasm
+    make clean || true
+    # rm -rf *
+
+    # 2. Configurar com emcmake (Ativa compatibilidade com zlib tradicional e desativa testes nativos)
+    emcmake cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DZLIB_COMPAT=ON \
+        -DZLIB_ENABLE_TESTS=OFF \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_C_FLAGS="-O3 -matomics -mbulk-memory -fwasm-exceptions -pthread" \
+        -DCMAKE_EXE_LINKER_FLAGS="-matomics -mbulk-memory -fwasm-exceptions -pthread"
+
+    # 3. Compilar a biblioteca static
+    emmake make -j$(nproc)
+    cd ../..
+
+	# 4. Criar a pasta de destino limpa para a tua app
+    rm -rf zlib-ng_wasm
+    mkdir -p zlib-ng_wasm
+
+   	# O CMake pode meter a lib na raiz do build ou numa subpasta. Procuramos e copiamos diretamente:
+    find zlib-ng/build_wasm -name "libz.a" -exec cp {} zlib-ng_wasm/ \;
+
+    # Copia os headers da raiz do repositório
+    cp zlib-ng/*.h zlib-ng_wasm/ 2>/dev/null || true
+    
+    # Copia os headers gerados pelo CMake (incluindo subpastas de configuração)
+    find zlib-ng/build_wasm -name "*.h" -exec cp {} zlib-ng_wasm/ \;
+
+    echo "--- Ficheiros exportados para a pasta 'zlib-ng_wasm/' ---"
+    # ls -l zlib-ng_wasm
+
+    # echo "--- Compiling Application to WASM ---"
+    # # Compila o teu main.cpp ligando a libz.a do WASM
+    # emcc main.cpp zlib-ng/libz.a -Izlib-ng \
+    #     -O3 -msimd128 -pthread -s PROXY_TO_PTHREAD=1 \
+    #     -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 \
+    #     -std=c++17 -o compressor.js
+    
+    echo "zlib-ng WASM Build complete!"
+}
+
+_build_zlibng_linux() {
+    if [ ! -d "zlib-ng" ]; then
+        git clone --depth 1 https://github.com/zlib-ng/zlib-ng
+    fi
+    echo "--- Building zlib-ng for Native Linux ---"
+    cd zlib-ng
+    
+    # Limpa builds anteriores
+    make clean || true
+    
+    # Configura nativamente com compatibilidade zlib e otimizações de CPU da máquina host
+    ./configure --static --zlib-compat
+    
+    make -j$(nproc)
+    cd ..
+
+    # 1. Criar a pasta de destino limpa na raiz do projeto
+    rm -rf zlibng_linux
+    mkdir -p zlibng_linux
+
+    # 2. Localizar e copiar a libz.a nativa gerada
+    find zlib-ng -name "libz.a" -exec cp {} zlibng_linux/ \;
+
+    # 3. Localizar e copiar os headers da raiz e os gerados pelo configure
+    cp zlib-ng/*.h zlibng_linux/ 2>/dev/null || true
+    find zlib-ng -maxdepth 2 -name "*.h" -exec cp {} zlibng_linux/ \; 2>/dev/null || true
+
+    echo "--- Ficheiros exportados para a pasta 'zlibng_linux/' ---"
+    ls -l zlibng_linux
+
+    # echo "--- Compiling Application for Native Linux (Exemplo) ---"
+    # g++ main.cpp zlibng_linux/libz.a -Izlibng_linux \
+    #     -O3 -pthread -std=c++17 -o native_compressor
+
+    echo "zlib-ng Linux Build complete!"
+}
+
+
+
+
+
+
+
+
+
+
 _build_fltk_wasm_sne() {
     local dir_name="fltk_wasm_sne"
     local repo_url="https://github.com/MoAlyousef/fltk_wasm32_emscripten.git"
