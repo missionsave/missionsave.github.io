@@ -88,7 +88,7 @@ export function triggerGoogleLogin() {
         `&redirect_uri=${encodeURIComponent(window.location.origin)}` +
         `&response_type=token` +
         `&scope=${encodeURIComponent('openid email profile')}` +
-        `&state=${encodeURIComponent(window.location.origin+window.location.pathname)}`;
+        `&state=${encodeURIComponent(window.location.origin+window.location.pathname+ window.location.search)}`;
 
     // Redireciona a janela inteira para o Google
     window.location.href = authUrl;

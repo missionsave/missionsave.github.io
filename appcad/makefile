@@ -132,7 +132,7 @@ ifeq ($(OS_NAME), Linux)
 	LIBNAME   := libappl.a$(dbgd)
 	TARGET    := missioncad
 	LDFLAGS+= -L. -l:$(LIBNAME)
-	CXXFLAGS+= -I../common 
+	CXXFLAGS+= -I../common -I.
 	LDFLAGS+= -Wl,-rpath,'$$ORIGIN/libs'
 	
 	
@@ -198,7 +198,7 @@ ifeq ($(OS_NAME), Linux)
 # 	LDFLAGS+= -lTKViewerTest -lTKXDEDRAW -lTKTopTest -lTKExpress -lTKFeat -lTKBinXCAF -lTKBinTObj -lTKBinL -lTKBin -lTKTObjDRAW -lTKTObj -lTKVCAF -lTKLCAF -lTKDCAF -lTKCAF -lTKCDF -lTKXmlXCAF -lTKXmlTObj -lTKXmlL -lTKXml -lTKXSDRAWPLY -lTKXSDRAWOBJ -lTKXSDRAWGLTF -lTKXSDRAWVRML -lTKXSDRAWSTEP -lTKXSDRAWIGES -lTKXSDRAWDE -lTKXSDRAW -lTKQADraw -lTKDraw -lTKDEVRML -lTKDEGLTF -lTKDEPLY -lTKDECascade -lTKDEOBJ -lTKDEIGES -lTKDESTEP -lTKDE -lTKXMesh -lTKXCAF -lTKOpenGl -lTKV3d -lTKXSBase -lTKService -lTKOpenGlTest  -lTKRWMesh -lTKMeshVS -lTKMesh -lTKHLR -lTKOffset -lTKBO -lTKBool -lTKShHealing -lTKPrim -lTKTopAlgo -lTKBRep -lTKFillet -lTKGeomAlgo -lTKGeomBase -lTKG3d -lTKG2d -lTKMath -lTKStd -lTKernel
 
 	CXXFLAGS += -I/home/super/msv/emsdk/downloads/zlibng_linux
-	LDFLAGS+= -L/home/super/msv/emsdk/downloads/zlibng_linux -lz.a
+	LDFLAGS+= -L/home/super/msv/emsdk/downloads/zlibng_linux -lz
 
 	LDFLAGS+= -llua5.4
 	# LDFLAGS+=  -lsqlite3 

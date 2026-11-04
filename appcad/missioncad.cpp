@@ -9048,8 +9048,9 @@ struct OCC_Viewer : public Fl_Windowe {
     if (m_initialized) {
       view->MustBeResized();
 	  update_web_canvas_geometry();
-      setbar5per();
       scaleaxis(ctx);
+      setbar5per();
+	//   redraw();
       // scaleball();
       // globalratio = GetViewportAspectRatio()[0];
     }
@@ -9147,7 +9148,8 @@ struct OCC_Viewer : public Fl_Windowe {
 
     // bar5per
     case FL_DRAG:
-      if (Fl::event_state(FL_BUTTON1)) {
+      if (Fl::event_button() == 1) {
+    //   if (Fl::event_state(FL_BUTTON1)) {
         // Only rotate if drag started in right edge zone
         if (isRotatingz) {
           int dy = fley - start_y;
@@ -9291,7 +9293,7 @@ extern "C" {
         view->MustBeResized();
 		view->Window()->DoResize();
         view->FitAll(0.01, Standard_True);
-		// occv->resize(win->x(), win->y()-22, occv->w(), occv->h()-0);
+		// occv->resize(win->x(), win->y()-fley, occv->w(), occv->h()-0);
 		setbar5per();
         view->Redraw();
     }
@@ -21324,6 +21326,8 @@ void ExportAllVisibleToSingleBinarySTL(
 // region menu
 void fill_menu() {
   menu->add("File/Quit", 0, [](Fl_Widget *, void *ud) { exit(0); });
+  menu->add("File/test", 0, [](Fl_Widget *, void *ud) { 
+	view->MustBeResized(); setbar5per(); });
 
   menu->add(
       "View/Fit all", FL_ALT + 'f',
@@ -21853,10 +21857,13 @@ void fill_menu() {
 void minit(){
 	setscint(editor, editor->folder + "waterlentils.lua");
 	// setscint(editor, editor->folder + editor->vfiles[0].filename);
+	
 	editor->callbackOnload();
 	view->FitAll(); 
 	sbt[6].occbtn->do_callback(); 
 	view->FitAll();
+	// setbar5per();
+
 }
 int main(int argc, char **argv) {
 	Fl::lock();
@@ -21971,7 +21978,7 @@ int main(int argc, char **argv) {
   editor->allow=1;
   setSceneDefault();
   sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
-  minit();
+  Fl::add_timeout(0.9, [](void *d) {minit();}, 0);
   #endif
 
   // working1(ctx,view);
@@ -22009,6 +22016,7 @@ int main(int argc, char **argv) {
 		editor->allow=1;
 		setSceneDefault();
 		sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+		emscripten_sleep(500);
 		minit();
 		}
 

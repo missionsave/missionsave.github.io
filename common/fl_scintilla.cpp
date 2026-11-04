@@ -64,7 +64,7 @@ namespace fs = std::filesystem;
 
 #include "general.hpp"
 
-#include "fm.hpp"
+// #include "fm.hpp"
 
 
 #define IDM_DOT_MARKER  0
@@ -906,10 +906,10 @@ void fl_scintilla::update_menu() {
 		cotm(str, f.accesstime);
 		// cotm("FICH", folder+str);
 		// open first last modified
-		if (is_first) {
-			setscint(this, folder + str);
-			is_first = 0;
-		}
+		// if (is_first) {
+		// 	setscint(this, folder + str);
+		// 	is_first = 0;
+		// }
 		string fl = std::string("Files/") + str;
 
 		fmb->add(fl.c_str(), 0, menu_callback, this);
@@ -1750,7 +1750,7 @@ void setscint(fl_scintilla* editor,string filename){
 
 			cotm("path",path);
 
-			#if defined(__EMSCRIPTEN__)
+			#if defined(__EMSCRIPTEN__test)
 			static bool download_concluido = false;
 			static bool download_falhou = false;
 			string spath="https://raw.githubusercontent.com/missionsave/missionsave.github.io/refs/heads/master/appcad/"+path;
