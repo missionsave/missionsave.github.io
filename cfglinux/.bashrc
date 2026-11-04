@@ -401,12 +401,16 @@ set_prompt() {
     #~ if [[ "$user_host" == "super@raspberrypi" ]]; then
     if [[ "$user_host" == "super@debianlite" ]]; then
         PS1='\[\e[43;30m\]vbox:\W\$ \[\e[0m\]'  # Red background
-    #else
+    else
        # PS1="$default_ps1"
+	   # Prefixo de tempo em cinzento, utilizador@host a verde, diretório a azul
+		PS1='\[\e[43;30m\]\[\e[90m\]\A\[\e[2;32m\]\u\[\e[1;32m\]\h \[\e[1;34m\]\w\[\e[0m\]\$'
     fi
 
 	# Bold green username, bold blue working directory, reset colors at end
-PS1='\[\e[1m\]\u@\h\w\$\[\e[0m\]'
+# PS1='\[\e[1m\]\u@\h\w\$\[\e[0m\]'
+
+
 }
 
 set_prompt

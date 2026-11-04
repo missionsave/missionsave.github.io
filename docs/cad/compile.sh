@@ -35,7 +35,7 @@ em++ \
   -I/home/super/msv/common/scintilla_370 \
   -L/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/lib -llua \
   -I/home/super/msv/emsdk/downloads/lua-5.5.1-wasm/include \
-  -L/home/super/msv/emsdk/downloads/zlib-ng_wasm -lz.a \
+  -L/home/super/msv/emsdk/downloads/zlib-ng_wasm -lz \
   -I/home/super/msv/emsdk/downloads/zlib-ng_wasm \
   -I/home/super/msv/common/scintilla_370/include/ \
   -I/home/super/msv/common/scintilla_370/lexlib \
