@@ -60,8 +60,7 @@ em++ \
   -sJSPI=1 \
   -sMODULARIZE=1 \
   --pre-js pre.js \
-  -sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency \
-  -sPTHREAD_POOL_SIZE_STRICT=2 \
+  -sPTHREAD_POOL_SIZE_STRICT=0 \
   -sMALLOC=mimalloc \
   -sENVIRONMENT=web \
   -sEXPORT_ES6

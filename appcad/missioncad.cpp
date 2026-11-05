@@ -21,6 +21,12 @@
 #include <TopoDS_Vertex.hxx>
 #include <GeomAbs_JoinType.hxx>
 #include <TopAbs.hxx>
+#include <OSD_Environment.hxx>
+#include <Standard.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <BRepTools.hxx>
+#include <BRepBuilderAPI_Copy.hxx>
+#include <Standard_Failure.hxx>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -35,7 +41,12 @@ struct mallinfo mallinfo(void) {
 
 #ifdef __EMSCRIPTEN__
 #define Fl_Windowe Fl_Group
-#define cerr if(0)cerr 
+// #define cerr if(0)cerr 
+
+#include <emscripten/proxying.h>
+#include <emscripten/threading.h>
+
+
 #else
 #define Fl_Windowe Fl_Window
 #endif
@@ -107,6 +118,41 @@ template <typename T> struct ManagedPtrWrapper : public Standard_Transient {
       delete ptr; // delete when wrapper is destroyed
   }
 };
+
+// #pragma once
+
+#include <FL/Fl.H>
+#include <mutex>
+#include <deque>
+#include <functional>
+#include <utility>
+
+namespace UI
+{
+    inline std::mutex mutex;
+    inline std::deque<std::function<void()>> queue;
+
+    template<class F>
+    inline void post(F&& fn)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        queue.emplace_back(std::forward<F>(fn));
+    }
+
+    inline void update()
+    {
+        std::deque<std::function<void()>> tasks;
+
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            tasks.swap(queue);
+        }
+
+        for (auto& fn : tasks)
+            fn();
+    }
+}
+
 void colorisebtn(int idx = -1); 
 void scaleball();
 gp_Pnt vertexPnt; // highlight ball
@@ -8305,6 +8351,23 @@ void gopart1(int currentline = -1, std::string str = "") {
   editor->SendEditor(SCI_GOTOPOS, pos);
   editor->take_focus();
 }
+#include <type_traits>
+#include <utility>
+
+template <typename F>
+void fl_awake(F&& f) {
+    using Func = std::decay_t<F>;
+    auto* func = new Func(std::forward<F>(f));
+
+    Fl::awake(
+        +[](void* data) {
+            auto* f = static_cast<Func*>(data);
+            (*f)();
+            delete f;
+        },
+        func
+    );
+}
 // region shelp
 struct shelpv {
   string pname = "";
@@ -8342,7 +8405,12 @@ $pname<br> $point $edge
     replace_All(html, "$error", error);
     replace_All(html, "$gentime", gentime);
 
-    helpv->value(html.c_str());
+    //  helpv->value(html.c_str());
+	// fl_awake([html = std::move(html)]() mutable {
+	// 	helpv->value(html.c_str());
+	// });
+	UI::post([=](){helpv->value(html.c_str()); });
+	// Fl::awake([html](void*){ helpv->value(html.c_str());   }    );
   }
 
 } help;
@@ -9928,7 +9996,7 @@ void settrihedroncursor(){
 		// }
     }
 }
-void toggle_shaded_transp() {
+void toggle_shaded_transp(void* v=0) {
 //   if (!dont_toggle)
 //     hlr_on = !hlr_on;
   ctx->RemoveAll(0);
@@ -13911,11 +13979,46 @@ cotm(edgeCount)
     f = BRepBuilderAPI_MakeFace(wOff);
   }
   cotm(777777);
-  BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5,
-                                  true); // adjust deflection/angle
+//   BRepMesh_IncrementalMesh::SetParallelDefault(false);
+  BRepTools::Clean(f); // Remove triangulações velhas
+
+// Cria uma cópia profunda da estrutura geométrica para desvincular caches partilhadas
+BRepBuilderAPI_Copy copier(f);
+TopoDS_Shape thread_safe_face = copier.Shape();
+
+// Agora sim, executa o mesher isolado nesta thread
+
+// emscripten_sync_run_in_main_runtime_thread(
+//     EM_FUNC_SIG_VI,
+//     (void*)+[](void* p) {
+//         BRepMesh_IncrementalMesh m(
+//             *static_cast<TopoDS_Shape*>(p), 0.5, true, 0.5, true
+//         );
+//     },
+//     &thread_safe_face
+// );
+
+// try{
+// BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true);}
+// catch (const Standard_Failure& e)
+// {
+//     printf("OCCT EXCEPTION: %s\n", e.what());
+//     printf("TYPE: %s\n", e.ExceptionType());
+//     fflush(stdout);
+// }
+// catch (const std::exception& e)
+// {
+//     printf("STD EXCEPTION: %s\n", e.what());
+//     fflush(stdout);
+// }
+
+
+BRepMesh_IncrementalMesh mesher(thread_safe_face, 0.5, true, 0.5, 1);
+//   BRepMesh_IncrementalMesh mesher(f, 0.5, true, 0.5, true); // adjust deflection/angle
 	cotm(7777771);
 	TopLoc_Location savedLoc = current_part->shape.Location();
-	current_part->shape=f;
+	current_part->shape=thread_safe_face;
+	// current_part->shape=f;
 	SetReferenceLocationInstant(current_part->shape, savedLoc);
 //   current_part->shape.Location(preserve);
   // mergeShape(current_part->cshape, f);
@@ -19613,7 +19716,6 @@ void Fuse() {
 #include <BRep_Builder.hxx>
 #include <ShapeFix_Shape.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
-#include <Standard_Failure.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Compound.hxx>
 #include <TopoDS_Shape.hxx>
@@ -20854,9 +20956,31 @@ lua_sethook(
 // region lua_str
 // nmutex lua_mtx("lua_mtx", 1);
 mutex lua_mtx;
+// static emscripten::ProxyingQueue g_proxy_queue;
 void lua_str(const string &str, bool isfile) {
-	win->deactivate();
-	// thread([str, isfile]() {
+	// win->deactivate();
+	thread([str, isfile]() {
+
+
+		// // emscripten::ProxyingQueue queue;
+
+		// // // 2. Obter o ID da Thread Principal do Navegador (Main Runtime Thread)
+		// pthread_t main_thread_id = emscripten_main_runtime_thread_id();
+	
+		// // // 3. Fazer o proxy síncrono para a thread principal
+		// // // A std::thread vai pausar aqui, o código dentro do lambda roda na Main Thread, 
+		// // // e a std::thread retoma assim que terminar.
+		// queue.proxySync(main_thread_id, [&]() {
+
+		// // Standard::SetReallocateNative(true);
+
+
+
+		// // USAR proxyAsync EM VEZ DE proxySync
+		// // Isto evita o Deadlock onde a thread secundária congela o motor do WebAssembly
+		// g_proxy_queue.proxyAsync(main_thread_id, [str,isfile]() {
+
+
 	//   Fl::lock();
 	  // lua_mtx.lock();
 	  perf();
@@ -20884,7 +21008,7 @@ void lua_str(const string &str, bool isfile) {
 		//   Fl::unlock();
 		  // lua_mtx.unlock();
 		//   Fl::awake();
-		win->activate();
+		// win->activate();
 		  return;
 		}
 		std::string src((std::istreambuf_iterator<char>(f)), {});
@@ -20893,7 +21017,7 @@ void lua_str(const string &str, bool isfile) {
 		//   Fl::unlock();
 		  // lua_mtx.unlock();
 		//   Fl::awake();
-		win->activate();
+		// win->activate();
 		  return;
 		};
 		isdebuging = 1;
@@ -20918,8 +21042,11 @@ void lua_str(const string &str, bool isfile) {
 		}
 		perf("lua");
 		if (lerror.find("Breakpoint hit") == std::string::npos){
-		  fillbrowser(0);
-		  toggle_shaded_transp();
+			UI::post([]()
+			{fillbrowser(0);
+			toggle_shaded_transp();});
+			// Fl::awake(fillbrowser);
+			// Fl::awake(toggle_shaded_transp);
 		}
 		//   Fl::awake(fillbrowser);
   
@@ -20935,19 +21062,19 @@ void lua_str(const string &str, bool isfile) {
 		lua_pop(L, 1);
 	  }
 	  isdebuging = 0;
-	  win->activate();
+	//   win->activate();
 	//   Fl::unlock();
 	  // lua_mtx.unlock();
 	//   Fl::awake();
-	// }).detach();
+		// });
+	}).detach();
   }
-void lua_strt(const string &str, bool isfile) {
-  thread([str, isfile]() {
-    Fl::lock();
+void lua_str__(const string &str, bool isfile) {
+  thread([str, isfile]() { 
+    Fl::lock(); 
     // lua_mtx.lock();
     perf();
     luainit();
-
 	
 	tlp=TopLoc_Location();
     vlua.clear();
@@ -21866,6 +21993,7 @@ void minit(){
 
 }
 int main(int argc, char **argv) {
+	// setenv("MMGT_OPT", "0", 1);
 	Fl::lock();
   // Fl::set_font(FL_HELVETICA, "DejaVu Sans");
 //   Fl::use_high_res_GL(1);
@@ -21875,6 +22003,7 @@ int main(int argc, char **argv) {
   std::cout << "FLTK ABI version: " << FL_ABI_VERSION << std::endl;
   std::cout << "OCCT version: " << OCC_VERSION_COMPLETE << std::endl;
   // OSD_Parallel::SetUseOcctThreads(1);
+  OSD_ThreadPool::DefaultPool()->Init(4);
   OSD_Parallel::SetUseOcctThreads(Standard_True);
   std::cout << "Parallel mode: " << OSD_Parallel::ToUseOcctThreads()
 			<< "Total threads: " << OSD_ThreadPool::DefaultPool()->NbThreads()
@@ -21898,6 +22027,8 @@ int main(int argc, char **argv) {
 
   win = new Fl_Double_Window(0, 0, w, h, "MissionCad");
   #ifdef __EMSCRIPTEN__
+  // Força o OCCT a usar o malloc standard do Emscripten (que lida melhor com pthreads)
+	// OSD_Environment::SetEnv("MMGT_OPT", "0"); 
   win->border(0);
   #endif
   // win->color(FL_RED);
@@ -22005,7 +22136,9 @@ int main(int argc, char **argv) {
 // return Fl::run();
 
 	#ifndef __EMSCRIPTEN__
-	return Fl::run();
+	while (Fl::wait() > 0)
+    UI::update();
+	// return Fl::run();
 	#else
 	emscripten_set_main_loop([]() {
 
@@ -22016,11 +22149,12 @@ int main(int argc, char **argv) {
 		editor->allow=1;
 		setSceneDefault();
 		sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
-		emscripten_sleep(500);
+		emscripten_sleep(500); 
 		minit();
 		}
 
-
+		UI::update();
+		emscripten_main_thread_process_queued_calls();
 
 		// // Processa os cliques e eventos
 		Fl::wait(0.0);

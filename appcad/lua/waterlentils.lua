@@ -1,3 +1,13 @@
+--print("--- Funções Globais Registradas ---")
+--for name, value in pairs(_G) do
+    --if type(value) == "function" then
+        --print(name)
+    --end
+--end
+--do return end
+
+
+
 gfwidth=800
 gfdepth=500
 gftheight=200
