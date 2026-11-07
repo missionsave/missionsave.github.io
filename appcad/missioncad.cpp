@@ -4263,6 +4263,8 @@ void scaleaxis(const Handle(AIS_InteractiveContext) & ctx) {
 	trsf.SetTranslationPart(
 		gp_Vec(vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z()));
 	TopoDS_Shape scaledSphere = sphereBase;
+	myHighlightedPointAIS->SetColor(Quantity_NOC_GREEN);
+	myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
 	myHighlightedPointAIS->Set(scaledSphere);
 	myHighlightedPointAIS->SetLocalTransformation(trsf);
 	ctx->Redisplay(myHighlightedPointAIS, true);
@@ -8179,6 +8181,34 @@ Standard_Integer customPixelTolerance = 8;
 
 // Aplica a nova tolerância a todos os seletores geridos
 ctx->SetPixelTolerance(customPixelTolerance);
+
+
+// Handle(Prs3d_Drawer) aHighlightStyle = ctx->HighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic);
+// Quantity_Color aGreenColor(Quantity_NOC_GREEN);
+
+// // 1. Define a cor genérica de destaque
+// aHighlightStyle->SetColor(aGreenColor);
+
+// // 2. Cria o aspeto do ponto (Aspect_TOM_O funciona muito bem em WebGL)
+// Handle(Prs3d_PointAspect) aPointAspect = new Prs3d_PointAspect(Aspect_TOM_O, aGreenColor, 5.0);
+
+// // 3. Força as propriedades WebGL diretamente através da API do Aspect()
+// aPointAspect->Aspect()->SetColor(aGreenColor);
+// aPointAspect->Aspect()->SetScale(5.0f);
+
+// // CORREÇÃO: Força o shader do WebGL a renderizar o ponto sem iluminação (Flat / Unlit)
+// // Isto evita o bug do ponto branco gerado por falta de normais no WebGL.
+// aPointAspect->Aspect()->SetShadingModel(Graphic3d_TOSM_UNLIT);
+
+// // 4. Aplica de volta ao contexto
+// aHighlightStyle->SetPointAspect(aPointAspect);
+// ctx->SetHighlightStyle(Prs3d_TypeOfHighlight_LocalDynamic, aHighlightStyle);
+
+// // 5. Garante a atualização imediata no visualizador WebGL (essencial para WASM)
+// // ctx->MainSelector()->UpdateConversion();
+// ctx->MainSelector()->Update(); 
+// ctx->UpdateCurrentViewer();
+
 }
 
 // region scint
@@ -8521,6 +8551,8 @@ void scaleball() {
           gp_Vec(vertexPnt.X(), vertexPnt.Y(), vertexPnt.Z()));
       TopoDS_Shape scaledSphere = sphereBase;
       myHighlightedPointAIS->Set(scaledSphere);
+      myHighlightedPointAIS->SetColor(Quantity_NOC_GREEN);
+      myHighlightedPointAIS->SetDisplayMode(AIS_Shaded);
       myHighlightedPointAIS->SetLocalTransformation(trsf);
       ctx->Redisplay(myHighlightedPointAIS, true);
     }
@@ -8581,6 +8613,8 @@ void highlightVertex(const TopoDS_Vertex &aVertex, luadraw *ldd = 0) {
   // sphereRadius).Shape(); myHighlightedPointAIS = new AIS_Shape(sphereShape);
 
   // static TopoDS_Shape sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+  
+  if(1){
   gp_Trsf trsf;
 
   trsf.SetScale(gp_Pnt(0, 0, 0), globalratio);
@@ -8605,6 +8639,8 @@ void highlightVertex(const TopoDS_Vertex &aVertex, luadraw *ldd = 0) {
     //   Graphic3d_ZLayerId_Top); // Ensure it's drawn on top
 
   ctx->Display(myHighlightedPointAIS, Standard_True);
+  }
+  scaleaxis(ctx);
   myLastHighlightedVertex = aVertex;
   view->Redraw();
   cotm("greensphere");
@@ -22140,6 +22176,27 @@ int main(int argc, char **argv) {
     UI::update();
 	// return Fl::run();
 	#else
+
+	emscripten_set_main_loop([]() {
+		
+		if(!m_initialized){
+		g_occt.init();
+		initialize_opencascade(occv);
+		m_initialized = 1;  
+		editor->allow=1;
+		setSceneDefault();
+		sphereBase = BRepPrimAPI_MakeSphere(5).Shape();
+		emscripten_sleep(500); 
+		minit();
+		}
+		UI::update();
+	
+		Fl::check();
+	
+	}, 0, true);
+
+
+
 	emscripten_set_main_loop([]() {
 
 		if(!m_initialized){
@@ -22153,6 +22210,7 @@ int main(int argc, char **argv) {
 		minit();
 		}
 
+		
 		UI::update();
 		emscripten_main_thread_process_queued_calls();
 

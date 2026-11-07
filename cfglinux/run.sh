@@ -606,16 +606,17 @@ cd "$BUILD_DIR"
 
 echo "=== [3/5] Configuring OCCT with emcmake ==="
 emcmake cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_LIBRARY_TYPE=Static \
-    -DBUILD_MODULE_Draw=OFF \
-    -DBUILD_USE_PCH=OFF \
-    -DUSE_FREETYPE=OFF \
-    -DUSE_PTHREADS=ON \
-    -DCMAKE_CXX_FLAGS="-pthread -fwasm-exceptions" \
-    -DCMAKE_C_FLAGS="-pthread" \
-    -DCMAKE_INSTALL_PREFIX="/home/super/msv/emsdk/downloads/occt_wasm" \
-    -D3RDPARTY_FREETYPE_INCLUDE_DIR="$EMSDK/upstream/emscripten/cache/sysroot/include/freetype2"
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_LIBRARY_TYPE=Static \
+  -DBUILD_MODULE_Draw=OFF \
+  -DBUILD_USE_PCH=OFF \
+  -DUSE_FREETYPE=OFF \
+  -DUSE_PTHREADS=ON \
+  -DCMAKE_INSTALL_PREFIX="/home/super/msv/emsdk/downloads/occt_wasm" \
+  -D3RDPARTY_FREETYPE_INCLUDE_DIR="$EMSDK/upstream/emscripten/cache/sysroot/include/freetype2" \
+  -DCMAKE_CXX_FLAGS="-O3 -flto -msimd128 -mrelaxed-simd -mtail-call -matomics -mbulk-memory -mnontrapping-fptoint -msign-ext -pthread -fwasm-exceptions -ffast-math" \
+  -DCMAKE_C_FLAGS="-O3 -flto -msimd128 -mrelaxed-simd -mtail-call -matomics -mbulk-memory -mnontrapping-fptoint -msign-ext -pthread -fwasm-exceptions -ffast-math"
+
 
 
 echo "=== [4/5] Compiling OCCT WebAssembly Static Libraries ==="

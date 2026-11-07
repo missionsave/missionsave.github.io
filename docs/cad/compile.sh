@@ -1,19 +1,11 @@
-em++ \
+em++ -Wfatal-errors \
   /home/super/msv/appcad/missioncad.cpp \
   /home/super/msv/common/general.cpp \
   /home/super/msv/common/fl_scintilla.cpp \
   /home/super/msv/common/scintilla_370/scintilla_fltk_amalgamated.cpp \
   /home/super/msv/common/fl_browser_msv.cpp \
   -o app.mjs \
-  -O3 \
-  -flto \
-  -msimd128 \
-  -mrelaxed-simd \
-  -mtail-call \
-  -matomics \
-  -mbulk-memory \
-  -mnontrapping-fptoint \
-  -msign-ext \
+  -std=c++20 -O3 -flto -msimd128 -mrelaxed-simd -mtail-call -matomics -mbulk-memory -mnontrapping-fptoint -msign-ext -pthread -fwasm-exceptions -ffast-math \
   -I/home/super/msv/emsdk/downloads/occt_wasm/include/opencascade \
   -L/home/super/msv/emsdk/downloads/occt_wasm/lib \
   -lTKDESTEP -lTKDEIGES -lTKDESTL -lTKDEOBJ -lTKDEVRML -lTKDEPLY -lTKDECascade -lTKDE -lTKXSBase \
@@ -48,9 +40,6 @@ em++ \
   -sALLOW_MEMORY_GROWTH=0 \
   -sMAXIMUM_MEMORY=2GB \
   -sGROWABLE_ARRAYBUFFERS=2 \
-  -pthread \
-  -std=c++20 \
-  -fwasm-exceptions \
   -sSUPPORT_LONGJMP=wasm \
   --preload-file /home/super/msv/appcad/lua@lua \
   -sUSE_WEBGL2=1 \
@@ -60,6 +49,7 @@ em++ \
   -sJSPI=1 \
   -sMODULARIZE=1 \
   --pre-js pre.js \
+  -sPTHREAD_POOL_SIZE=5 \
   -sPTHREAD_POOL_SIZE_STRICT=0 \
   -sMALLOC=mimalloc \
   -sENVIRONMENT=web \
