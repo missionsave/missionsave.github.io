@@ -98,7 +98,94 @@ cfg_em(){
 source /home/super/msv/emsdk/emsdk_env.sh
 }
 
+_build_liblua_esp() {
+    local LUA_SRC="${1:-/home/super/msv/common/lua-5.5.1/src}"
+    local ESP_TOOL_BIN="${2:-$HOME/.espressif/tools/xtensa-esp-elf/esp-15.2.0_20251204/xtensa-esp-elf/bin}"
+    local CC="$ESP_TOOL_BIN/xtensa-esp-elf-gcc"
+    local AR="$ESP_TOOL_BIN/xtensa-esp-elf-ar"
 
+    echo "=== Compilando liblua.a para ESP32 (Xtensa) ==="
+
+    [ -d "$LUA_SRC" ] || { echo "❌ $LUA_SRC não encontrado"; return 1; }
+    [ -x "$CC" ]      || { echo "❌ $CC não encontrado";      return 1; }
+
+    (
+        cd "$LUA_SRC" || exit 1
+        rm -f *.o liblua.a
+
+        local CFLAGS=(
+            -Os -mlongcalls
+            -ffunction-sections -fdata-sections
+            -fno-common -Wfatal-errors
+            -DLUA_USE_C89
+            -I.
+        )
+
+        echo "📦 Compilando..."
+        for f in *.c; do
+            case "$f" in
+                lua.c|luac.c) continue ;;
+            esac
+            "$CC" "${CFLAGS[@]}" -c "$f" -o "${f%.c}.o" || {
+                echo "❌ Falha em $f"; exit 2
+            }
+        done
+
+        echo "🗜️ Empacotando..."
+        "$AR" rcs liblua.a $(ls *.o | grep -vE '^(lua|luac)\.o$')
+
+        [ -f liblua.a ] || { echo "❌ liblua.a não gerada"; exit 3; }
+        echo "✅ OK: $LUA_SRC/liblua.a"
+    )
+    local rc=$?
+    [ $rc -eq 0 ] && echo "📁 $(du -h "$LUA_SRC/liblua.a" | cut -f1)  $LUA_SRC/liblua.a"
+    return $rc
+}
+
+_build_liblua_linux() {
+    local LUA_SRC="/home/super/msv/common/lua-5.5.1/src"
+    local ORIGINAL_DIR=$(pwd)
+
+    echo "=== Iniciando a compilação da liblua para ESP32 ==="
+
+    # 1. Validar se o diretório do Lua existe
+    if [ ! -d "$LUA_SRC" ]; then
+        echo "❌ Erro: Diretório dos fontes do Lua não encontrado em: $LUA_SRC"
+        return 1
+    fi
+
+    # 2. Entrar no diretório do Lua para compilar os objetos
+    cd "$LUA_SRC" || return 1
+
+    echo "🧹 Limpando resíduos de compilações anteriores..."
+    rm -f *.o liblua.a
+
+    echo "📦 Compilando os ficheiros de origem do Lua (C puro)..."
+    # Compila todos os arquivos .c do Lua (exceto lua.c e luac.c que são os executáveis standalone)
+    # -D_GNU_SOURCE ou flags POSIX podem ser adicionadas se necessário para o ESP32
+    gcc -Os -s -c *.c -I. -Wfatal-errors
+    
+    # Remover os objetos do interpretador e compilador standalone, pois queremos apenas a biblioteca
+    rm -f lua.o luac.o
+
+    # 3. Empacotar os arquivos de objeto em uma biblioteca estática (.a)
+    echo "🗜️  Gerando a biblioteca estática liblua.a..."
+    ar rcs liblua.a *.o
+    ranlib liblua.a
+
+    # 4. Verificar se a biblioteca foi criada com sucesso
+    if [ $? -eq 0 ] && [ -f "liblua.a" ]; then
+        echo "✅ liblua.a gerada com sucesso!"
+		mv "$LUA_SRC/liblua.a" "$ORIGINAL_DIR/liblua.a"
+        echo "📁 Localização: $ORIGINAL_DIR/liblua.a"
+        cd "$ORIGINAL_DIR" || exit
+        return 0
+    else
+        echo "❌ Falha ao gerar a biblioteca liblua.a."
+        cd "$ORIGINAL_DIR" || exit
+        return 2
+    fi
+}
 
 
  

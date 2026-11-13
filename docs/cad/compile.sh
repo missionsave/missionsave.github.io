@@ -48,9 +48,13 @@ em++ -Wfatal-errors \
   --preload-file /home/super/msv/appcad/DejaVuSans-Bold.ttf@/fonts/DejaVuSans-Bold.ttf \
   -sJSPI=1 \
   -sMODULARIZE=1 \
-  --pre-js pre.js \
   -sPTHREAD_POOL_SIZE=5 \
   -sPTHREAD_POOL_SIZE_STRICT=0 \
+  -sOFFSCREENCANVAS_SUPPORT=1 \
+  -sOFFSCREENCANVASES_TO_PTHREAD="#canvas" \
   -sMALLOC=mimalloc \
-  -sENVIRONMENT=web \
+  -sENVIRONMENT=web,worker \
   -sEXPORT_ES6
+
+#   -sPROXY_TO_PTHREAD=1 \
+#   --pre-js pre.js \

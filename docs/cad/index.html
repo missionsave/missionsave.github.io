@@ -295,6 +295,69 @@ function desativarCOI() {
 			// print:    t => console.log("STDOUT:", t),
 			// printErr: t => console.error("STDERR:", t),
 
+			// EXECUTADO DENTRO DO WORKER ANTES DO WASM INICIAR
+    preRun: [function() {
+		// 1. Mock robusto do DOM para o Worker não crashar
+        if (typeof document === 'undefined') {
+          const dummyCtx = new Proxy({ canvas: globalThis, style: {} }, {
+            get: (t, p) => p in t ? t[p] : function() { return t; },
+            set: (t, p, v) => { t[p] = v; return true; }
+          });
+          const dummyEl = {
+            style: {}, getContext: (type) => type === '2d' ? dummyCtx : null,
+            appendChild: ()=>{}, removeChild: ()=>{}, setAttribute: ()=>{}, getAttribute: ()=> '',
+            addEventListener: ()=>{}, removeEventListener: ()=>{}, getBoundingClientRect: ()=> ({top:0,left:0,width:800,height:600})
+          };
+          globalThis.document = {
+            createElement: () => dummyEl, getElementById: () => dummyEl, querySelector: () => dummyEl,
+            getElementsByTagName: (n) => n === 'script' ? [{src: globalThis.location?.href || ''}] : [dummyEl],
+            body: dummyEl, location: globalThis.location || {href:''}, currentScript: null
+          };
+        }
+
+        // 2. Proteção universal contra erros de propriedades nulas (ex: .restore)
+        if (typeof Object.prototype !== 'undefined' && !('restore' in Object.prototype)) {
+          Object.defineProperty(Object.prototype, 'restore', { value: function(){}, writable: true, configurable: true });
+        }
+
+        // 3. Patch para o WebAssembly.promising
+        if (typeof WebAssembly.promising === 'function') {
+          const origGet = WebAssembly.Table.prototype.get;
+          const cache = new WeakMap();
+          WebAssembly.Table.prototype.get = function(i) {
+            const f = origGet.call(this, i);
+            if (typeof f !== 'function') return f;
+            let w = cache.get(f);
+            if (!w) { w = WebAssembly.promising(f); cache.set(f, w); }
+            return w;
+          };
+        }
+
+        // 4. Patch para o ImageData com SharedArrayBuffer
+        const OriginalImageData = globalThis.ImageData;
+        if (OriginalImageData) {
+          globalThis.ImageData = function(...args) {
+            if (args[0] instanceof Uint8ClampedArray && args[0].buffer instanceof SharedArrayBuffer) {
+              args[0] = new Uint8ClampedArray(args[0]);
+            }
+            return Reflect.construct(OriginalImageData, args, new.target || globalThis.ImageData);
+          };
+          globalThis.ImageData.prototype = OriginalImageData.prototype;
+        }
+
+        // 5. Auto-recuperação do GLctx antes de qualquer chamada gráfica
+        let currentRun = globalThis.runEmAsmFunction;
+        if (typeof globalThis.runEmAsmFunction === 'function') {
+          globalThis.runEmAsmFunction = function() {
+            if ((typeof GLctx === 'undefined' || !GLctx) && globalThis.GL?.currentContext?.gl) {
+              globalThis.GLctx = globalThis.GL.currentContext.gl;
+            }
+            try { return currentRun.apply(this, arguments); } catch(e) { return 0; }
+          };
+        }
+    }],
+ 
+
 			// Esta função intercepta o pedido do app.data e devolve o caminho absoluto correto
 			locateFile: function(path, prefix) {
 				// Se o Emscripten pedir o 'app.data', redirecionamos para a pasta correta
@@ -306,7 +369,7 @@ function desativarCOI() {
 			}
     };
     // import createModule from '/cad/app.mjs';
-	const { default: createModule } = await import(`/cad/app.mjs`);
+	const { default: createModule } = await import(`/cad/app.mjs?99`);
 	// const { default: createModule } = await import(`${dominioActual}/cad/app.mjs`);
 
     createModule(Module).then(async (instance) => {

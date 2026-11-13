@@ -244,6 +244,7 @@ struct Mat {
     string ccx="";
 };
 std::unordered_map<string, Mat*> umaterial; 
+// region struct luadraw
 struct luadraw {
   TopLoc_Location Origin;
   TopLoc_Location Originl = TopLoc_Location();
@@ -8283,6 +8284,7 @@ scint *editor;
 
 void scint_init(int x, int y, int w, int h) { editor = new scint(x, y, w, h); }
 void gopart(int currentline = -1, const std::string &str = "") {
+	// return;
   if (str.empty() && currentline == -1)
     return;
 
@@ -9359,6 +9361,7 @@ void update_web_canvas_geometry() {
 	cotm(x,y,w,h);
     // Usamos MAIN_THREAD_EM_ASM para garantir que corre na thread principal do browser
     std::cout<<x<<" "<<y<<" "<<w<<" "<<h<<" \n";
+    // EM_ASM({
     MAIN_THREAD_EM_ASM({
         // 1. Seleciona o canvas principal pelo ID (ou classe se o FLTK criar múltiplos)
         const canvas = document.getElementById('canvas') || document.querySelector('canvas');
@@ -15793,6 +15796,13 @@ void Rotatelp(float angleDegrees = 0.0f, int x = 0, int y = 0,
   // current_part->current_location = current_part->shape.Location();
 }
 // region rotate
+// void Rotatel(float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 1);
+// void Movel(float x = 0, float y = 0, float z = 0, int inworld = 0);
+void motion_rotate(vstring parts,float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 1){
+
+}
+
+
 void Rotatel(float angleDegrees = 0.0f, int x = 0, int y = 0, int z = 1) {
   if (!current_part) {
     lua_error_with_where("No current part.");
@@ -22190,10 +22200,13 @@ int main(int argc, char **argv) {
 		minit();
 		}
 		UI::update();
+		if (Fl::damage()) {
+			Fl::flush();
+		}
+		// Fl::check(); /dont use with emscripten
+		// Fl::flush();
 	
-		Fl::check();
-	
-	}, 0, true);
+	}, 23, true);
 
 
 
