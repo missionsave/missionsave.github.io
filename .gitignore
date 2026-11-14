@@ -64,6 +64,7 @@
 !lua_preprocessor.cpp
 !font_loader.cpp
 !fl_browser_msv.*
+!fl_wasm_timeout.hpp
 # !Cascadia Mono PL SemiBold 600.otf
 # !DejaVuSans-Bold.ttf
 

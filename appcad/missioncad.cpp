@@ -1,3 +1,4 @@
+#include "fl_wasm_timeout.hpp"
 #include "fl_browser_msv.hpp"
 #include "fl_scintilla.hpp"
 #include "general.hpp"
@@ -9728,7 +9729,8 @@ static gp_Pnt computeVisibleCenter() {
 static void animation_update(void *userdata) {
 
   if (CurrentAnimation.IsNull()) {
-	#ifdef __EMSCRIPTEN__ 
+	#if 0
+	// #ifdef __EMSCRIPTEN__
 	#else
 	Fl::remove_timeout(animation_update, userdata);
 	#endif
@@ -9742,7 +9744,8 @@ static void animation_update(void *userdata) {
     view->Redraw();
     // redraw();
 
-	#ifdef __EMSCRIPTEN__ 
+	#if 0
+	// #ifdef __EMSCRIPTEN__
 	#else
 	Fl::remove_timeout(animation_update, userdata);
 	#endif
@@ -9755,7 +9758,8 @@ static void animation_update(void *userdata) {
   view->Redraw();
 
 	// 30 FPS
-	#ifdef __EMSCRIPTEN__
+	#if 0
+	// #ifdef __EMSCRIPTEN__
 	// 33 milissegundos = ~30 FPS
 	emscripten_async_call(animation_update, userdata, 33);
 	#else
@@ -9811,7 +9815,8 @@ void start_animation() {
   CurrentAnimation->StartTimer(0.0, 1.0, Standard_True, Standard_False);
 
   // Kick the update loop
-  #ifdef __EMSCRIPTEN__
+  #if 0
+//   #ifdef __EMSCRIPTEN__
     // 33 milissegundos = ~30 FPS
     emscripten_async_call(animation_update, 0, 33);
 #else
@@ -22200,9 +22205,9 @@ int main(int argc, char **argv) {
 		minit();
 		}
 		UI::update();
-		if (Fl::damage()) {
+		// if (Fl::damage()) {
 			Fl::flush();
-		}
+		// }
 		// Fl::check(); /dont use with emscripten
 		// Fl::flush();
 	
